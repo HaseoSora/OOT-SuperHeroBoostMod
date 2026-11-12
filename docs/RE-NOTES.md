@@ -1,0 +1,187 @@
+﻿# RE notes (oot-master-mod)
+
+Build under test: title `0400486024DEC000`, update 131072, main build id
+`E0F3CCFAF50065AE4EA01EB5AEB13B1A45DA3348`. Emulator: Fritchii, which loads
+mods from `E:\Switch2\Emu\lichii-windows-x86_64\user\load` (its LoadDir).
+
+## Load layout (confirmed from logs)
+
+- main loads at `0x8043C000` (size `0x4EA0000`) in the last run.
+- subsdk0 follows main at `main + 0x4EA0000`.
+- subsdk9 (ours) loads at `main + 0x4F80000`, right after subsdk0.
+- Our module is linked at `0x4F80000` (main-relative), so offsets in the IPS and
+  in `bl`/`b` targets are main-relative. This matches the emulator.
+
+## NSO for subsdk9 (fixed in F0)
+
+- The loader needs the compressed sizes at `0x60/0x64/0x68` set to the raw
+  sizes. Zero makes it read nothing for the segments (crash on load).
+- No hash at `0xA0` (flags == 0). Module id at `0x40`.
+- MOD0 offsets must come from real section addresses (`core/link.ld`), and data
+  must be page-padded so bss starts where MOD0 says.
+
+## Input hook sites
+
+Five stock sites read input (see `docs/CLASSIC-HOOKS.md`). Each calls one of five
+import stubs in main:
+
+| site | stub | status |
+|---|---|---|
+| 0x34694F8 | 0x3C427F0 | hooked, **never runs** in boot or gameplay |
+| 0x3469524 | 0x3C42810 | hooked, never runs |
+| 0x3469550 | 0x3C42820 | hooked, never runs |
+| 0x346966C | 0x3C42800 | hooked, **the gameplay input path** (~60 calls/s, 16 samples, B/A bits seen) |
+| 0x3469698 | 0x3C42830 | hooked, never runs |
+
+Each stub is `adrp x16 / ldr x17,[x16,#off] / add x16 / br x17`, a jump through a
+GOT slot. Slots 0,1,2,4 still point at PLT0 (main+0x3C41C50, lazy binding) until
+first use; slot 3 is already bound to a function in `sdk`.
+
+### Root cause of the old "site 3 crash" (solved)
+
+`bl STOCKn` with `.equ STOCKn, <const>` assembles to a constant offset, not a
+PC-relative branch, so the wrapper jumped to `wrapper_pc + 0x3C42800`
+(= subsdk9 base + constant). This was never a GOT problem. Fix: STOCK0..4,
+SLOTFN, PLT0 and GOT0..4 are linker symbols in `core/link.ld`, so the
+relocation is PC-relative. The first call through a still-lazy slot is
+tail-called with the game's own LR (hooks.S) in case the dynamic linker finds the
+caller module from LR; this part is a precaution and has not been shown to be needed.
+
+Consequence: only site 3 sees gameplay input. The four classic slot sites
+(`bl 0x1211C00`) also never ran in the live check, so F3 needs its own RE.
+## hero_core (F2) status
+
+- Stamina state machine in `features/hero_core/stamina.c` (moved from `core/`).
+  Values are **placeholders**: `stamina_default_config` was written from memory of
+  the Hero Core behaviour. They are not checked against `HERO-CORE.md` yet.
+- Handler `features/hero_core/hero_core.c`: site 0 counts combat frames, charges
+  the slash cost on B press, and when stamina is empty removes B/ZR from the input
+  buffer at every hooked site.
+- Capacity uses a fixed `LIFE_QUARTERS = 20` (5 hearts). Reading the real heart
+  count from game memory is still open.
+- Verified only at boot level: frame 3000 at ~76 s, no backtrace. The attack
+  block itself is **not** verified in game yet (no HUD, no input playback).
+
+## Probe result (F1)
+
+- With sites 0, 1, 2, 4 hooked, the game runs at ~60 fps (frame 3000 at ~72 s).
+- Two HLE service asserts appear in the log (`nx2:gsv 903`, `prepo:u 10500`).
+  They are emulator service stubs, not from our hooks; the game keeps running.
+
+
+## HUD and Classic slots (F3/F4) findings
+
+- HUD part registration: hook main+0x43A6F8 (UI resource build, x0 handle, x1 config).
+  We give PlayerStatus_00 a private metadata copy with one extra part
+  `Pa_OotStamina_00` (clone of the stock gauge descriptors; CityHash64 of the
+  name in tools/lib/cityhash.py, checked against all 40 stock names) and a private
+  copy of the gauge file with a flat white fill tinted yellow. Frame drive from
+  main+0x2B30DE0 (scheduler vtable main+0x4B05318). Verified live: bar renders under
+  the hearts and tracks stamina. The magic gauge is not used.
+- HID button bits are the standard ones: A 0x1, B 0x2, X 0x4, Y 0x8, L 0x40, R 0x80,
+  ZL 0x100, ZR 0x200 (core/hid.h had A/B swapped until this commit).
+- In this game R equips an item into the HUD item box and ZR uses it. R (and L) end
+  up in slot site 3 (0x33C9AB4 -> 0x1211C00); x2 is the item index (inventory order,
+  1 = deku nut, 3 = boomerang). Overriding x2 before the stock call equips that item.
+  classic_slots: X/L/R -> press R (equip with override) -> hold ZR while held ->
+  restore ZR's previous item. Verified: nut use pose, boomerang tutorial.
+- Not done: pause-menu assignment, slot icons in the HUD, context A/ZR prompts,
+  edit mode, adult/child separate sets, stamina on roll/jump action hooks.
+
+## Classic update (controls, item icons, HUD limit)
+
+- Real controls on this game: X jump, A dodge/roll, Y sword, B/L/R/ZR free. Classic
+  slots are B, L, R, ZR (an empty slot keeps its normal behaviour). hero_core costs:
+  Y = slash, A = roll; with stamina 0 in combat both are removed from the input.
+- Assignment (replaces the pause-menu assignment, whose hooks 9-13 turned out to be
+  UI constructors): hold ZL and press B / L / R to cycle that slot's item (ZR is not
+  assignable that way: ZL+ZR is target-and-use). Assignments are not saved yet and
+  there is one set (no child/adult split yet).
+- Item index -> ItemPattern icon frame (measured with `CLASSIC_PROBE=1 python
+  tools/build_core.py ...` + `tools/live_check.py --linger 110`): 0:0 1:6 2:4 3:3 4:1
+  5:33 6:34 7:32 9:5 10:8 13:2 14:23 18:36 30:24 31:9. Indices that keep the previous
+  frame are not owned in that save.
+- PaItemBtn_00 (HUD item button) animations: ItemPattern (icon), StockNum, NumMax,
+  NumMin, IsInvalid, Type, ItemChange, Select/UnSelect/Decide/Assign.
+- HUD slot icons are NOT done: cloning Pa_SelectItem_00 descriptors (1 or 4 clones)
+  produces panes (positions visible in the pane array) and the instances do reach
+  hud_prepare, but find_part never lists them as children, so they cannot be driven.
+  The stamina gauge clone works. Next idea: find what registers a part in the child
+  list (find_part walks a list at owner+0x128/+0x130, entries name at +0x148) and why
+  item-button instances are skipped.
+
+## Slot circles attempt (HUD) - blocked
+
+- Texture `Circle64_00` exists in the Common UI archive (stock), so a gauge clone with
+  that texture and a full gauge draws a tinted circle (private gauge copy per part,
+  distinct asset names; pool 0x40000).
+- The layout accepts exactly ONE appended part (the stamina bar): with 5 appended gauge
+  parts only the first is ever found by find_part (slots_bound 0). Appending item-button
+  clones failed the same way, so the limit is not the part type.
+- Reusing four filler parts of the stock layout (Pa_AgonyStone_00, Pa_ReplaceSubItem_00/01,
+  Pa_GuideCross_00: re-parented to the root, renamed, descriptors replaced by the gauge
+  ones) froze the game at 0 fps. `PART_N` in core/hud.c is back to 1 (stable). The code
+  path for PART_N=5 is still in place (build_root, part_replaces).
+- Ideas left: find what sizes the child list (allocation near the 0x1525B60 core init)
+  and enlarge it; or draw all four circles from one private gauge file with extra panes.
+
+## Multi-part limit investigation (HUD)
+
+- The layout's children list (layout+0x128 sentinel, first at +0x130, entry name at +0x148) lists the
+  7 stock parts plus ONLY the first appended one, even with 5 appended parts whose table counts
+  (common 38, parts 12) and pane records are correct. All appended instances do reach hud_prepare
+  (private gauge copies were built), so the child creation runs but the later ones are never
+  registered. Per-call config copies did not help. Instance creation: loop at 0x1525CEC (panes of
+  type part) -> 0x152F8F0 / 0x152F990; registration happens in the caller.
+- Next candidates: 0x152F990..0x152FD60 (child layout creation) and what registers the entry
+  (0x215DC0); or avoid the limit by making the single appended part a custom multi-pane layout.
+
+## Own-layout route: what the archive shows
+
+- `UI/Layout2Archive/Common.Product.100.Nin_Ounce_NVN2.blarc.zs` = zstd (dictionary tools data zsdic1.bin)
+  of a SARC with 151 `.buil` files (tools/lib/sarc.py reads it; PlayerStatus_00.buil, PaItemBtn_00.buil,
+  PaMpGauge_00.buil, PaReplaceIcon_00.buil ...). In the file, pointers are offsets; the engine adds a base.
+- PlayerStatus_00.buil UIL root (file offset 0xF8) has 7 tables of (names, descs, hashes, count):
+  +0x20 common panes (33), +0x40 (12), +0x60 (10), +0x80 (2), +0xA0 (0), +0xC0 parts (7), +0xE0 (0).
+  Only +0x20 and +0xC0 are extended by the runtime clone; the other tables (12/10/2 entries) may hold
+  per-part bindings that the second and later appended parts miss. Not yet checked.
+- Item icons are NOT static textures: PaReplaceIcon_00's icon pane uses the runtime texture
+  `FBLayout_00_ASTC4x4` (rendered by the game) and ItemPattern selects the item. So the icons on top of
+  the slot circles have to come from engine item-button/replace-icon parts; a custom layout alone can
+  draw circles, bars and placeholder art but not the item icons.
+
+## Multi-part findings (latest)
+
+- Part instantiation (0x152F8F0) runs for all 5 appended panes, but the child frame object it receives is
+  NULL for every appended part after the first (hook id 4 logs pane index and child). Handles are
+  distinct and 0x6F60 apart. Growing the Common archive budget in ResourceSizeTable (tools/make_restbl.py,
+  +3 MB) did not change it (possibly not applied: other mods' tables).
+- Compiler trap fixed: clang turned `switch` returning strings into a lookup table of absolute pointers
+  (wrong at runtime in this relocation-free module). CFLAGS now has -fno-jump-tables.
+- find_anim returns a shared "not found" object (not null): compare with find_anim(part, "<nonsense>").
+- Repurposing stock filler parts (Pa_AgonyStone_00, Pa_ReplaceSubItem_00/01, Pa_GuideCross_00) as item buttons
+  (only their part descriptor replaced by Pa_SelectItem_00's, names/parents kept) crashes during load
+  (PC=4). PART_N=1 is the stable setting; the code for >1 is still in hud.c (build_root).
+
+## Layout file format (.buil / BFFH) - what is known
+
+- File = header (0x00..0xA8: magic BFFH, file size at +8, section directory at +0x10), two sections
+  declared by `BFSI` records at 0xA8 ("Default": data at 0xF8) and 0xD0 ("StringPool"), then the UIL root
+  at 0xF8. All internal pointers are file offsets (u64); the engine rebases them at load (no visible
+  relocation table: its loader knows the schema). Hence a layout writer must follow the schema exactly.
+- UIL root (PlayerStatus_00): name/desc/hash tables {names, descs, hashes, count u32 @+24, 8}:
+  +0x20 common panes (33, desc 68 B), +0x40 picture panes (12), +0x60 pictures (10), +0x80 text (2),
+  +0xA0 (0), +0xC0 parts (7, desc 88 B), +0xE0 (0). After +0x120: array descriptors {ptr, count, size}:
+  +0x130 36 entries (each -> {offset, 0, count, size}: animation/parameter blocks), +0x150 13 hashes
+  (parameter names: HeartPos, AgonyStonePos, IsMpGauge, IsItemVisible, IsOpenShortCut, ...),
+  +0x1D0 pool 9x16 B, +0x1E0 2x4, +0x1F0 5x8, +0x200 screen size 3840x2160 + ptr, +0x210 12x4, +0x220 32x1.
+- Not found: why only one appended part per layout is built. Pane setup code at 0x1529990..0x1529D00 reads
+  per-type pools via [root+0x1E8]/[root+0x1F4] indexed by a pool index taken from the part/pane
+  descriptor; the appended parts reuse the gauge's descriptor, so this index may need its own pool entry
+  (untested: extend the +0x1D0..+0x220 pools).
+
+## Pool extension test (negative)
+
+- Extending the root pools (+0x1D0, +0x1E0, +0x1F0, +0x210, +0x220: count+5, copies of the last entry) with
+  five appended gauge parts changed nothing: child frame objects are still NULL for parts 2..5.
+  The limit is not in those pools. PART_N stays 1 (stable). extend_pools() remains in hud.c for reference.

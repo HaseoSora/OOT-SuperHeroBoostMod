@@ -245,6 +245,11 @@ CODE_HOOK hook_code_mp, 1, RES_MP
 CODE_HOOK hook_code_setframe, 3, RES_SETFRAME
 CODE_HOOK hook_code_inst, 4, RES_INST
 CODE_HOOK hook_code_move, 5, RES_MOVE
+/* Link's shield-hit reaction nodes (ExecutePlayerReactionGuard enter/update, GuardJustRepelled, GuardBreak). */
+CODE_HOOK hook_guard0, 6, RES_GUARD0
+CODE_HOOK hook_guard1, 7, RES_GUARD1
+CODE_HOOK hook_guard2, 8, RES_GUARD2
+CODE_HOOK hook_guard3, 9, RES_GUARD3
 
 /* Classic extra-button sites: four `bl 0x1211c00` calls. 0x1211c00 is a normal
  * function (not an import stub), so these use the same wrapper, with their own

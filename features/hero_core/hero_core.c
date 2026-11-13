@@ -123,7 +123,9 @@ static void halve_stick(const HidView *v) {
     }
 }
 
-u32 g_hc_guard;            /* diagnostic: guard hits that cost stamina */
+#define RUN_HOLD_FRAMES 12u
+static u32 g_run_hold;
+u32 g_hc_guard;           /* diagnostic: guard hits that cost stamina */
 float g_hc_lowest = 1.0e9f;   /* diagnostic: lowest stamina right after a guard hit */
 static void spend(float cost) {
     g_stamina.stamina -= cost * g_stamina.drain_multiplier;
@@ -240,7 +242,10 @@ void hero_core_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_result
         g_stamina.in_combat = in_combat;
 
         /* Sprint: A held while the move state is active drains gradually. */
-        u32 draining = running && !g_exhausted && g_stamina.stamina > 0.0f && player_state_is("Move") && cost_on(K_SPRINT);
+        /* A roll starts with A + stick while Link is still in "Move" for a few frames: that is not a sprint.
+         * Sprinting only counts once A has been held for RUN_HOLD_FRAMES in the Move state. */
+        if (running && player_state_is("Move")) g_run_hold += (frames ? frames : 1); else g_run_hold = 0;
+        u32 draining = g_run_hold >= RUN_HOLD_FRAMES && !g_exhausted && g_stamina.stamina > 0.0f && cost_on(K_SPRINT);
         if (draining) {
             g_stamina.stamina -= RUN_DRAIN_PER_SEC * dt * g_stamina.drain_multiplier;
             if (g_stamina.stamina < 0.0f) g_stamina.stamina = 0.0f;

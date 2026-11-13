@@ -295,6 +295,8 @@ def main() -> int:
         if "g_names_seen" in syms:
             nn = struct.unpack("<I", read_sym("g_names_n", 4))[0]; raw = read_sym("g_names_seen", 16 * 24)
             print("action names seen:", [raw[i*24:(i+1)*24].split(b"\\0")[0].decode("latin1") for i in range(1, min(nn, 15) + 1)])
+        if "g_guard_calls" in syms:
+            print("guard reaction node calls:", struct.unpack("<4I", read_sym("g_guard_calls", 16)))
         if "g_hc_guard" in syms:
             print("guard hits costed:", struct.unpack("<I", read_sym("g_hc_guard", 4))[0],
                   "lowest stamina after one:", struct.unpack("<f", read_sym("g_hc_lowest", 4))[0])

@@ -60,7 +60,18 @@ static int starts(const char *a, const char *p) {
 }
 
 u32 g_ev[5];   /* test counters: roll group, jump, attack, guard hit, shot (events seen, costed or not) */
-char g_guard_names[16][24];   /* diagnostic: every distinct state name that starts with "Guard" */
+/* A shield hit can be seen twice (the game's reaction node and the state name): one hit = one event. */
+u32 g_guard_calls[4];          /* diagnostic: calls of each hooked reaction node */
+static u32 g_guard_frame;
+static void guard_hit(void) {
+    u32 f = hud_frame_count();
+    if (g_guard_frame && f - g_guard_frame < 40u) return;
+    g_guard_frame = f ? f : 1;
+    g_pending |= PEV_GUARDHIT;
+    g_ev[3]++;
+}
+void player_guard_event(u32 id) { g_guard_calls[id - 6]++; guard_hit(); }
+char g_guard_names[16][24];  /* diagnostic: every distinct state name that starts with "Guard" */
 u32 g_guard_n;
 static void classify(const char *n) {
     if (starts(n, "Guard") || starts(n, "Shield")) {
@@ -75,7 +86,7 @@ static void classify(const char *n) {
     else if (eq(n, "SideStep")) { g_pending |= PEV_SIDESTEP; g_ev[0]++; }
     else if (starts(n, "BackFlip")) { g_pending |= PEV_BACKFLIP; g_ev[0]++; }
     else if (eq(n, "Jump")) { g_pending |= PEV_JUMP; g_ev[1]++; }
-    else if (starts(n, "Guard") && (has_hit(n) || has_word(n, "Break") || has_word(n, "Reaction") || has_word(n, "Repel"))) { g_pending |= PEV_GUARDHIT; g_ev[3]++; }
+    else if (starts(n, "Guard") && (has_hit(n) || has_word(n, "Break") || has_word(n, "Reaction") || has_word(n, "Repel"))) guard_hit();
     else if (starts(n, "Cut") || starts(n, "ChargeAttack") || starts(n, "JumpCut") || starts(n, "Stab"))
         { g_pending |= PEV_ATTACK; g_ev[2]++; }
 }

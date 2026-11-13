@@ -1,4 +1,4 @@
-﻿/* Input wrappers for the five stock controller-read sites.
+/* Input wrappers for the five stock controller-read sites.
  *
  * Each wrapper is transparent to the game:
  *   1. saves every register the AAPCS64 caller may rely on,
@@ -244,6 +244,7 @@ CODE_HOOK hook_code_frame, 0, RES_FRAME
 CODE_HOOK hook_code_mp, 1, RES_MP
 CODE_HOOK hook_code_setframe, 3, RES_SETFRAME
 CODE_HOOK hook_code_inst, 4, RES_INST
+CODE_HOOK hook_code_move, 5, RES_MOVE
 
 /* Classic extra-button sites: four `bl 0x1211c00` calls. 0x1211c00 is a normal
  * function (not an import stub), so these use the same wrapper, with their own

@@ -1,4 +1,4 @@
-﻿"""Live check of the mod in Fritchii via the emulator debug server.
+"""Live check of the mod in Fritchii via the emulator debug server.
 
 Launches the game with EDEN_NX2_DEBUG_SERVER, reads our module's globals from
 guest memory, optionally sends button input, checks the log for criticals and
@@ -159,11 +159,21 @@ def main() -> int:
             before = read_sym("g_stamina", 4) if "g_stamina" in syms else None
             # --press accepts several steps: "B:30,ZR:20,A:10"
             for n, step in enumerate(args.press.split(",")):
+                stick = None
+                if "@" in step:                       # "A:4@0,1" = hold the left stick x,y
+                    step, st = step.split("@")
+                    stick = [float(v) for v in st.split("/")]
                 btn, frames = step.split(":")
-                c.input([{"buttons": btn.split("+"), "frames": int(frames)}])   # e.g. ZL+B
+                s = {"buttons": [b for b in btn.split("+") if b], "frames": int(frames)}   # e.g. ZL+B
+                if stick:
+                    s["left_stick"] = stick
+                c.input([s])
                 print("press", btn, frames, "frames")
                 if "g_stamina" in syms:
                     print("   stamina right after press:", struct.unpack("<f", read_sym("g_stamina", 4))[0])
+                time.sleep(0.7)
+                if "g_stamina" in syms:
+                    print("   stamina 0.7s later:", struct.unpack("<f", read_sym("g_stamina", 4))[0])
                 png0, _, _ = c.screenshot()
                 (ROOT / "build" / f"live_now{n}.png").write_bytes(png0)
                 time.sleep(2.5)   # let the game react before sampling counters
@@ -192,6 +202,8 @@ def main() -> int:
             names = ["mp", "frames", "bar", "ratio", "max", "trace", "root_clones",
                      "gauge_clones", "prepare_calls", "pane", "errors", "slots_bound"]
             print("hud:", {n: hex(v - 0x1000000000000000) for n, v in zip(names, d)})
+        if "g_seg_ok" in syms:
+            print("ring segments bound:", struct.unpack("<I", read_sym("g_seg_ok", 4))[0] - 0x10000000)
         if "g_len" in syms:
             print("gauge anim lengths ratio/max/trace:", struct.unpack("<3I", read_sym("g_len", 12)))
         if "g_pl" in syms:
@@ -255,6 +267,26 @@ def main() -> int:
             seen = struct.unpack("<Q", read_sym("g_hc_seen", 8))[0] - 0x100000000
             cnt = struct.unpack("<I", read_sym("g_hc_count", 4))[0]
             print(f"hero_core: buttons seen at site 3 = {seen:#x}, sample count = {cnt:#x}")
+        if "g_hc_dbg" in syms:
+            d = struct.unpack("<5I", read_sym("g_hc_dbg", 20))
+            print("hero_core rolls/jumps/run-frames/exhausted/attacks:", tuple(v - 0x10000000 for v in d))
+        if "g_link_actor" in syms:
+            la, lp = struct.unpack("<2Q", read_sym("g_link_actor", 16))
+            print(f"link actor {la:#x} player {lp:#x} seen {struct.unpack(chr(60)+chr(73), read_sym(chr(103)+chr(95)+chr(108)+chr(105)+chr(110)+chr(107)+chr(95)+chr(115)+chr(101)+chr(101)+chr(110), 4))[0] - 0x10000000}")
+        if "g_pt_dbg" in syms:
+            print("player track stages:", tuple(v - 0x10000000 for v in struct.unpack("<8I", read_sym("g_pt_dbg", 32))))
+        if "g_pt_diff" in syms:
+            print("pl - mv:", [hex(v) for v in struct.unpack("<8Q", read_sym("g_pt_diff", 64))])
+        if "g_pn" in syms:
+            raw = read_sym("g_pn", 128); dd = struct.unpack("<8Q", read_sym("g_pn_d", 64)); nn = struct.unpack("<I", read_sym("g_pn_n", 4))[0]
+            print("P* names:", [(raw[i*16:i*16+16].split(b"\\0")[0].decode("latin1"), hex(dd[i])) for i in range(min(nn, 8))])
+        if "g_names_seen" in syms:
+            nn = struct.unpack("<I", read_sym("g_names_n", 4))[0]; raw = read_sym("g_names_seen", 16 * 24)
+            print("action names seen:", [raw[i*24:(i+1)*24].split(b"\\0")[0].decode("latin1") for i in range(1, min(nn, 15) + 1)])
+        if "g_link_life" in syms:
+            print("link life value:", struct.unpack("<i", read_sym("g_link_life", 4))[0])
+        if "g_stick_dbg" in syms:
+            print("stick samples:", struct.unpack("<16i", read_sym("g_stick_dbg", 64)))
         if "g_wrap_entry" in syms:
             w_in = struct.unpack("<5I", read_sym("g_wrap_entry", 20))
             w_sl = struct.unpack("<4I", read_sym("g_slot_entry", 16))

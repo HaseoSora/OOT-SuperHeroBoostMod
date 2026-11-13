@@ -38,6 +38,7 @@ SECTIONS
     RES_UI = 0x43A6FC;
     RES_SETFRAME = 0x2D2D94;
     RES_INST = 0x152F8F4;
+    RES_MOVE = 0x2C215E4;
     MAIN_SCHED_VT = 0x4B05318;
     find_part = 0x43C3E0;
     find_anim = 0x43C7A0;

@@ -1,4 +1,4 @@
-﻿"""Build our subsdk9 module (core + enabled features) and its main IPS.
+"""Build our subsdk9 module (core + enabled features) and its main IPS.
 
 Usage:
     python tools/build_core.py                  # default features: probe
@@ -283,7 +283,7 @@ def main() -> int:
     OUT.mkdir(parents=True, exist_ok=True)
     # Hashes of our HUD part names (the engine stores a CityHash64 next to each name).
     from lib.cityhash import city_hash64
-    names = ["Pa_OotStamina_00", "Pa_OotSlotB_00", "Pa_OotSlotL_00", "Pa_OotSlotR_00", "Pa_OotSlotZR_00"]
+    names = [f"Pa_OotSeg_{k:02d}" for k in range(32)]
     (OUT / "hud_names.h").write_text(
         "".join(f"#define HASH_PART{i} {city_hash64(n.encode())}ull\n" for i, n in enumerate(names)),
         encoding="ascii")

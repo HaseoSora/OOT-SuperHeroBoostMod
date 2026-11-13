@@ -224,6 +224,28 @@ T = {
 }
 
 
+T["en"].update({
+    "combat_sec": "Combat and drops",
+    "enemy_hp": "Enemy health", "damage": "Damage you take",
+    "mult_van": "Vanilla (×1)", "mult_15": "×1.5", "mult_2": "×2", "mult_3": "×3",
+    "hero_preset": "Hero preset (enemies ×1.5, damage ×2)",
+    "no_heart_drop": "No heart drops (hearts become green rupees)",
+    "hud_sec": "Always-visible HUD",
+    "hud_rupees": "Rupee counter", "hud_clock": "Clock", "clock24": "24-hour clock",
+    "n_no_hud": "The rupee counter and clock need the game's own HUD panels and are not available in this build yet.",
+})
+T["es"].update({
+    "combat_sec": "Combate y drops",
+    "enemy_hp": "Vida de los enemigos", "damage": "Daño que recibes",
+    "mult_van": "Original (×1)", "mult_15": "×1.5", "mult_2": "×2", "mult_3": "×3",
+    "hero_preset": "Preset Hero (enemigos ×1.5, daño ×2)",
+    "no_heart_drop": "Sin drop de corazones (los corazones pasan a ser rupias verdes)",
+    "hud_sec": "HUD siempre visible",
+    "hud_rupees": "Contador de rupias", "hud_clock": "Reloj", "clock24": "Reloj de 24 horas",
+    "n_no_hud": "El contador de rupias y el reloj necesitan los paneles del HUD del juego y aún no están disponibles en esta versión.",
+})
+
+
 def tr(lang: str, key: str, **kw) -> str:
     s = T.get(lang, T["en"]).get(key) or T["en"].get(key, key)
     try:

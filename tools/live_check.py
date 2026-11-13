@@ -300,6 +300,10 @@ def main() -> int:
         if "g_hp_dbg" in syms:
             print("enemy hp scaling (n, cur before, max before, max after):", struct.unpack("<4I", read_sym("g_hp_dbg", 16)),
                   "link damage scalings:", struct.unpack("<I", read_sym("g_dmg_dbg", 4))[0])
+        if "g_num_ctl" in syms:
+            print("rupee display: controller", hex(struct.unpack("<Q", read_sym("g_num_ctl", 8))[0]), "calls",
+                  struct.unpack("<I", read_sym("g_num_calls", 4))[0], "state (d0,d4,d8,158,160,161):",
+                  struct.unpack("<6I", read_sym("g_num_dbg", 24)))
         if "g_hc_guard" in syms:
             print("guard hits costed:", struct.unpack("<I", read_sym("g_hc_guard", 4))[0],
                   "lowest stamina after one:", struct.unpack("<f", read_sym("g_hc_lowest", 4))[0])

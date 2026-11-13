@@ -34,6 +34,13 @@ def stage_classic():
         shutil.copy2(f, dst / f"{key}.zip")
 
 
+def stage_rupee_ips():
+    """rupee.ips: skip the 'hide the numeric display when its value is stable' call (main+0x33C3B80 -> branch over it)."""
+    import struct
+    rec = struct.pack(">I", 0x33C3B80 + 0x100) + struct.pack(">H", 4) + struct.pack("<I", 0x14000000 | 3)
+    (OUT / "rupee.ips").write_bytes(b"IPS32" + rec + b"EEOF")
+
+
 def main():
     if OUT.exists():
         shutil.rmtree(OUT)
@@ -48,6 +55,7 @@ def main():
         shutil.copy2(src / f"{BUILD_ID}.ips", d / "ours.ips")
         man["variants"][name] = {"base": base, "sha256": hashlib.sha256((d / "subsdk9").read_bytes()).hexdigest()}
     stage_classic()
+    stage_rupee_ips()
     subprocess.run([sys.executable, str(ROOT / "tools" / "make_romfs_opts.py")], check=True, cwd=ROOT)
     (OUT / "manifest.json").write_text(json.dumps(man, indent=2))
     print("payload staged in", OUT)

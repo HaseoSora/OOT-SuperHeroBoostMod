@@ -115,6 +115,13 @@ def gui():
     custom["combat_only"] = bool(cfg.get("custom", {}).get("combat_only", False))
     adv = {k: tk.BooleanVar(value=custom[k]) for k in KEYS}
     v_combat = tk.BooleanVar(value=custom["combat_only"])
+    MULT = (100, 150, 200, 300)
+    v_hp = tk.IntVar(value=cfg.get("enemy_hp", 100) if cfg.get("enemy_hp", 100) in MULT else 100)
+    v_dmg = tk.IntVar(value=cfg.get("damage", 100) if cfg.get("damage", 100) in MULT else 100)
+    v_nodrop = tk.BooleanVar(value=cfg.get("no_heart_drop", False))
+    v_rup = tk.BooleanVar(value=cfg.get("hud_rupees", False))
+    v_clock = tk.BooleanVar(value=cfg.get("hud_clock", False))
+    v_24h = tk.BooleanVar(value=cfg.get("clock_24h", False))
     status = tk.StringVar(value="")
     guard = {"on": False}
     ui = {}
@@ -148,18 +155,22 @@ def gui():
             root.after_cancel(pending["id"])
         pending["id"] = root.after(250, lambda: remember())
 
-    for v in (lang, emu, v_classic, v_variant, v_stam, v_preset, v_combat, *adv.values()):
+    for v in (lang, emu, v_classic, v_variant, v_stam, v_preset, v_combat, v_hp, v_dmg, v_nodrop, v_rup, v_clock, v_24h, *adv.values()):
         v.trace_add("write", autosave)
 
     def settings():
         p = v_preset.get()
         vals = {k: adv[k].get() for k in KEYS} if p == 3 else {k: bool(I.PRESET_VIEW[p][k]) for k in KEYS}
         co = v_combat.get() if p == 3 else bool(I.PRESET_VIEW[p]["combat_only"])
-        return I.Settings(classic=v_classic.get(), stamina=v_stam.get(), preset=p, combat_only=co, **vals)
+        return I.Settings(classic=v_classic.get(), stamina=v_stam.get(), preset=p, combat_only=co, **vals,
+                          enemy_hp=v_hp.get(), damage=v_dmg.get(), no_heart_drop=v_nodrop.get(),
+                          hud_rupees=v_rup.get(), hud_clock=v_clock.get(), clock_24h=v_24h.get())
 
     def remember():
         return save_cfg({"lang": lang.get(), "emu": emu.get(), "classic": v_classic.get(), "variant": v_variant.get(),
-                  "stamina": v_stam.get(), "preset": v_preset.get(), "custom": custom})
+                  "stamina": v_stam.get(), "preset": v_preset.get(), "custom": custom,
+                  "enemy_hp": v_hp.get(), "damage": v_dmg.get(), "no_heart_drop": v_nodrop.get(),
+                  "hud_rupees": v_rup.get(), "hud_clock": v_clock.get(), "clock_24h": v_24h.get()})
 
     # ---- small styled widgets ----
     style = ttk.Style()
@@ -198,8 +209,14 @@ def gui():
     def desc(parent, text):
         return tk.Label(parent, text=text, bg=PANEL, fg=DIM, font=(FAM, 9), justify="left", wraplength=640, anchor="w")
 
-    main = tk.Frame(root, bg=BG)
-    main.pack(fill="both", expand=True)
+    holder = tk.Canvas(root, bg=BG, highlightthickness=0)
+    vbar = tk.Scrollbar(root, orient="vertical", command=holder.yview)
+    holder.configure(yscrollcommand=vbar.set)
+    holder.pack(side="left", fill="both", expand=True)
+    main = tk.Frame(holder, bg=BG)
+    holder.create_window((0, 0), window=main, anchor="nw")
+    main.bind("<Configure>", lambda e: holder.configure(scrollregion=holder.bbox("all")))
+    root.bind_all("<MouseWheel>", lambda e: holder.yview_scroll(int(-e.delta / 120), "units"))
 
     def ok_emu():
         e = emu.get().strip()
@@ -328,6 +345,28 @@ def gui():
         c = check(s, L("combat_only"), v_combat); c.pack(anchor="w", padx=14, pady=(2, 8))
         ui["advw"].append(c)
 
+        s = section(main, L("combat_sec"))
+        mrow = tk.Frame(s, bg=PANEL); mrow.pack(fill="x", padx=14, pady=(0, 4))
+        mnames = [L("mult_van"), L("mult_15"), L("mult_2"), L("mult_3")]
+        for n, (lab, var) in enumerate(((L("enemy_hp"), v_hp), (L("damage"), v_dmg))):
+            tk.Label(mrow, text=lab + ":", bg=PANEL, fg=TEXT, font=(FAM, 10)).grid(row=0, column=n * 2, sticky="w", padx=(0, 6))
+            cb = ttk.Combobox(mrow, state="readonly", style="Z.TCombobox", width=13, values=mnames)
+            cb.current(MULT.index(var.get()))
+            cb.bind("<<ComboboxSelected>>", lambda ev, c=cb, v=var: v.set(MULT[c.current()]))
+            cb.grid(row=0, column=n * 2 + 1, padx=(0, 22))
+        def hero():
+            v_hp.set(150); v_dmg.set(200); render()
+        hb = button(s, L("hero_preset"), hero)
+        hb.config(font=(FAM, 10, "bold"), padx=10, pady=2)
+        hb.pack(anchor="w", padx=14, pady=(0, 4))
+        check(s, L("no_heart_drop"), v_nodrop).pack(anchor="w", padx=14, pady=(2, 6))
+
+        s = section(main, L("hud_sec"))
+        hr = tk.Frame(s, bg=PANEL); hr.pack(anchor="w", padx=14, pady=(0, 6))
+        check(hr, L("hud_rupees"), v_rup).grid(row=0, column=0, sticky="w", padx=(0, 24))
+        check(hr, L("hud_clock"), v_clock).grid(row=0, column=1, sticky="w", padx=(0, 24))
+        check(hr, L("clock24"), v_24h).grid(row=0, column=2, sticky="w")
+
         bar = tk.Frame(main, bg=BG); bar.pack(fill="x", padx=18, pady=(12, 2))
         ui["install"] = button(bar, "⚔  " + L("install"), do_install, primary=True)
         ui["install"].pack(side="left")
@@ -336,7 +375,14 @@ def gui():
         ui["install"].config(state="disabled")
         refresh()
         root.update_idletasks()
-        root.geometry(f"780x{main.winfo_reqheight()}")
+        h = main.winfo_reqheight()
+        cap = max(480, root.winfo_screenheight() - 140)
+        if h > cap:
+            vbar.pack(side="right", fill="y")
+        else:
+            vbar.pack_forget()
+        holder.configure(width=780, height=min(h, cap))
+        root.geometry(f"{780 + (18 if h > cap else 0)}x{min(h, cap)}")
 
     emu.trace_add("write", lambda *_: (status.set(""), refresh()))
     render()

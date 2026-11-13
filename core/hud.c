@@ -567,10 +567,12 @@ u64 g_inst_child[32] = {1};
 
 void player_track(u64 actor);
 void player_guard_event(u32 id);
+void rupee_update(u64 ctl);
 void hud_on_code(u32 id, void *a0, void *a1, void *a2, void *regs) {
     (void)a1; (void)a2;
     if (id == 5) { player_track((u64)a0); return; }
     if (id >= 6 && id <= 9) { player_guard_event(id); return; }
+    if (id == 10) { rupee_update((u64)a0); return; }
     if (id == 4) {   /* part instance creation: log the pane index being instantiated */
         u64 layout = (u64)a1, pane = (u64)a2;
         u64 arr = layout ? ptr(layout, 0x100) : 0;

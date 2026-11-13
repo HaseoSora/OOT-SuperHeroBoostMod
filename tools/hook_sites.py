@@ -37,6 +37,7 @@ CODE_SITES = (
     (0x33BDCE0, "hook_code_mp", 1),      # magic-gauge controller init (x0 = controller)
     (0x2D2D90, "hook_code_setframe", 3), # set_frame(anim, frame): observe UI animation frames
     (0x2C215E0, "hook_code_move", 5),    # physics-actor movement update (x0 = actor), every frame
+    (0x33C3B10, "hook_num", 10),         # numeric item display controller update (x0 = controller; rupee counter)
     (0x27F7D00, "hook_guard0", 6),       # ExecutePlayerReactionGuard slot 10 (shield took a hit)
     (0x27F7F90, "hook_guard1", 7),       # ExecutePlayerReactionGuard slot 11
     (0x27FB0C0, "hook_guard2", 8),       # ExecutePlayerReactionGuardJustRepelled slot 10

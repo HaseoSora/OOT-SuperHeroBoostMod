@@ -142,7 +142,7 @@ static void extend_pools(u8 *root, u32 add) {
 static const char g_font_normal[] = "Normal";
 static char g_tnames[TXT_N][16] = {"T_OotClk_00", "T_OotRup_00"};
 static const u64 g_thash[TXT_N] = {HASH_TXT0, HASH_TXT1};
-#define PIC_N 2 /* 4 (with two icon discs) panics the engine on some saves */
+#define PIC_N 2
 static char g_pinames[PIC_N][16] = {"P_OotBg_00", "P_OotBg_01"};
 static const u64 g_pihash[PIC_N] = {HASH_PIC0, HASH_PIC1};
 /* layout units (root-relative, Y up). The picture panes draw at ~0.59 of the size set here. */
@@ -602,37 +602,60 @@ static void drive_segs(void) {
 
 /* ---- clock / rupee text panes ---- */
 u64 g_txt_dbg[8] = {MARK, MARK, MARK, MARK, MARK, MARK, MARK, MARK};
-static char g_tbuf[2][16];   /* ASCII: the engine's text setter takes 8-bit text with a byte length */
+static char g_tbuf[2][2][16];   /* [pane][flip][text]: ASCII, the engine's setter takes 8-bit text + byte length */
+static u32 g_tflip[2];
 static char g_tlast[2][16];
+static float g_tpx[2], g_tpy[2];
 static void put_text(u64 frame, u32 t, const char *ascii, float x, float y) {
     u64 rec = pane_record(frame, g_tnames[t]);
     g_txt_dbg[t] = MARK | rec;
     if (!rec) return;
-    *(float *)(rec + 0x6C) = x; *(float *)(rec + 0x70) = y;
-    *(u32 *)rec |= 0x6F;
+    if (g_tpx[t] != x || g_tpy[t] != y) {
+        *(float *)(rec + 0x6C) = x; *(float *)(rec + 0x70) = y;
+        *(u32 *)rec |= 0x6F;
+        g_tpx[t] = x; g_tpy[t] = y;
+    }
     u32 n = 0;
-    while (ascii[n] && n < 15) { g_tbuf[t][n] = ascii[n]; n++; }
-    g_tbuf[t][n] = 0;
+    while (ascii[n] && n < 15) n++;
     int same = 1;
     for (u32 i = 0; i <= n; i++) if (g_tlast[t][i] != ascii[i]) same = 0;
     if (same) return;
-    struct { const void *s; u32 len, z; long long m1; } ref = {g_tbuf[t], n, 0, -1};
+    /* the renderer may read the text at any time: write the new text into the spare buffer and switch to it,
+     * so the buffer the engine points at is never half-written */
+    u32 f = g_tflip[t] ^ 1;
+    char *dst = g_tbuf[t][f];
+    for (u32 i = 0; i < n; i++) dst[i] = ascii[i];
+    dst[n] = 0;
+    struct { const void *s; u32 len, z; long long m1; } ref = {dst, n, 0, -1};
     set_text((void *)rec, &ref, 0);
+    g_tflip[t] = f;
     for (u32 i = 0; i <= n; i++) g_tlast[t][i] = ascii[i];
     g_txt_dbg[2 + t] += 1;
 }
+u32 g_clk_dbg[4];   /* 0 GameData seconds, 1 world-object seconds */
 static int world_seconds(void) {
     /* GameData World_CurrentDateTime (UInt64 table k = 24, record 5, 0x30 bytes each, value at +0x20):
      * day count in the high 32 bits, seconds of the day in the low 32 bits. */
+    int gd = -1, wo = -1;
     u64 mgr = *(u64 *)GAMEDATA_MGR;
-    if (!mgr) return -1;
-    u32 cnt = *(u32 *)(mgr + 8 + 0x60 * 24 + 8);
-    u64 rec = *(u64 *)(mgr + 8 + 0x60 * 24 + 0x10);
-    if (!rec || cnt < 6) return -1;
-    return (int)(*(u64 *)(rec + 5 * 0x30 + 0x20) & 0xFFFFFFFFu);
+    if (mgr) {
+        u32 cnt = *(u32 *)(mgr + 8 + 0x60 * 24 + 8);
+        u64 rec = *(u64 *)(mgr + 8 + 0x60 * 24 + 0x10);
+        if (rec && cnt >= 6) gd = (int)(*(u64 *)(rec + 5 * 0x30 + 0x20) & 0xFFFFFFFFu);
+    }
+    /* the world clock object (same value, read through the game's own accessor) */
+    u64 wm = *(u64 *)WORLD_MGR;
+    u64 obj = wm ? *(u64 *)(wm + 0x578) : 0;
+    if (obj) {
+        typedef int (*fn_t)(u64);
+        fn_t fn = (fn_t) * (u64 *)(*(u64 *)obj + 0x30);
+        wo = fn(obj);
+    }
+    g_clk_dbg[0] = (u32)gd; g_clk_dbg[1] = (u32)wo;
+    return wo >= 0 ? wo : gd;
 }
 /* icon colour: picture panes keep their RGBA tint as four floats at pane-object +0x20 */
-#define TINT_ON 0
+#define TINT_ON 1
 static void tint(u64 frame, u32 k, float r, float g, float b) {
     u64 rec = pane_record(frame, g_pinames[k]);
     if (!rec) return;

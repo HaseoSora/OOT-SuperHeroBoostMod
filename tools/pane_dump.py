@@ -43,7 +43,7 @@ def main():
             names, descs, hashes = q(c, root + off), q(c, root + off + 8), q(c, root + off + 16)
             cnt = struct.unpack("<I", rd(c, root + off + 24, 4))[0]
             print(f"-- {label}: count {cnt}")
-            for i in range(min(cnt, 64)):
+            for i in range(cnt):
                 nm = rd(c, q(c, names + i * 8), 40).split(b"\0")[0]
                 hv = q(c, hashes + i * 8)
                 ok = "OK" if city_hash64(nm) == hv else f"MISMATCH calc {city_hash64(nm):#x}"

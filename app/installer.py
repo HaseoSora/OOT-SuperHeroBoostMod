@@ -209,8 +209,6 @@ def install(emu: Path, s: Settings, classic_variant: str = "default", name: str 
 
     (target / "exefs" / "subsdk9").write_bytes(patch_config((pay / "subsdk9").read_bytes(), s))
     ours = (pay / "ours.ips").read_bytes()
-    if s.hud_rupees:
-        ours = merge_ips(ours, (pay.parent / "rupee.ips").read_bytes())
     if classic_dir:
         cips = (classic_dir / "exefs" / f"{BUILD_ID}.ips").read_bytes()
         (target / "exefs" / f"{BUILD_ID}.ips").write_bytes(merge_ips(cips, ours))
@@ -226,8 +224,6 @@ def install(emu: Path, s: Settings, classic_variant: str = "default", name: str 
         shutil.copytree(src, target / "romfs", dirs_exist_ok=True)
 
     res = Result(target, variant)
-    if s.hud_rupees or s.hud_clock:
-        res.notes.append(("no_hud", ""))       # the HUD panels are not in this build yet (the choice is stored for later)
     conflicts = other_exefs_mods(mods, {name})
     if conflicts:
         res.notes.append(("conflicts", ", ".join(conflicts)))

@@ -246,7 +246,6 @@ CODE_HOOK hook_code_setframe, 3, RES_SETFRAME
 CODE_HOOK hook_code_inst, 4, RES_INST
 CODE_HOOK hook_code_move, 5, RES_MOVE
 /* Link's shield-hit reaction nodes (ExecutePlayerReactionGuard enter/update, GuardJustRepelled, GuardBreak). */
-CODE_HOOK hook_num, 10, RES_NUM
 CODE_HOOK hook_guard0, 6, RES_GUARD0
 CODE_HOOK hook_guard1, 7, RES_GUARD1
 CODE_HOOK hook_guard2, 8, RES_GUARD2

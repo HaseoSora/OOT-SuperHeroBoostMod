@@ -72,7 +72,7 @@ def main() -> int:
     ap.add_argument("--keep", action="store_true", help="do not close the emulator")
     ap.add_argument("--boot-wait", type=float, default=35.0,
                     help="seconds after launch before the first A (title screen must be up)")
-    ap.add_argument("--load-timeout", type=float, default=150.0,
+    ap.add_argument("--load-timeout", type=float, default=300.0,
                     help="max seconds to wait for the save to load after the A presses")
     ap.add_argument("--linger", type=float, default=8.0,
                     help="seconds to keep the game running after the inputs")
@@ -297,6 +297,18 @@ def main() -> int:
             print("action names seen:", [raw[i*24:(i+1)*24].split(b"\\0")[0].decode("latin1") for i in range(1, min(nn, 15) + 1)])
         if "g_guard_calls" in syms:
             print("guard reaction node calls:", struct.unpack("<4I", read_sym("g_guard_calls", 16)))
+        if "g_txt_dbg" in syms:
+            d = struct.unpack("<8Q", read_sym("g_txt_dbg", 64))
+            print("txt panes (rec, rec, sets0, sets1):", hex(d[0] & 0xFFFFFFFFFFFFFFF), hex(d[1] & 0xFFFFFFFFFFFFFFF), d[2] & 0xFFFFFFFF, d[3] & 0xFFFFFFFF)
+            print("txt buf:", bytes(read_sym("g_tbuf", 64)).hex())
+            rec = d[0] - 0x1000000000000000
+            if 0x10000 < rec < 0x1000000000000:
+                b = bytes(c.read(rec, 0xB0))
+                obj = struct.unpack("<Q", b[8:16])[0]
+                if 0x10000 < obj < 0x1000000000000:
+                    ob = bytes(c.read(obj, 0x1A0))
+                    print("txt obj:", " ".join(f"{o:03x}={x:08x}" for o, x in zip(range(0, 0x1A0, 4), struct.unpack("<104I", ob)) if x))
+                print("txt pane record:", " ".join(f"{x:08x}" for x in struct.unpack("<44I", b)))
         if "g_hp_dbg" in syms:
             print("enemy hp scaling (n, cur before, max before, max after):", struct.unpack("<4I", read_sym("g_hp_dbg", 16)),
                   "link damage scalings:", struct.unpack("<I", read_sym("g_dmg_dbg", 4))[0])

@@ -163,7 +163,11 @@ def verify_stock_sites() -> None:
 
     raw = STOCK_MAIN.read_bytes()
     text = nso.text_bytes(raw)
-    for site, name, stock in list(INPUT_SITES) + list(SLOT_SITES):
+    if COMPAT:
+        w = struct.unpack_from("<I", text, COMPAT_STUB[0])[0]
+        if w != COMPAT_STUB[2]:
+            raise SystemExit(f"stub {COMPAT_STUB[0]:#x} is {w:#x}, expected adrp x16")
+    for site, name, stock in active_sites()[0] + active_sites()[1]:
         word = struct.unpack_from("<I", text, site)[0]
         target = decode_bl(word, site)
         if target != stock:
@@ -217,9 +221,25 @@ def write_handler_table(features: list[str], path: Path) -> None:
     path.write_text("\n".join(lines) + "\n", encoding="ascii")
 
 
+COMPAT = False   # --compat: coexist with Classic Item Slots (its IPS owns the input/slot sites)
+# PLT stub of the input reader used during gameplay: first instruction `adrp x16, GOT3`.
+COMPAT_STUB = (0x3C42800, "hook_stub3", 0xB00083F0)
+
+
+def active_sites():
+    if COMPAT:
+        return [], []
+    return list(INPUT_SITES), list(SLOT_SITES)
+
+
 def make_ips(symbols: dict[str, int]) -> bytes:
     out = bytearray(b"IPS32")
-    for site, name, _stock in list(INPUT_SITES) + list(SLOT_SITES):
+    if COMPAT:
+        site, name, _w = COMPAT_STUB
+        delta = symbols[name] - site
+        out += struct.pack(">I", site + 0x100) + struct.pack(">H", 4)
+        out += struct.pack("<I", 0x14000000 | ((delta >> 2) & 0x03FFFFFF))
+    for site, name, _stock in (list(INPUT_SITES) + list(SLOT_SITES)) if not COMPAT else []:
         if site in DISABLED_SITES:
             continue  # stays the stock bl (see hook_sites.DISABLED_SITES)
         target = symbols[name]
@@ -241,7 +261,18 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--features", default="probe",
                     help="comma-separated feature dirs under features/")
+    ap.add_argument("--compat", action="store_true",
+                    help="coexist with Classic Item Slots (module placed after it, PLT-stub input hook)")
+    ap.add_argument("--base", default="0x4F88000", help="module base used with --compat")
     args = ap.parse_args()
+    global COMPAT, BASE, LINK_SCRIPT
+    if args.compat:
+        COMPAT = True
+        BASE = int(args.base, 0)
+        OUT.mkdir(parents=True, exist_ok=True)
+        ls = (CORE_SRC / "link.ld").read_text().replace("__base = 0x4F80000;", f"__base = {BASE:#x};")
+        LINK_SCRIPT = OUT / "link_compat.ld"
+        LINK_SCRIPT.write_text(ls)
     features = [f for f in args.features.split(",") if f]
     for f in features:
         if not (FEATURES_SRC / f).is_dir():
@@ -288,7 +319,7 @@ def main() -> int:
     bss_size = sec[".bss"][0] if ".bss" in sec else 0
 
     syms = symbol_table(elf)
-    for _, name, _ in list(INPUT_SITES) + list(SLOT_SITES):
+    for _, name, _ in active_sites()[0] + active_sites()[1]:
         if name not in syms:
             raise SystemExit(f"missing wrapper symbol {name}")
 

@@ -52,6 +52,9 @@ static const char CIRCLE_TEX[] = "Circle64_00";
 #define APPEND_ALL 1   /* 1 = append every part (only the first one gets listed by the
                         * engine); 0 = parts 1.. repurpose filler parts (froze the game) */
 #define SLOT_N 4
+#ifndef SWAP_FILL
+#define SWAP_FILL 1  /* 1 = replace the gauge's fill texture with a flat white one */
+#endif
 
 static const char *part_replaces(u32 i);
 static const char *part_name(u32 i) {
@@ -247,6 +250,7 @@ static u8 *build_root(const u8 *r) {
     *(u32 *)(cd0 + 52) = nc + 1;               /* subtree end = own index + 1 */
     *(u32 *)(cd0 + 64) = 0x7FFFF;
     cd0[56] |= 1;
+    *(unsigned short *)(cd0 + 0x42) = (unsigned short)np;           /* part descriptor index: our appended entry */
     *(float *)(cd0 + 16) = g_part_sx[0];
     *(float *)(cd0 + 20) = 0.5f;               /* stamina: half height */
     *(float *)(cd0 + 28) = g_part_x[0];
@@ -305,7 +309,7 @@ static u8 *build_gauge(const u8 *r, u32 k) {
         u64 v = q(out, i);
         if (v < (u64)out || v >= (u64)out + n) continue;
         const char *s = (const char *)v;
-        if (str_eq(s, STOCK_TEX)) *(u64 *)(out + i) = (u64)FLAT_TEX;
+        if (SWAP_FILL && str_eq(s, STOCK_TEX)) *(u64 *)(out + i) = (u64)FLAT_TEX;
         /* sparkle / flash / particle textures of the gauge become circles: the panes that
          * use them are repositioned as the slot circles (drive_circles) */
         else if (str_eq(s, "MpKiraKira_00") || str_eq(s, "MpKiraKira_01") || str_eq(s, "MpKiraKira_02") ||
@@ -334,12 +338,21 @@ static u32 g_calls_n;
 
 u64 g_prep_dbg[20] = {1};   /* per part: handle, config, handle+0x28, handle+0x38 */
 
+char g_pl[40][32] = {{1}};
+u32 g_pl_n = 1;
+
 void *hud_prepare(void *handle, u8 *config) {
     g_hud_dbg[8] += 1;
     const u8 *r = (const u8 *)q(config, 0);
     if (!r || w(r, 0) != 0x004C4955u) return config;   /* "UIL\0" */
     const char *asset = (const char *)q(r, 0x18);
     const char *inst = (const char *)q(handle, 0x30);
+    if (inst && asset && g_pl_n < 40 &&
+        ((inst[0] == 'P' && inst[3] == 'O' && inst[4] == 'o') || (asset[0] == 'M' && asset[1] == 'p') ||
+         (asset[0] == 'P' && asset[1] == 'l'))) {
+        char *d = g_pl[g_pl_n++];
+        for (int i = 0; i < 15; i++) { d[i] = inst[i]; d[16 + i] = asset[i]; }
+    }
     u32 kind = str_eq(asset, "PlayerStatus_00") ? 1 : 0;
     if (!kind)
         for (u32 k = 0; k < PART_N; k++)
@@ -490,6 +503,11 @@ static void drive_circles(void) {
     }
 }
 
+#ifndef DIRECT_FILL
+#define DIRECT_FILL 1
+#endif
+static u32 g_fill_init;
+u32 g_len[3] = {0x7777, 0x7777, 0x7777};   /* anim lengths: ratio, max, trace */
 static void hud_frame(void) {
     g_hud_dbg[1] = MARK | ++g_tick;
     if (!g_mp) return;
@@ -513,15 +531,22 @@ static void hud_frame(void) {
         observe_stock_box(parent);
         g_frame_node = parent; g_bar = bar; g_ratio = ratio; g_max = max; g_trace = trace;
         g_pane = pane;
+        {
+            u64 as[3] = {ratio, max, trace};
+            for (int i = 0; i < 3; i++) {
+                u64 tr = ptr(as[i], 0x20);
+                g_len[i] = tr && ptr(tr, 0) ? *(u32 *)(ptr(tr, 0) + 0x28) : 0xFFFF;
+            }
+        }
         g_last_value = g_last_cap = g_last_show = -1.0f;
     }
     bind_slots(g_frame_node);
     drive_slots();
     drive_circles();
     if (g_test_mode) {
-        u32 t = g_tick % 240;
-        g_value = (t < 120 ? t : 240 - t) * (100.0f / 120.0f);
+        u32 p = (g_tick / 120) % 13;   /* calibration sweep: raw ratio frame 0..480 step 40, 2 s each */
         g_cap = 100.0f;
+        g_value = (float)(p % 11) * 10.0f;   /* 0..100 step 10, 2 s each */
         g_show = 1.0f;
     }
     if (g_last_show != g_show) {
@@ -539,10 +564,33 @@ static void hud_frame(void) {
         g_last_show = g_show;
     }
     if (g_last_cap != g_cap) {
-        set_frame((void *)g_max, g_cap);
+        set_frame((void *)g_max, 100.0f);   /* bar width is fixed; the fill shows value / cap */
         g_last_cap = g_cap;
     }
-    if (g_last_value != g_value) {
+    if (DIRECT_FILL) {
+        /* The gauge's ratio animation slides the whole fill strip without clipping, so the
+         * fill pane (P_Gauge_01, centred on the base pane at x = -380, base width 160) is
+         * driven directly: scaled in X and moved so its left edge stays on the base's. */
+        u64 cl = ptr(g_bar, 0x80);
+        u64 arr = cl ? ptr(cl, 0x100) : 0;
+        if (arr) {
+            if (!g_fill_init) {
+                set_frame((void *)g_ratio, 473.0f);   /* pose where the fill sits on the base */
+                set_frame((void *)g_trace, 473.0f);
+                g_fill_init = 1;
+            }
+            float s = g_cap > 0.0f ? g_value / g_cap : 0.0f;
+            if (s < 0.0f) s = 0.0f;
+            if (s > 1.0f) s = 1.0f;
+            u64 f = arr + 17 * 0xB0;
+            *(float *)(f + 0x60) = s * 0.908f;   /* full fill = base width (measured) */
+            *(float *)(f + 0x64) = 1.0f;
+            *(float *)(f + 0x6C) = -380.0f;      /* panes are left-anchored: same x as the base */
+            *(float *)(f + 0x70) = 0.0f;
+            *(u32 *)f |= 0x6F;
+        }
+        g_last_value = g_value;
+    } else if (g_last_value != g_value) {
         u64 transform = ptr(g_ratio, 0x20);
         float length = (float)*(u32 *)(ptr(transform, 0) + 0x28);
         float frame = length - g_value;

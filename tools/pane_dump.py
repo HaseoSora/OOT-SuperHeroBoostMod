@@ -11,10 +11,10 @@ def q(c, a): return struct.unpack("<Q", rd(c, a, 8))[0]
 def main():
     syms = symbols()
     env = dict(os.environ, EDEN_NX2_DEBUG_SERVER=f"127.0.0.1:{PORT}")
-    p = subprocess.Popen([str(FRITCHII / "lichii.exe"), "-g", str(GAME)], cwd=str(FRITCHII), env=env)
+    pr = subprocess.Popen([str(FRITCHII / "lichii.exe"), "-g", str(GAME)], cwd=str(FRITCHII), env=env)
     try:
         from lib.winmove import move_to_secondary
-        move_to_secondary(p.pid)
+        move_to_secondary(pr.pid)
         c = DebugClient(port=PORT, timeout=10)
         wait_for_status(c)
         time.sleep(35)
@@ -106,7 +106,7 @@ def main():
         png, w, h = c.screenshot()
         open(os.path.join(os.path.dirname(__file__), "..", "build", "pane_dump.png"), "wb").write(png)
     finally:
-        p.kill()
+        pass
 
 main()
 

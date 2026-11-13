@@ -138,10 +138,10 @@ static void extend_pools(u8 *root, u32 add) {
     }
 }
 
-#define TXT_N 2
+#define TXT_N 4   /* two fields (clock, rupees) x two panes: the text is written to the hidden one */
 static const char g_font_normal[] = "Normal";
-static char g_tnames[TXT_N][16] = {"T_OotClk_00", "T_OotRup_00"};
-static const u64 g_thash[TXT_N] = {HASH_TXT0, HASH_TXT1};
+static char g_tnames[TXT_N][16] = {"T_OotClk_00", "T_OotRup_00", "T_OotClk_01", "T_OotRup_01"};
+static const u64 g_thash[TXT_N] = {HASH_TXT0, HASH_TXT1, HASH_TXT2, HASH_TXT3};
 #define PIC_N 2
 static char g_pinames[PIC_N][16] = {"P_OotBg_00", "P_OotBg_01"};
 static const u64 g_pihash[PIC_N] = {HASH_PIC0, HASH_PIC1};
@@ -257,7 +257,7 @@ static u8 *build_root(const u8 *r) {
             *(u32 *)(cd + 40) = 0;
             *(u32 *)(cd + 52) = npane + t + 1;
             *(float *)(cd + 28) = HUD_X + 40.0f;
-            *(float *)(cd + 32) = t ? HUD_Y_RUPEE : HUD_Y_CLOCK;
+            *(float *)(cd + 32) = (t & 1) ? HUD_Y_RUPEE : HUD_Y_CLOCK;
             *(unsigned short *)(cd + 0x3c) = (unsigned short)(nb + t);
             *(unsigned short *)(cd + 0x42) = (unsigned short)(nt + t);
             if (!tbl_add(root, 0x20, g_tnames[t], cd, g_thash[t]) || !tbl_add(root, 0x40, g_tnames[t], bd, g_thash[t]) ||
@@ -602,35 +602,46 @@ static void drive_segs(void) {
 
 /* ---- clock / rupee text panes ---- */
 u64 g_txt_dbg[8] = {MARK, MARK, MARK, MARK, MARK, MARK, MARK, MARK};
-static char g_tbuf[2][2][16];   /* [pane][flip][text]: ASCII, the engine's setter takes 8-bit text + byte length */
-static u32 g_tflip[2];
+static char g_tbuf[4][16];      /* ASCII: the engine's text setter takes 8-bit text + byte length */
 static char g_tlast[2][16];
-static float g_tpx[2], g_tpy[2];
-static void put_text(u64 frame, u32 t, const char *ascii, float x, float y) {
-    u64 rec = pane_record(frame, g_tnames[t]);
-    g_txt_dbg[t] = MARK | rec;
-    if (!rec) return;
-    if (g_tpx[t] != x || g_tpy[t] != y) {
-        *(float *)(rec + 0x6C) = x; *(float *)(rec + 0x70) = y;
-        *(u32 *)rec |= 0x6F;
-        g_tpx[t] = x; g_tpy[t] = y;
+static u32 g_tfront[2], g_tpend[2], g_twait[2], g_tinit[2];
+/* Setting the text of a pane leaves it blank for a frame. Each field has two panes: the new text goes to the
+ * hidden one, and after it has been drawn a few frames the two swap (shown = Y scale 0.5, hidden = 0). */
+static void pane_vis(u64 rec, int on) {
+    *(float *)(rec + 0x64) = on ? 0.5f : 0.0f;
+    *(u32 *)rec |= 0x6F;
+}
+static void put_text(u64 frame, u32 f, const char *ascii, float x, float y) {
+    u64 rf = pane_record(frame, g_tnames[f + 2 * g_tfront[f]]);
+    u64 rb = pane_record(frame, g_tnames[f + 2 * (g_tfront[f] ^ 1)]);
+    g_txt_dbg[f] = MARK | rf;
+    if (!rf || !rb) return;
+    if (!g_tinit[f]) {
+        *(float *)(rf + 0x6C) = x; *(float *)(rf + 0x70) = y;
+        *(float *)(rb + 0x6C) = x; *(float *)(rb + 0x70) = y;
+        pane_vis(rf, 1); pane_vis(rb, 0);
+        g_tinit[f] = 1;
+    }
+    if (g_tpend[f]) {
+        if (++g_twait[f] >= 4) {
+            pane_vis(rb, 1); pane_vis(rf, 0);
+            g_tfront[f] ^= 1; g_tpend[f] = 0;
+        }
+        return;
     }
     u32 n = 0;
     while (ascii[n] && n < 15) n++;
     int same = 1;
-    for (u32 i = 0; i <= n; i++) if (g_tlast[t][i] != ascii[i]) same = 0;
+    for (u32 i = 0; i <= n; i++) if (g_tlast[f][i] != ascii[i]) same = 0;
     if (same) return;
-    /* the renderer may read the text at any time: write the new text into the spare buffer and switch to it,
-     * so the buffer the engine points at is never half-written */
-    u32 f = g_tflip[t] ^ 1;
-    char *dst = g_tbuf[t][f];
+    char *dst = g_tbuf[f + 2 * (g_tfront[f] ^ 1)];
     for (u32 i = 0; i < n; i++) dst[i] = ascii[i];
     dst[n] = 0;
     struct { const void *s; u32 len, z; long long m1; } ref = {dst, n, 0, -1};
-    set_text((void *)rec, &ref, 0);
-    g_tflip[t] = f;
-    for (u32 i = 0; i <= n; i++) g_tlast[t][i] = ascii[i];
-    g_txt_dbg[2 + t] += 1;
+    set_text((void *)rb, &ref, 0);
+    g_tpend[f] = 1; g_twait[f] = 0;
+    for (u32 i = 0; i <= n; i++) g_tlast[f][i] = ascii[i];
+    g_txt_dbg[2 + f] += 1;
 }
 u32 g_clk_dbg[4];   /* 0 GameData seconds, 1 world-object seconds */
 static int world_seconds(void) {

@@ -288,6 +288,7 @@ def main() -> int:
         "".join(f"#define HASH_PART{i} {city_hash64(n.encode())}ull\n" for i, n in enumerate(names))
         + "".join(f"#define HASH_TXT{i} {city_hash64(n.encode())}ull\n"
                   for i, n in enumerate(("T_OotClk_00", "T_OotRup_00", "T_OotClk_01", "T_OotRup_01")))
+        + f"#define HASH_NUM {city_hash64(b'Pa_OotNum_00')}ull\n"
         + "".join(f"#define HASH_PIC{i} {city_hash64(n.encode())}ull\n"
                   for i, n in enumerate(("P_OotBg_00", "P_OotBg_01", "P_OotIc_00", "P_OotIc_01"))),
         encoding="ascii")

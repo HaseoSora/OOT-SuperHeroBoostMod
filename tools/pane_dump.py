@@ -18,7 +18,7 @@ def main():
         c = DebugClient(port=PORT, timeout=10)
         wait_for_status(c)
         time.sleep(35)
-        for _ in range(4):
+        for _ in range(3):
             c.input([{"buttons": ["A"], "frames": 20}]); time.sleep(6)
         time.sleep(30)
         mb = log_addr("main")

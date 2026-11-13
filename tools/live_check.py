@@ -202,8 +202,8 @@ def main() -> int:
         for i in range(args.shots):
             png, _, _ = c.screenshot()
             (ROOT / "build" / f"live_s{i}.png").write_bytes(png)
-            if "g_value" in syms:
-                print(f"   shot {i}: g_value {struct.unpack('<f', read_sym('g_value', 4))[0]}")
+            if "g_num_phase" in syms:
+                print(f"   shot {i}: phase {struct.unpack('<I', read_sym('g_num_phase', 4))[0]}")
             time.sleep(args.shot_gap)
         time.sleep(args.linger)  # let the game keep running after the inputs
         png, w, h = c.screenshot()
@@ -220,9 +220,9 @@ def main() -> int:
             print("gauge anim lengths ratio/max/trace:", struct.unpack("<3I", read_sym("g_len", 12)))
         if "g_pl" in syms:
             n = struct.unpack("<I", read_sym("g_pl_n", 4))[0]
-            raw = read_sym("g_pl", 40 * 32)
+            raw = read_sym("g_pl", 160 * 32)
             print("prepare calls (inst / asset):")
-            for i in range(1, min(n, 40)):
+            for i in range(1, min(n, 160)):
                 e = raw[i * 32:(i + 1) * 32]
                 print("   ", e[:16].split(b"\0")[0].decode("latin1"), "/", e[16:].split(b"\0")[0].decode("latin1"))
         if "g_slot_log" in syms:
@@ -309,6 +309,33 @@ def main() -> int:
                     ob = bytes(c.read(obj, 0x1A0))
                     print("txt obj:", " ".join(f"{o:03x}={x:08x}" for o, x in zip(range(0, 0x1A0, 4), struct.unpack("<104I", ob)) if x))
                 print("txt pane record:", " ".join(f"{x:08x}" for x in struct.unpack("<44I", b)))
+        if "g_txt_dbg" in syms:
+            dd = struct.unpack("<8Q", read_sym("g_txt_dbg", 64))
+            part = dd[4] - 0x1000000000000000
+            print("num part:", hex(part))
+            pp = dd[5] - 0x1000000000000000
+            if 0x10000 < pp < 0x1000000000000:
+                print("  part pane rec", " ".join(f"{x:08x}" for x in struct.unpack("<44I", bytes(c.read(pp, 0xB0)))))
+            if 0x10000 < part < 0x1000000000000:
+                def rq(a): return struct.unpack("<Q", bytes(c.read(a, 8)))[0]
+                cl = rq(part + 0x80)
+                if cl:
+                    croot = rq(cl + 0xF8); cnt = struct.unpack("<H", bytes(c.read(cl + 0x13C, 2)))[0]
+                    print("  child layout", hex(cl), "panes", cnt, "asset", bytes(c.read(rq(croot + 0x18), 24)).split(bytes(1))[0])
+                    cn = rq(croot + 0x20); carr = rq(cl + 0x100)
+                    for want in ("N_InOut_00", "P_NumBase_00", "T_Num_00"):
+                        for i in range(cnt):
+                            nm = bytes(c.read(rq(cn + i * 8), 40)).split(bytes(1))[0].decode(errors="replace")
+                            if nm == want:
+                                rec = bytes(c.read(carr + i * 0xB0, 0xB0))
+                                print("   rec", want, " ".join(f"{x:08x}" for x in struct.unpack("<44I", rec)))
+                    for i in range(min(cnt, 60)):
+                        nm = bytes(c.read(rq(cn + i * 8), 40)).split(bytes(1))[0].decode(errors="replace")
+                        rec = bytes(c.read(carr + i * 0xB0, 0xB0))
+                        sx, sy = struct.unpack_from("<ff", rec, 0x60); px, py = struct.unpack_from("<ff", rec, 0x6C)
+                        print(f"   c{i:2d} {nm:24s} flags={struct.unpack_from('<I', rec, 0)[0]:#010x} scale=({sx:.2f},{sy:.2f}) pos=({px:.0f},{py:.0f})")
+        if "g_num_dbg" in syms:
+            print("num anims found (In,Out,Number,NumMax,NumMin,PosPattern,IsTotalVisible,ChangePattern,ControlType,FlushIn):", struct.unpack("<10I", read_sym("g_num_dbg", 40)))
         if "g_hp_dbg" in syms:
             print("enemy hp scaling (n, cur before, max before, max after):", struct.unpack("<4I", read_sym("g_hp_dbg", 16)),
                   "link damage scalings:", struct.unpack("<I", read_sym("g_dmg_dbg", 4))[0])

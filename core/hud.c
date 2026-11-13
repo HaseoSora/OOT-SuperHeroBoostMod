@@ -48,7 +48,7 @@ static const char CIRCLE_TEX[] = "Circle64_00";
  * parts 1..4 are the slot circles: the gauge's fill texture is replaced by the
  * stock Circle64_00 and the gauge is kept full, so it draws a tinted circle. The
  * art is a placeholder until the real assets arrive. */
-#define PART_N 32   /* >1 does not work: only one appended part is built (see docs/RE-NOTES.md) */
+#define PART_N 128   /* >1 does not work: only one appended part is built (see docs/RE-NOTES.md) */
 #define APPEND_ALL 1   /* 1 = append every part (only the first one gets listed by the
                         * engine); 0 = parts 1.. repurpose filler parts (froze the game) */
 #define SLOT_N 4
@@ -57,13 +57,12 @@ static const char CIRCLE_TEX[] = "Circle64_00";
 #endif
 
 #define RING_SIZE 0.34f   /* whole-ring scale (part scale) */
-#define GEO_N 16   /* sides of the polygon */
-#define SEG_N 32   /* ring segments = appended gauge parts */
+#define SEG_N 128   /* ring segments = appended gauge parts */
 static const char *part_replaces(u32 i);
 /* names live in .data as char arrays (no pointer tables: the module has no relocations) */
-static char g_pnames[SEG_N][16] = {"Pa_OotSeg_00", "Pa_OotSeg_01", "Pa_OotSeg_02", "Pa_OotSeg_03", "Pa_OotSeg_04", "Pa_OotSeg_05", "Pa_OotSeg_06", "Pa_OotSeg_07", "Pa_OotSeg_08", "Pa_OotSeg_09", "Pa_OotSeg_10", "Pa_OotSeg_11", "Pa_OotSeg_12", "Pa_OotSeg_13", "Pa_OotSeg_14", "Pa_OotSeg_15", "Pa_OotSeg_16", "Pa_OotSeg_17", "Pa_OotSeg_18", "Pa_OotSeg_19", "Pa_OotSeg_20", "Pa_OotSeg_21", "Pa_OotSeg_22", "Pa_OotSeg_23", "Pa_OotSeg_24", "Pa_OotSeg_25", "Pa_OotSeg_26", "Pa_OotSeg_27", "Pa_OotSeg_28", "Pa_OotSeg_29", "Pa_OotSeg_30", "Pa_OotSeg_31"};
-static char g_anames[SEG_N][16] = {"PaOotSeg_00", "PaOotSeg_01", "PaOotSeg_02", "PaOotSeg_03", "PaOotSeg_04", "PaOotSeg_05", "PaOotSeg_06", "PaOotSeg_07", "PaOotSeg_08", "PaOotSeg_09", "PaOotSeg_10", "PaOotSeg_11", "PaOotSeg_12", "PaOotSeg_13", "PaOotSeg_14", "PaOotSeg_15", "PaOotSeg_16", "PaOotSeg_17", "PaOotSeg_18", "PaOotSeg_19", "PaOotSeg_20", "PaOotSeg_21", "PaOotSeg_22", "PaOotSeg_23", "PaOotSeg_24", "PaOotSeg_25", "PaOotSeg_26", "PaOotSeg_27", "PaOotSeg_28", "PaOotSeg_29", "PaOotSeg_30", "PaOotSeg_31"};
-static const u64 g_phash[SEG_N] = {HASH_PART0, HASH_PART1, HASH_PART2, HASH_PART3, HASH_PART4, HASH_PART5, HASH_PART6, HASH_PART7, HASH_PART8, HASH_PART9, HASH_PART10, HASH_PART11, HASH_PART12, HASH_PART13, HASH_PART14, HASH_PART15, HASH_PART16, HASH_PART17, HASH_PART18, HASH_PART19, HASH_PART20, HASH_PART21, HASH_PART22, HASH_PART23, HASH_PART24, HASH_PART25, HASH_PART26, HASH_PART27, HASH_PART28, HASH_PART29, HASH_PART30, HASH_PART31};
+static char g_pnames[SEG_N][16] = {"Pa_OotSeg_000", "Pa_OotSeg_001", "Pa_OotSeg_002", "Pa_OotSeg_003", "Pa_OotSeg_004", "Pa_OotSeg_005", "Pa_OotSeg_006", "Pa_OotSeg_007", "Pa_OotSeg_008", "Pa_OotSeg_009", "Pa_OotSeg_010", "Pa_OotSeg_011", "Pa_OotSeg_012", "Pa_OotSeg_013", "Pa_OotSeg_014", "Pa_OotSeg_015", "Pa_OotSeg_016", "Pa_OotSeg_017", "Pa_OotSeg_018", "Pa_OotSeg_019", "Pa_OotSeg_020", "Pa_OotSeg_021", "Pa_OotSeg_022", "Pa_OotSeg_023", "Pa_OotSeg_024", "Pa_OotSeg_025", "Pa_OotSeg_026", "Pa_OotSeg_027", "Pa_OotSeg_028", "Pa_OotSeg_029", "Pa_OotSeg_030", "Pa_OotSeg_031", "Pa_OotSeg_032", "Pa_OotSeg_033", "Pa_OotSeg_034", "Pa_OotSeg_035", "Pa_OotSeg_036", "Pa_OotSeg_037", "Pa_OotSeg_038", "Pa_OotSeg_039", "Pa_OotSeg_040", "Pa_OotSeg_041", "Pa_OotSeg_042", "Pa_OotSeg_043", "Pa_OotSeg_044", "Pa_OotSeg_045", "Pa_OotSeg_046", "Pa_OotSeg_047", "Pa_OotSeg_048", "Pa_OotSeg_049", "Pa_OotSeg_050", "Pa_OotSeg_051", "Pa_OotSeg_052", "Pa_OotSeg_053", "Pa_OotSeg_054", "Pa_OotSeg_055", "Pa_OotSeg_056", "Pa_OotSeg_057", "Pa_OotSeg_058", "Pa_OotSeg_059", "Pa_OotSeg_060", "Pa_OotSeg_061", "Pa_OotSeg_062", "Pa_OotSeg_063", "Pa_OotSeg_064", "Pa_OotSeg_065", "Pa_OotSeg_066", "Pa_OotSeg_067", "Pa_OotSeg_068", "Pa_OotSeg_069", "Pa_OotSeg_070", "Pa_OotSeg_071", "Pa_OotSeg_072", "Pa_OotSeg_073", "Pa_OotSeg_074", "Pa_OotSeg_075", "Pa_OotSeg_076", "Pa_OotSeg_077", "Pa_OotSeg_078", "Pa_OotSeg_079", "Pa_OotSeg_080", "Pa_OotSeg_081", "Pa_OotSeg_082", "Pa_OotSeg_083", "Pa_OotSeg_084", "Pa_OotSeg_085", "Pa_OotSeg_086", "Pa_OotSeg_087", "Pa_OotSeg_088", "Pa_OotSeg_089", "Pa_OotSeg_090", "Pa_OotSeg_091", "Pa_OotSeg_092", "Pa_OotSeg_093", "Pa_OotSeg_094", "Pa_OotSeg_095", "Pa_OotSeg_096", "Pa_OotSeg_097", "Pa_OotSeg_098", "Pa_OotSeg_099", "Pa_OotSeg_100", "Pa_OotSeg_101", "Pa_OotSeg_102", "Pa_OotSeg_103", "Pa_OotSeg_104", "Pa_OotSeg_105", "Pa_OotSeg_106", "Pa_OotSeg_107", "Pa_OotSeg_108", "Pa_OotSeg_109", "Pa_OotSeg_110", "Pa_OotSeg_111", "Pa_OotSeg_112", "Pa_OotSeg_113", "Pa_OotSeg_114", "Pa_OotSeg_115", "Pa_OotSeg_116", "Pa_OotSeg_117", "Pa_OotSeg_118", "Pa_OotSeg_119", "Pa_OotSeg_120", "Pa_OotSeg_121", "Pa_OotSeg_122", "Pa_OotSeg_123", "Pa_OotSeg_124", "Pa_OotSeg_125", "Pa_OotSeg_126", "Pa_OotSeg_127"};
+static char g_anames[SEG_N][16] = {"PaOotSeg_000", "PaOotSeg_001", "PaOotSeg_002", "PaOotSeg_003", "PaOotSeg_004", "PaOotSeg_005", "PaOotSeg_006", "PaOotSeg_007", "PaOotSeg_008", "PaOotSeg_009", "PaOotSeg_010", "PaOotSeg_011", "PaOotSeg_012", "PaOotSeg_013", "PaOotSeg_014", "PaOotSeg_015", "PaOotSeg_016", "PaOotSeg_017", "PaOotSeg_018", "PaOotSeg_019", "PaOotSeg_020", "PaOotSeg_021", "PaOotSeg_022", "PaOotSeg_023", "PaOotSeg_024", "PaOotSeg_025", "PaOotSeg_026", "PaOotSeg_027", "PaOotSeg_028", "PaOotSeg_029", "PaOotSeg_030", "PaOotSeg_031", "PaOotSeg_032", "PaOotSeg_033", "PaOotSeg_034", "PaOotSeg_035", "PaOotSeg_036", "PaOotSeg_037", "PaOotSeg_038", "PaOotSeg_039", "PaOotSeg_040", "PaOotSeg_041", "PaOotSeg_042", "PaOotSeg_043", "PaOotSeg_044", "PaOotSeg_045", "PaOotSeg_046", "PaOotSeg_047", "PaOotSeg_048", "PaOotSeg_049", "PaOotSeg_050", "PaOotSeg_051", "PaOotSeg_052", "PaOotSeg_053", "PaOotSeg_054", "PaOotSeg_055", "PaOotSeg_056", "PaOotSeg_057", "PaOotSeg_058", "PaOotSeg_059", "PaOotSeg_060", "PaOotSeg_061", "PaOotSeg_062", "PaOotSeg_063", "PaOotSeg_064", "PaOotSeg_065", "PaOotSeg_066", "PaOotSeg_067", "PaOotSeg_068", "PaOotSeg_069", "PaOotSeg_070", "PaOotSeg_071", "PaOotSeg_072", "PaOotSeg_073", "PaOotSeg_074", "PaOotSeg_075", "PaOotSeg_076", "PaOotSeg_077", "PaOotSeg_078", "PaOotSeg_079", "PaOotSeg_080", "PaOotSeg_081", "PaOotSeg_082", "PaOotSeg_083", "PaOotSeg_084", "PaOotSeg_085", "PaOotSeg_086", "PaOotSeg_087", "PaOotSeg_088", "PaOotSeg_089", "PaOotSeg_090", "PaOotSeg_091", "PaOotSeg_092", "PaOotSeg_093", "PaOotSeg_094", "PaOotSeg_095", "PaOotSeg_096", "PaOotSeg_097", "PaOotSeg_098", "PaOotSeg_099", "PaOotSeg_100", "PaOotSeg_101", "PaOotSeg_102", "PaOotSeg_103", "PaOotSeg_104", "PaOotSeg_105", "PaOotSeg_106", "PaOotSeg_107", "PaOotSeg_108", "PaOotSeg_109", "PaOotSeg_110", "PaOotSeg_111", "PaOotSeg_112", "PaOotSeg_113", "PaOotSeg_114", "PaOotSeg_115", "PaOotSeg_116", "PaOotSeg_117", "PaOotSeg_118", "PaOotSeg_119", "PaOotSeg_120", "PaOotSeg_121", "PaOotSeg_122", "PaOotSeg_123", "PaOotSeg_124", "PaOotSeg_125", "PaOotSeg_126", "PaOotSeg_127"};
+static const u64 g_phash[SEG_N] = {HASH_PART0, HASH_PART1, HASH_PART2, HASH_PART3, HASH_PART4, HASH_PART5, HASH_PART6, HASH_PART7, HASH_PART8, HASH_PART9, HASH_PART10, HASH_PART11, HASH_PART12, HASH_PART13, HASH_PART14, HASH_PART15, HASH_PART16, HASH_PART17, HASH_PART18, HASH_PART19, HASH_PART20, HASH_PART21, HASH_PART22, HASH_PART23, HASH_PART24, HASH_PART25, HASH_PART26, HASH_PART27, HASH_PART28, HASH_PART29, HASH_PART30, HASH_PART31, HASH_PART32, HASH_PART33, HASH_PART34, HASH_PART35, HASH_PART36, HASH_PART37, HASH_PART38, HASH_PART39, HASH_PART40, HASH_PART41, HASH_PART42, HASH_PART43, HASH_PART44, HASH_PART45, HASH_PART46, HASH_PART47, HASH_PART48, HASH_PART49, HASH_PART50, HASH_PART51, HASH_PART52, HASH_PART53, HASH_PART54, HASH_PART55, HASH_PART56, HASH_PART57, HASH_PART58, HASH_PART59, HASH_PART60, HASH_PART61, HASH_PART62, HASH_PART63, HASH_PART64, HASH_PART65, HASH_PART66, HASH_PART67, HASH_PART68, HASH_PART69, HASH_PART70, HASH_PART71, HASH_PART72, HASH_PART73, HASH_PART74, HASH_PART75, HASH_PART76, HASH_PART77, HASH_PART78, HASH_PART79, HASH_PART80, HASH_PART81, HASH_PART82, HASH_PART83, HASH_PART84, HASH_PART85, HASH_PART86, HASH_PART87, HASH_PART88, HASH_PART89, HASH_PART90, HASH_PART91, HASH_PART92, HASH_PART93, HASH_PART94, HASH_PART95, HASH_PART96, HASH_PART97, HASH_PART98, HASH_PART99, HASH_PART100, HASH_PART101, HASH_PART102, HASH_PART103, HASH_PART104, HASH_PART105, HASH_PART106, HASH_PART107, HASH_PART108, HASH_PART109, HASH_PART110, HASH_PART111, HASH_PART112, HASH_PART113, HASH_PART114, HASH_PART115, HASH_PART116, HASH_PART117, HASH_PART118, HASH_PART119, HASH_PART120, HASH_PART121, HASH_PART122, HASH_PART123, HASH_PART124, HASH_PART125, HASH_PART126, HASH_PART127};
 static const char *part_name(u32 i) { return g_pnames[i % SEG_N]; }
 static u64 part_hash(u32 i) { return g_phash[i % SEG_N]; }
 __attribute__((unused, noinline)) static const char *part_replaces(u32 i) { (void)i; return 0; }
@@ -76,7 +75,7 @@ static const float g_part_rgb[1][3] = {{0.30f, 0.85f, 0.25f}};   /* green */
 #define CIRCLE_CAP 40.0f
 
 /* -------- private allocation pool (bss, never freed) -------- */
-static u8 g_pool[0x300000] __attribute__((aligned(16)));
+static u8 g_pool[0x4C0000] __attribute__((aligned(16)));
 static u32 g_used;
 
 static void *pool_alloc(u32 n) {
@@ -211,7 +210,7 @@ static u8 *build_gauge(const u8 *r, u32 k) {
     }
     /* palette words (verified before touching): our tint instead of green */
     static const float YEL[3] = {1.0f, 0.85f, 0.10f};
-    const float *c = k >= GEO_N ? YEL : g_part_rgb[0];
+    const float *c = k >= 64 ? YEL : g_part_rgb[0];   /* second set (k >= 64 = RING1_N + RING2_N) is yellow */
     float *a = (float *)(out + 0x74D8);
     if (a[0] == 1.0f && a[1] == 1.0f && a[2] == 1.0f && a[3] == 1.0f) { a[0] = c[0]; a[1] = c[1]; a[2] = c[2]; }
     float *b = (float *)(out + 0x74E8);
@@ -224,7 +223,7 @@ static u8 *build_gauge(const u8 *r, u32 k) {
 }
 
 /* cache of replaced resources and the per-call config copies */
-static struct { const u8 *src; u8 *copy; u32 kind; } g_res[40];
+static struct { const u8 *src; u8 *copy; u32 kind; } g_res[140];
 static u32 g_res_n;
 static struct { void *handle; u8 config[0x100]; } g_calls[64];
 static u32 g_calls_n;
@@ -256,7 +255,7 @@ void *hud_prepare(void *handle, u8 *config) {
     for (i = 0; i < g_res_n; i++)
         if (g_res[i].src == r && g_res[i].kind == kind) { rep = g_res[i].copy; break; }
     if (i == g_res_n) {
-        if (g_res_n == 40) return config;
+        if (g_res_n == 140) return config;
         rep = kind == 1 ? build_root(r) : build_gauge(r, kind - 2);
         if (!rep) return config;
         g_res[i].src = r; g_res[i].copy = rep; g_res[i].kind = kind;
@@ -334,10 +333,17 @@ float g_pos_dbg[8];
  * to show the segment's share of the value. */
 /* octagon: side k is the bar of part k, tangent to a circle of apothem 190 (clockwise from the top).
  * Per side: container position (bar centre = apothem point, bar length 160) and rotation. */
-#define OCT_SX 0.4913f
-static const float OCT_X[GEO_N] = {141.73f, 203.65f, 234.57f, 229.77f, 190.00f, 121.30f, 34.14f, -58.23f, -141.73f, -203.65f, -234.57f, -229.77f, -190.00f, -121.30f, -34.14f, 58.23f};
-static const float OCT_Y[GEO_N] = {190.00f, 121.30f, 34.14f, -58.23f, -141.73f, -203.65f, -234.57f, -229.77f, -190.00f, -121.30f, -34.14f, 58.23f, 141.73f, 203.65f, 234.57f, 229.77f};
-static const float OCT_R[GEO_N] = {0.00000f, -0.39270f, -0.78540f, -1.17810f, -1.57080f, -1.96350f, -2.35619f, -2.74889f, -3.14159f, -3.53429f, -3.92699f, -4.31969f, -4.71239f, -5.10509f, -5.49779f, -5.89049f};
+#define RING1_N 30
+#define RING2_N 34
+#define SET_N 64   /* segments per colour set */
+#define RING_SX1 0.1951f
+#define RING_SX2 0.2429f
+#define BAR_T1 1.6f           /* main ring fill thickness factor (natural height 32) */
+#define BAR_T2 1.0f           /* outer ring: thinner */
+#define BORDER_W 12.0f       /* dark border, outward only (no black lines inside the ring) */
+static const float OCT_X[64] = {58.53f, 82.20f, 102.28f, 117.89f, 128.34f, 133.19f, 132.21f, 125.46f, 113.22f, 96.04f, 74.66f, 50.01f, 23.18f, -4.67f, -32.31f, -58.53f, -82.20f, -102.28f, -117.89f, -128.34f, -133.19f, -132.21f, -125.46f, -113.22f, -96.04f, -74.66f, -50.01f, -23.18f, 4.67f, 32.31f, 72.87f, 106.47f, 136.44f, 161.77f, 181.59f, 195.22f, 202.21f, 202.30f, 195.52f, 182.07f, 162.42f, 137.24f, 107.39f, 73.88f, 37.85f, 0.54f, -36.79f, -72.87f, -106.47f, -136.44f, -161.77f, -181.59f, -195.22f, -202.21f, -202.30f, -195.52f, -182.07f, -162.42f, -137.24f, -107.39f, -73.88f, -37.85f, -0.54f, 36.79f};
+static const float OCT_Y[64] = {120.00f, 105.21f, 85.82f, 62.68f, 36.80f, 9.31f, -18.59f, -45.67f, -70.76f, -92.75f, -110.69f, -123.80f, -131.49f, -133.43f, -129.55f, -120.00f, -105.21f, -85.82f, -62.68f, -36.80f, -9.31f, 18.59f, 45.67f, 70.76f, 92.75f, 110.69f, 123.80f, 131.49f, 133.43f, 129.55f, 189.60f, 172.98f, 150.47f, 122.84f, 91.02f, 56.11f, 19.28f, -18.20f, -55.07f, -90.06f, -121.98f, -149.74f, -172.41f, -189.21f, -199.56f, -203.12f, -199.76f, -189.60f, -172.98f, -150.47f, -122.84f, -91.02f, -56.11f, -19.28f, 18.20f, 55.07f, 90.06f, 121.98f, 149.74f, 172.41f, 189.21f, 199.56f, 203.12f, 199.76f};
+static const float OCT_R[64] = {0.00000f, -0.20944f, -0.41888f, -0.62832f, -0.83776f, -1.04720f, -1.25664f, -1.46608f, -1.67552f, -1.88496f, -2.09440f, -2.30383f, -2.51327f, -2.72271f, -2.93215f, -3.14159f, -3.35103f, -3.56047f, -3.76991f, -3.97935f, -4.18879f, -4.39823f, -4.60767f, -4.81711f, -5.02655f, -5.23599f, -5.44543f, -5.65487f, -5.86431f, -6.07375f, 0.00000f, -0.18480f, -0.36960f, -0.55440f, -0.73920f, -0.92400f, -1.10880f, -1.29360f, -1.47840f, -1.66320f, -1.84800f, -2.03280f, -2.21759f, -2.40239f, -2.58719f, -2.77199f, -2.95679f, -3.14159f, -3.32639f, -3.51119f, -3.69599f, -3.88079f, -4.06559f, -4.25039f, -4.43519f, -4.61999f, -4.80479f, -4.98959f, -5.17439f, -5.35919f, -5.54399f, -5.72879f, -5.91359f, -6.09839f};
 typedef struct { u64 bar, ratio, max, trace, layout_arr, part_pane; u32 init; float l_fill, l_show; } Seg;
 static Seg g_seg[SEG_N];
 u32 g_seg_ok = 0x10000000u;
@@ -381,8 +387,8 @@ static u32 g_anchor_ok;
 u32 g_anchor_dbg[6] = {0x10000000u};
 #define ANCHOR_TAN_HALF_FOV 0.4663f   /* tan(25 deg): 50 deg vertical FOV */
 #define ANCHOR_ASPECT 1.7778f
-#define ANCHOR_SIDE 0.60f             /* metres to the camera's right of Link */
-#define ANCHOR_HEIGHT 0.90f           /* metres above his feet */
+#define ANCHOR_SIDE 0.54f             /* metres to the camera's right of Link */
+#define ANCHOR_HEIGHT 0.55f           /* metres above his feet */
 #define ANCHOR_REF_DIST 4.0f          /* camera radius at which the ring has RING_SIZE */
 
 static void anchor_update(void) {
@@ -429,9 +435,15 @@ static void anchor_update(void) {
     g_anchor_dbg[5] = (u32)(int)(g_anchor_y);
 }
 static void drive_segs(void) {
-    float frac = g_cap > 0.0f ? g_value / g_cap : 0.0f;
-    if (frac < 0.0f) frac = 0.0f;
-    if (frac > 1.0f) frac = 1.0f;
+    /* main ring: first 75 stamina (RING1_N segments); outer ring: what the 4th..20th hearts add,
+     * 2 segments per heart (RING2_N), only the segments the current hearts unlock are shown. */
+    float v1 = g_value < 75.0f ? g_value : 75.0f;
+    float lit1_all = v1 / 75.0f * (float)RING1_N;
+    float per2 = 75.0f / (float)RING2_N;                       /* stamina per outer segment */
+    int avail2 = (int)((g_cap - 75.0f) / per2 + 0.5f);
+    if (avail2 < 0) avail2 = 0;
+    if (avail2 > RING2_N) avail2 = RING2_N;
+    float lit2_all = g_value > 75.0f ? (g_value - 75.0f) / per2 : 0.0f;
     for (u32 k = 0; k < SEG_N; k++) {
         Seg *s = &g_seg[k];
         if (!s->bar) continue;
@@ -441,10 +453,14 @@ static void drive_segs(void) {
             set_frame((void *)s->trace, 473.0f);
             s->init = 1;
         }
-        float lit = frac * (float)GEO_N - (float)(k & 15);   /* 0..1 = this segment's fill */
+        u32 idx = k % SET_N;
+        u32 ring2 = idx >= RING1_N;
+        u32 j = ring2 ? idx - RING1_N : idx;
+        float lit = (ring2 ? lit2_all : lit1_all) - (float)j;   /* 0..1 = this segment's fill */
         if (lit < 0.0f) lit = 0.0f;
         if (lit > 1.0f) lit = 1.0f;
-        float show = (g_show > 0.5f && g_anchor_ok && ((k >= GEO_N) == (g_tired != 0))) ? 1.0f : 0.0f;   /* green set / yellow set */
+        int unlocked = !ring2 || (int)j < avail2;
+        float show = (g_show > 0.5f && g_anchor_ok && unlocked && ((k >= SET_N) == (g_tired != 0))) ? 1.0f : 0.0f;
         if (s->part_pane && g_anchor_ok) {   /* the whole ring moves with Link */
             u64 pp = s->part_pane;
             *(float *)(pp + 0x60) = g_anchor_s;
@@ -454,25 +470,28 @@ static void drive_segs(void) {
             *(u32 *)pp |= 0x6F;
         }
         u64 arr = s->layout_arr;
-        u64 c1 = arr + 1 * 0xB0;     /* container: spoke at angle k */
-        *(float *)(c1 + 0x60) = show * OCT_SX;
+        u64 c1 = arr + 1 * 0xB0;     /* container: bar tangent to its circle */
+        *(float *)(c1 + 0x60) = show * (ring2 ? RING_SX2 : RING_SX1);
         *(float *)(c1 + 0x64) = show;
-        *(float *)(c1 + 0x68) = OCT_R[k & 15];      /* radians, counter-clockwise positive */
-        *(float *)(c1 + 0x6C) = OCT_X[k & 15];
-        *(float *)(c1 + 0x70) = OCT_Y[k & 15];
-        *(u32 *)c1 |= 0x6F;        u64 f = arr + 17 * 0xB0;     /* fill */
-        *(float *)(f + 0x60) = lit * 0.908f;
-        *(float *)(f + 0x64) = 1.0f;
-        *(float *)(f + 0x6C) = -380.0f;
+        *(float *)(c1 + 0x68) = OCT_R[idx];      /* radians, counter-clockwise positive */
+        *(float *)(c1 + 0x6C) = OCT_X[idx];
+        *(float *)(c1 + 0x70) = OCT_Y[idx];
+        *(u32 *)c1 |= 0x6F;
+        u64 f = arr + 17 * 0xB0;     /* fill */
+        *(float *)(f + 0x60) = lit * 1.025f;   /* full fill = the base length (1.07 x 160) so no dark gaps at the joints */
+        float bt = ring2 ? BAR_T2 : BAR_T1;
+        *(float *)(f + 0x64) = bt;
+        *(float *)(f + 0x6C) = -380.0f - 5.6f;
         *(float *)(f + 0x70) = 0.0f;
         *(u32 *)f |= 0x6F;
-        /* dark base = border: taller and a bit longer than the fill, centred on it */
+        /* dark base: as thick as the fill plus a border that only sticks out OUTWARD (+y), so it never
+         * paints over the neighbouring lit segments inside the ring */
         for (u32 bi = 0; bi < 2; bi++) {
             u64 bp = arr + (u64)(11 + bi) * 0xB0;
             *(float *)(bp + 0x60) = show * 1.07f;
-            *(float *)(bp + 0x64) = show * 1.9f;
+            *(float *)(bp + 0x64) = show * (bt * 32.0f + BORDER_W) / 32.0f;
             *(float *)(bp + 0x6C) = -380.0f - 5.6f;
-            *(float *)(bp + 0x70) = 0.0f;
+            *(float *)(bp + 0x70) = BORDER_W * 0.5f;
             *(u32 *)bp |= 0x6F;
         }
         static const u32 HIDE[1] = {8};   /* gauge shadow window */

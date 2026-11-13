@@ -285,6 +285,9 @@ def main() -> int:
             print("action names seen:", [raw[i*24:(i+1)*24].split(b"\\0")[0].decode("latin1") for i in range(1, min(nn, 15) + 1)])
         if "g_link_life" in syms:
             print("link life value:", struct.unpack("<i", read_sym("g_link_life", 4))[0])
+        if "g_anchor_dbg" in syms:
+            a = struct.unpack("<6i", read_sym("g_anchor_dbg", 24))
+            print(f"anchor: updates {a[0]-0x10000000} cams {a[1]} vtmismatch {a[2]} dist {a[3]/100:.2f} screen ({a[4]},{a[5]})")
         if "g_stick_dbg" in syms:
             print("stick samples:", struct.unpack("<16i", read_sym("g_stick_dbg", 64)))
         if "g_wrap_entry" in syms:

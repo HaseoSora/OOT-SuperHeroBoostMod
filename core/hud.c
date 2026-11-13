@@ -338,7 +338,7 @@ float g_pos_dbg[8];
 static const float OCT_X[GEO_N] = {141.73f, 203.65f, 234.57f, 229.77f, 190.00f, 121.30f, 34.14f, -58.23f, -141.73f, -203.65f, -234.57f, -229.77f, -190.00f, -121.30f, -34.14f, 58.23f};
 static const float OCT_Y[GEO_N] = {190.00f, 121.30f, 34.14f, -58.23f, -141.73f, -203.65f, -234.57f, -229.77f, -190.00f, -121.30f, -34.14f, 58.23f, 141.73f, 203.65f, 234.57f, 229.77f};
 static const float OCT_R[GEO_N] = {0.00000f, -0.39270f, -0.78540f, -1.17810f, -1.57080f, -1.96350f, -2.35619f, -2.74889f, -3.14159f, -3.53429f, -3.92699f, -4.31969f, -4.71239f, -5.10509f, -5.49779f, -5.89049f};
-typedef struct { u64 bar, ratio, max, trace, layout_arr; u32 init; float l_fill, l_show; } Seg;
+typedef struct { u64 bar, ratio, max, trace, layout_arr, part_pane; u32 init; float l_fill, l_show; } Seg;
 static Seg g_seg[SEG_N];
 u32 g_seg_ok = 0x10000000u;
 
@@ -360,6 +360,7 @@ static void bind_segs(u64 parent) {
         u64 arr = cl ? ptr(cl, 0x100) : 0;
         if (!arr) continue;
         s->bar = bar; s->ratio = ratio; s->max = max; s->trace = trace; s->layout_arr = arr;
+        s->part_pane = pane_record(parent, part_name(k));
         s->l_fill = -1.0f; s->l_show = -1.0f;
         g_hud_dbg[2] = MARK | bar;
         ok++;
@@ -370,6 +371,63 @@ static void bind_segs(u64 parent) {
 static u32 g_tired;
 void hud_set_tired(u32 t) { g_tired = t; }
 
+/* ---- world anchor: project Link (beside his chest) to the screen like the native 3D-anchored UI ----
+ * Link: physics actor position f32[3] at actor+0x31C. Camera: view = [[[[CAMMGR]]+0x28]]+0x78 with
+ * CAMMGR = main+0x4C86BC0; matrix f32[3][4] row-major at view+0x08 (row0 right, row1 up, row2 back,
+ * translation in column 3; the camera looks along -row2). Layout units: 3596 x 2022 for 16:9. */
+extern u64 g_link_actor;
+static float g_anchor_x, g_anchor_y, g_anchor_s;
+static u32 g_anchor_ok;
+u32 g_anchor_dbg[6] = {0x10000000u};
+#define ANCHOR_TAN_HALF_FOV 0.4663f   /* tan(25 deg): 50 deg vertical FOV */
+#define ANCHOR_ASPECT 1.7778f
+#define ANCHOR_SIDE 0.60f             /* metres to the camera's right of Link */
+#define ANCHOR_HEIGHT 0.90f           /* metres above his feet */
+#define ANCHOR_REF_DIST 4.0f          /* camera radius at which the ring has RING_SIZE */
+
+static void anchor_update(void) {
+    g_anchor_ok = 0;
+    if (g_link_actor == 1) return;
+    u64 base = (u64)MAIN_SCHED_VT - 0x4B05318ull;
+    u64 slot = *(volatile u64 *)(base + 0x4C86BC0ull);
+    if (!slot) return;
+    u64 mgr = *(volatile u64 *)slot;
+    if (!mgr) return;
+    g_anchor_dbg[1] = *(volatile u32 *)(mgr + 0x20);
+    if (*(volatile u32 *)(mgr + 0x20) == 0) return;
+    u64 cams = *(volatile u64 *)(mgr + 0x28);
+    if (!cams) return;
+    u64 cam0 = *(volatile u64 *)cams;
+    if (!cam0) return;
+    u64 view = *(volatile u64 *)(cam0 + 0x78);
+    if (!view) return;
+    if (*(volatile u64 *)view != base + 0x4BF8A88ull) { g_anchor_dbg[2]++; return; }
+    const volatile float *m = (const volatile float *)(view + 0x08);   /* rows at +0, +4, +8 floats (stride 4) */
+    const volatile float *pos = (const volatile float *)(g_link_actor + 0x31C);
+    float rx = m[0], ry = m[1], rz = m[2];
+    float px = pos[0] + rx * ANCHOR_SIDE;
+    float py = pos[1] + ANCHOR_HEIGHT + ry * ANCHOR_SIDE;
+    float pz = pos[2] + rz * ANCHOR_SIDE;
+    float xc = m[0] * px + m[1] * py + m[2] * pz + m[3];
+    float yc = m[4] * px + m[5] * py + m[6] * pz + m[7];
+    float zc = m[8] * px + m[9] * py + m[10] * pz + m[11];
+    float d = -zc;
+    g_anchor_dbg[3] = (u32)(int)(d * 100.0f);
+    if (d < 0.3f || d > 60.0f) return;
+    float nx = xc / (d * ANCHOR_TAN_HALF_FOV * ANCHOR_ASPECT);
+    float ny = yc / (d * ANCHOR_TAN_HALF_FOV);
+    if (nx < -1.3f || nx > 1.3f || ny < -1.3f || ny > 1.3f) return;
+    g_anchor_x = nx * 1798.0f;
+    g_anchor_y = ny * 1011.0f;
+    float sc = RING_SIZE * (ANCHOR_REF_DIST / d);
+    if (sc < 0.12f) sc = 0.12f;
+    if (sc > 0.9f) sc = 0.9f;
+    g_anchor_s = sc;
+    g_anchor_ok = 1;
+    g_anchor_dbg[0]++;
+    g_anchor_dbg[4] = (u32)(int)(g_anchor_x);
+    g_anchor_dbg[5] = (u32)(int)(g_anchor_y);
+}
 static void drive_segs(void) {
     float frac = g_cap > 0.0f ? g_value / g_cap : 0.0f;
     if (frac < 0.0f) frac = 0.0f;
@@ -386,7 +444,15 @@ static void drive_segs(void) {
         float lit = frac * (float)GEO_N - (float)(k & 15);   /* 0..1 = this segment's fill */
         if (lit < 0.0f) lit = 0.0f;
         if (lit > 1.0f) lit = 1.0f;
-        float show = (g_show > 0.5f && ((k >= GEO_N) == (g_tired != 0))) ? 1.0f : 0.0f;   /* green set / yellow set */
+        float show = (g_show > 0.5f && g_anchor_ok && ((k >= GEO_N) == (g_tired != 0))) ? 1.0f : 0.0f;   /* green set / yellow set */
+        if (s->part_pane && g_anchor_ok) {   /* the whole ring moves with Link */
+            u64 pp = s->part_pane;
+            *(float *)(pp + 0x60) = g_anchor_s;
+            *(float *)(pp + 0x64) = g_anchor_s;
+            *(float *)(pp + 0x6C) = g_anchor_x;
+            *(float *)(pp + 0x70) = g_anchor_y;
+            *(u32 *)pp |= 0x6F;
+        }
         u64 arr = s->layout_arr;
         u64 c1 = arr + 1 * 0xB0;     /* container: spoke at angle k */
         *(float *)(c1 + 0x60) = show * OCT_SX;
@@ -429,6 +495,7 @@ static void hud_frame(void) {
         g_frame_node = parent;
     }
     bind_segs(g_frame_node);
+    anchor_update();
     if (g_test_mode) {
         u32 p = (g_tick / 120) % 13;     /* demo sweep 0..100 until the game publishes */
         g_cap = 100.0f;

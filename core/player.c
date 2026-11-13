@@ -32,7 +32,7 @@ static u32 g_pending;
 static char g_prev[24];
 static char g_cur[24] = {'W', 'a', 'i', 't'};
 static char g_prev2[24], g_cur2[24];
-static u32 g_combat_frame;   /* last frame Link was in a combat-like state */   /* upper-body state name at player+0x34C (bow / slingshot) */
+static u32 g_combat_frame;   /* last frame a hostile enemy was near Link */   /* upper-body state name at player+0x34C (bow / slingshot) */
 u32 g_ev_count[8] = {0x10000000u};
 char g_names_seen[16][24] = {{1}};
 u32 g_names_n;
@@ -68,17 +68,47 @@ static void classify(const char *n) {
         g_pending |= PEV_ATTACK;
 }
 
+/* ---- combat = a hostile enemy close to Link ----
+ * Every physics actor passes through player_track each frame. An actor whose Life resource is named
+ * "Enemy_*" (friendly shopkeepers excluded), still alive, within ENEMY_RADIUS of Link marks combat;
+ * the state then lasts 5 seconds after the last such enemy (grace, like the original design). */
+#define ENEMY_RADIUS 20.0f
+u32 g_enemy_dbg[4] = {0x10000000u};        /* enemies seen, close ones, ... */
+float g_enemy_min2 = 1.0e8f;               /* squared distance of the nearest alive enemy seen (diagnostic) */
+static void enemy_check(u64 actor, u64 life, const char *n) {
+    if (!(n[0] == 'E' && n[1] == 'n' && n[2] == 'e' && n[3] == 'm' && n[4] == 'y' && n[5] == '_')) return;
+    if (starts(n, "Enemy_Scrub_Business")) return;          /* friendly shopkeeper */
+    g_enemy_dbg[0]++;
+    if (g_link_actor == 1) return;
+    u64 rec = rd(life, 0x1C10);
+    if (rec && *(volatile int *)(rec + 8) <= 0) return;      /* dead (ragdoll still updating) */
+    const volatile float *e = (const volatile float *)(actor + 0x31C);
+    const volatile float *l = (const volatile float *)(g_link_actor + 0x31C);
+    float dx = e[0] - l[0], dy = e[1] - l[1], dz = e[2] - l[2];
+    float d2 = dx * dx + dy * dy + dz * dz;
+    if (d2 < g_enemy_min2) g_enemy_min2 = d2;
+    if (d2 < ENEMY_RADIUS * ENEMY_RADIUS) {
+        g_enemy_dbg[1]++;
+        u32 f = hud_frame_count();
+        g_combat_frame = f ? f : 1;
+    }
+}
+
 void player_track(u64 actor) {
     if (!actor) return;
     u64 comp = rd(actor, 0x270);
     if (!comp) return;
     u64 life = rd(comp, 0x2B8);
     u64 pl = rd(comp, 0x358);
-    if (!life || !pl) return;
+    if (!life) return;
     u64 res = rd(life, 0x10);
     if (!res) return;
     const char *n = (const char *)(res + 0x58);
-    if (n[0] != 'P' || n[1] != 'l' || n[2] != 'a' || n[3] != 'y' || n[4] != 'e' || n[5] != 'r' || n[6]) return;
+    if (n[0] != 'P' || n[1] != 'l' || n[2] != 'a' || n[3] != 'y' || n[4] != 'e' || n[5] != 'r' || n[6]) {
+        enemy_check(actor, life, n);
+        return;
+    }
+    if (!pl) return;
     g_link_actor = actor;
     g_link_table = comp;
     g_link_player = pl;
@@ -103,9 +133,6 @@ void player_track(u64 actor) {
             classify(g_cur2);
         }
     }
-    if (starts(g_cur, "LockOn") || starts(g_cur, "Guard") || starts(g_cur, "Cut") || starts(g_cur, "Charge") ||
-        starts(g_cur, "Damage") || starts(g_cur2, "Bow"))
-        g_combat_frame = g_active_frame ? g_active_frame : 1;
     if (!eq(g_cur, g_prev)) {
         for (int i = 0; i < 24; i++) g_prev[i] = g_cur[i];
         classify(g_cur);
@@ -137,7 +164,7 @@ int player_active(void) {
 
 int player_max_life(void) { return g_link_maxlife; }
 
-/* combat-like state (targeting, guarding, sword moves, damage, bow) in the last 5 seconds */
+/* a hostile enemy was within ENEMY_RADIUS of Link in the last 5 seconds */
 int player_in_combat(void) {
     return g_combat_frame != 0 && (hud_frame_count() - g_combat_frame) < 300u;
 }

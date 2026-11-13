@@ -34,9 +34,8 @@ def cli(argv):
     ap.add_argument("--emu", required=True)
     ap.add_argument("--classic-dir", default="")
     ap.add_argument("--no-classic", action="store_true")
-    ap.add_argument("--classic-variant", default="", choices=["", "default", "playstation", "xbox"],
-                    help="download this Classic variant from its release page")
-    ap.add_argument("--classic-zip", default="", help="use a Classic zip downloaded by hand")
+    ap.add_argument("--classic-variant", default="default", choices=["default", "playstation", "xbox"],
+                    help="which Classic Item Slots v1.4.3 variant (bundled in the app)")
     ap.add_argument("--no-stamina", action="store_true")
     ap.add_argument("--preset", type=int, default=0)
     ap.add_argument("--off", default="", help="advanced: comma list of jump,attack,sprint,block,shoot,roll to disable")
@@ -47,8 +46,6 @@ def cli(argv):
     s = I.Settings(classic=not a.no_classic, stamina=not a.no_stamina, preset=a.preset, combat_only=a.combat_only,
                    **{k: k not in off for k in ("jump", "attack", "sprint", "block", "shoot", "roll")})
     cdir = Path(a.classic_dir) if a.classic_dir else None
-    if a.classic_zip:
-        cdir = I.classic_from_zip(Path(a.classic_zip))
     r = I.install(Path(a.emu), s, cdir, a.name, a.classic_variant, print)
     print("instalado en", r.target, "variante", r.variant)
     for n in r.notes:
@@ -108,10 +105,9 @@ def gui():
     ttk.Checkbutton(g, text="Classic Item Slots (botones B / L / R / ZR con objetos)", variable=v_classic,
                     command=lambda: refresh()).pack(anchor="w", padx=6, pady=2)
     crow = ttk.Frame(g); crow.pack(fill="x", padx=26, pady=(0, 4))
-    ttk.Label(crow, text="Versión de Classic:").pack(side="left")
-    SRC = ["Botones Switch (por defecto, se descarga)", "Botones PlayStation (se descarga)", "Botones Xbox (se descarga)",
-           "Usar el Classic que ya tengo instalado", "Elegir un .zip de Classic…"]
-    v_src = tk.IntVar(value=cfg.get("classic_src", 0))
+    ttk.Label(crow, text=f"Classic Item Slots v{I.CLASSIC_VERSION} (incluido):").pack(side="left")
+    SRC = list(I.CLASSIC_VARIANTS.values())            # Switch / PlayStation / Xbox (v1.4.3, included in this app)
+    v_src = tk.IntVar(value=min(cfg.get("classic_src", 0), 2))
     src_box = ttk.Combobox(crow, state="readonly", values=SRC, width=44)
     src_box.current(v_src.get()); src_box.pack(side="left", padx=6)
     src_box.bind("<<ComboboxSelected>>", lambda e: v_src.set(src_box.current()))
@@ -154,22 +150,8 @@ def gui():
             e = Path(emu.get().strip())
             if not e.exists():
                 raise FileNotFoundError("Elige la carpeta del emulador.")
-            cl, variant = None, ""
-            if v_classic.get():
-                i = v_src.get()
-                if i < 3:
-                    variant = ["default", "playstation", "xbox"][i]
-                    status.set("Descargando Classic Item Slots (solo la primera vez)…"); root.update_idletasks()
-                elif i == 3:
-                    mods = I.find_mods_dir(e)
-                    cl = I.find_classic(mods) if mods else None
-                    if not cl:
-                        raise FileNotFoundError("No encuentro un Classic Item Slots original en tus mods.")
-                else:
-                    zp = filedialog.askopenfilename(title="Zip de Classic Item Slots", filetypes=[("Zip", "*.zip")])
-                    if not zp:
-                        return
-                    cl = I.classic_from_zip(Path(zp))
+            variant = ["default", "playstation", "xbox"][v_src.get()] if v_classic.get() else ""
+            cl = None
             r = I.install(e, settings(), cl, I.MOD_NAME, variant, lambda m: (status.set(m), root.update_idletasks()))
             remember()
             msg = f"Instalado como mod '{r.target.name}' ({'con' if r.variant == 'classic' else 'sin'} Classic).\n\n" + "\n".join(r.notes)

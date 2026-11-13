@@ -290,6 +290,9 @@ def main() -> int:
         if "g_anchor_dbg" in syms:
             a = struct.unpack("<6i", read_sym("g_anchor_dbg", 24))
             print(f"anchor: updates {a[0]-0x10000000} cams {a[1]} vtmismatch {a[2]} dist {a[3]/100:.2f} screen ({a[4]},{a[5]})")
+        if "g_enemy_dbg" in syms:
+            ed = struct.unpack("<2I", read_sym("g_enemy_dbg", 8)); em = struct.unpack("<f", read_sym("g_enemy_min2", 4))[0] ** 0.5
+            print(f"enemies: seen {ed[0]-0x10000000} close {ed[1]} nearest alive {em:.1f}")
         if "g_stick_dbg" in syms:
             print("stick samples:", struct.unpack("<16i", read_sym("g_stick_dbg", 64)))
         if "g_wrap_entry" in syms:

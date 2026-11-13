@@ -8,7 +8,6 @@ import re
 import shutil
 import struct
 import sys
-import urllib.request
 import zipfile
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -143,9 +142,9 @@ def patch_config(nso: bytes, s: Settings) -> bytes:
     return bytes(b)
 
 
-# ---------- Classic Item Slots source (downloaded from its official release page, not shipped) ----------
-CLASSIC_REPO = "sonofsilvanus/OoTNS2-Classic-Item-Slots"
+# ---------- Classic Item Slots (version 1.4.3, bundled inside this app: three button-glyph variants) ----------
 CLASSIC_VARIANTS = {"default": "Botones Switch (por defecto)", "playstation": "Botones PlayStation", "xbox": "Botones Xbox"}
+CLASSIC_VERSION = "1.4.3"
 CACHE = Path(os.environ.get("APPDATA", str(Path.home()))) / "OotMasterConfig" / "classic"
 
 
@@ -156,42 +155,26 @@ def _find_classic_in(root: Path) -> Path | None:
     return None
 
 
-def fetch_classic(variant: str, log=lambda m: None) -> Path:
-    """Download (once) the chosen variant of Classic Item Slots from its GitHub release and return its folder."""
-    if variant not in CLASSIC_VARIANTS:
-        raise ValueError(variant)
-    hdr = {"User-Agent": "oot-master-config", "Accept": "application/vnd.github+json"}
-    log("Consultando la última versión de Classic Item Slots…")
-    rel = json.load(urllib.request.urlopen(urllib.request.Request(
-        f"https://api.github.com/repos/{CLASSIC_REPO}/releases/latest", headers=hdr), timeout=30))
-    tag = rel["tag_name"]
-    want = {"default": lambda n: not n.endswith(("-Xbox.zip", "-PlayStation.zip")),
-            "xbox": lambda n: n.endswith("-Xbox.zip"), "playstation": lambda n: n.endswith("-PlayStation.zip")}[variant]
-    asset = next(a for a in rel["assets"] if a["name"].endswith(".zip") and want(a["name"]))
-    dest = CACHE / f"{tag}-{variant}"
-    found = _find_classic_in(dest) if dest.exists() else None
-    if found:
-        return found
-    log(f"Descargando {asset['name']} ({asset['size'] // 1024} KB)…")
-    data = urllib.request.urlopen(urllib.request.Request(asset["browser_download_url"], headers=hdr), timeout=120).read()
-    shutil.rmtree(dest, ignore_errors=True)
-    dest.mkdir(parents=True)
-    zipfile.ZipFile(io.BytesIO(data)).extractall(dest)
-    found = _find_classic_in(dest)
-    if not found:
-        raise ValueError(f"La versión {tag} de Classic Item Slots cambió y esta app aún no la soporta.")
-    return found
-
-
 def classic_from_zip(zpath: Path) -> Path:
-    dest = CACHE / ("zip-" + hashlib.sha1(str(zpath).encode()).hexdigest()[:8])
-    shutil.rmtree(dest, ignore_errors=True)
-    dest.mkdir(parents=True)
-    zipfile.ZipFile(zpath).extractall(dest)
+    dest = CACHE / ("zip-" + hashlib.sha1((str(zpath) + str(zpath.stat().st_size)).encode()).hexdigest()[:10])
+    if not dest.exists() or not _find_classic_in(dest):
+        shutil.rmtree(dest, ignore_errors=True)
+        dest.mkdir(parents=True)
+        zipfile.ZipFile(zpath).extractall(dest)
     found = _find_classic_in(dest)
     if not found:
         raise ValueError("Ese .zip no contiene una versión compatible de Classic Item Slots.")
     return found
+
+
+def bundled_classic(variant: str) -> Path:
+    """Classic Item Slots v1.4.3, the chosen button-glyph variant, unpacked from the copy bundled in the app."""
+    if variant not in CLASSIC_VARIANTS:
+        raise ValueError(variant)
+    z = resource_dir() / "classic_src" / f"{variant}.zip"
+    if not z.exists():
+        raise FileNotFoundError(f"Esta copia de la app no trae la variante '{variant}' de Classic Item Slots.")
+    return classic_from_zip(z)
 
 
 # ---------- install ----------
@@ -216,7 +199,7 @@ def install(emu: Path, s: Settings, classic_dir: Path | None = None, name: str =
 
     if s.classic:
         if not classic_dir and classic_variant:
-            classic_dir = fetch_classic(classic_variant, log)       # official release, cached
+            classic_dir = bundled_classic(classic_variant)
         classic_dir = classic_dir or find_classic(mods)
         if not classic_dir:
             raise FileNotFoundError("Classic Item Slots está activado pero no encuentro sus archivos "

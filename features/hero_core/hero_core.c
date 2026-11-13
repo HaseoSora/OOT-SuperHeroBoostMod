@@ -56,7 +56,7 @@ int player_in_combat(void);
 /* Diagnostics read by tools/live_check.py (in .data so they are file-backed). */
 u64 g_hc_seen = 0x100000000ull;  /* OR of every button mask seen at site 3 (+base) */
 u32 g_hc_count = 0x10000000u;
-u32 g_hc_dbg[5] = {0x10000000u, 0x10000000u, 0x10000000u, 0x10000000u, 0x10000000u};   /* rolls, jumps, run frames, exhausted */
+u32 g_hc_dbg[6] = {0x10000000u, 0x10000000u, 0x10000000u, 0x10000000u, 0x10000000u, 0x10000000u};   /* rolls, jumps, run frames, exhausted */
 
 static StaminaState g_stamina;
 static StaminaConfig g_config;
@@ -247,6 +247,7 @@ void hero_core_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_result
             g_stamina.stamina += (g_exhausted ? TIRED_REGEN_PER_SEC : REGEN_PER_SEC) * dt;
         if (g_stamina.stamina > g_stamina.cap) g_stamina.stamina = g_stamina.cap;        if (g_stamina.stamina <= 0.0f) g_exhausted = 1;
         g_hc_dbg[3] = 0x10000000u + g_exhausted;
+        g_hc_dbg[5] = 0x10000000u + (u32)(player_in_combat() != 0);   /* diagnostic: in combat now */
 
         hud_set_tired(g_exhausted);
         hud_set_stamina(g_stamina.stamina, g_stamina.cap,

@@ -174,6 +174,12 @@ def main() -> int:
                 time.sleep(0.7)
                 if "g_stamina" in syms:
                     print("   stamina 0.7s later:", struct.unpack("<f", read_sym("g_stamina", 4))[0])
+                if "g_hc_dbg" in syms:
+                    dd = struct.unpack("<6I", read_sym("g_hc_dbg", 24))
+                    print(f"   combat {dd[5] - 0x10000000} exhausted {dd[3] - 0x10000000} counts rolls/jumps/runframes/attacks {dd[0]-0x10000000}/{dd[1]-0x10000000}/{dd[2]-0x10000000}/{dd[4]-0x10000000}")
+                if "g_ev" in syms:
+                    ev = struct.unpack("<5I", read_sym("g_ev", 20))
+                    print("   events roll/jump/attack/guard/shot", "/".join(str(x) for x in ev))
                 png0, _, _ = c.screenshot()
                 (ROOT / "build" / f"live_now{n}.png").write_bytes(png0)
                 time.sleep(2.5)   # let the game react before sampling counters
@@ -268,7 +274,7 @@ def main() -> int:
             cnt = struct.unpack("<I", read_sym("g_hc_count", 4))[0]
             print(f"hero_core: buttons seen at site 3 = {seen:#x}, sample count = {cnt:#x}")
         if "g_hc_dbg" in syms:
-            d = struct.unpack("<5I", read_sym("g_hc_dbg", 20))
+            d = struct.unpack("<6I", read_sym("g_hc_dbg", 24))
             print("hero_core rolls/jumps/run-frames/exhausted/attacks:", tuple(v - 0x10000000 for v in d))
         if "g_link_actor" in syms:
             la, lp = struct.unpack("<2Q", read_sym("g_link_actor", 16))

@@ -55,17 +55,18 @@ static int starts(const char *a, const char *p) {
     return 1;
 }
 
+u32 g_ev[5];   /* test counters: roll group, jump, attack, guard hit, shot (events seen, costed or not) */
 static void classify(const char *n) {
-    if (eq(n, "Rolling")) g_pending |= PEV_ROLL;
-    else if (starts(n, "CutHammer")) g_pending |= PEV_HAMMER;
-    else if (starts(n, "BowShoot") || starts(n, "SlingShoot") || starts(n, "SlingshotShoot")) g_pending |= PEV_SHOT;
-    else if (starts(n, "BoomerangThrow") || eq(n, "BoomerangSt")) g_pending |= PEV_BOOMERANG;
-    else if (eq(n, "SideStep")) g_pending |= PEV_SIDESTEP;
-    else if (starts(n, "BackFlip")) g_pending |= PEV_BACKFLIP;
-    else if (eq(n, "Jump")) g_pending |= PEV_JUMP;
-    else if (starts(n, "Guard") && has_hit(n)) g_pending |= PEV_GUARDHIT;
+    if (eq(n, "Rolling")) { g_pending |= PEV_ROLL; g_ev[0]++; }
+    else if (starts(n, "CutHammer")) { g_pending |= PEV_HAMMER; g_ev[2]++; }
+    else if (starts(n, "BowShoot") || starts(n, "SlingShoot") || starts(n, "SlingshotShoot")) { g_pending |= PEV_SHOT; g_ev[4]++; }
+    else if (starts(n, "BoomerangThrow") || eq(n, "BoomerangSt")) { g_pending |= PEV_BOOMERANG; g_ev[2]++; }
+    else if (eq(n, "SideStep")) { g_pending |= PEV_SIDESTEP; g_ev[0]++; }
+    else if (starts(n, "BackFlip")) { g_pending |= PEV_BACKFLIP; g_ev[0]++; }
+    else if (eq(n, "Jump")) { g_pending |= PEV_JUMP; g_ev[1]++; }
+    else if (starts(n, "Guard") && has_hit(n)) { g_pending |= PEV_GUARDHIT; g_ev[3]++; }
     else if (starts(n, "Cut") || starts(n, "ChargeAttack") || starts(n, "JumpCut") || starts(n, "Stab"))
-        g_pending |= PEV_ATTACK;
+        { g_pending |= PEV_ATTACK; g_ev[2]++; }
 }
 
 /* ---- combat = a hostile enemy close to Link ----

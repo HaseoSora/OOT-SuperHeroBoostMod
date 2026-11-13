@@ -13,8 +13,13 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import installer as I  # noqa: E402
 from i18n import LANGS, tr, system_lang  # noqa: E402
 
-CFG = Path(os.environ.get("APPDATA", str(Path.home()))) / "OotMasterConfig" / "settings.json"
 KEYS = ("jump", "attack", "sprint", "block", "shoot", "roll")
+
+def _cfg_paths():
+    """Settings live next to the exe (OotMasterConfig.json, portable); if that folder is read-only, in %APPDATA%."""
+    base = Path(sys.executable).parent if getattr(sys, "frozen", False) else Path(__file__).resolve().parent
+    return base / "OotMasterConfig.json", Path(os.environ.get("APPDATA", str(Path.home()))) / "OotMasterConfig" / "settings.json"
+
 
 # Zelda-flavoured palette: deep forest green, gold, parchment
 BG, PANEL, PANEL2 = "#10201a", "#1b3226", "#0c1712"
@@ -23,15 +28,23 @@ TEXT, DIM, RED = "#f2e8c9", "#a39a79", "#b8473a"
 
 
 def load_cfg():
-    try:
-        return json.loads(CFG.read_text(encoding="utf-8"))
-    except Exception:
-        return {}
+    for p in _cfg_paths():
+        try:
+            return json.loads(p.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+    return {}
 
 
 def save_cfg(d):
-    CFG.parent.mkdir(parents=True, exist_ok=True)
-    CFG.write_text(json.dumps(d, indent=1), encoding="utf-8")
+    for p in _cfg_paths():
+        try:
+            p.parent.mkdir(parents=True, exist_ok=True)
+            p.write_text(json.dumps(d, indent=1, ensure_ascii=False), encoding="utf-8")
+            return str(p)
+        except OSError:
+            continue
+    return ""
 
 
 def cli(argv):
@@ -120,6 +133,15 @@ def gui():
 
     for v in list(adv.values()) + [v_combat]:
         v.trace_add("write", remember_custom)
+    pending = {"id": None}
+
+    def autosave(*_):                       # every change is stored right away (small delay to batch clicks)
+        if pending["id"]:
+            root.after_cancel(pending["id"])
+        pending["id"] = root.after(250, lambda: remember())
+
+    for v in (lang, emu, v_classic, v_variant, v_stam, v_preset, v_combat, *adv.values()):
+        v.trace_add("write", autosave)
 
     def settings():
         p = v_preset.get()
@@ -128,7 +150,7 @@ def gui():
         return I.Settings(classic=v_classic.get(), stamina=v_stam.get(), preset=p, combat_only=co, **vals)
 
     def remember():
-        save_cfg({"lang": lang.get(), "emu": emu.get(), "classic": v_classic.get(), "variant": v_variant.get(),
+        return save_cfg({"lang": lang.get(), "emu": emu.get(), "classic": v_classic.get(), "variant": v_variant.get(),
                   "stamina": v_stam.get(), "preset": v_preset.get(), "custom": custom})
 
     # ---- small styled widgets ----

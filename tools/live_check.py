@@ -80,6 +80,8 @@ def main() -> int:
                     help="seconds after the last A before reading (save loading)")
     ap.add_argument("--load-a", type=int, default=4,
                     help="presses of A to load the save after boot (user's procedure)")
+    ap.add_argument("--shots", type=int, default=0, help="extra screenshots, 0.35 s apart")
+    ap.add_argument("--shot-gap", type=float, default=0.35)
     args = ap.parse_args()
 
     syms = symbols()
@@ -143,10 +145,12 @@ def main() -> int:
             return bytes(c.read(addr, size))
 
         BASE = 0x10000000
-        raw = struct.unpack("<5I", read_sym("g_probe_count", 20))
-        print("probe calls per site (raw):", tuple(v - BASE for v in raw))
-        rawslot = struct.unpack("<4I", read_sym("g_slot_count", 16))
-        print("slot calls per site (raw):", tuple(v - BASE for v in rawslot))
+        if "g_probe_count" in syms:
+            raw = struct.unpack("<5I", read_sym("g_probe_count", 20))
+            print("probe calls per site (raw):", tuple(v - BASE for v in raw))
+        if "g_slot_count" in syms:
+            rawslot = struct.unpack("<4I", read_sym("g_slot_count", 16))
+            print("slot calls per site (raw):", tuple(v - BASE for v in rawslot))
         if "g_stamina" in syms:
             s = read_sym("g_stamina", 4)
             print("stamina (first float):", struct.unpack("<f", s)[0])
@@ -158,6 +162,10 @@ def main() -> int:
                 btn, frames = step.split(":")
                 c.input([{"buttons": btn.split("+"), "frames": int(frames)}])   # e.g. ZL+B
                 print("press", btn, frames, "frames")
+                if "g_stamina" in syms:
+                    print("   stamina right after press:", struct.unpack("<f", read_sym("g_stamina", 4))[0])
+                png0, _, _ = c.screenshot()
+                (ROOT / "build" / f"live_now{n}.png").write_bytes(png0)
                 time.sleep(2.5)   # let the game react before sampling counters
                 if "g_slot_log_n" in syms:
                     k = struct.unpack("<I", read_sym("g_slot_log_n", 4))[0] - 0x10000000
@@ -169,6 +177,12 @@ def main() -> int:
             if before is not None:
                 print("stamina before:", struct.unpack("<f", before)[0],
                       "after:", struct.unpack("<f", after)[0])
+        for i in range(args.shots):
+            png, _, _ = c.screenshot()
+            (ROOT / "build" / f"live_s{i}.png").write_bytes(png)
+            if "g_value" in syms:
+                print(f"   shot {i}: g_value {struct.unpack('<f', read_sym('g_value', 4))[0]}")
+            time.sleep(args.shot_gap)
         time.sleep(args.linger)  # let the game keep running after the inputs
         png, w, h = c.screenshot()
         (ROOT / "build" / "live_last.png").write_bytes(png)
@@ -178,6 +192,15 @@ def main() -> int:
             names = ["mp", "frames", "bar", "ratio", "max", "trace", "root_clones",
                      "gauge_clones", "prepare_calls", "pane", "errors", "slots_bound"]
             print("hud:", {n: hex(v - 0x1000000000000000) for n, v in zip(names, d)})
+        if "g_len" in syms:
+            print("gauge anim lengths ratio/max/trace:", struct.unpack("<3I", read_sym("g_len", 12)))
+        if "g_pl" in syms:
+            n = struct.unpack("<I", read_sym("g_pl_n", 4))[0]
+            raw = read_sym("g_pl", 40 * 32)
+            print("prepare calls (inst / asset):")
+            for i in range(1, min(n, 40)):
+                e = raw[i * 32:(i + 1) * 32]
+                print("   ", e[:16].split(b"\0")[0].decode("latin1"), "/", e[16:].split(b"\0")[0].decode("latin1"))
         if "g_slot_log" in syms:
             n = struct.unpack("<I", read_sym("g_slot_log_n", 4))[0] - 0x10000000
             raw = read_sym("g_slot_log", 24 * 32)

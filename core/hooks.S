@@ -15,7 +15,7 @@
 
 /* WRAP_HOOK: transparent wrapper around a stock function. `dispatch` is the C
  * function that receives (id, a0, a1, a2, stock_result) after the stock call. */
-.macro WRAP_HOOK name, id, stock, dispatch, counter, got, pre
+.macro WRAP_HOOK name, id, stock, dispatch, counter, got, pre, stub
     .global \name
     .type \name, %function
 \name:
@@ -30,6 +30,9 @@
     add  x16, x16, :lo12:PLT0
     cmp  x17, x16
     b.ne 1f
+    .ifnb \stub
+    adrp x16, \got
+    .endif
     b    \stock
 1:
     .endif
@@ -67,6 +70,9 @@
     ldp x6, x7, [sp, #0x90]
     ldr x8, [sp, #0xA0]
     mov x2, x21
+    .endif
+    .ifnb \stub
+    adrp x16, \got
     .endif
     bl  \stock
     stp x0, x1, [sp, #0x60]
@@ -147,6 +153,11 @@ INPUT_HOOK hook_input1, 1, STOCK1, GOT1
 INPUT_HOOK hook_input2, 2, STOCK2, GOT2
 INPUT_HOOK hook_input3, 3, STOCK3, GOT3
 INPUT_HOOK hook_input4, 4, STOCK4, GOT4
+
+/* Compat build: the five call sites belong to another mod (Classic), so patch the shared PLT stub
+ * instead. Its first instruction (adrp x16, GOT3) becomes a branch here; the wrapper redoes the adrp
+ * and enters the stub at +4 (STOCK3B). */
+WRAP_HOOK hook_stub3, 3, STOCK3B, mod_on_input, g_wrap_entry, GOT3,, 1
 
 /* Function-entry hooks: the patched instruction was `pacibsp`. Save everything,
  * call mod_on_code(id, x0, x1, x2), restore, run pacibsp, resume at site+4. */

@@ -36,6 +36,7 @@ CODE_SITES = (
     (0x2B30DE0, "hook_code_frame", 0),   # per-frame scheduler update (x0 = scheduler)
     (0x33BDCE0, "hook_code_mp", 1),      # magic-gauge controller init (x0 = controller)
     (0x2D2D90, "hook_code_setframe", 3), # set_frame(anim, frame): observe UI animation frames
+    (0x2C215E0, "hook_code_move", 5),    # physics-actor movement update (x0 = actor), every frame
     (0x152F8F0, "hook_code_inst", 4),    # part instance creation (x1 layout, x2 pane): diagnostics
     (0x43A6F8, "hook_ui", 2),            # UI resource build (x0 = handle, x1 = config)
 )

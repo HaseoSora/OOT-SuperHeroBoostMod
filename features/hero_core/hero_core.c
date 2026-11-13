@@ -1,6 +1,7 @@
 #include "../../core/dispatch.h"
 #include "../../core/hid.h"
 #include "stamina.h"
+#include "../../core/config.h"
 
 /* hero_core: stamina. Behaviour replica, not Hero Core code.
  *
@@ -21,6 +22,7 @@ u32 player_take_events(void);
 int player_state_is(const char *name);
 int player_active(void);
 int player_max_life(void);
+int player_in_combat(void);
 
 /* Capacity: 75 (= 75% of the original 100) up to 3 hearts; every heart after the 3rd adds 75/17, so 20 hearts = 150. */
 #define STAMINA_BASE 75.0f
@@ -65,6 +67,25 @@ static u32 g_combat_hold;
 static u32 g_exhausted;
 static u32 g_last_frame;
 static u32 g_same_reads;
+
+/* ---- configuration (core/config.h, patched by the companion app) ---- */
+enum { K_JUMP, K_ATTACK, K_SPRINT, K_BLOCK, K_SHOOT, K_ROLL };
+static int combat_only_mode(void) {
+    return g_ootcfg.preset == 1 || (g_ootcfg.preset == 3 && g_ootcfg.combat_only);
+}
+/* does this kind of action cost stamina right now under the current preset? */
+static int cost_on(int kind) {
+    unsigned p = g_ootcfg.preset;
+    int on;
+    if (p == 2) on = kind == K_SPRINT;                       /* sprint only (BotW style) */
+    else if (p == 3)                                         /* advanced: each one by hand */
+        on = kind == K_JUMP ? g_ootcfg.cost_jump : kind == K_ATTACK ? g_ootcfg.cost_attack :
+             kind == K_SPRINT ? g_ootcfg.cost_sprint : kind == K_BLOCK ? g_ootcfg.cost_block :
+             kind == K_SHOOT ? g_ootcfg.cost_shoot : g_ootcfg.cost_roll;
+    else on = 1;                                             /* hardcore / combat only: everything */
+    if (!on) return 0;
+    return !combat_only_mode() || player_in_combat();
+}
 
 static void ensure_init(void) {
     if (g_initialized) return;
@@ -116,6 +137,12 @@ void hero_core_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_result
     HidView view = {a0, count, 0};
 
     if (site != 3) return;   /* only site 3 runs during gameplay */
+    if (!g_ootcfg.stamina_enabled) {   /* stamina system switched off in the config */
+        player_take_events();
+        hud_set_tired(0);
+        hud_set_stamina(g_stamina.stamina, g_stamina.cap, 0.0f);
+        return;
+    }
 
     u64 buttons = hid_merge_buttons(&view);
     g_hc_seen |= buttons;
@@ -159,42 +186,42 @@ void hero_core_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_result
         if (g_stamina.stamina > g_stamina.cap) g_stamina.stamina = g_stamina.cap;
         /* Costs come from Link's ACTIONS (player_track), not from button presses. */
         u32 ev = player_take_events();
-        if (ev & PEV_ATTACK) {
+        if ((ev & PEV_ATTACK) && cost_on(K_ATTACK)) {
             g_combat_hold = COMBAT_HOLD_FRAMES;
             g_stamina.in_combat = 1;   /* the first swing already counts */
             stamina_begin_action(&g_stamina, &g_config, ACTION_SLASH, 0, 0, ++g_action_token);
             g_hc_dbg[4]++;
         }
-        if (ev & PEV_ROLL) {
+        if ((ev & PEV_ROLL) && cost_on(K_ROLL)) {
             g_combat_hold = COMBAT_HOLD_FRAMES;
             spend(g_config.roll_cost);
             g_hc_dbg[0]++;
         }
-        if (ev & PEV_BACKFLIP) {
+        if ((ev & PEV_BACKFLIP) && cost_on(K_ROLL)) {
             g_combat_hold = COMBAT_HOLD_FRAMES;
             spend(g_config.backflip_cost);
         }
-        if (ev & PEV_SIDESTEP) {
+        if ((ev & PEV_SIDESTEP) && cost_on(K_ROLL)) {
             g_combat_hold = COMBAT_HOLD_FRAMES;
             spend(g_config.sidestep_cost);
         }
-        if (ev & PEV_SHOT) {   /* bow / slingshot: half an attack */
+        if ((ev & PEV_SHOT) && cost_on(K_SHOOT)) {   /* bow / slingshot: half an attack */
             g_combat_hold = COMBAT_HOLD_FRAMES;
             spend(g_config.weapon_cost[0] * 0.5f);
         }
-        if (ev & PEV_BOOMERANG) {
+        if ((ev & PEV_BOOMERANG) && cost_on(K_ATTACK)) {
             g_combat_hold = COMBAT_HOLD_FRAMES;
             spend(g_config.weapon_cost[0] * g_config.move_cost_scale[1]);
         }
-        if (ev & PEV_HAMMER) {
+        if ((ev & PEV_HAMMER) && cost_on(K_ATTACK)) {
             g_combat_hold = COMBAT_HOLD_FRAMES;
             spend(g_config.weapon_cost[2]);
         }
-        if (ev & PEV_GUARDHIT) {   /* a hit on the shield costs stamina */
+        if ((ev & PEV_GUARDHIT) && cost_on(K_BLOCK)) {   /* a hit on the shield costs stamina */
             g_combat_hold = COMBAT_HOLD_FRAMES;
             spend(g_config.block_base_cost);
         }
-        if (ev & PEV_JUMP) {
+        if ((ev & PEV_JUMP) && cost_on(K_JUMP)) {
             spend(JUMP_COST);
             g_hc_dbg[1]++;
         }
@@ -203,7 +230,7 @@ void hero_core_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_result
         g_stamina.in_combat = in_combat;
 
         /* Sprint: A held while the move state is active drains gradually. */
-        u32 draining = running && !g_exhausted && g_stamina.stamina > 0.0f && player_state_is("Move");
+        u32 draining = running && !g_exhausted && g_stamina.stamina > 0.0f && player_state_is("Move") && cost_on(K_SPRINT);
         if (draining) {
             g_stamina.stamina -= RUN_DRAIN_PER_SEC * dt * g_stamina.drain_multiplier;
             if (g_stamina.stamina < 0.0f) g_stamina.stamina = 0.0f;
@@ -225,10 +252,21 @@ void hero_core_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_result
     }
     /* Filters on the input the game sees (every call, not only the first of a frame). */
     u64 strip = 0;
-    /* exhausted (yellow): every action is blocked, only walking is left */
-    if (g_exhausted) strip |= BTN_A | BTN_B | BTN_X | BTN_Y | BTN_L | BTN_R | BTN_ZL | BTN_ZR;
-    if (g_stamina.in_combat && g_stamina.stamina <= 0.0f) strip |= BTN_Y;   /* no sword at 0 */
-    if (g_exhausted && m2 > STICK_FAST2) halve_stick(&view);   /* exhausted: walk only */
+    unsigned preset = g_ootcfg.preset;
+    int lock = g_exhausted;                       /* exhausted (yellow): the costly actions are blocked */
+    if (combat_only_mode() && !player_in_combat()) lock = 0;
+    if (lock) {
+        if (preset == 2) strip |= BTN_A;          /* sprint only: no sprinting (A) */
+        else if (preset == 3) {                   /* advanced: block only what costs */
+            if (g_ootcfg.cost_jump) strip |= BTN_X;
+            if (g_ootcfg.cost_roll || g_ootcfg.cost_sprint) strip |= BTN_A;
+            if (g_ootcfg.cost_attack) strip |= BTN_Y;
+            if (g_ootcfg.cost_block) strip |= BTN_ZL;
+            if (g_ootcfg.cost_attack || g_ootcfg.cost_shoot) strip |= BTN_B | BTN_L | BTN_R | BTN_ZR;
+        } else strip |= BTN_A | BTN_B | BTN_X | BTN_Y | BTN_L | BTN_R | BTN_ZL | BTN_ZR;   /* only walking is left */
+    }
+    if (g_stamina.in_combat && g_stamina.stamina <= 0.0f && cost_on(K_ATTACK)) strip |= BTN_Y;   /* no sword at 0 */
+    if (lock && preset != 2 && m2 > STICK_FAST2) halve_stick(&view);   /* exhausted: walk only */
     if (strip) {
         for (u32 i = 0; i < count; i++) {
             u64 b = hid_get_buttons(&view, i);

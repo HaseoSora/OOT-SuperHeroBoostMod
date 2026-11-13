@@ -6,3 +6,7 @@ data/
 *.bin
 *.o
 *.elf
+
+app/payload/
+release/
+app/__pycache__/

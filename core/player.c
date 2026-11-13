@@ -31,7 +31,8 @@ u32 hud_frame_count(void);
 static u32 g_pending;
 static char g_prev[24];
 static char g_cur[24] = {'W', 'a', 'i', 't'};
-static char g_prev2[24], g_cur2[24];   /* upper-body state name at player+0x34C (bow / slingshot) */
+static char g_prev2[24], g_cur2[24];
+static u32 g_combat_frame;   /* last frame Link was in a combat-like state */   /* upper-body state name at player+0x34C (bow / slingshot) */
 u32 g_ev_count[8] = {0x10000000u};
 char g_names_seen[16][24] = {{1}};
 u32 g_names_n;
@@ -102,6 +103,9 @@ void player_track(u64 actor) {
             classify(g_cur2);
         }
     }
+    if (starts(g_cur, "LockOn") || starts(g_cur, "Guard") || starts(g_cur, "Cut") || starts(g_cur, "Charge") ||
+        starts(g_cur, "Damage") || starts(g_cur2, "Bow"))
+        g_combat_frame = g_active_frame ? g_active_frame : 1;
     if (!eq(g_cur, g_prev)) {
         for (int i = 0; i < 24; i++) g_prev[i] = g_cur[i];
         classify(g_cur);
@@ -132,3 +136,8 @@ int player_active(void) {
 }
 
 int player_max_life(void) { return g_link_maxlife; }
+
+/* combat-like state (targeting, guarding, sword moves, damage, bow) in the last 5 seconds */
+int player_in_combat(void) {
+    return g_combat_frame != 0 && (hud_frame_count() - g_combat_frame) < 300u;
+}

@@ -72,10 +72,21 @@ static void classify(const char *n) {
  * Every physics actor passes through player_track each frame. An actor whose Life resource is named
  * "Enemy_*" (friendly shopkeepers excluded), still alive, within ENEMY_RADIUS of Link marks combat;
  * the state then lasts 5 seconds after the last such enemy (grace, like the original design). */
-#define ENEMY_RADIUS 20.0f
+#define ENEMY_RADIUS 10.0f
 u32 g_enemy_dbg[4] = {0x10000000u};        /* enemies seen, close ones, ... */
 float g_enemy_min2 = 1.0e8f;               /* squared distance of the nearest alive enemy seen (diagnostic) */
-static void enemy_check(u64 actor, u64 life, const char *n) {
+/* Awareness: an enemy counts as "fixed on Link" when it is within ENEMY_RADIUS and either already on top of him
+ * (<= ENEMY_TOUCH) or has been getting closer during the last ENEMY_CHASE_FRAMES. Per-enemy memory (by actor
+ * pointer) compares the squared distance over a short window. */
+#define ENEMY_TOUCH 3.0f
+#define ENEMY_CHASE_FRAMES 120u
+#define ENEMY_WINDOW 6u
+typedef struct { u64 actor; float d2; u32 stamp; u32 chase; } EnemyMem;
+static EnemyMem g_em[24];
+u32 g_enemy_chasing;       /* diagnostic: enemies currently counted as aware (last evaluation) */
+
+static void enemy_check(u64 actor, u64 comp, u64 life, const char *n) {
+    (void)comp;
     if (!(n[0] == 'E' && n[1] == 'n' && n[2] == 'e' && n[3] == 'm' && n[4] == 'y' && n[5] == '_')) return;
     if (starts(n, "Enemy_Scrub_Business")) return;          /* friendly shopkeeper */
     g_enemy_dbg[0]++;
@@ -87,9 +98,22 @@ static void enemy_check(u64 actor, u64 life, const char *n) {
     float dx = e[0] - l[0], dy = e[1] - l[1], dz = e[2] - l[2];
     float d2 = dx * dx + dy * dy + dz * dz;
     if (d2 < g_enemy_min2) g_enemy_min2 = d2;
-    if (d2 < ENEMY_RADIUS * ENEMY_RADIUS) {
+    if (d2 >= ENEMY_RADIUS * ENEMY_RADIUS) return;
+    u32 f = hud_frame_count();
+    EnemyMem *m = 0, *oldest = &g_em[0];
+    for (int i = 0; i < 24; i++) {
+        if (g_em[i].actor == actor) { m = &g_em[i]; break; }
+        if (g_em[i].stamp < oldest->stamp) oldest = &g_em[i];
+    }
+    if (!m) { m = oldest; m->actor = actor; m->d2 = d2; m->stamp = f; m->chase = 0; }
+    if (f - m->stamp >= ENEMY_WINDOW) {
+        if (d2 < m->d2 - 0.4f) m->chase = f ? f : 1;   /* closer than a moment ago */
+        m->d2 = d2;
+        m->stamp = f;
+    }
+    int aware = d2 < ENEMY_TOUCH * ENEMY_TOUCH || (m->chase && f - m->chase < ENEMY_CHASE_FRAMES);
+    if (aware) {
         g_enemy_dbg[1]++;
-        u32 f = hud_frame_count();
         g_combat_frame = f ? f : 1;
     }
 }
@@ -105,7 +129,7 @@ void player_track(u64 actor) {
     if (!res) return;
     const char *n = (const char *)(res + 0x58);
     if (n[0] != 'P' || n[1] != 'l' || n[2] != 'a' || n[3] != 'y' || n[4] != 'e' || n[5] != 'r' || n[6]) {
-        enemy_check(actor, life, n);
+        enemy_check(actor, comp, life, n);
         return;
     }
     if (!pl) return;

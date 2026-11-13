@@ -73,16 +73,19 @@ enum { K_JUMP, K_ATTACK, K_SPRINT, K_BLOCK, K_SHOOT, K_ROLL };
 static int combat_only_mode(void) {
     return g_ootcfg.preset == 1 || (g_ootcfg.preset == 3 && g_ootcfg.combat_only);
 }
-/* does this kind of action cost stamina right now under the current preset? */
+static int sprint_enabled(void) {
+    return g_ootcfg.preset == 3 ? g_ootcfg.cost_sprint : 1;   /* every other preset drains while sprinting */
+}
+/* does this kind of action cost stamina right now under the current preset? Sprinting is never limited to combat. */
 static int cost_on(int kind) {
     unsigned p = g_ootcfg.preset;
     int on;
-    if (p == 2) on = kind == K_SPRINT;                       /* sprint only (BotW style) */
+    if (kind == K_SPRINT) return sprint_enabled();
+    if (p == 2) on = 0;                                      /* sprint only (BotW style): nothing else costs */
     else if (p == 3)                                         /* advanced: each one by hand */
         on = kind == K_JUMP ? g_ootcfg.cost_jump : kind == K_ATTACK ? g_ootcfg.cost_attack :
-             kind == K_SPRINT ? g_ootcfg.cost_sprint : kind == K_BLOCK ? g_ootcfg.cost_block :
-             kind == K_SHOOT ? g_ootcfg.cost_shoot : g_ootcfg.cost_roll;
-    else on = 1;                                             /* hardcore / combat only: everything */
+             kind == K_BLOCK ? g_ootcfg.cost_block : kind == K_SHOOT ? g_ootcfg.cost_shoot : g_ootcfg.cost_roll;
+    else on = 1;                                             /* hardcore / hardcore combat only: everything */
     if (!on) return 0;
     return !combat_only_mode() || player_in_combat();
 }
@@ -264,6 +267,8 @@ void hero_core_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_result
             if (g_ootcfg.cost_block) strip |= BTN_ZL;
             if (g_ootcfg.cost_attack || g_ootcfg.cost_shoot) strip |= BTN_B | BTN_L | BTN_R | BTN_ZR;
         } else strip |= BTN_A | BTN_B | BTN_X | BTN_Y | BTN_L | BTN_R | BTN_ZL | BTN_ZR;   /* only walking is left */
+    } else if (g_exhausted && sprint_enabled()) {
+        strip |= BTN_A;                           /* combat-only presets: sprinting is still limited out of combat */
     }
     if (g_stamina.in_combat && g_stamina.stamina <= 0.0f && cost_on(K_ATTACK)) strip |= BTN_Y;   /* no sword at 0 */
     if (lock && preset != 2 && m2 > STICK_FAST2) halve_stick(&view);   /* exhausted: walk only */

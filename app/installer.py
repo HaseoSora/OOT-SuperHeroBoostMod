@@ -42,6 +42,12 @@ class Settings:
     shoot: bool = True
     roll: bool = True
     combat_only: bool = False
+    enemy_hp: int = 100             # enemy health, percent of vanilla
+    damage: int = 100               # damage Link takes, percent of vanilla
+    no_heart_drop: bool = False     # hearts dropped by enemies/grass become green rupees
+    hud_rupees: bool = False
+    hud_clock: bool = False
+    clock_24h: bool = False
 
     def to_dict(self): return dict(self.__dict__)
 
@@ -114,7 +120,7 @@ def patch_config(nso: bytes, s: Settings) -> bytes:
     if i < 0 or nso.count(b"OOTMCFG1") != 1:
         raise InstallError("bad_module", "config block not found")
     version, size = struct.unpack_from("<II", nso, i + 8)
-    if version != 1 or size < 28:
+    if version != 1 or size < 0x48:
         raise InstallError("bad_module", f"config version {version}")
     b = bytearray(nso)
     f = i + 16
@@ -124,6 +130,8 @@ def patch_config(nso: bytes, s: Settings) -> bytes:
     b[f + 5], b[f + 6], b[f + 7] = int(s.block), int(s.shoot), int(s.roll)
     b[f + 8] = int(s.combat_only)
     b[f + 9] = int(s.classic)
+    struct.pack_into("<HH", b, f + 10, int(s.enemy_hp), int(s.damage))
+    b[f + 14], b[f + 15], b[f + 16], b[f + 17] = int(s.hud_rupees), int(s.hud_clock), int(s.clock_24h), int(s.no_heart_drop)
     return bytes(b)
 
 
@@ -208,6 +216,12 @@ def install(emu: Path, s: Settings, classic_variant: str = "default", name: str 
         shutil.copytree(classic_dir / "romfs", target / "romfs")
     else:
         (target / "exefs" / f"{BUILD_ID}.ips").write_bytes(ours)
+
+    if s.no_heart_drop:                       # romfs files generated from the game's own data (tools/make_romfs_opts.py)
+        src = pay.parent / "romfs_opts" / "no_heart_drop"
+        if not src.exists():
+            raise InstallError("no_payload", "no_heart_drop")
+        shutil.copytree(src, target / "romfs", dirs_exist_ok=True)
 
     res = Result(target, variant)
     conflicts = other_exefs_mods(mods, {name})

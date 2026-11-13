@@ -48,6 +48,7 @@ def main():
         shutil.copy2(src / f"{BUILD_ID}.ips", d / "ours.ips")
         man["variants"][name] = {"base": base, "sha256": hashlib.sha256((d / "subsdk9").read_bytes()).hexdigest()}
     stage_classic()
+    subprocess.run([sys.executable, str(ROOT / "tools" / "make_romfs_opts.py")], check=True, cwd=ROOT)
     (OUT / "manifest.json").write_text(json.dumps(man, indent=2))
     print("payload staged in", OUT)
 

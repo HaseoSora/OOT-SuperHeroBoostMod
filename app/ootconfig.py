@@ -58,6 +58,12 @@ def cli(argv):
     ap.add_argument("--off", default="", help="advanced: comma list of jump,attack,sprint,block,shoot,roll to disable")
     ap.add_argument("--combat-only", action="store_true")
     ap.add_argument("--name", default=I.MOD_NAME)
+    ap.add_argument("--enemy-hp", type=int, default=100, help="enemy health, percent (150 = Hero Mode)")
+    ap.add_argument("--damage", type=int, default=100, help="damage taken, percent (200 = Hero Mode)")
+    ap.add_argument("--no-heart-drop", action="store_true")
+    ap.add_argument("--rupees", action="store_true", help="always-visible rupee counter")
+    ap.add_argument("--clock", action="store_true", help="always-visible clock")
+    ap.add_argument("--clock24", action="store_true")
     a = ap.parse_args(argv)
     off = {x for x in a.off.split(",") if x}
     p = a.preset
@@ -68,6 +74,8 @@ def cli(argv):
     else:
         s = I.Settings(classic=not a.no_classic, stamina=not a.no_stamina, preset=p, combat_only=a.combat_only,
                        **{k: k not in off for k in KEYS})
+    s.enemy_hp, s.damage, s.no_heart_drop = a.enemy_hp, a.damage, a.no_heart_drop
+    s.hud_rupees, s.hud_clock, s.clock_24h = a.rupees, a.clock, a.clock24
     try:
         r = I.install(Path(a.emu), s, a.classic_variant, a.name)
     except I.InstallError as e:

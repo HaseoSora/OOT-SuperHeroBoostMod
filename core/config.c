@@ -5,5 +5,6 @@ volatile OotConfig g_ootcfg = {
     {'O', 'O', 'T', 'M', 'C', 'F', 'G', '1'}, 1, sizeof(OotConfig),
     1, 0,
     1, 1, 1, 1, 1, 1, 0, 1,
+    100, 100, 0, 0, 0, 0,
     {0},
 };

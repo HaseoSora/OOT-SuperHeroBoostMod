@@ -18,7 +18,14 @@ typedef struct {
     unsigned char cost_roll;
     unsigned char combat_only;     /* advanced: costs only while in combat */
     unsigned char classic_slots;   /* informational (the app decides which files to install) */
-    unsigned char reserved[44];
+    /* v1 additions (append-only; older apps leave the defaults) */
+    unsigned short enemy_hp_pct;   /* enemy health, percent of vanilla (100 = vanilla, 150 = Hero Core / Hero Mode) */
+    unsigned short damage_taken_pct; /* damage Link receives, percent of vanilla (200 = Hero Mode) */
+    unsigned char hud_rupees;      /* always-visible rupee counter */
+    unsigned char hud_clock;       /* always-visible clock */
+    unsigned char clock_24h;       /* clock in 24 h format */
+    unsigned char no_heart_drop;   /* informational (done through a romfs file) */
+    unsigned char reserved[36];
 } OotConfig;
 
 extern volatile OotConfig g_ootcfg;

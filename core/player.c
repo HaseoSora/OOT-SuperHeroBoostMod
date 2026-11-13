@@ -1,4 +1,5 @@
 #include "dispatch.h"
+#include "config.h"
 
 /* Finds Link from the per-frame movement update of physics actors (hook at main+0x2C215E0,
  * x0 = actor) and turns his action-state name into events.
@@ -15,6 +16,8 @@ u32 g_link_seen = 0x10000000u;
 int g_link_life = 0x7777;
 int g_link_maxlife = 0;   /* max life in quarter hearts (Life+0x1C18 -> record, s32 at +8) */
 static u32 g_active_frame;
+static int g_prev_life = -1;
+u32 g_dmg_dbg;
 static int g_alive;
 u32 hud_frame_count(void);
 
@@ -108,11 +111,40 @@ typedef struct { u64 actor; float d2; u32 stamp; u32 chase; } EnemyMem;
 static EnemyMem g_em[24];
 u32 g_enemy_chasing;       /* diagnostic: enemies currently counted as aware (last evaluation) */
 
+/* Enemy health multiplier: scaled once when an enemy is first seen (its Life records: current at +0x1C10, max at +0x1C18,
+ * value s32 at +8, the same ones used for Link). Remembered per actor with the scaled maximum, so a reused actor
+ * pointer (new enemy, vanilla maximum) is scaled again. */
+typedef struct { u64 actor; int smax; } EnemyHp;
+static EnemyHp g_hp[64];
+static u32 g_hp_next;
+u32 g_hp_dbg[4];   /* diagnostic: scalings done, last cur before, last max before, last max after */
+static void enemy_scale(u64 actor, u64 life) {
+    unsigned pct = g_ootcfg.enemy_hp_pct;
+    if (pct == 100 || pct == 0) return;
+    u64 rec = rd(life, 0x1C10), mrec = rd(life, 0x1C18);
+    if (!rec || !mrec) return;
+    volatile int *cur = (volatile int *)(rec + 8), *mx = (volatile int *)(mrec + 8);
+    int m = *mx, c = *cur;
+    if (m <= 0 || c <= 0) return;
+    int slot = -1;
+    for (int i = 0; i < 64; i++) if (g_hp[i].actor == actor) { slot = i; break; }
+    if (slot >= 0 && g_hp[slot].smax == m) return;                 /* already scaled */
+    if (slot < 0) { slot = (int)(g_hp_next++ & 63u); g_hp[slot].actor = actor; }
+    int nm = (int)(((long long)m * pct + 50) / 100), nc = (int)(((long long)c * pct + 50) / 100);
+    if (nm < 1) nm = 1;
+    if (nc < 1) nc = 1;
+    g_hp_dbg[0]++; g_hp_dbg[1] = (u32)c; g_hp_dbg[2] = (u32)m; g_hp_dbg[3] = (u32)nm;
+    *mx = nm;
+    *cur = nc;
+    g_hp[slot].smax = nm;
+}
+
 static void enemy_check(u64 actor, u64 comp, u64 life, const char *n) {
     (void)comp;
     if (!(n[0] == 'E' && n[1] == 'n' && n[2] == 'e' && n[3] == 'm' && n[4] == 'y' && n[5] == '_')) return;
     if (starts(n, "Enemy_Scrub_Business")) return;          /* friendly shopkeeper */
     g_enemy_dbg[0]++;
+    enemy_scale(actor, life);
     if (g_link_actor == 1) return;
     u64 rec = rd(life, 0x1C10);
     if (rec && *(volatile int *)(rec + 8) <= 0) return;      /* dead (ragdoll still updating) */
@@ -160,10 +192,24 @@ void player_track(u64 actor) {
     g_link_table = comp;
     g_link_player = pl;
     g_link_seen++;
-    g_active_frame = hud_frame_count();
+    u32 nowf = hud_frame_count();
+    if (nowf - g_active_frame > 3u) g_prev_life = -1;     /* not updated for a while (loading, menus): no comparison */
+    g_active_frame = nowf;
     {   /* life: Life+0x1C10 -> record, value s32 at +8 (0 = dead) */
         u64 rec = rd(life, 0x1C10);
-        if (rec) { g_link_life = *(volatile int *)(rec + 8); g_alive = g_link_life > 0; }
+        if (rec) {
+            volatile int *lp = (volatile int *)(rec + 8);
+            int cur = *lp;
+            unsigned pct = g_ootcfg.damage_taken_pct;
+            if (pct > 100 && g_prev_life > 0 && cur > 0 && cur < g_prev_life) {   /* took damage: charge the extra share */
+                int nl = cur - (int)(((long long)(g_prev_life - cur) * (pct - 100) + 50) / 100);
+                if (nl < 1) nl = 1;                /* the extra share alone never kills: only the real hit can */
+                *lp = nl; cur = nl;
+                g_dmg_dbg++;
+            }
+            g_prev_life = cur;
+            g_link_life = cur; g_alive = g_link_life > 0;
+        }
         u64 mrec = rd(life, 0x1C18);
         if (mrec) g_link_maxlife = *(volatile int *)(mrec + 8);
     }

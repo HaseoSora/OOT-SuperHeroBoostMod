@@ -66,13 +66,17 @@ u32 g_ev[5];   /* test counters: roll group, jump, attack, guard hit, shot (even
 /* A shield hit can be seen twice (the game's reaction node and the state name): one hit = one event. */
 u32 g_guard_calls[4];          /* diagnostic: calls of each hooked reaction node */
 static u32 g_guard_frame;
+static u32 g_guard_seq;
 static void guard_hit(void) {
     u32 f = hud_frame_count();
     if (g_guard_frame && f - g_guard_frame < 40u) return;
     g_guard_frame = f ? f : 1;
-    g_pending |= PEV_GUARDHIT;
+    g_guard_seq++;
     g_ev[3]++;
 }
+/* Shield hits are counted, not queued as an event: the hit arrives while Link is in his hit reaction, when
+ * his movement update (and so player_active()) pauses for a few frames and queued events are dropped. */
+u32 player_guard_seq(void) { return g_guard_seq; }
 void player_guard_event(u32 id) { g_guard_calls[id - 6]++; guard_hit(); }
 char g_guard_names[16][24];  /* diagnostic: every distinct state name that starts with "Guard" */
 u32 g_guard_n;
@@ -89,7 +93,7 @@ static void classify(const char *n) {
     else if (eq(n, "SideStep")) { g_pending |= PEV_SIDESTEP; g_ev[0]++; }
     else if (starts(n, "BackFlip")) { g_pending |= PEV_BACKFLIP; g_ev[0]++; }
     else if (eq(n, "Jump")) { g_pending |= PEV_JUMP; g_ev[1]++; }
-    else if (starts(n, "Guard") && (has_hit(n) || has_word(n, "Break") || has_word(n, "Reaction") || has_word(n, "Repel"))) guard_hit();
+    else if (starts(n, "Guard") && !has_word(n, "Fail") && (has_hit(n) || has_word(n, "Break") || has_word(n, "Reaction") || has_word(n, "Repel"))) guard_hit();
     else if (starts(n, "Cut") || starts(n, "ChargeAttack") || starts(n, "JumpCut") || starts(n, "Stab"))
         { g_pending |= PEV_ATTACK; g_ev[2]++; }
 }
@@ -118,6 +122,18 @@ typedef struct { u64 actor; int smax; } EnemyHp;
 static EnemyHp g_hp[64];
 static u32 g_hp_next;
 u32 g_hp_dbg[4];   /* diagnostic: scalings done, last cur before, last max before, last max after */
+/* diagnostic (read by tools): the last 16 enemies scaled: actor, Life name, max before / after */
+typedef struct { u64 actor; char name[24]; int m0, m1; } HpLog;
+HpLog g_hp_log[16] = {{1}};
+u32 g_hp_log_n = 0x10000000u;
+static const char *g_scaling_name;
+static void hp_log(u64 actor, int m0, int m1) {
+    HpLog *e = &g_hp_log[(g_hp_log_n - 0x10000000u) % 16];
+    g_hp_log_n++;
+    e->actor = actor; e->m0 = m0; e->m1 = m1;
+    for (int i = 0; i < 23; i++) e->name[i] = g_scaling_name ? g_scaling_name[i] : 0;
+    e->name[23] = 0;
+}
 static void enemy_scale(u64 actor, u64 life) {
     unsigned pct = g_ootcfg.enemy_hp_pct;
     if (pct == 100 || pct == 0) return;
@@ -134,6 +150,7 @@ static void enemy_scale(u64 actor, u64 life) {
     if (nm < 1) nm = 1;
     if (nc < 1) nc = 1;
     g_hp_dbg[0]++; g_hp_dbg[1] = (u32)c; g_hp_dbg[2] = (u32)m; g_hp_dbg[3] = (u32)nm;
+    hp_log(actor, m, nm);
     *mx = nm;
     *cur = nc;
     g_hp[slot].smax = nm;
@@ -144,6 +161,7 @@ static void enemy_check(u64 actor, u64 comp, u64 life, const char *n) {
     if (!(n[0] == 'E' && n[1] == 'n' && n[2] == 'e' && n[3] == 'm' && n[4] == 'y' && n[5] == '_')) return;
     if (starts(n, "Enemy_Scrub_Business")) return;          /* friendly shopkeeper */
     g_enemy_dbg[0]++;
+    g_scaling_name = n;
     enemy_scale(actor, life);
     if (g_link_actor == 1) return;
     u64 rec = rd(life, 0x1C10);

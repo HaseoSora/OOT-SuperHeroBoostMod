@@ -41,6 +41,7 @@ CODE_SITES = (
     (0x27F7F90, "hook_guard1", 7),       # ExecutePlayerReactionGuard slot 11
     (0x27FB0C0, "hook_guard2", 8),       # ExecutePlayerReactionGuardJustRepelled slot 10
     (0x27FA200, "hook_guard3", 9),       # ExecutePlayerReactionGuardBreak slot 10
+    (0x9352F0, "hook_code_speed", 10),   # ground movement (x0 player, x1 direction, s0 speed): sprint multiplier
     (0x152F8F0, "hook_code_inst", 4),   # part instance creation (x1 layout, x2 pane): diagnostics
     (0x43A6F8, "hook_ui", 2),            # UI resource build (x0 = handle, x1 = config)
 )

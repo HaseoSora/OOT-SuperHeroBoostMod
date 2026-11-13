@@ -245,6 +245,17 @@ T["es"].update({
     "n_no_hud": "El contador de rupias y el reloj necesitan los paneles del HUD del juego y aún no están disponibles en esta versión.",
 })
 
+# sprint speed (A held while moving)
+for _lang, _txt in {
+    "en": ("Sprint speed", "Original (×1)"),
+    "es": ("Velocidad del sprint", "Original (×1)"),
+    "pt": ("Velocidade da corrida", "Original (×1)"),
+    "fr": ("Vitesse du sprint", "Original (×1)"),
+    "de": ("Sprinttempo", "Original (×1)"),
+    "it": ("Velocità dello scatto", "Originale (×1)"),
+}.items():
+    T[_lang].update({"sprint_speed": _txt[0], "speed_van": _txt[1]})
+
 
 def tr(lang: str, key: str, **kw) -> str:
     s = T.get(lang, T["en"]).get(key) or T["en"].get(key, key)

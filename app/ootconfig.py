@@ -61,6 +61,7 @@ def cli(argv):
     ap.add_argument("--enemy-hp", type=int, default=100, help="enemy health, percent (150 = Hero Mode)")
     ap.add_argument("--damage", type=int, default=100, help="damage taken, percent (200 = Hero Mode)")
     ap.add_argument("--no-heart-drop", action="store_true")
+    ap.add_argument("--sprint-speed", type=int, default=125, help="sprint speed, percent (125 = default, 100 = vanilla)")
     ap.add_argument("--rupees", action="store_true", help="always-visible rupee counter")
     ap.add_argument("--clock", action="store_true", help="always-visible clock")
     ap.add_argument("--clock24", action="store_true")
@@ -76,6 +77,7 @@ def cli(argv):
                        **{k: k not in off for k in KEYS})
     s.enemy_hp, s.damage, s.no_heart_drop = a.enemy_hp, a.damage, a.no_heart_drop
     s.hud_rupees, s.hud_clock, s.clock_24h = a.rupees, a.clock, a.clock24
+    s.sprint_speed = a.sprint_speed
     try:
         r = I.install(Path(a.emu), s, a.classic_variant, a.name)
     except I.InstallError as e:
@@ -118,6 +120,8 @@ def gui():
     MULT = (100, 150, 200, 300)
     v_hp = tk.IntVar(value=cfg.get("enemy_hp", 100) if cfg.get("enemy_hp", 100) in MULT else 100)
     v_dmg = tk.IntVar(value=cfg.get("damage", 100) if cfg.get("damage", 100) in MULT else 100)
+    SPEEDS = (100, 125, 150, 175, 200, 250, 300)
+    v_speed = tk.IntVar(value=cfg.get("sprint_speed", 125) if cfg.get("sprint_speed", 125) in SPEEDS else 125)
     v_nodrop = tk.BooleanVar(value=cfg.get("no_heart_drop", False))
     v_rup = tk.BooleanVar(value=cfg.get("hud_rupees", False))
     v_clock = tk.BooleanVar(value=cfg.get("hud_clock", False))
@@ -155,7 +159,7 @@ def gui():
             root.after_cancel(pending["id"])
         pending["id"] = root.after(250, lambda: remember())
 
-    for v in (lang, emu, v_classic, v_variant, v_stam, v_preset, v_combat, v_hp, v_dmg, v_nodrop, v_rup, v_clock, v_24h, *adv.values()):
+    for v in (lang, emu, v_classic, v_variant, v_stam, v_preset, v_combat, v_hp, v_dmg, v_nodrop, v_rup, v_clock, v_24h, v_speed, *adv.values()):
         v.trace_add("write", autosave)
 
     def settings():
@@ -163,13 +167,13 @@ def gui():
         vals = {k: adv[k].get() for k in KEYS} if p == 3 else {k: bool(I.PRESET_VIEW[p][k]) for k in KEYS}
         co = v_combat.get() if p == 3 else bool(I.PRESET_VIEW[p]["combat_only"])
         return I.Settings(classic=v_classic.get(), stamina=v_stam.get(), preset=p, combat_only=co, **vals,
-                          enemy_hp=v_hp.get(), damage=v_dmg.get(), no_heart_drop=v_nodrop.get(),
+                          enemy_hp=v_hp.get(), damage=v_dmg.get(), no_heart_drop=v_nodrop.get(), sprint_speed=v_speed.get(),
                           hud_rupees=v_rup.get(), hud_clock=v_clock.get(), clock_24h=v_24h.get())
 
     def remember():
         return save_cfg({"lang": lang.get(), "emu": emu.get(), "classic": v_classic.get(), "variant": v_variant.get(),
                   "stamina": v_stam.get(), "preset": v_preset.get(), "custom": custom,
-                  "enemy_hp": v_hp.get(), "damage": v_dmg.get(), "no_heart_drop": v_nodrop.get(),
+                  "enemy_hp": v_hp.get(), "damage": v_dmg.get(), "no_heart_drop": v_nodrop.get(), "sprint_speed": v_speed.get(),
                   "hud_rupees": v_rup.get(), "hud_clock": v_clock.get(), "clock_24h": v_24h.get()})
 
     # ---- small styled widgets ----
@@ -328,6 +332,13 @@ def gui():
         vb.pack(side="left", padx=8)
         ui["variant"] = vb
         check(s, L("stamina"), v_stam, refresh).pack(anchor="w", padx=14, pady=(0, 6))
+        srow = tk.Frame(s, bg=PANEL); srow.pack(anchor="w", padx=14, pady=(0, 6))
+        tk.Label(srow, text=L("sprint_speed") + ":", bg=PANEL, fg=TEXT, font=(FAM, 10)).grid(row=0, column=0, sticky="w", padx=(0, 6))
+        scb = ttk.Combobox(srow, state="readonly", style="Z.TCombobox", width=13,
+                           values=[L("speed_van")] + ["×%g" % (v / 100) for v in SPEEDS[1:]])
+        scb.current(SPEEDS.index(v_speed.get()))
+        scb.bind("<<ComboboxSelected>>", lambda ev: v_speed.set(SPEEDS[scb.current()]))
+        scb.grid(row=0, column=1)
 
         s = section(main, L("preset"))
         ui["radios"] = []

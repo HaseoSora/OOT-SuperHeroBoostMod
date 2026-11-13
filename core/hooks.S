@@ -250,6 +250,8 @@ CODE_HOOK hook_guard0, 6, RES_GUARD0
 CODE_HOOK hook_guard1, 7, RES_GUARD1
 CODE_HOOK hook_guard2, 8, RES_GUARD2
 CODE_HOOK hook_guard3, 9, RES_GUARD3
+/* Ground movement (x0 player, x1 direction, s0 speed); Link's call returns to main+0x934994. */
+CODE_HOOK hook_code_speed, 10, RES_SPEED
 
 /* Classic extra-button sites: four `bl 0x1211c00` calls. 0x1211c00 is a normal
  * function (not an import stub), so these use the same wrapper, with their own

@@ -19,6 +19,27 @@ void hud_set_stamina(float value, float cap, float show);
 u32 hud_frame_count(void);
 void hud_set_tired(unsigned int t);
 u32 player_take_events(void);
+u32 player_guard_seq(void);
+static u32 g_guard_seen, g_inactive_since;
+static volatile u32 g_sprint_a;   /* A held and not taken away by the stamina rules (last input read) */
+
+/* Ground-movement hook (main+0x9352F0, x0 player, x1 direction, s0 speed). Only Link's own call (it returns to
+ * main+0x934994) is touched: while A is held his speed is multiplied by the sprint setting, as the game's own
+ * sprint is "A held while moving". Rolling, swimming and climbing do not go through this call. */
+extern char MAIN_SCHED_VT[];
+u32 g_speed_dbg[2];   /* calls from Link's site, calls boosted */
+void hero_speed_hook(void *regs) {
+    unsigned pct = g_ootcfg.sprint_speed_pct;
+    if (pct == 100 || pct < 50 || pct > 400) return;
+    u64 base = (u64)MAIN_SCHED_VT - 0x4B05318ull;
+    u64 lr = *(u64 *)((unsigned char *)regs + 0x08);   /* saved x30 = return address of this call */
+    if (lr != base + 0x934994ull) return;
+    g_speed_dbg[0]++;
+    if (!g_sprint_a) return;
+    float *s0 = (float *)((unsigned char *)regs + 0xB0);   /* saved d0: the speed argument */
+    *s0 = *s0 * (float)pct / 100.0f;
+    g_speed_dbg[1]++;
+}
 int player_state_is(const char *name);
 int player_active(void);
 int player_max_life(void);
@@ -46,6 +67,7 @@ void player_mark_combat(void);
 #define RUN_DRAIN_PER_SEC 7.0f
 #define EXHAUST_RECOVER 15.0f
 #define REGEN_DELAY 0.8f             /* seconds without actions before refilling */
+#define COMBAT_REGEN_DELAY 1.8f      /* ... while in combat (an enemy is on Link or he just fought) */
 #define REGEN_PER_SEC 24.0f
 #define TIRED_REGEN_DELAY 2.5f       /* exhausted (yellow): longer wait ... */
 #define TIRED_REGEN_PER_SEC 48.0f    /* ... then twice as fast */
@@ -147,6 +169,7 @@ void hero_core_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_result
 
     if (site != 3) return;   /* only site 3 runs during gameplay */
     if (!g_ootcfg.stamina_enabled) {   /* stamina system switched off in the config */
+        g_sprint_a = (hid_merge_buttons(&view) & BTN_A) != 0;
         player_take_events();
         hud_set_tired(0);
         hud_set_stamina(g_stamina.stamina, g_stamina.cap, 0.0f);
@@ -173,11 +196,15 @@ void hero_core_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_result
     /* Outside the world (menus, pause, game over, dead) nothing of this runs. */
     if (!(player_active() && g_same_reads <= 8)) {
         player_take_events();
+        /* shield hits survive a short pause (Link's hit reaction); after a real break (menu, loading) they are dropped */
+        if (!g_inactive_since) g_inactive_since = now ? now : 1;
+        if (now - g_inactive_since > 60u) g_guard_seen = player_guard_seq();
         g_combat_hold = 0;
         hud_set_tired(0);
         hud_set_stamina(g_stamina.stamina, g_stamina.cap, 0.0f);
         return;
     }
+    g_inactive_since = 0;
     float dt = (now == 0 ? 1u : frames) * DT_FRAME;
 
     if (g_exhausted && g_stamina.stamina >= g_stamina.cap - 0.5f) g_exhausted = 0;   /* must refill completely */
@@ -226,7 +253,9 @@ void hero_core_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_result
             g_combat_hold = COMBAT_HOLD_FRAMES;
             spend(g_config.weapon_cost[2]);
         }
-        if ((ev & PEV_GUARDHIT) && cost_on(K_BLOCK)) {   /* a hit on the shield costs stamina */
+        u32 gseq = player_guard_seq(), ghits = gseq - g_guard_seen;
+        g_guard_seen = gseq;
+        if (ghits && ghits < 8 && cost_on(K_BLOCK)) {   /* a hit on the shield costs stamina */
             g_combat_hold = COMBAT_HOLD_FRAMES;
             spend(g_config.block_base_cost);
             g_hc_guard++;
@@ -255,7 +284,8 @@ void hero_core_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_result
         /* Refill: after a short pause without any action (moving is fine); once exhausted the
          * pause is longer but the refill is twice as fast. spend()/drain reset idle_seconds. */
         g_stamina.idle_seconds += dt;
-        if (g_stamina.idle_seconds >= (g_exhausted ? TIRED_REGEN_DELAY : REGEN_DELAY))
+        float wait = g_exhausted ? TIRED_REGEN_DELAY : (in_combat || player_in_combat()) ? COMBAT_REGEN_DELAY : REGEN_DELAY;
+        if (g_stamina.idle_seconds >= wait)
             g_stamina.stamina += (g_exhausted ? TIRED_REGEN_PER_SEC : REGEN_PER_SEC) * dt;
         if (g_stamina.stamina > g_stamina.cap) g_stamina.stamina = g_stamina.cap;        if (g_stamina.stamina <= 0.0f) g_exhausted = 1;
         g_hc_dbg[3] = 0x10000000u + g_exhausted;
@@ -285,6 +315,7 @@ void hero_core_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_result
     }
     if (g_stamina.in_combat && g_stamina.stamina <= 0.0f && cost_on(K_ATTACK)) strip |= BTN_Y;   /* no sword at 0 */
     if (lock && preset != 2 && m2 > STICK_FAST2) halve_stick(&view);   /* exhausted: walk only */
+    g_sprint_a = (buttons & BTN_A) && !(strip & BTN_A);
     if (strip) {
         for (u32 i = 0; i < count; i++) {
             u64 b = hid_get_buttons(&view, i);

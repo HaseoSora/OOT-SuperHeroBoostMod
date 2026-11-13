@@ -48,6 +48,7 @@ SECTIONS
     RES_GUARD1 = 0x27F7F94;
     RES_GUARD2 = 0x27FB0C4;
     RES_GUARD3 = 0x27FA204;
+    RES_SPEED = 0x9352F4;
     MAIN_SCHED_VT = 0x4B05318;
     find_part = 0x43C3E0;
     find_anim = 0x43C7A0;

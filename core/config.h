@@ -25,7 +25,8 @@ typedef struct {
     unsigned char hud_clock;       /* always-visible clock */
     unsigned char clock_24h;       /* clock in 24 h format */
     unsigned char no_heart_drop;   /* informational (done through a romfs file) */
-    unsigned char reserved[36];
+    unsigned short sprint_speed_pct; /* sprint (A held while moving) speed, percent of vanilla (100 = vanilla, default 125) */
+    unsigned char reserved[34];
 } OotConfig;
 
 extern volatile OotConfig g_ootcfg;

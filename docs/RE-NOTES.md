@@ -213,3 +213,17 @@ Consequence: only site 3 sees gameplay input. The four classic slot sites
   threshold-filled ring, but the game only uses it for the save icon's rotating glow (PaSaveLoadIcon_00, 3
   samplers in one material); using it as a fill would need the ui shader's combiner/threshold settings.
 - Live tuning: tools/hud_tune.py set <i>=<v> --sym g_ringp (radii, thickness, border, track alpha/brightness).
+
+## Sprint speed, shield cost, enemy health (Nov 14)
+- Sprint speed: Link's ground movement is `main+0x9352F0(player, direction, float speed)`; his own call is the
+  `bl` at main+0x934990 (returns to main+0x934994). Hook 10 sits on the function entry and, only for that return
+  address, multiplies s0 (saved d0) by `sprint_speed_pct` while A is held and not stripped by the stamina rules.
+  Measured: run ~5.6 m/s, native sprint ~7 m/s, x2 -> ~14.5 m/s. Default 125 %. Writing position (actor+0x31C) or
+  velocity (actor+0x388) does nothing (both are outputs); RollingMaxSpeed does not drive the sprint.
+  (Reference: the MIT "Movement Speed Increase" mod by Zerossa patches the same call.)
+- Shield cost: the hit arrives during Link's hit reaction, when his movement update pauses (player_active() false
+  for a few frames) and queued events were dropped. Shield hits are now a counter (player_guard_seq) kept across
+  pauses shorter than 60 frames; GuardFailHit (the hit went through) no longer counts.
+- Enemy health: works (g_hp_log). Peahat larvae have MaxLife 1 (x3 = 3), the big Peahat 6 and only takes damage on
+  its root (IsHeadshotOnlyDamage, bone Tail_1). Kokiri Sword EquipmentPerformance 1.
+- Stamina refill wait: 0.8 s, 1.8 s in combat, 2.5 s after exhaustion.

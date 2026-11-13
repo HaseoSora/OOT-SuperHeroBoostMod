@@ -202,3 +202,14 @@ Consequence: only site 3 sees gameplay input. The four classic slot sites
   produced hundreds of thousands of "Unmapped Read/Write" log lines at load (black screen ~2 min, 30-100 MB log).
 - Tint: pane object (record +8) +0x20 = RGBA floats, works for pictures and text panes.
 - Tuning: g_hudp[] in core/hud.c; tools/hud_tune.py set/get/shot/cfg writes it live (and the HUD options).
+
+## Stamina ring as a dot tube (replaces the 128 gauge parts)
+- The ring is now ~230 plain picture panes (P_OotPic_020..) with the stock Circle64_00 texture: 48 dots on ring 1
+  and 64 on ring 2, overlapping so they read as one continuous tube with round ends. A slightly bigger black dot
+  behind each one is the empty track and the border. The fill's last dot sits at the exact fill angle (small-angle
+  sin/cos rotation of the precomputed dot table), so the end moves smoothly. Yellow when exhausted.
+- No gauge file copies or part instances any more (PART_N = 0): lighter to build and to draw.
+- Looked at and dropped: SaveGradation_00 (128x128) is an angular (conic) gradient, the classic base for a
+  threshold-filled ring, but the game only uses it for the save icon's rotating glow (PaSaveLoadIcon_00, 3
+  samplers in one material); using it as a fill would need the ui shader's combiner/threshold settings.
+- Live tuning: tools/hud_tune.py set <i>=<v> --sym g_ringp (radii, thickness, border, track alpha/brightness).

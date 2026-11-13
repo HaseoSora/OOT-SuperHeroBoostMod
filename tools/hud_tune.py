@@ -5,10 +5,11 @@ The emulator must already be running with the debug server (e.g. `python tools/l
 Usage:
     python tools/hud_tune.py get
     python tools/hud_tune.py set 0=-1400 3=0.8 [--shot build/tune.png]
+    python tools/hud_tune.py set 2=40 --sym g_ringp        (stamina ring)
     python tools/hud_tune.py shot build/tune.png [--crop x0,y0,x1,y1]
     python tools/hud_tune.py dbg
 
-Indices of g_hudp are documented in core/hud.c.
+Indices of g_hudp / g_ringp are documented in core/hud.c.
 """
 from __future__ import annotations
 
@@ -23,7 +24,7 @@ from lichii import DebugClient, HostMemory, lichii_pids  # noqa: E402
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from live_check import PORT, log_addr, symbols  # noqa: E402
 
-N = 20
+SIZES = {"g_hudp": 20, "g_ringp": 8}   # float arrays in core/hud.c
 
 
 def connect():
@@ -51,9 +52,11 @@ def main() -> int:
     ap.add_argument("args", nargs="*")
     ap.add_argument("--shot", default="")
     ap.add_argument("--crop", default="")
+    ap.add_argument("--sym", default="g_hudp", choices=sorted(SIZES), help="parameter array to get/set")
     a = ap.parse_args()
     c, base, syms = connect()
-    addr = base + syms["g_hudp"]
+    addr = base + syms[a.sym]
+    N = SIZES[a.sym]
     if a.cmd == "get":
         print([round(v, 3) for v in struct.unpack(f"<{N}f", bytes(c.read(addr, 4 * N)))])
     elif a.cmd == "set":

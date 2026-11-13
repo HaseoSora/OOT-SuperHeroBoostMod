@@ -53,7 +53,7 @@ static const char CIRCLE_TEX[] = "Circle64_00";
  * parts 1..4 are the slot circles: the gauge's fill texture is replaced by the
  * stock Circle64_00 and the gauge is kept full, so it draws a tinted circle. The
  * art is a placeholder until the real assets arrive. */
-#define PART_N 128   /* >1 does not work: only one appended part is built (see docs/RE-NOTES.md) */
+#define PART_N 0   /* gauge-part ring retired: the stamina ring is now drawn with picture panes (RT1..) */
 #define APPEND_ALL 1   /* 1 = append every part (only the first one gets listed by the
                         * engine); 0 = parts 1.. repurpose filler parts (froze the game) */
 #define SLOT_N 4
@@ -153,21 +153,37 @@ static const u64 g_thash[TXT_N] = {HASH_TXT0, HASH_TXT1, HASH_TXT2, HASH_TXT3, H
  *  4..7  rupee plate:  same                                         the game's rupee counter)
  *  8     rupee icon    (Nt_RupeeIconNew_00, the game's green rupee)
  *  9     sun disc, 10..17 sun rays (Circle64_00 / White8_00_BC4L)
- *  18    moon disc, 19 moon shadow (both Circle64_00: a crescent) */
-#define PIC_N 20
-static char g_pinames[PIC_N][16] = {"P_OotPic_00", "P_OotPic_01", "P_OotPic_02", "P_OotPic_03", "P_OotPic_04",
-                                     "P_OotPic_05", "P_OotPic_06", "P_OotPic_07", "P_OotPic_08", "P_OotPic_09",
-                                     "P_OotPic_10", "P_OotPic_11", "P_OotPic_12", "P_OotPic_13", "P_OotPic_14",
-                                     "P_OotPic_15", "P_OotPic_16", "P_OotPic_17", "P_OotPic_18", "P_OotPic_19"};
-static const u64 g_pihash[PIC_N] = {HASH_PIC0, HASH_PIC1, HASH_PIC2, HASH_PIC3, HASH_PIC4, HASH_PIC5, HASH_PIC6,
-                                    HASH_PIC7, HASH_PIC8, HASH_PIC9, HASH_PIC10, HASH_PIC11, HASH_PIC12, HASH_PIC13,
-                                    HASH_PIC14, HASH_PIC15, HASH_PIC16, HASH_PIC17, HASH_PIC18, HASH_PIC19};
+ *  18    moon disc, 19 moon shadow (both Circle64_00: a crescent)
+ *  20..  stamina ring: overlapping Circle64_00 dots along two circles, drawn as a continuous tube.
+ *        Order = draw order: dark track dots of ring 1 and ring 2 first, then the fill dots of ring 1 and
+ *        ring 2 (each fill has one extra dot that sits exactly at the fill angle, so the end moves smoothly). */
+#define RING1_DOTS 48
+#define RING2_DOTS 64
+#define RT1 20                              /* ring 1 track */
+#define RT2 (RT1 + RING1_DOTS)              /* ring 2 track */
+#define RF1 (RT2 + RING2_DOTS)              /* ring 1 fill (+1 end dot) */
+#define RF2 (RF1 + RING1_DOTS + 1)          /* ring 2 fill (+1 end dot) */
+#define PIC_N (RF2 + RING2_DOTS + 1)
+static char g_pinames[PIC_N][16];           /* "P_OotPic_000".. filled by pic_names() */
+static const u64 g_pihash[400] = {HASH_PIC_LIST};   /* CityHash64 of "P_OotPic_000".. (tools/build_core.py) */
+_Static_assert(PIC_N <= 400, "more picture panes than generated hashes");
 #define TEX_N 5
 static char g_texn[TEX_N][24] = {"NumBaseSide_00", "NumBaseSide_01", "Nt_RupeeIconNew_00", "Circle64_00", "White8_00_BC4L"};
-static const u8 g_pitex[PIC_N] = {0, 0, 1, 1, 0, 0, 1, 1, 2, 3, 4, 4, 4, 4, 4, 4, 4, 4, 3, 3};
-/* pane sizes in layout units (scaled at runtime) */
-static const float g_pic_w[PIC_N] = {1014, 1014, 1014, 1014, 1014, 1014, 1014, 1014, 120, 60, 9, 9, 9, 9, 9, 9, 9, 9, 76, 70};
-static const float g_pic_h[PIC_N] = {160, 160, 160, 160, 160, 160, 160, 160, 120, 60, 26, 26, 26, 26, 26, 26, 26, 26, 76, 70};
+static const u8 g_pitex0[20] = {0, 0, 1, 1, 0, 0, 1, 1, 2, 3, 4, 4, 4, 4, 4, 4, 4, 4, 3, 3};
+/* pane sizes in layout units (scaled at runtime); ring dots are 100 x 100 */
+static const float g_pic_w0[20] = {1014, 1014, 1014, 1014, 1014, 1014, 1014, 1014, 120, 60, 9, 9, 9, 9, 9, 9, 9, 9, 76, 70};
+static const float g_pic_h0[20] = {160, 160, 160, 160, 160, 160, 160, 160, 120, 60, 26, 26, 26, 26, 26, 26, 26, 26, 76, 70};
+static u32 pic_tex(u32 k) { return k < 20 ? g_pitex0[k] : 3; }
+static float pic_w(u32 k) { return k < 20 ? g_pic_w0[k] : 100.0f; }
+static float pic_h(u32 k) { return k < 20 ? g_pic_h0[k] : 100.0f; }
+static void pic_names(void) {
+    for (u32 k = 0; k < PIC_N; k++) {
+        static const char P[] = "P_OotPic_";
+        char *d = g_pinames[k];
+        for (u32 i = 0; i < 9; i++) d[i] = P[i];
+        d[9] = (char)('0' + k / 100); d[10] = (char)('0' + k / 10 % 10); d[11] = (char)('0' + k % 10); d[12] = 0;
+    }
+}
 /* layout units (root-relative, Y up) */
 #define HUD_X (-1450.0f)
 #define HUD_Y_CLOCK (-880.0f)
@@ -230,7 +246,8 @@ static int add_material(u8 *root, const u8 *r, u32 src, const char *tex) {
  * pane slot, same name, same parent; only the part descriptor changes to the item
  * button's. They are driven by their original names. */
 static u8 *build_root(const u8 *r) {
-    if (name_index(r, 0x20, part_name(0)) >= 0) { g_hud_dbg[9] = MARK | 1; return 0; }
+    pic_names();
+    if (name_index(r, 0x20, g_pinames[0]) >= 0) { g_hud_dbg[9] = MARK | 1; return 0; }
     u32 nc = w(r, 0x38), np = w(r, 0xD8);
     if (nc > 128 || np > 128) { g_hud_dbg[9] = MARK | 2; return 0; }
     int mci = name_index(r, 0x20, "Pa_MpGauge_00"), mpi = name_index(r, 0xC0, "Pa_MpGauge_00");
@@ -293,14 +310,14 @@ static u8 *build_root(const u8 *r) {
             u8 *bd = pool_clone((const void *)((const u64 *)q(r, 0x48))[pbi], 0x88);
             u8 *pd = pool_clone((const void *)((const u64 *)q(r, 0x68))[ppi], 0x88);
             if (!cd || !bd || !pd) { g_hud_dbg[9] = MARK | 4; return 0; }
-            *(u32 *)(bd + 0x14) = (u32)mats[g_pitex[k]];
+            *(u32 *)(bd + 0x14) = (u32)mats[pic_tex(k)];
             *(u32 *)(pd + 0x10) = nb + k;
             *(u32 *)(cd + 40) = 0;
             *(u32 *)(cd + 52) = npane + k + 1;
             *(float *)(cd + 0x10) = 0.0f; *(float *)(cd + 0x14) = 0.0f;   /* hidden until placed */
             *(float *)(cd + 28) = HUD_X;
             *(float *)(cd + 32) = HUD_Y_RUPEE;
-            *(float *)(cd + 0x2C) = g_pic_w[k]; *(float *)(cd + 0x30) = g_pic_h[k];
+            *(float *)(cd + 0x2C) = pic_w(k); *(float *)(cd + 0x30) = pic_h(k);
             *(unsigned short *)(cd + 0x3c) = (unsigned short)(nb + k);
             /* like the stock picture: +0x40 = no extra-data entry (0xFFFF; any other value makes the engine search
              * a by-name list at that index on every lookup), +0x42 = index in the picture list */
@@ -865,6 +882,87 @@ static void txt_update(u64 frame) {
     plates_update(frame);
 }
 
+/* ---- stamina ring: a continuous tube of overlapping Circle64_00 dots ----
+ * Ring 1 = the first 75 stamina; ring 2 (outside) = what the extra hearts add, shown only as far as the
+ * current capacity unlocks it. Behind each fill a slightly bigger dark track shows the empty part and gives
+ * the tube a border. The fill starts at the top and runs clockwise; its last dot sits exactly at the fill
+ * angle so the end moves smoothly. Sizes are in ring units, multiplied by the anchor scale (same units as
+ * the old gauge ring). Tunable live (tools/hud_tune.py ring ...):
+ *  0 ring 1 radius, 1 ring 2 radius, 2 ring 1 thickness, 3 ring 2 thickness, 4 track border,
+ *  5 track alpha, 6 track brightness, 7 fill alpha */
+float g_ringp[8] = {133.5f, 203.0f, 48.0f, 30.0f, 12.0f, 1.0f, 0.0f, 1.0f};
+static float g_rc1[RING1_DOTS + 1], g_rs1[RING1_DOTS + 1], g_rc2[RING2_DOTS + 1], g_rs2[RING2_DOTS + 1];
+static u32 g_ring_tab;
+/* sin/cos of a small angle (|x| < 0.2) */
+static void small_sincos(float x, float *s, float *c) {
+    float x2 = x * x;
+    *s = x * (1.0f - x2 / 6.0f * (1.0f - x2 / 20.0f));
+    *c = 1.0f - x2 / 2.0f * (1.0f - x2 / 12.0f);
+}
+/* unit directions of dot k, clockwise from the top: (sin, cos) of k * 2pi / n */
+static void ring_table(float *sn, float *cs, u32 n) {
+    float ds, dc, s = 0.0f, c = 1.0f;
+    small_sincos(6.2831853f / (float)n, &ds, &dc);
+    for (u32 k = 0; k <= n; k++) {
+        sn[k] = s; cs[k] = c;
+        float s2 = s * dc + c * ds, c2 = c * dc - s * ds;
+        s = s2; c = c2;
+    }
+}
+/* one ring: track dots for the unlocked part, fill dots up to `fill` (both fractions of the full circle) */
+static void ring_draw(u32 t0, u32 f0, u32 n, const float *sn, const float *cs, float r, float thick,
+                      float unlocked, float fill, u32 on, const float *rgb) {
+    const float *G = g_ringp;
+    float cx = g_anchor_x, cy = g_anchor_y, sc = g_anchor_s;
+    float R = r * sc, dt = (thick + 2.0f * G[4]) * sc / 100.0f, df = thick * sc / 100.0f;
+    float ut = unlocked * (float)n, uf = fill * (float)n;
+    for (u32 k = 0; k < n; k++) {
+        u64 rec = g_pic_rec[t0 + k];
+        u32 vis = on && (float)k <= ut + 0.001f && unlocked > 0.0f;
+        place(rec, cx + R * sn[k], cy + R * cs[k], vis ? dt : 0.0f, vis ? dt : 0.0f, 0.0f);
+        tint_rec(rec, G[6], G[6], G[6], G[5]);
+    }
+    for (u32 k = 0; k < n; k++) {
+        u64 rec = g_pic_rec[f0 + k];
+        u32 vis = on && fill > 0.0f && (float)k <= uf;
+        place(rec, cx + R * sn[k], cy + R * cs[k], vis ? df : 0.0f, vis ? df : 0.0f, 0.0f);
+        tint_rec(rec, rgb[0], rgb[1], rgb[2], G[7]);
+    }
+    {   /* end dot exactly at the fill angle: dot k rotated by the remaining fraction of a step */
+        u32 k = (u32)uf;
+        if (k > n) k = n;
+        float fr = uf - (float)k, ds, dc;
+        small_sincos(fr * 6.2831853f / (float)n, &ds, &dc);
+        float s = sn[k] * dc + cs[k] * ds, c = cs[k] * dc - sn[k] * ds;
+        u64 rec = g_pic_rec[f0 + n];
+        u32 vis = on && fill > 0.0f;
+        place(rec, cx + R * s, cy + R * c, vis ? df : 0.0f, vis ? df : 0.0f, 0.0f);
+        tint_rec(rec, rgb[0], rgb[1], rgb[2], G[7]);
+    }
+}
+static void ring_update(void) {
+    for (u32 k = RT1; k < PIC_N; k++) if (!g_pic_rec[k]) return;   /* bound by plates_update */
+    if (!g_ring_tab) {
+        ring_table(g_rs1, g_rc1, RING1_DOTS);
+        ring_table(g_rs2, g_rc2, RING2_DOTS);
+        g_ring_tab = 1;
+    }
+    static const float GREEN[3] = {0.30f, 0.85f, 0.25f}, YELLOW[3] = {1.0f, 0.85f, 0.10f};
+    const float *rgb = g_tired ? YELLOW : GREEN;
+    u32 on = g_show > 0.5f && g_anchor_ok;
+    /* ring 1: 0..75 stamina; ring 2: 75..150, unlocked up to the capacity */
+    float f1 = g_value / 75.0f, f2 = (g_value - 75.0f) / 75.0f, u2 = (g_cap - 75.0f) / 75.0f;
+    if (f1 > 1.0f) f1 = 1.0f;
+    if (f1 < 0.0f) f1 = 0.0f;
+    if (u2 > 1.0f) u2 = 1.0f;
+    if (u2 < 0.0f) u2 = 0.0f;
+    if (f2 > u2) f2 = u2;
+    if (f2 < 0.0f) f2 = 0.0f;
+    const float *G = g_ringp;
+    ring_draw(RT1, RF1, RING1_DOTS, g_rs1, g_rc1, G[0], G[2], 1.0f, f1, on, rgb);
+    ring_draw(RT2, RF2, RING2_DOTS, g_rs2, g_rc2, G[1], G[3], u2, f2, on, rgb);
+}
+
 u32 hud_frame_count(void) { return g_tick; }
 static void hud_frame(void) {
     g_hud_dbg[1] = MARK | ++g_tick;
@@ -876,7 +974,6 @@ static void hud_frame(void) {
         if (!parent) return;
         g_frame_node = parent;
     }
-    bind_segs(g_frame_node);
     txt_update(g_frame_node);
     anchor_update();
     if (g_test_mode) {
@@ -886,7 +983,7 @@ static void hud_frame(void) {
         g_show = 1.0f;
         g_tired = (g_tick / 480) & 1;   /* demo: alternate green / yellow */
     }
-    drive_segs();
+    ring_update();
 }
 /* -------- observation of the stock item box (to learn icon frames) -------- */
 #define FL_N 24

@@ -50,13 +50,24 @@ static int has_hit(const char *a) {
     for (int i = 0; i < 20 && a[i]; i++) if (a[i] == 'H' && a[i + 1] == 'i' && a[i + 2] == 't') return 1;
     return 0;
 }
+static int has_word(const char *a, const char *w) {
+    for (int i = 0; i < 20 && a[i]; i++) { int k = 0; while (w[k] && a[i + k] == w[k]) k++; if (!w[k]) return 1; }
+    return 0;
+}
 static int starts(const char *a, const char *p) {
     for (int i = 0; p[i]; i++) if (a[i] != p[i]) return 0;
     return 1;
 }
 
 u32 g_ev[5];   /* test counters: roll group, jump, attack, guard hit, shot (events seen, costed or not) */
+char g_guard_names[16][24];   /* diagnostic: every distinct state name that starts with "Guard" */
+u32 g_guard_n;
 static void classify(const char *n) {
+    if (starts(n, "Guard") || starts(n, "Shield")) {
+        int known = 0;
+        for (u32 k = 0; k < g_guard_n && k < 16; k++) if (eq(g_guard_names[k], n)) known = 1;
+        if (!known && g_guard_n < 16) { for (int i = 0; i < 24; i++) g_guard_names[g_guard_n][i] = n[i]; g_guard_n++; }
+    }
     if (eq(n, "Rolling")) { g_pending |= PEV_ROLL; g_ev[0]++; }
     else if (starts(n, "CutHammer")) { g_pending |= PEV_HAMMER; g_ev[2]++; }
     else if (starts(n, "BowShoot") || starts(n, "SlingShoot") || starts(n, "SlingshotShoot")) { g_pending |= PEV_SHOT; g_ev[4]++; }
@@ -64,7 +75,7 @@ static void classify(const char *n) {
     else if (eq(n, "SideStep")) { g_pending |= PEV_SIDESTEP; g_ev[0]++; }
     else if (starts(n, "BackFlip")) { g_pending |= PEV_BACKFLIP; g_ev[0]++; }
     else if (eq(n, "Jump")) { g_pending |= PEV_JUMP; g_ev[1]++; }
-    else if (starts(n, "Guard") && has_hit(n)) { g_pending |= PEV_GUARDHIT; g_ev[3]++; }
+    else if (starts(n, "Guard") && (has_hit(n) || has_word(n, "Break") || has_word(n, "Reaction") || has_word(n, "Repel"))) { g_pending |= PEV_GUARDHIT; g_ev[3]++; }
     else if (starts(n, "Cut") || starts(n, "ChargeAttack") || starts(n, "JumpCut") || starts(n, "Stab"))
         { g_pending |= PEV_ATTACK; g_ev[2]++; }
 }

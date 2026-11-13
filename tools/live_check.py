@@ -160,13 +160,19 @@ def main() -> int:
             # --press accepts several steps: "B:30,ZR:20,A:10"
             for n, step in enumerate(args.press.split(",")):
                 stick = None
-                if "@" in step:                       # "A:4@0,1" = hold the left stick x,y
+                rstick = None
+                if "#" in step:                       # "R:3000#1/0" = hold the right stick (camera)
+                    step, rs = step.split("#")
+                    rstick = [float(v) for v in rs.split("/")]
+                if "@" in step:                     # "A:4@0,1" = hold the left stick x,y
                     step, st = step.split("@")
                     stick = [float(v) for v in st.split("/")]
                 btn, frames = step.split(":")
                 s = {"buttons": [b for b in btn.split("+") if b], "frames": int(frames)}   # e.g. ZL+B
                 if stick:
                     s["left_stick"] = stick
+                if rstick:
+                    s["right_stick"] = rstick
                 c.input([s])
                 print("press", btn, frames, "frames")
                 if "g_stamina" in syms:
@@ -289,6 +295,12 @@ def main() -> int:
         if "g_names_seen" in syms:
             nn = struct.unpack("<I", read_sym("g_names_n", 4))[0]; raw = read_sym("g_names_seen", 16 * 24)
             print("action names seen:", [raw[i*24:(i+1)*24].split(b"\\0")[0].decode("latin1") for i in range(1, min(nn, 15) + 1)])
+        if "g_hc_guard" in syms:
+            print("guard hits costed:", struct.unpack("<I", read_sym("g_hc_guard", 4))[0],
+                  "lowest stamina after one:", struct.unpack("<f", read_sym("g_hc_lowest", 4))[0])
+        if "g_guard_names" in syms:
+            gn = struct.unpack("<I", read_sym("g_guard_n", 4))[0]; raw = read_sym("g_guard_names", 16 * 24)
+            print("guard state names:", [raw[i*24:(i+1)*24].split(b"\0")[0].decode("latin1") for i in range(min(gn, 16))])
         if "g_link_maxlife" in syms:
             print("link max life (quarters):", struct.unpack("<i", read_sym("g_link_maxlife", 4))[0])
         if "g_link_life" in syms:

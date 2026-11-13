@@ -48,6 +48,8 @@ EXPERIMENTS = {
     "x_hold": [{"buttons": ["X"], "frames": 60}],
     "y_hold": [{"buttons": ["Y"], "frames": 70}],
     "a_hold": [{"buttons": ["A"], "frames": 70}],
+    # hold the shield up while the camera turns so enemies come to Link; the names show what a shield hit is called
+    "guard_wait": [{"buttons": ["R"], "frames": 5400, "right_stick": [1.0, 0.0]}],
 }
 
 

@@ -121,6 +121,8 @@ static void halve_stick(const HidView *v) {
     }
 }
 
+u32 g_hc_guard;            /* diagnostic: guard hits that cost stamina */
+float g_hc_lowest = 1.0e9f;   /* diagnostic: lowest stamina right after a guard hit */
 static void spend(float cost) {
     g_stamina.stamina -= cost * g_stamina.drain_multiplier;
     if (g_stamina.stamina < 0.0f) g_stamina.stamina = 0.0f;
@@ -223,6 +225,8 @@ void hero_core_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_result
         if ((ev & PEV_GUARDHIT) && cost_on(K_BLOCK)) {   /* a hit on the shield costs stamina */
             g_combat_hold = COMBAT_HOLD_FRAMES;
             spend(g_config.block_base_cost);
+            g_hc_guard++;
+            if (g_stamina.stamina < g_hc_lowest) g_hc_lowest = g_stamina.stamina;
         }
         if ((ev & PEV_JUMP) && cost_on(K_JUMP)) {
             spend(JUMP_COST);

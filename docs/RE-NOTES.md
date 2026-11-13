@@ -185,3 +185,13 @@ Consequence: only site 3 sees gameplay input. The four classic slot sites
 - Extending the root pools (+0x1D0, +0x1E0, +0x1F0, +0x210, +0x220: count+5, copies of the last entry) with
   five appended gauge parts changed nothing: child frame objects are still NULL for parts 2..5.
   The limit is not in those pools. PART_N stays 1 (stable). extend_pools() remains in hud.c for reference.
+
+## Rupee counter / clock HUD (investigation, no implementation yet)
+- Kabosune/oot-remake-modding and platinumagpie/oot-remake-devtool: neither documents HUD layouts, new panes or text
+  rendering (devtool only toggles stock HUD parts via UISystemActor events; Kabosune Core only fills rectangles).
+- PlayerStatus_00 live layout (pane_dump.py): 188 common panes / 162 parts, none for rupees or time.
+- The Common blarc has separate layouts: NumDisplay_00.buil (5 KB), PaNumDisplay_00.buil (24 KB, a reusable part),
+  PaNumDisplayBottle_00, MiniGameTimer_00. Rupee display is its own layout opened by the game on wallet change.
+- Only ONE appended part per layout is instantiated (see multi-part limit above), and it is used by the stamina gauge.
+- Candidate approaches: (a) find the opener of NumDisplay_00 and keep it open + reposition bottom-left;
+  (b) make the single appended part a multi-pane layout (PaNumDisplay_00 clone) and share it with the gauge.

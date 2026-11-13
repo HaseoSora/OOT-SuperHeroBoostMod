@@ -20,6 +20,11 @@ void hud_set_tired(unsigned int t);
 u32 player_take_events(void);
 int player_state_is(const char *name);
 int player_active(void);
+int player_max_life(void);
+
+/* Capacity: 75 (= 75% of the original 100) up to 3 hearts; every heart after the 3rd adds 75/17, so 20 hearts = 150. */
+#define STAMINA_BASE 75.0f
+#define STAMINA_PER_HEART (STAMINA_BASE / 17.0f)
 #define PEV_ROLL 1u
 #define PEV_SIDESTEP 2u
 #define PEV_JUMP 4u
@@ -65,6 +70,8 @@ static void ensure_init(void) {
     if (g_initialized) return;
     stamina_default_config(&g_config);
     stamina_init(&g_stamina, &g_config, LIFE_QUARTERS);
+    g_stamina.cap = STAMINA_BASE;
+    g_stamina.stamina = STAMINA_BASE;
     g_initialized = 1;
 }
 
@@ -141,6 +148,15 @@ void hero_core_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_result
     if (!g_exhausted && g_stamina.stamina <= 0.0f) g_exhausted = 1;
 
     if (new_frame) {
+        int mq = player_max_life();
+        if (mq >= 4) {                                  /* quarters -> hearts */
+            int hearts = mq / 4;
+            if (hearts < 3) hearts = 3;
+            if (hearts > 20) hearts = 20;
+            float cap = STAMINA_BASE + (float)(hearts - 3) * STAMINA_PER_HEART;
+            if (cap != g_stamina.cap) g_stamina.cap = cap;
+        }
+        if (g_stamina.stamina > g_stamina.cap) g_stamina.stamina = g_stamina.cap;
         /* Costs come from Link's ACTIONS (player_track), not from button presses. */
         u32 ev = player_take_events();
         if (ev & PEV_ATTACK) {

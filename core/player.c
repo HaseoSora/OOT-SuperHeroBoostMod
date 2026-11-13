@@ -13,6 +13,7 @@ u64 g_link_player = 1;
 u64 g_link_table = 1;
 u32 g_link_seen = 0x10000000u;
 int g_link_life = 0x7777;
+int g_link_maxlife = 0;   /* max life in quarter hearts (Life+0x1C18 -> record, s32 at +8) */
 static u32 g_active_frame;
 static int g_alive;
 u32 hud_frame_count(void);
@@ -85,6 +86,8 @@ void player_track(u64 actor) {
     {   /* life: Life+0x1C10 -> record, value s32 at +8 (0 = dead) */
         u64 rec = rd(life, 0x1C10);
         if (rec) { g_link_life = *(volatile int *)(rec + 8); g_alive = g_link_life > 0; }
+        u64 mrec = rd(life, 0x1C18);
+        if (mrec) g_link_maxlife = *(volatile int *)(mrec + 8);
     }
 
     const volatile char *s = (const volatile char *)(pl + 0x244);
@@ -127,3 +130,5 @@ int player_state_is(const char *name) { return eq(g_cur, name); }
 int player_active(void) {
     return g_alive && (hud_frame_count() - g_active_frame) <= 2;
 }
+
+int player_max_life(void) { return g_link_maxlife; }

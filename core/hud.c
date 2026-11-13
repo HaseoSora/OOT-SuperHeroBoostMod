@@ -97,8 +97,10 @@ static const char *asset_name(u32 i) {
 
 /* anchor of each part (layout units, root-relative, Y up; ~0.356 px per unit at 720p)
  * Slot circles form a diamond: ZR top, L left, R right, B bottom. */
-static const float g_part_x[PART_N] = {-1560.0f, 1450.0f, 1300.0f, 1600.0f, 1450.0f};
-static const float g_part_y[PART_N] = {736.0f, -300.0f, -150.0f, -150.0f, 0.0f};
+/* part 0 = stamina ring centre: where Link usually stands on screen (placeholder until the
+ * ring follows his projected position) */
+static const float g_part_x[PART_N] = {56.0f, 1450.0f, 1300.0f, 1600.0f, 1450.0f};
+static const float g_part_y[PART_N] = {-330.0f, -300.0f, -150.0f, -150.0f, 0.0f};
 /* local scale of the pane when shown (X from the descriptor, Y applied at runtime) */
 static const float g_part_sx[PART_N] = {1.0f, 1.8f, 1.8f, 1.8f, 1.8f};
 static const float g_part_sy[PART_N] = {1.0f, 1.7f, 1.7f, 1.7f, 1.7f};
@@ -252,7 +254,7 @@ static u8 *build_root(const u8 *r) {
     cd0[56] |= 1;
     *(unsigned short *)(cd0 + 0x42) = (unsigned short)np;           /* part descriptor index: our appended entry */
     *(float *)(cd0 + 16) = g_part_sx[0];
-    *(float *)(cd0 + 20) = 0.5f;               /* stamina: half height */
+    *(float *)(cd0 + 20) = 1.0f;
     *(float *)(cd0 + 28) = g_part_x[0];
     *(float *)(cd0 + 32) = g_part_y[0];
     *(u32 *)(pd0 + 64) = nc;
@@ -480,25 +482,34 @@ static void drive_slots(void) {
 
 /* Slot circles: four picture panes inside the stamina part's own layout. Panes of the
  * child layout (index = order in PaMpGauge): 6 and 7 particles, 14 flash, 19 sparkle. */
-#define CIRCLE_D 150.0f
-static const u32 CIRCLE_PANE[SLOT_N] = {3, 4, 18, 15};
-static void drive_circles(void) {
+#define RING_N 12
+#define RING_R 190.0f      /* ring radius, layout units (~0.356 px each) */
+#define RING_DOT 46.0f     /* dot diameter */
+static const u32 RING_PANE[RING_N] = {3, 4, 18, 15, 6, 7, 9, 10, 13, 14, 16, 19};
+/* ring clockwise from the top; dot k lit while value/cap * RING_N > k. Dots are small
+ * picture panes of the gauge layout, so the ring is a placeholder until real assets. */
+static const float RING_COS[RING_N] = {0.0f, 0.5f, 0.866f, 1.0f, 0.866f, 0.5f, 0.0f, -0.5f, -0.866f, -1.0f, -0.866f, -0.5f};
+static const float RING_SIN[RING_N] = {1.0f, 0.866f, 0.5f, 0.0f, -0.5f, -0.866f, -1.0f, -0.866f, -0.5f, 0.0f, 0.5f, 0.866f};
+u32 g_ring_dbg[RING_N] = {1};
+static void drive_ring(void) {
     if (!g_bar) return;
     u64 cl = ptr(g_bar, 0x80);
     if (!cl) return;
     u64 arr = ptr(cl, 0x100);
     u32 cnt = *(unsigned short *)(cl + 0x13C);
     if (!arr || cnt < 20) return;
-    for (u32 i = 0; i < SLOT_N; i++) {
-        u64 p = arr + (u64)CIRCLE_PANE[i] * 0xB0;
-        float on = g_slot[i].show > 0.5f ? 1.0f : 0.0f;
+    float frac = g_cap > 0.0f ? g_value / g_cap : 0.0f;
+    for (u32 k = 0; k < RING_N; k++) {
+        u64 p = arr + (u64)RING_PANE[k] * 0xB0;
+        float on = (g_show > 0.5f && frac * (float)RING_N > (float)k + 0.01f) ? 1.0f : 0.0f;
         float w_ = *(float *)(p + 0x58), h_ = *(float *)(p + 0x5C);
-        if (w_ < 1.0f || h_ < 1.0f) continue;
-        *(float *)(p + 0x60) = on * CIRCLE_D / w_;
-        *(float *)(p + 0x64) = on * CIRCLE_D / h_;
-        /* local position = layout target minus the part's own anchor */
-        *(float *)(p + 0x6C) = g_part_x[i + 1] - g_part_x[0];
-        *(float *)(p + 0x70) = g_part_y[i + 1] - g_part_y[0];
+        if (w_ < 1.0f) w_ = 32.0f;
+        if (h_ < 1.0f) h_ = 32.0f;
+        g_ring_dbg[k] = (u32)(w_ * 100.0f);
+        *(float *)(p + 0x60) = on * RING_DOT / w_;
+        *(float *)(p + 0x64) = on * RING_DOT / h_;
+        *(float *)(p + 0x6C) = RING_R * RING_COS[k];
+        *(float *)(p + 0x70) = RING_R * RING_SIN[k];
         *(u32 *)p |= 0x6F;
     }
 }
@@ -542,7 +553,7 @@ static void hud_frame(void) {
     }
     bind_slots(g_frame_node);
     drive_slots();
-    drive_circles();
+    drive_ring();
     if (g_test_mode) {
         u32 p = (g_tick / 120) % 13;   /* calibration sweep: raw ratio frame 0..480 step 40, 2 s each */
         g_cap = 100.0f;
@@ -579,15 +590,14 @@ static void hud_frame(void) {
                 set_frame((void *)g_trace, 473.0f);
                 g_fill_init = 1;
             }
-            float s = g_cap > 0.0f ? g_value / g_cap : 0.0f;
-            if (s < 0.0f) s = 0.0f;
-            if (s > 1.0f) s = 1.0f;
-            u64 f = arr + 17 * 0xB0;
-            *(float *)(f + 0x60) = s * 0.908f;   /* full fill = base width (measured) */
-            *(float *)(f + 0x64) = 1.0f;
-            *(float *)(f + 0x6C) = -380.0f;      /* panes are left-anchored: same x as the base */
-            *(float *)(f + 0x70) = 0.0f;
-            *(u32 *)f |= 0x6F;
+            /* the straight bar is not shown any more: only the ring (drive_ring) is */
+            static const u32 HIDE[4] = {8, 11, 12, 17};
+            for (u32 i = 0; i < 4; i++) {
+                u64 f = arr + (u64)HIDE[i] * 0xB0;
+                *(float *)(f + 0x60) = 0.0f;
+                *(float *)(f + 0x64) = 0.0f;
+                *(u32 *)f |= 0x6F;
+            }
         }
         g_last_value = g_value;
     } else if (g_last_value != g_value) {

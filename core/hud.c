@@ -68,11 +68,9 @@ static const char *part_replaces(u32 i);
 static char g_pnames[SEG_N][16] = {"Pa_OotSeg_000", "Pa_OotSeg_001", "Pa_OotSeg_002", "Pa_OotSeg_003", "Pa_OotSeg_004", "Pa_OotSeg_005", "Pa_OotSeg_006", "Pa_OotSeg_007", "Pa_OotSeg_008", "Pa_OotSeg_009", "Pa_OotSeg_010", "Pa_OotSeg_011", "Pa_OotSeg_012", "Pa_OotSeg_013", "Pa_OotSeg_014", "Pa_OotSeg_015", "Pa_OotSeg_016", "Pa_OotSeg_017", "Pa_OotSeg_018", "Pa_OotSeg_019", "Pa_OotSeg_020", "Pa_OotSeg_021", "Pa_OotSeg_022", "Pa_OotSeg_023", "Pa_OotSeg_024", "Pa_OotSeg_025", "Pa_OotSeg_026", "Pa_OotSeg_027", "Pa_OotSeg_028", "Pa_OotSeg_029", "Pa_OotSeg_030", "Pa_OotSeg_031", "Pa_OotSeg_032", "Pa_OotSeg_033", "Pa_OotSeg_034", "Pa_OotSeg_035", "Pa_OotSeg_036", "Pa_OotSeg_037", "Pa_OotSeg_038", "Pa_OotSeg_039", "Pa_OotSeg_040", "Pa_OotSeg_041", "Pa_OotSeg_042", "Pa_OotSeg_043", "Pa_OotSeg_044", "Pa_OotSeg_045", "Pa_OotSeg_046", "Pa_OotSeg_047", "Pa_OotSeg_048", "Pa_OotSeg_049", "Pa_OotSeg_050", "Pa_OotSeg_051", "Pa_OotSeg_052", "Pa_OotSeg_053", "Pa_OotSeg_054", "Pa_OotSeg_055", "Pa_OotSeg_056", "Pa_OotSeg_057", "Pa_OotSeg_058", "Pa_OotSeg_059", "Pa_OotSeg_060", "Pa_OotSeg_061", "Pa_OotSeg_062", "Pa_OotSeg_063", "Pa_OotSeg_064", "Pa_OotSeg_065", "Pa_OotSeg_066", "Pa_OotSeg_067", "Pa_OotSeg_068", "Pa_OotSeg_069", "Pa_OotSeg_070", "Pa_OotSeg_071", "Pa_OotSeg_072", "Pa_OotSeg_073", "Pa_OotSeg_074", "Pa_OotSeg_075", "Pa_OotSeg_076", "Pa_OotSeg_077", "Pa_OotSeg_078", "Pa_OotSeg_079", "Pa_OotSeg_080", "Pa_OotSeg_081", "Pa_OotSeg_082", "Pa_OotSeg_083", "Pa_OotSeg_084", "Pa_OotSeg_085", "Pa_OotSeg_086", "Pa_OotSeg_087", "Pa_OotSeg_088", "Pa_OotSeg_089", "Pa_OotSeg_090", "Pa_OotSeg_091", "Pa_OotSeg_092", "Pa_OotSeg_093", "Pa_OotSeg_094", "Pa_OotSeg_095", "Pa_OotSeg_096", "Pa_OotSeg_097", "Pa_OotSeg_098", "Pa_OotSeg_099", "Pa_OotSeg_100", "Pa_OotSeg_101", "Pa_OotSeg_102", "Pa_OotSeg_103", "Pa_OotSeg_104", "Pa_OotSeg_105", "Pa_OotSeg_106", "Pa_OotSeg_107", "Pa_OotSeg_108", "Pa_OotSeg_109", "Pa_OotSeg_110", "Pa_OotSeg_111", "Pa_OotSeg_112", "Pa_OotSeg_113", "Pa_OotSeg_114", "Pa_OotSeg_115", "Pa_OotSeg_116", "Pa_OotSeg_117", "Pa_OotSeg_118", "Pa_OotSeg_119", "Pa_OotSeg_120", "Pa_OotSeg_121", "Pa_OotSeg_122", "Pa_OotSeg_123", "Pa_OotSeg_124", "Pa_OotSeg_125", "Pa_OotSeg_126", "Pa_OotSeg_127"};
 static char g_anames[SEG_N][16] = {"PaOotSeg_000", "PaOotSeg_001", "PaOotSeg_002", "PaOotSeg_003", "PaOotSeg_004", "PaOotSeg_005", "PaOotSeg_006", "PaOotSeg_007", "PaOotSeg_008", "PaOotSeg_009", "PaOotSeg_010", "PaOotSeg_011", "PaOotSeg_012", "PaOotSeg_013", "PaOotSeg_014", "PaOotSeg_015", "PaOotSeg_016", "PaOotSeg_017", "PaOotSeg_018", "PaOotSeg_019", "PaOotSeg_020", "PaOotSeg_021", "PaOotSeg_022", "PaOotSeg_023", "PaOotSeg_024", "PaOotSeg_025", "PaOotSeg_026", "PaOotSeg_027", "PaOotSeg_028", "PaOotSeg_029", "PaOotSeg_030", "PaOotSeg_031", "PaOotSeg_032", "PaOotSeg_033", "PaOotSeg_034", "PaOotSeg_035", "PaOotSeg_036", "PaOotSeg_037", "PaOotSeg_038", "PaOotSeg_039", "PaOotSeg_040", "PaOotSeg_041", "PaOotSeg_042", "PaOotSeg_043", "PaOotSeg_044", "PaOotSeg_045", "PaOotSeg_046", "PaOotSeg_047", "PaOotSeg_048", "PaOotSeg_049", "PaOotSeg_050", "PaOotSeg_051", "PaOotSeg_052", "PaOotSeg_053", "PaOotSeg_054", "PaOotSeg_055", "PaOotSeg_056", "PaOotSeg_057", "PaOotSeg_058", "PaOotSeg_059", "PaOotSeg_060", "PaOotSeg_061", "PaOotSeg_062", "PaOotSeg_063", "PaOotSeg_064", "PaOotSeg_065", "PaOotSeg_066", "PaOotSeg_067", "PaOotSeg_068", "PaOotSeg_069", "PaOotSeg_070", "PaOotSeg_071", "PaOotSeg_072", "PaOotSeg_073", "PaOotSeg_074", "PaOotSeg_075", "PaOotSeg_076", "PaOotSeg_077", "PaOotSeg_078", "PaOotSeg_079", "PaOotSeg_080", "PaOotSeg_081", "PaOotSeg_082", "PaOotSeg_083", "PaOotSeg_084", "PaOotSeg_085", "PaOotSeg_086", "PaOotSeg_087", "PaOotSeg_088", "PaOotSeg_089", "PaOotSeg_090", "PaOotSeg_091", "PaOotSeg_092", "PaOotSeg_093", "PaOotSeg_094", "PaOotSeg_095", "PaOotSeg_096", "PaOotSeg_097", "PaOotSeg_098", "PaOotSeg_099", "PaOotSeg_100", "PaOotSeg_101", "PaOotSeg_102", "PaOotSeg_103", "PaOotSeg_104", "PaOotSeg_105", "PaOotSeg_106", "PaOotSeg_107", "PaOotSeg_108", "PaOotSeg_109", "PaOotSeg_110", "PaOotSeg_111", "PaOotSeg_112", "PaOotSeg_113", "PaOotSeg_114", "PaOotSeg_115", "PaOotSeg_116", "PaOotSeg_117", "PaOotSeg_118", "PaOotSeg_119", "PaOotSeg_120", "PaOotSeg_121", "PaOotSeg_122", "PaOotSeg_123", "PaOotSeg_124", "PaOotSeg_125", "PaOotSeg_126", "PaOotSeg_127"};
 static const u64 g_phash[SEG_N] = {HASH_PART0, HASH_PART1, HASH_PART2, HASH_PART3, HASH_PART4, HASH_PART5, HASH_PART6, HASH_PART7, HASH_PART8, HASH_PART9, HASH_PART10, HASH_PART11, HASH_PART12, HASH_PART13, HASH_PART14, HASH_PART15, HASH_PART16, HASH_PART17, HASH_PART18, HASH_PART19, HASH_PART20, HASH_PART21, HASH_PART22, HASH_PART23, HASH_PART24, HASH_PART25, HASH_PART26, HASH_PART27, HASH_PART28, HASH_PART29, HASH_PART30, HASH_PART31, HASH_PART32, HASH_PART33, HASH_PART34, HASH_PART35, HASH_PART36, HASH_PART37, HASH_PART38, HASH_PART39, HASH_PART40, HASH_PART41, HASH_PART42, HASH_PART43, HASH_PART44, HASH_PART45, HASH_PART46, HASH_PART47, HASH_PART48, HASH_PART49, HASH_PART50, HASH_PART51, HASH_PART52, HASH_PART53, HASH_PART54, HASH_PART55, HASH_PART56, HASH_PART57, HASH_PART58, HASH_PART59, HASH_PART60, HASH_PART61, HASH_PART62, HASH_PART63, HASH_PART64, HASH_PART65, HASH_PART66, HASH_PART67, HASH_PART68, HASH_PART69, HASH_PART70, HASH_PART71, HASH_PART72, HASH_PART73, HASH_PART74, HASH_PART75, HASH_PART76, HASH_PART77, HASH_PART78, HASH_PART79, HASH_PART80, HASH_PART81, HASH_PART82, HASH_PART83, HASH_PART84, HASH_PART85, HASH_PART86, HASH_PART87, HASH_PART88, HASH_PART89, HASH_PART90, HASH_PART91, HASH_PART92, HASH_PART93, HASH_PART94, HASH_PART95, HASH_PART96, HASH_PART97, HASH_PART98, HASH_PART99, HASH_PART100, HASH_PART101, HASH_PART102, HASH_PART103, HASH_PART104, HASH_PART105, HASH_PART106, HASH_PART107, HASH_PART108, HASH_PART109, HASH_PART110, HASH_PART111, HASH_PART112, HASH_PART113, HASH_PART114, HASH_PART115, HASH_PART116, HASH_PART117, HASH_PART118, HASH_PART119, HASH_PART120, HASH_PART121, HASH_PART122, HASH_PART123, HASH_PART124, HASH_PART125, HASH_PART126, HASH_PART127};
-static const char g_numname[] = "Pa_OotNum_00";
-static const char g_numasset[] = "PaNumDisplay_00";   /* the game's own number plate (rupee icon, plate, number) */
-#define PART_TOT (PART_N + 1)
-static const char *part_name(u32 i) { return i == PART_N ? g_numname : g_pnames[i % SEG_N]; }
-static u64 part_hash(u32 i) { return i == PART_N ? HASH_NUM : g_phash[i % SEG_N]; }
+#define PART_TOT PART_N
+static const char *part_name(u32 i) { return g_pnames[i % SEG_N]; }
+static u64 part_hash(u32 i) { return g_phash[i % SEG_N]; }
 __attribute__((unused, noinline)) static const char *part_replaces(u32 i) { (void)i; return 0; }
 static const char *asset_name(u32 i) { return g_anames[i % SEG_N]; }
 /* ring centre: where Link usually stands on screen (layout units, root-relative, Y up;
@@ -141,21 +139,48 @@ static void extend_pools(u8 *root, u32 add) {
     }
 }
 
-#define TXT_N 4   /* two fields (clock, rupees) x two panes: the text is written to the hidden one */
+/* ---- clock / rupee plates, drawn like the game's own number display ----
+ * Text fields: 0 = clock, 1 = rupees (green), 2 = "/wallet" (white). Each field has two panes
+ * (field f uses panes f and f + FLD_N): the text is written to the hidden one. */
+#define FLD_N 3
+#define TXT_N (FLD_N * 2)
 static const char g_font_normal[] = "Normal";
-static char g_tnames[TXT_N][16] = {"T_OotClk_00", "T_OotRup_00", "T_OotClk_01", "T_OotRup_01"};
-static const u64 g_thash[TXT_N] = {HASH_TXT0, HASH_TXT1, HASH_TXT2, HASH_TXT3};
-#define PIC_N 2
-static char g_pinames[PIC_N][16] = {"P_OotBg_00", "P_OotBg_01"};
-static const u64 g_pihash[PIC_N] = {HASH_PIC0, HASH_PIC1};
-/* layout units (root-relative, Y up). The picture panes draw at ~0.59 of the size set here. */
+static char g_tnames[TXT_N][16] = {"T_OotTxt_00", "T_OotTxt_01", "T_OotTxt_02", "T_OotTxt_03", "T_OotTxt_04", "T_OotTxt_05"};
+static const u64 g_thash[TXT_N] = {HASH_TXT0, HASH_TXT1, HASH_TXT2, HASH_TXT3, HASH_TXT4, HASH_TXT5};
+/* Picture panes. Each gets its own copy of the textured material of P_SubItemBg_00 with the game's
+ * texture named below (all in the Common texture archive):
+ *  0..3  clock plate:  fill, fill mirrored, edge, edge mirrored   (NumBaseSide_00 / _01, the plate of
+ *  4..7  rupee plate:  same                                         the game's rupee counter)
+ *  8     rupee icon    (Nt_RupeeIconNew_00, the game's green rupee)
+ *  9     sun disc, 10..17 sun rays (Circle64_00 / White8_00_BC4L)
+ *  18    moon disc, 19 moon shadow (both Circle64_00: a crescent) */
+#define PIC_N 20
+static char g_pinames[PIC_N][16] = {"P_OotPic_00", "P_OotPic_01", "P_OotPic_02", "P_OotPic_03", "P_OotPic_04",
+                                     "P_OotPic_05", "P_OotPic_06", "P_OotPic_07", "P_OotPic_08", "P_OotPic_09",
+                                     "P_OotPic_10", "P_OotPic_11", "P_OotPic_12", "P_OotPic_13", "P_OotPic_14",
+                                     "P_OotPic_15", "P_OotPic_16", "P_OotPic_17", "P_OotPic_18", "P_OotPic_19"};
+static const u64 g_pihash[PIC_N] = {HASH_PIC0, HASH_PIC1, HASH_PIC2, HASH_PIC3, HASH_PIC4, HASH_PIC5, HASH_PIC6,
+                                    HASH_PIC7, HASH_PIC8, HASH_PIC9, HASH_PIC10, HASH_PIC11, HASH_PIC12, HASH_PIC13,
+                                    HASH_PIC14, HASH_PIC15, HASH_PIC16, HASH_PIC17, HASH_PIC18, HASH_PIC19};
+#define TEX_N 5
+static char g_texn[TEX_N][24] = {"NumBaseSide_00", "NumBaseSide_01", "Nt_RupeeIconNew_00", "Circle64_00", "White8_00_BC4L"};
+static const u8 g_pitex[PIC_N] = {0, 0, 1, 1, 0, 0, 1, 1, 2, 3, 4, 4, 4, 4, 4, 4, 4, 4, 3, 3};
+/* pane sizes in layout units (scaled at runtime) */
+static const float g_pic_w[PIC_N] = {1014, 1014, 1014, 1014, 1014, 1014, 1014, 1014, 120, 60, 9, 9, 9, 9, 9, 9, 9, 9, 76, 70};
+static const float g_pic_h[PIC_N] = {160, 160, 160, 160, 160, 160, 160, 160, 120, 60, 26, 26, 26, 26, 26, 26, 26, 26, 76, 70};
+/* layout units (root-relative, Y up) */
 #define HUD_X (-1450.0f)
 #define HUD_Y_CLOCK (-880.0f)
 #define HUD_Y_RUPEE (-990.0f)
-static const float g_pic_x[PIC_N] = {HUD_X, HUD_X};
-static const float g_pic_y[PIC_N] = {HUD_Y_CLOCK, HUD_Y_RUPEE};
-static const float g_pic_w[PIC_N] = {700.0f, 700.0f};
-static const float g_pic_h[PIC_N] = {190.0f, 190.0f};
+/* Look parameters (in .data so they can be tuned live with tools/hud_tune.py):
+ *  0 plate centre x, 1 clock row y, 2 rupee row y, 3 plate scale x, 4 plate scale y,
+ *  5 icon x (from the plate centre), 6 icon scale, 7 text x (from the plate centre), 8 text y offset,
+ *  9 advance of one digit (text units), 10 fill alpha, 11 edge alpha, 12 sun ray radius,
+ *  13 text scale, 14 moon shadow offset, 15 edge brightness, 16 icon override (0 by the hour, 1 sun, 2 moon),
+ *  17 moon scale, 18 moon shadow scale, 19 moon shadow brightness (matches the plate)
+ * Values tuned live against the look of the game's own rupee counter. */
+float g_hudp[20] = {-1518.0f, -860.0f, -960.0f, 0.46f, 0.62f, -165.0f, 0.85f, 30.0f, 0.0f,
+                    29.0f, 0.9f, 0.6f, 30.0f, 0.7f, 14.0f, 0.45f, 0.0f, 0.75f, 0.75f, 0.09f};
 static int tbl_add(u8 *root, u32 off, const char *name, void *desc, u64 hash) {
     u32 n = w(root, off + 24);
     for (u32 j = 0; j < 3; j++) {
@@ -167,6 +192,37 @@ static int tbl_add(u8 *root, u32 off, const char *name, void *desc, u64 hash) {
     }
     *(u32 *)(root + off + 24) = n + 1;
     return 1;
+}
+
+/* Materials: root+0x130 = {u64 *materials, u32 count, u32 stride}. A picture's material index is at +0x14 of its
+ * entry in the picture/text list (+0x40). A textured material starts with a sampler list {u64 *samplers, count};
+ * each sampler is {u32 flags, u32 pad, u64 texture name}. The texture is looked up by name in the layout
+ * archive's texture file when the layout is built. This adds a deep copy of material `src` (its bytes up to the
+ * next material, internal pointers rebased) whose first sampler names `tex`; returns its index or -1. */
+static int add_material(u8 *root, const u8 *r, u32 src, const char *tex) {
+    u32 n = w(root, 0x138), on = w(r, 0x138);
+    const u64 *arr = (const u64 *)q(root, 0x130), *oarr = (const u64 *)q(r, 0x130);
+    if (!arr || !oarr || src + 1 >= on || n > 256) return -1;
+    u64 a = oarr[src], e = oarr[src + 1];
+    if (e <= a || e - a > 0x400) return -1;
+    u32 sz = (u32)(e - a);
+    u8 *m = pool_clone((const void *)a, sz);
+    u64 *na = pool_alloc((n + 1) * 8);
+    if (!m || !na) return -1;
+    for (u32 i = 0; i + 8 <= sz; i += 8) {
+        u64 v = q(m, i);
+        if (v >= a && v < e) *(u64 *)(m + i) = (u64)m + (v - a);
+    }
+    u64 sl = q(m, 0);
+    if (sl < (u64)m || sl >= (u64)m + sz) return -1;
+    u64 sp = *(u64 *)sl;
+    if (sp < (u64)m || sp + 16 > (u64)m + sz) return -1;
+    *(u64 *)(sp + 8) = (u64)tex;
+    memcpy(na, arr, n * 8);
+    na[n] = (u64)m;
+    *(u64 *)(root + 0x130) = (u64)na;
+    *(u32 *)(root + 0x138) = n + 1;
+    return (int)n;
 }
 
 /* Current design: ONE appended part (stamina gauge, the layout takes exactly one) and
@@ -200,11 +256,6 @@ static u8 *build_root(const u8 *r) {
         *(float *)(cdk[k] + 32) = g_part_y[0];
         *(u32 *)(pdk[k] + 64) = nc + k;               /* part -> index of its pane */
     }
-    {   /* the extra part is the game's own number plate instead of a gauge */
-        *(u64 *)(pdk[PART_N] + 0) = (u64)g_numasset;
-        *(float *)(cdk[PART_N] + 16) = 1.0f; *(float *)(cdk[PART_N] + 20) = 1.0f;
-        *(float *)(cdk[PART_N] + 28) = HUD_X; *(float *)(cdk[PART_N] + 32) = HUD_Y_RUPEE;
-    }
     *(u32 *)(first + 52) = nc + PART_TOT + PIC_N + TXT_N;
     for (u32 t = 0; t < 2; t++) {
         u32 off = t ? 0xC0 : 0x20, n = t ? np : nc;
@@ -231,21 +282,30 @@ static u8 *build_root(const u8 *r) {
         int pci = name_index(r, 0x20, "P_SubItemBg_00"), pbi = name_index(r, 0x40, "P_SubItemBg_00"),
             ppi = name_index(r, 0x60, "P_SubItemBg_00");
         if (pci < 0 || pbi < 0 || ppi < 0) { g_hud_dbg[9] = MARK | 6; return 0; }
+        int mats[TEX_N];
+        u32 src_mat = w((const void *)((const u64 *)q(r, 0x48))[pbi], 0x14);   /* P_SubItemBg_00's textured material */
+        for (u32 t = 0; t < TEX_N; t++) {
+            mats[t] = add_material(root, r, src_mat, g_texn[t]);
+            if (mats[t] < 0) { g_hud_dbg[9] = MARK | 8; return 0; }
+        }
         for (u32 k = 0; k < PIC_N; k++) {
             u8 *cd = pool_clone((const void *)((const u64 *)q(r, 0x28))[pci], 68);
             u8 *bd = pool_clone((const void *)((const u64 *)q(r, 0x48))[pbi], 0x88);
             u8 *pd = pool_clone((const void *)((const u64 *)q(r, 0x68))[ppi], 0x88);
             if (!cd || !bd || !pd) { g_hud_dbg[9] = MARK | 4; return 0; }
+            *(u32 *)(bd + 0x14) = (u32)mats[g_pitex[k]];
             *(u32 *)(pd + 0x10) = nb + k;
             *(u32 *)(cd + 40) = 0;
             *(u32 *)(cd + 52) = npane + k + 1;
-            *(float *)(cd + 0x10) = 1.0f; *(float *)(cd + 0x14) = 1.0f;
-            *(float *)(cd + 28) = g_pic_x[k];
-            *(float *)(cd + 32) = g_pic_y[k];
+            *(float *)(cd + 0x10) = 0.0f; *(float *)(cd + 0x14) = 0.0f;   /* hidden until placed */
+            *(float *)(cd + 28) = HUD_X;
+            *(float *)(cd + 32) = HUD_Y_RUPEE;
             *(float *)(cd + 0x2C) = g_pic_w[k]; *(float *)(cd + 0x30) = g_pic_h[k];
             *(unsigned short *)(cd + 0x3c) = (unsigned short)(nb + k);
-            *(unsigned short *)(cd + 0x40) = (unsigned short)(np + k);
-            *(unsigned short *)(cd + 0x42) = 0xFFFF;
+            /* like the stock picture: +0x40 = no extra-data entry (0xFFFF; any other value makes the engine search
+             * a by-name list at that index on every lookup), +0x42 = index in the picture list */
+            *(unsigned short *)(cd + 0x40) = 0xFFFF;
+            *(unsigned short *)(cd + 0x42) = (unsigned short)(np + k);
             if (!tbl_add(root, 0x20, g_pinames[k], cd, g_pihash[k]) || !tbl_add(root, 0x40, g_pinames[k], bd, g_pihash[k]) ||
                 !tbl_add(root, 0x60, g_pinames[k], pd, g_pihash[k])) { g_hud_dbg[9] = MARK | 5; return 0; }
         }
@@ -265,7 +325,7 @@ static u8 *build_root(const u8 *r) {
             *(u32 *)(cd + 40) = 0;
             *(u32 *)(cd + 52) = npane + t + 1;
             *(float *)(cd + 28) = HUD_X + 40.0f;
-            *(float *)(cd + 32) = (t & 1) ? HUD_Y_RUPEE : HUD_Y_CLOCK;
+            *(float *)(cd + 32) = (t % FLD_N) ? HUD_Y_RUPEE : HUD_Y_CLOCK;
             *(unsigned short *)(cd + 0x3c) = (unsigned short)(nb + t);
             *(unsigned short *)(cd + 0x42) = (unsigned short)(nt + t);
             if (!tbl_add(root, 0x20, g_tnames[t], cd, g_thash[t]) || !tbl_add(root, 0x40, g_tnames[t], bd, g_thash[t]) ||
@@ -607,48 +667,53 @@ static void drive_segs(void) {
     }
 }
 
-/* ---- clock / rupee text panes ---- */
+/* ---- clock / rupee plates ---- */
 u64 g_txt_dbg[8] = {MARK, MARK, MARK, MARK, MARK, MARK, MARK, MARK};
-static char g_tbuf[4][16];      /* ASCII: the engine's text setter takes 8-bit text + byte length */
-static char g_tlast[2][16];
-static u32 g_tfront[2], g_tpend[2], g_twait[2], g_tinit[2];
+static char g_tbuf[TXT_N][16];      /* ASCII: the engine's text setter takes 8-bit text + byte length */
+static char g_tlast[FLD_N][16];
+static u32 g_tfront[FLD_N], g_tpend[FLD_N], g_twait[FLD_N];
 /* Setting the text of a pane leaves it blank for a frame. Each field has two panes: the new text goes to the
- * hidden one, and after it has been drawn a few frames the two swap (shown = Y scale 0.5, hidden = 0). */
-static void pane_vis(u64 rec, int on) {
-    *(float *)(rec + 0x64) = on ? 0.5f : 0.0f;
-    *(u32 *)rec |= 0x6F;
+ * hidden one, and after it has been drawn a few frames the two swap (shown = Y scale > 0, hidden = 0). */
+static void tint_rec(u64 rec, float r, float g, float b, float a) {
+    u64 obj = *(u64 *)(rec + 8);   /* pane object: RGBA tint as four floats at +0x20 */
+    if (obj < 0x10000) return;
+    float *c = (float *)(obj + 0x20);
+    c[0] = r; c[1] = g; c[2] = b; c[3] = a;
 }
-static void put_text(u64 frame, u32 f, const char *ascii, float x, float y) {
-    u64 rf = pane_record(frame, g_tnames[f + 2 * g_tfront[f]]);
-    u64 rb = pane_record(frame, g_tnames[f + 2 * (g_tfront[f] ^ 1)]);
+static void place(u64 rec, float x, float y, float sx, float sy, float rot) {
+    *(float *)(rec + 0x60) = sx; *(float *)(rec + 0x64) = sy; *(float *)(rec + 0x68) = rot;
+    *(float *)(rec + 0x6C) = x; *(float *)(rec + 0x70) = y;
+    *(u32 *)rec |= 0x6F;   /* mark the pane dirty */
+}
+/* field f: shown text at (x, y) in colour rgb; on = 0 hides both panes */
+static void put_text(u64 frame, u32 f, const char *ascii, float x, float y, u32 on, const float *rgb) {
+    u64 rf = pane_record(frame, g_tnames[f + FLD_N * g_tfront[f]]);
+    u64 rb = pane_record(frame, g_tnames[f + FLD_N * (g_tfront[f] ^ 1)]);
     g_txt_dbg[f] = MARK | rf;
     if (!rf || !rb) return;
-    if (!g_tinit[f]) {
-        *(float *)(rf + 0x6C) = x; *(float *)(rf + 0x70) = y;
-        *(float *)(rb + 0x6C) = x; *(float *)(rb + 0x70) = y;
-        pane_vis(rf, 1); pane_vis(rb, 0);
-        g_tinit[f] = 1;
+    float ts = g_hudp[13];
+    tint_rec(rf, rgb[0], rgb[1], rgb[2], 1.0f);
+    tint_rec(rb, rgb[0], rgb[1], rgb[2], 1.0f);
+    if (g_tpend[f] && ++g_twait[f] >= 4) {   /* the hidden pane has drawn its new text: swap */
+        u64 t = rf; rf = rb; rb = t;
+        g_tfront[f] ^= 1; g_tpend[f] = 0;
     }
-    if (g_tpend[f]) {
-        if (++g_twait[f] >= 4) {
-            pane_vis(rb, 1); pane_vis(rf, 0);
-            g_tfront[f] ^= 1; g_tpend[f] = 0;
-        }
-        return;
-    }
+    place(rf, x, y, ts, on ? ts : 0.0f, 0.0f);
+    place(rb, x, y, ts, 0.0f, 0.0f);
+    if (g_tpend[f]) return;
     u32 n = 0;
     while (ascii[n] && n < 15) n++;
     int same = 1;
     for (u32 i = 0; i <= n; i++) if (g_tlast[f][i] != ascii[i]) same = 0;
     if (same) return;
-    char *dst = g_tbuf[f + 2 * (g_tfront[f] ^ 1)];
+    char *dst = g_tbuf[f + FLD_N * (g_tfront[f] ^ 1)];
     for (u32 i = 0; i < n; i++) dst[i] = ascii[i];
     dst[n] = 0;
     struct { const void *s; u32 len, z; long long m1; } ref = {dst, n, 0, -1};
     set_text((void *)rb, &ref, 0);
     g_tpend[f] = 1; g_twait[f] = 0;
     for (u32 i = 0; i <= n; i++) g_tlast[f][i] = ascii[i];
-    g_txt_dbg[2 + f] += 1;
+    g_txt_dbg[3 + f] += 1;
 }
 u32 g_clk_dbg[4];   /* 0 GameData seconds, 1 world-object seconds */
 static int world_seconds(void) {
@@ -672,100 +737,132 @@ static int world_seconds(void) {
     g_clk_dbg[0] = (u32)gd; g_clk_dbg[1] = (u32)wo;
     return wo >= 0 ? wo : gd;
 }
-/* icon colour: picture panes keep their RGBA tint as four floats at pane-object +0x20 */
-#define TINT_ON 1
-static void tint(u64 frame, u32 k, float r, float g, float b) {
-    u64 rec = pane_record(frame, g_pinames[k]);
-    if (!rec) return;
-    u64 obj = *(u64 *)(rec + 8);
-    if (obj < 0x10000) return;
-    float *c = (float *)(obj + 0x20);
-    if (!TINT_ON) return;
-    c[0] = r; c[1] = g; c[2] = b; c[3] = 1.0f;
+static u32 put_int(char *p, int v) {
+    char d[8]; u32 nd = 0, k = 0;
+    if (v < 0) v = 0;
+    if (v > 9999) v = 9999;
+    for (;; v /= 10) { d[nd++] = (char)('0' + v % 10); if (v < 10) break; }
+    while (nd) p[k++] = d[--nd];
+    return k;
 }
-static void clock_text(u64 frame) {
-    int sec = world_seconds();
-    if (sec < 0) return;
-    sec %= 86400;
-    int h = sec / 3600, m = (sec / 60) % 60;
-    char b[16]; u32 n = 0;
-    int hh = h;
-    if (!g_ootcfg.clock_24h) { hh = h % 12; if (!hh) hh = 12; }
-    if (g_ootcfg.clock_24h || hh >= 10) b[n++] = (char)('0' + hh / 10);
-    b[n++] = (char)('0' + hh % 10);
-    b[n++] = ':'; b[n++] = (char)('0' + m / 10); b[n++] = (char)('0' + m % 10);
-    if (!g_ootcfg.clock_24h) { b[n++] = ' '; b[n++] = h < 12 ? 'A' : 'P'; b[n++] = 'M'; }
-    b[n] = 0;
-    put_text(frame, 0, b, HUD_X + 40.0f, HUD_Y_CLOCK);
+/* sun rays: unit directions every 45 degrees, clockwise from the top */
+static const float RAY_DX[8] = {0.0f, 0.70711f, 1.0f, 0.70711f, 0.0f, -0.70711f, -1.0f, -0.70711f};
+static const float RAY_DY[8] = {1.0f, 0.70711f, 0.0f, -0.70711f, -1.0f, -0.70711f, 0.0f, 0.70711f};
+u32 g_hud_show[2] = {0x10000000u, 0x10000000u};   /* clock, rupees: 1 = drawn this frame */
+static u64 g_pic_rec[PIC_N];
+static u32 g_plates_shown;
+/* the layout was rebuilt: drop cached pane records and force the texts to be set again */
+static void plates_reset(void) {
+    for (u32 k = 0; k < PIC_N; k++) g_pic_rec[k] = 0;
+    for (u32 f = 0; f < FLD_N; f++) { g_tlast[f][0] = (char)0xFF; g_tpend[f] = 0; g_tfront[f] = 0; }
+    g_plates_shown = 0;
 }
-static void rupee_text(u64 frame) {
-    /* GameData Int table (k = 2): records are 0x28 bytes, the live value is at +0x1C.
-     * 962 = PlayerStatus.CurrentRupee, 976 = wallet capacity (member "Rupee" of the ammo/rupee caps struct). */
-    u64 mgr = *(u64 *)GAMEDATA_MGR;
-    if (!mgr) return;
-    u32 cnt = *(u32 *)(mgr + 8 + 0x60 * 2 + 8);
-    u64 rec = *(u64 *)(mgr + 8 + 0x60 * 2 + 0x10);
-    if (!rec || cnt < 977) return;
-    int cur = *(int *)(rec + 962 * 0x28 + 0x1C), mx = *(int *)(rec + 976 * 0x28 + 0x1C);
-    if (mx <= 0) mx = 200;
-    if (cur < 0) cur = 0;
-    char r[16]; u32 k = 0, d[8], nd = 0;
-    for (int v = cur > 9999 ? 9999 : cur; ; v /= 10) { d[nd++] = (u32)(v % 10); if (v < 10) break; }
-    while (nd) r[k++] = (char)('0' + d[--nd]);
-    r[k++] = '/';
-    for (int v = mx > 9999 ? 9999 : mx; ; v /= 10) { d[nd++] = (u32)(v % 10); if (v < 10) break; }
-    while (nd) r[k++] = (char)('0' + d[--nd]);
-    r[k] = 0;
-    put_text(frame, 1, r, HUD_X + 40.0f, HUD_Y_RUPEE);
-}
-static u64 g_num_part;
-#define NUM_SWEEP 0
-#define NA_N 10
-static const char *na_name(u32 i) {
-    switch (i) {
-    case 0: return "In"; case 1: return "Out"; case 2: return "Number"; case 3: return "NumMax"; case 4: return "NumMin";
-    case 5: return "PosPattern"; case 6: return "IsTotalVisible"; case 7: return "ChangePattern"; case 8: return "ControlType";
-    default: return "FlushIn";
+static void plates_hide(u64 frame) {
+    for (u32 k = 0; k < PIC_N; k++) place(g_pic_rec[k], g_hudp[0], g_hudp[2], 0.0f, 0.0f, 0.0f);
+    for (u32 t = 0; t < TXT_N; t++) {
+        u64 rec = pane_record(frame, g_tnames[t]);
+        if (rec) place(rec, g_hudp[0], g_hudp[2], 0.0f, 0.0f, 0.0f);
     }
 }
-static u64 g_nanim[NA_N];
-u32 g_num_dbg[NA_N + 2];
-u32 g_num_phase = 0x100;
-static u64 child_pane(u64 part, const char *name) {
-    u64 cl = ptr(part, 0x80);
-    if (!cl) return 0;
-    const u8 *r = (const u8 *)ptr(cl, 0xF8);
-    if (!r) return 0;
-    int i = name_index(r, 0x20, name);
-    return i < 0 ? 0 : ptr(cl, 0x100) + (u64)i * 0xB0;
-}
-static void num_update(u64 frame) {
-    if (!g_num_part) {
-        g_num_part = (u64)find_part((void *)frame, g_numname);
-        if (!g_num_part) return;
-        u64 none = (u64)find_anim((void *)g_num_part, "__no_such_anim__");
-        for (u32 i = 0; i < NA_N; i++) {
-            u64 a = (u64)find_anim((void *)g_num_part, na_name(i));
-            g_nanim[i] = (a && a != none) ? a : 0;
-            g_num_dbg[i] = g_nanim[i] ? 1 : 0;
+static void plates_update(u64 frame) {
+    for (u32 k = 0; k < PIC_N; k++)
+        if (!g_pic_rec[k]) g_pic_rec[k] = pane_record(frame, g_pinames[k]);
+    for (u32 k = 0; k < PIC_N; k++) if (!g_pic_rec[k]) return;
+    u32 active = player_active() != 0;
+    u32 clk = active && g_ootcfg.hud_clock, rup = active && g_ootcfg.hud_rupees;
+    /* outside gameplay (loading, menus, cutscenes) nothing is touched except hiding the plates once:
+     * setting texts there costs the engine a slow lookup per call */
+    if (!clk && !rup) {
+        g_hud_show[0] = g_hud_show[1] = 0x10000000u;
+        if (g_plates_shown) { plates_hide(frame); g_plates_shown = 0; }
+        return;
+    }
+    g_plates_shown = 1;
+    const float *P = g_hudp;
+    int sec = clk ? world_seconds() : -1;
+    if (sec < 0) clk = 0;
+    g_hud_show[0] = 0x10000000u + clk; g_hud_show[1] = 0x10000000u + rup;
+    /* plates: fill + edge, each drawn twice (mirrored) so both ends get the chevron */
+    for (u32 row = 0; row < 2; row++) {
+        u32 on = row ? rup : clk;
+        float y = row ? P[2] : P[1];
+        for (u32 j = 0; j < 4; j++) {
+            u64 rec = g_pic_rec[row * 4 + j];
+            float sx = P[3] * ((j & 1) ? -1.0f : 1.0f);
+            place(rec, P[0], y, on ? sx : 0.0f, on ? P[4] : 0.0f, 0.0f);
+            if (j < 2) tint_rec(rec, 0.0f, 0.0f, 0.0f, P[10]);
+            else tint_rec(rec, P[15], P[15], P[15], P[11]);
         }
     }
-    { u64 pp = pane_record(frame, g_numname); g_txt_dbg[5] = MARK | pp; if (pp) { *(float *)(pp + 0x6C) = -1230.0f; *(float *)(pp + 0x70) = -844.0f; /* WIP: invisible, not driven yet */ *(u32 *)pp |= 0x6F; } }
-    if (!g_ootcfg.hud_rupees || !player_active()) return;
-    if (NUM_SWEEP) {   /* experiment: sweep one animation at a time (off) */
-        static const u32 order[6] = {0, 1, 9, 5, 6, 7};
-        u32 ph = (g_tick / 40) % 12;
-        g_num_phase = ph;
-        u32 a = order[ph / 2];
-        if (g_nanim[a]) set_frame((void *)g_nanim[a], (ph & 1) ? 60.0f : 0.0f);
+    /* rupee icon */
+    place(g_pic_rec[8], P[0] + P[5], P[2], rup ? P[6] : 0.0f, rup ? P[6] : 0.0f, 0.0f);
+    tint_rec(g_pic_rec[8], 1.0f, 1.0f, 1.0f, 1.0f);
+    /* sun (06:00-18:00) or moon */
+    if (sec < 0) sec = 0;
+    sec %= 86400;
+    u32 day = sec >= 6 * 3600 && sec < 18 * 3600;
+    if (P[16] > 0.5f) day = P[16] < 1.5f;
+    u32 sun = clk && day, moon = clk && !day;
+    float ix = P[0] + P[5], iy = P[1];
+    static const float SUN[3] = {1.0f, 0.86f, 0.42f};
+    place(g_pic_rec[9], ix, iy, sun ? 1.0f : 0.0f, sun ? 1.0f : 0.0f, 0.0f);
+    tint_rec(g_pic_rec[9], SUN[0], SUN[1], SUN[2], 1.0f);
+    for (u32 j = 0; j < 8; j++) {
+        u64 rec = g_pic_rec[10 + j];
+        /* the pane is turned clockwise by the ray's angle (rotation is counter-clockwise positive) */
+        place(rec, ix + RAY_DX[j] * P[12], iy + RAY_DY[j] * P[12], sun ? 1.0f : 0.0f, sun ? 1.0f : 0.0f,
+              -0.785398f * (float)j);
+        tint_rec(rec, SUN[0], SUN[1], SUN[2], 1.0f);
+    }
+    /* crescent: a pale disc partly covered by a smaller disc in the plate's own colour, shifted up-right */
+    float ms = moon ? P[17] : 0.0f, ss = moon ? P[18] : 0.0f;
+    place(g_pic_rec[18], ix, iy, ms, ms, 0.0f);
+    tint_rec(g_pic_rec[18], 0.97f, 0.93f, 0.72f, 1.0f);
+    place(g_pic_rec[19], ix + P[14], iy + P[14] * 0.6f, ss, ss, 0.0f);
+    tint_rec(g_pic_rec[19], P[19], P[19], P[19], 1.0f);
+
+    static const float WHITE[3] = {1.0f, 1.0f, 1.0f};
+    static const float GREEN[3] = {0.38f, 0.95f, 0.25f};
+    /* text panes are centre-aligned: P[7] is the centre of the text area (right of the icon) */
+    float tx = P[0] + P[7], ty = P[8];
+    {   /* clock */
+        char b[16]; u32 n = 0;
+        int h = sec / 3600, m = (sec / 60) % 60, hh = h;
+        if (!g_ootcfg.clock_24h) { hh = h % 12; if (!hh) hh = 12; }
+        if (g_ootcfg.clock_24h || hh >= 10) b[n++] = (char)('0' + hh / 10);
+        b[n++] = (char)('0' + hh % 10);
+        b[n++] = ':'; b[n++] = (char)('0' + m / 10); b[n++] = (char)('0' + m % 10);
+        if (!g_ootcfg.clock_24h) { b[n++] = ' '; b[n++] = h < 12 ? 'A' : 'P'; b[n++] = 'M'; }
+        b[n] = 0;
+        put_text(frame, 0, b, tx, P[1] + ty, clk, WHITE);
+    }
+    {   /* rupees: GameData Int table (k = 2), records 0x28 bytes, live value at +0x1C.
+         * 962 = PlayerStatus.CurrentRupee, 976 = wallet capacity (member "Rupee" of the ammo/rupee caps). */
+        int cur = 0, mx = 200;
+        u64 mgr = *(u64 *)GAMEDATA_MGR;
+        if (mgr) {
+            u32 cnt = *(u32 *)(mgr + 8 + 0x60 * 2 + 8);
+            u64 rec = *(u64 *)(mgr + 8 + 0x60 * 2 + 0x10);
+            if (rec && cnt >= 977) { cur = *(int *)(rec + 962 * 0x28 + 0x1C); mx = *(int *)(rec + 976 * 0x28 + 0x1C); }
+        }
+        if (mx <= 0) mx = 200;
+        char a[16], b[16];
+        u32 na = put_int(a, cur), nb = 0;
+        a[na] = 0;
+        b[nb++] = '/';
+        nb += put_int(b + nb, mx);
+        b[nb] = 0;
+        /* "1234/5000" centred on tx as a whole: green part and white part side by side (fixed digit advance;
+        * ("/" is narrower than a digit: it counts as SLASH_W digits) */
+        const float SLASH_W = 0.55f;
+        float wa = (float)na, wb = (float)(nb - 1) + SLASH_W;
+        float x0 = tx - P[9] * (wa + wb) * 0.5f;
+        put_text(frame, 1, a, x0 + P[9] * wa * 0.5f, P[2] + ty, rup, GREEN);
+        put_text(frame, 2, b, x0 + P[9] * (wa + wb * 0.5f), P[2] + ty, rup, WHITE);
     }
 }
 static void txt_update(u64 frame) {
-    num_update(frame);
-    g_txt_dbg[4] = MARK | g_num_part;
-    if (!player_active()) return;
-    if (g_ootcfg.hud_clock) clock_text(frame);
-    if (g_ootcfg.hud_rupees) rupee_text(frame);
+    plates_update(frame);
 }
 
 u32 hud_frame_count(void) { return g_tick; }
@@ -860,6 +957,7 @@ void hud_on_code(u32 id, void *a0, void *a1, void *a2, void *regs) {
         g_mp = (u64)a0;
         g_frame_node = 0;
         for (u32 i = 0; i < SEG_N; i++) { g_seg[i].bar = 0; g_seg[i].init = 0; }
+        plates_reset();
         g_hud_dbg[0] = MARK | g_mp;
     } else if (id == 0) {
         if (a0 && *(u64 *)a0 == (u64)MAIN_SCHED_VT) hud_frame();

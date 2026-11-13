@@ -286,11 +286,9 @@ def main() -> int:
     names = [f"Pa_OotSeg_{k:03d}" for k in range(128)]
     (OUT / "hud_names.h").write_text(
         "".join(f"#define HASH_PART{i} {city_hash64(n.encode())}ull\n" for i, n in enumerate(names))
-        + "".join(f"#define HASH_TXT{i} {city_hash64(n.encode())}ull\n"
-                  for i, n in enumerate(("T_OotClk_00", "T_OotRup_00", "T_OotClk_01", "T_OotRup_01")))
-        + f"#define HASH_NUM {city_hash64(b'Pa_OotNum_00')}ull\n"
-        + "".join(f"#define HASH_PIC{i} {city_hash64(n.encode())}ull\n"
-                  for i, n in enumerate(("P_OotBg_00", "P_OotBg_01", "P_OotIc_00", "P_OotIc_01"))),
+        # clock/rupee HUD: text panes T_OotTxt_00.. and picture panes P_OotPic_00.. (names in core/hud.c)
+        + "".join(f"#define HASH_TXT{i} {city_hash64(f'T_OotTxt_{i:02d}'.encode())}ull\n" for i in range(8))
+        + "".join(f"#define HASH_PIC{i} {city_hash64(f'P_OotPic_{i:02d}'.encode())}ull\n" for i in range(32)),
         encoding="ascii")
     gen = OUT / "dispatch_gen.c"
     write_handler_table(features, gen)

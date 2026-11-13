@@ -186,12 +186,19 @@ Consequence: only site 3 sees gameplay input. The four classic slot sites
   five appended gauge parts changed nothing: child frame objects are still NULL for parts 2..5.
   The limit is not in those pools. PART_N stays 1 (stable). extend_pools() remains in hud.c for reference.
 
-## Rupee counter / clock HUD (investigation, no implementation yet)
-- Kabosune/oot-remake-modding and platinumagpie/oot-remake-devtool: neither documents HUD layouts, new panes or text
-  rendering (devtool only toggles stock HUD parts via UISystemActor events; Kabosune Core only fills rectangles).
-- PlayerStatus_00 live layout (pane_dump.py): 188 common panes / 162 parts, none for rupees or time.
-- The Common blarc has separate layouts: NumDisplay_00.buil (5 KB), PaNumDisplay_00.buil (24 KB, a reusable part),
-  PaNumDisplayBottle_00, MiniGameTimer_00. Rupee display is its own layout opened by the game on wallet change.
-- Only ONE appended part per layout is instantiated (see multi-part limit above), and it is used by the stamina gauge.
-- Candidate approaches: (a) find the opener of NumDisplay_00 and keep it open + reposition bottom-left;
-  (b) make the single appended part a multi-pane layout (PaNumDisplay_00 clone) and share it with the gauge.
+## Rupee counter / clock HUD (native look)
+- Look copied from the game's own rupee counter: plate textures NumBaseSide_00 (fill) / NumBaseSide_01 (edge), BC4
+  507x80 with a chevron on the left end; each is drawn twice (second copy mirrored, scale x = -1) so both ends get
+  the chevron. Rupee icon = Nt_RupeeIconNew_00. Sun = Circle64_00 + 8 rotated White8_00_BC4L rays; moon = two
+  Circle64_00 (crescent). All live in Common.Product.100.Nin_Ounce_NVN2.bntx.zs (no sun/moon texture exists there,
+  nor in Title/ZeldaNotes). Third-party "HUD of Time" draws its sun the same way (32 small panes).
+- Materials: root+0x130 = {u64 *materials, count, stride}. Picture/text-list entry (+0x40 table) +0x14 = material
+  index. A textured material starts with a sampler list {ptr, count}; sampler = {u32 flags, pad, u64 texture name}.
+  Textures resolve by name at layout build, so a deep copy of a textured material (P_SubItemBg_00 uses #31,
+  MinigameSubItemBase_00) with a new name, appended to the array, gives a picture any texture of the archive.
+- Common pane desc +0x40 / +0x42: for a picture +0x40 must be 0xFFFF and +0x42 = index in the picture list. A value
+  in +0x40 is an index into a by-name extra-data table ([layout+0x68], lookup main+0x14EEDA0 via 0x43AC20 /
+  0x152D080) that the engine searches on every lookup: our old swapped values made it read garbage lists, which
+  produced hundreds of thousands of "Unmapped Read/Write" log lines at load (black screen ~2 min, 30-100 MB log).
+- Tint: pane object (record +8) +0x20 = RGBA floats, works for pictures and text panes.
+- Tuning: g_hudp[] in core/hud.c; tools/hud_tune.py set/get/shot/cfg writes it live (and the HUD options).

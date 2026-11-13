@@ -192,6 +192,8 @@ def main() -> int:
             names = ["mp", "frames", "bar", "ratio", "max", "trace", "root_clones",
                      "gauge_clones", "prepare_calls", "pane", "errors", "slots_bound"]
             print("hud:", {n: hex(v - 0x1000000000000000) for n, v in zip(names, d)})
+        if "g_seg_ok" in syms:
+            print("ring segments bound:", struct.unpack("<I", read_sym("g_seg_ok", 4))[0] - 0x10000000)
         if "g_len" in syms:
             print("gauge anim lengths ratio/max/trace:", struct.unpack("<3I", read_sym("g_len", 12)))
         if "g_pl" in syms:

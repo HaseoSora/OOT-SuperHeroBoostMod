@@ -1,4 +1,4 @@
-﻿/* Unified HUD (F4). Our own parts, drawn by the engine's UI.
+/* Unified HUD (F4). Our own parts, drawn by the engine's UI.
  *
  * How new parts get into the engine (all done by our code):
  *  1. The game builds each UI resource through a function at main+0x43A6F8
@@ -48,7 +48,7 @@ static const char CIRCLE_TEX[] = "Circle64_00";
  * parts 1..4 are the slot circles: the gauge's fill texture is replaced by the
  * stock Circle64_00 and the gauge is kept full, so it draws a tinted circle. The
  * art is a placeholder until the real assets arrive. */
-#define PART_N 1   /* >1 does not work: only one appended part is built (see docs/RE-NOTES.md) */
+#define PART_N 8   /* >1 does not work: only one appended part is built (see docs/RE-NOTES.md) */
 #define APPEND_ALL 1   /* 1 = append every part (only the first one gets listed by the
                         * engine); 0 = parts 1.. repurpose filler parts (froze the game) */
 #define SLOT_N 4
@@ -56,62 +56,29 @@ static const char CIRCLE_TEX[] = "Circle64_00";
 #define SWAP_FILL 1  /* 1 = replace the gauge's fill texture with a flat white one */
 #endif
 
+#define RING_SIZE 0.45f   /* whole-ring scale (part scale) */
+#define SEG_N 8   /* ring segments = appended gauge parts */
 static const char *part_replaces(u32 i);
-static const char *part_name(u32 i) {
-    if (i == 0) return "Pa_OotStamina_00";
-    if (i == 1) return "Pa_OotSlotB_00";
-    if (i == 2) return "Pa_OotSlotL_00";
-    if (i == 3) return "Pa_OotSlotR_00";
-    return "Pa_OotSlotZR_00";
-}
-static u64 part_hash(u32 i) {
-    switch (i) {
-    case 0: return HASH_PART0;
-    case 1: return HASH_PART1;
-    case 2: return HASH_PART2;
-    case 3: return HASH_PART3;
-    default: return HASH_PART4;
-    }
-}
-/* stock filler part each slot part takes over (0 = the appended stamina part) */
-/* (if-chain, not a switch: the compiler may turn a switch of strings into a table of
- * absolute pointers, which this relocation-free module cannot use) */
-__attribute__((noinline)) static const char *part_replaces(u32 i) {
-    if (i == 0) return 0;
-    if (i == 1) return "Pa_AgonyStone_00";
-    if (i == 2) return "Pa_ReplaceSubItem_00";
-    if (i == 3) return "Pa_ReplaceSubItem_01";
-    return "Pa_GuideCross_00";
-}
-
-/* each private gauge copy needs its own asset name */
-static const char *asset_name(u32 i) {
-    switch (i) {
-    case 0: return "PaOotStamina_00";
-    case 1: return "PaOotSlotB_00";
-    case 2: return "PaOotSlotL_00";
-    case 3: return "PaOotSlotR_00";
-    default: return "PaOotSlotZR_00";
-    }
-}
-
-/* anchor of each part (layout units, root-relative, Y up; ~0.356 px per unit at 720p)
- * Slot circles form a diamond: ZR top, L left, R right, B bottom. */
-/* part 0 = stamina ring centre: where Link usually stands on screen (placeholder until the
- * ring follows his projected position) */
-static const float g_part_x[PART_N] = {56.0f, 1450.0f, 1300.0f, 1600.0f, 1450.0f};
-static const float g_part_y[PART_N] = {-330.0f, -300.0f, -150.0f, -150.0f, 0.0f};
-/* local scale of the pane when shown (X from the descriptor, Y applied at runtime) */
-static const float g_part_sx[PART_N] = {1.0f, 1.8f, 1.8f, 1.8f, 1.8f};
-static const float g_part_sy[PART_N] = {1.0f, 1.7f, 1.7f, 1.7f, 1.7f};
-/* tint (r, g, b) */
-static const float g_part_rgb[PART_N][3] = {
-    {1.0f, 0.85f, 0.15f}, {0.25f, 0.85f, 0.35f}, {0.95f, 0.8f, 0.2f},
-    {0.3f, 0.55f, 1.0f}, {0.95f, 0.3f, 0.3f}};
+/* names live in .data as char arrays (no pointer tables: the module has no relocations) */
+static char g_pnames[SEG_N][16] = {"Pa_OotSeg_00", "Pa_OotSeg_01", "Pa_OotSeg_02", "Pa_OotSeg_03",
+    "Pa_OotSeg_04", "Pa_OotSeg_05", "Pa_OotSeg_06", "Pa_OotSeg_07"};
+static char g_anames[SEG_N][16] = {"PaOotSeg_00", "PaOotSeg_01", "PaOotSeg_02", "PaOotSeg_03",
+    "PaOotSeg_04", "PaOotSeg_05", "PaOotSeg_06", "PaOotSeg_07"};
+static const u64 g_phash[SEG_N] = {HASH_PART0, HASH_PART1, HASH_PART2, HASH_PART3, HASH_PART4,
+    HASH_PART5, HASH_PART6, HASH_PART7};
+static const char *part_name(u32 i) { return g_pnames[i % SEG_N]; }
+static u64 part_hash(u32 i) { return g_phash[i % SEG_N]; }
+__attribute__((unused, noinline)) static const char *part_replaces(u32 i) { (void)i; return 0; }
+static const char *asset_name(u32 i) { return g_anames[i % SEG_N]; }
+/* ring centre: where Link usually stands on screen (layout units, root-relative, Y up;
+ * ~0.356 px per unit at 720p). Placeholder until the ring follows his projected position. */
+static const float g_part_x[1] = {0.0f};
+static const float g_part_y[1] = {-330.0f};
+static const float g_part_rgb[1][3] = {{1.0f, 0.85f, 0.15f}};
 #define CIRCLE_CAP 40.0f
 
 /* -------- private allocation pool (bss, never freed) -------- */
-static u8 g_pool[0x40000] __attribute__((aligned(16)));
+static u8 g_pool[0x100000] __attribute__((aligned(16)));
 static u32 g_used;
 
 static void *pool_alloc(u32 n) {
@@ -150,69 +117,6 @@ static int name_index(const u8 *root, u32 table, const char *name) {
 
 /* -------- step 1: PlayerStatus metadata with extra parts -------- */
 static void extend_pools(u8 *root, u32 add);
-__attribute__((unused)) static u8 *build_root_old(const u8 *r) {
-    if (name_index(r, 0x20, part_name(0)) >= 0) return 0;
-    u32 nc = w(r, 0x38), np = w(r, 0xD8);
-    if (nc > 128 || np > 128) return 0;
-    u8 *root = pool_clone(r, 0x228);
-    u8 *first = pool_clone((const void *)((const u64 *)q(r, 0x28))[0], 68);
-    if (!root || !first) return 0;
-    /* The layout takes exactly one appended part (tested: further appended parts are
-     * never listed by the engine). Part 0 is appended; parts 1.. take over filler
-     * parts of the stock layout (same pane/part slot, renamed, turned into gauges). */
-    u8 *cdesc[PART_N], *pdesc[PART_N];
-    int cslot[PART_N], pslot[PART_N];   /* table index each part lives at */
-    const u8 *mp_pdesc = (const u8 *)((const u64 *)q(r, 0xC8))[name_index(r, 0xC0, "Pa_MpGauge_00")];
-    const u8 *mp_cdesc = (const u8 *)((const u64 *)q(r, 0x28))[name_index(r, 0x20, "Pa_MpGauge_00")];
-    if (!mp_pdesc || !mp_cdesc) return 0;
-    for (u32 k = 0; k < PART_N; k++) {
-        const char *rep = APPEND_ALL ? 0 : part_replaces(k);
-        int ci = rep ? name_index(r, 0x20, rep) : (int)(nc + (APPEND_ALL ? k : 0));
-        int pi = rep ? name_index(r, 0xC0, rep) : (int)(np + (APPEND_ALL ? k : 0));
-        if (ci < 0 || pi < 0) return 0;
-        cslot[k] = ci; pslot[k] = pi;
-        const u8 *sc = rep ? (const u8 *)((const u64 *)q(r, 0x28))[ci] : mp_cdesc;
-        cdesc[k] = pool_clone(sc, 68);
-        pdesc[k] = pool_clone(mp_pdesc, 88);       /* every part is a gauge instance */
-        if (!cdesc[k] || !pdesc[k]) return 0;
-        if (!rep) {
-            *(u32 *)(cdesc[k] + 40) = 0;            /* parent: root pane */
-            *(u32 *)(cdesc[k] + 52) = (u32)ci + 1;  /* subtree end = own index + 1 */
-        } else {
-            *(u32 *)(cdesc[k] + 40) = 0;            /* re-parent the leaf to the root */
-        }
-        *(u32 *)(cdesc[k] + 64) = 0x7FFFF;      /* visible in every root variant */
-        cdesc[k][56] |= 1;
-        *(float *)(cdesc[k] + 16) = g_part_sx[k];
-        *(float *)(cdesc[k] + 20) = k == 0 ? 0.5f : g_part_sy[k];   /* stamina: half height */
-        *(float *)(cdesc[k] + 28) = g_part_x[k];
-        *(float *)(cdesc[k] + 32) = g_part_y[k];
-        *(u32 *)(pdesc[k] + 64) = (u32)ci;          /* part -> index of its pane */
-    }
-    const u32 ADD = APPEND_ALL ? PART_N : 1;
-    *(u32 *)(first + 52) = nc + ADD;            /* root subtree includes the appended panes */
-    for (u32 t = 0; t < 2; t++) {
-        u32 off = t ? 0xC0 : 0x20, n = t ? np : nc;
-        for (u32 j = 0; j < 3; j++) {
-            u64 *a = pool_alloc((n + ADD) * 8);
-            if (!a) return 0;
-            memcpy(a, (const void *)q(r, off + j * 8), n * 8);
-            for (u32 k = 0; k < PART_N; k++) {
-                u32 at = t ? (u32)pslot[k] : (u32)cslot[k];
-                a[at] = j == 0 ? (u64)part_name(k)
-                      : j == 1 ? (u64)(t ? pdesc[k] : cdesc[k])
-                               : part_hash(k);
-            }
-            if (!t && j == 1) a[0] = (u64)first;
-            *(u64 *)(root + off + j * 8) = (u64)a;
-        }
-        *(u32 *)(root + off + 24) = n + ADD;
-    }
-    extend_pools(root, ADD);
-    g_hud_dbg[6] += 1;
-    return root;
-}
-
 /* Test (multi-part): grow the per-type pools at the end of the root header
  * ({u32 count, u32 stride, u64 ptr}, 16 B each at +0x1D0,+0x1E0,+0x1F0,+0x210,+0x220) by
  * `add` entries, each a copy of the last one, in case the part/pane setup indexes them. */
@@ -241,60 +145,46 @@ static u8 *build_root(const u8 *r) {
     u32 nc = w(r, 0x38), np = w(r, 0xD8);
     if (nc > 128 || np > 128) { g_hud_dbg[9] = MARK | 2; return 0; }
     int mci = name_index(r, 0x20, "Pa_MpGauge_00"), mpi = name_index(r, 0xC0, "Pa_MpGauge_00");
-    int spi = name_index(r, 0xC0, "Pa_SelectItem_00");
-    if (mci < 0 || mpi < 0 || spi < 0) { g_hud_dbg[9] = MARK | 3; return 0; }
+    if (mci < 0 || mpi < 0) { g_hud_dbg[9] = MARK | 3; return 0; }
     u8 *root = pool_clone(r, 0x228);
     u8 *first = pool_clone((const void *)((const u64 *)q(r, 0x28))[0], 68);
-    u8 *cd0 = pool_clone((const void *)((const u64 *)q(r, 0x28))[mci], 68);
-    u8 *pd0 = pool_clone((const void *)((const u64 *)q(r, 0xC8))[mpi], 88);
-    if (!root || !first || !cd0 || !pd0) { g_hud_dbg[9] = MARK | 4; return 0; }
-    *(u32 *)(cd0 + 40) = 0;                    /* parent: root pane */
-    *(u32 *)(cd0 + 52) = nc + 1;               /* subtree end = own index + 1 */
-    *(u32 *)(cd0 + 64) = 0x7FFFF;
-    cd0[56] |= 1;
-    *(unsigned short *)(cd0 + 0x42) = (unsigned short)np;           /* part descriptor index: our appended entry */
-    *(float *)(cd0 + 16) = g_part_sx[0];
-    *(float *)(cd0 + 20) = 1.0f;
-    *(float *)(cd0 + 28) = g_part_x[0];
-    *(float *)(cd0 + 32) = g_part_y[0];
-    *(u32 *)(pd0 + 64) = nc;
-    *(u32 *)(first + 52) = nc + 1;
-    const u8 *sel_pdesc = (const u8 *)((const u64 *)q(r, 0xC8))[spi];
-    /* tables: copy with one extra entry for the appended stamina part */
-    u64 *tab[2][3];
+    if (!root || !first) { g_hud_dbg[9] = MARK | 4; return 0; }
+    /* PART_N appended gauge parts (the ring segments): pane nc+k, part descriptor np+k.
+     * The engine finds each part's descriptor through cdesc+0x42, so it must name np+k. */
+    u8 *cdk[PART_N], *pdk[PART_N];
+    for (u32 k = 0; k < PART_N; k++) {
+        cdk[k] = pool_clone((const void *)((const u64 *)q(r, 0x28))[mci], 68);
+        pdk[k] = pool_clone((const void *)((const u64 *)q(r, 0xC8))[mpi], 88);
+        if (!cdk[k] || !pdk[k]) { g_hud_dbg[9] = MARK | 4; return 0; }
+        *(u32 *)(cdk[k] + 40) = 0;                    /* parent: root pane */
+        *(u32 *)(cdk[k] + 52) = nc + k + 1;           /* subtree end = own index + 1 */
+        *(u32 *)(cdk[k] + 64) = 0x7FFFF;
+        cdk[k][56] |= 1;
+        *(unsigned short *)(cdk[k] + 0x42) = (unsigned short)(np + k);
+        *(float *)(cdk[k] + 16) = RING_SIZE;
+        *(float *)(cdk[k] + 20) = RING_SIZE;
+        *(float *)(cdk[k] + 28) = g_part_x[0];
+        *(float *)(cdk[k] + 32) = g_part_y[0];
+        *(u32 *)(pdk[k] + 64) = nc + k;               /* part -> index of its pane */
+    }
+    *(u32 *)(first + 52) = nc + PART_N;
     for (u32 t = 0; t < 2; t++) {
         u32 off = t ? 0xC0 : 0x20, n = t ? np : nc;
         for (u32 j = 0; j < 3; j++) {
-            u64 *a = pool_alloc((n + 1) * 8);
+            u64 *a = pool_alloc((n + PART_N) * 8);
             if (!a) { g_hud_dbg[9] = MARK | 5; return 0; }
             memcpy(a, (const void *)q(r, off + j * 8), n * 8);
-            a[n] = j == 0 ? (u64)part_name(0) : j == 1 ? (u64)(t ? pd0 : cd0) : part_hash(0);
+            for (u32 k = 0; k < PART_N; k++)
+                a[n + k] = j == 0 ? (u64)part_name(k) : j == 1 ? (u64)(t ? pdk[k] : cdk[k]) : part_hash(k);
             if (!t && j == 1) a[0] = (u64)first;
-            tab[t][j] = a;
             *(u64 *)(root + off + j * 8) = (u64)a;
         }
-        *(u32 *)(root + off + 24) = n + 1;
+        *(u32 *)(root + off + 24) = n + PART_N;
     }
-    /* repurpose the filler parts: only their part descriptor changes */
-    for (u32 k = 1; k < PART_N; k++) {
-        const char *rep = part_replaces(k);
-        int ci = name_index(r, 0x20, rep), pi = name_index(r, 0xC0, rep);
-        g_hud_dbg[3] = MARK | (u64)(u32)(w(r, 0x38) << 8 | w(r, 0xD8)) | ((u64)(u32)(rep ? rep[3] : 0) << 32);
-        if (ci < 0 || pi < 0) {
-            g_hud_dbg[9] = MARK | ((u64)k << 32) | ((u64)(u32)(ci + 1) << 16) | (u64)(u32)(pi + 1);
-            return 0;
-        }
-        const u8 *stock_p = (const u8 *)((const u64 *)q(r, 0xC8))[pi];
-        u8 *pd = pool_clone(sel_pdesc, 88);
-        if (!pd) { g_hud_dbg[9] = MARK | 7; return 0; }
-        *(u32 *)(pd + 64) = w(stock_p, 64);     /* keep the pane index of the original part */
-        tab[1][1][pi] = (u64)pd;
-        (void)ci;
-    }
+    extend_pools(root, PART_N);
     g_hud_dbg[6] += 1;
     return root;
 }
-
 /* -------- step 2: private copy of the gauge file, flat white tinted -------- */
 static u8 *build_gauge(const u8 *r, u32 k) {
     const u8 *base = r - 0xF8;
@@ -322,7 +212,7 @@ static u8 *build_gauge(const u8 *r, u32 k) {
             *(u64 *)(out + i) = (u64)CIRCLE_TEX;
     }
     /* palette words (verified before touching): our tint instead of green */
-    const float *c = g_part_rgb[k];
+    const float *c = g_part_rgb[0]; (void)k;
     float *a = (float *)(out + 0x74D8);
     if (a[0] == 1.0f && a[1] == 1.0f && a[2] == 1.0f && a[3] == 1.0f) { a[0] = c[0]; a[1] = c[1]; a[2] = c[2]; }
     float *b = (float *)(out + 0x74E8);
@@ -371,7 +261,7 @@ void *hud_prepare(void *handle, u8 *config) {
         g_res[i].src = r; g_res[i].copy = rep; g_res[i].kind = kind;
         g_res_n++;
     }
-    if (kind >= 2) {
+    if (kind >= 2 && kind < 7) {
         u32 s = (kind - 2) * 4;
         g_prep_dbg[s] = (u64)handle; g_prep_dbg[s + 1] = (u64)config;
         g_prep_dbg[s + 2] = q(handle, 0x28); g_prep_dbg[s + 3] = q(handle, 0x38);
@@ -390,7 +280,7 @@ void *hud_prepare(void *handle, u8 *config) {
 static void observe_stock_box(u64 parent);
 
 static u64 g_mp;
-static u64 g_frame_node, g_bar, g_ratio, g_max, g_trace, g_pane;
+static u64 g_frame_node;
 static float g_value = 50.0f, g_cap = 100.0f, g_show = 1.0f;
 static float g_last_value = -1.0f, g_last_cap = -1.0f, g_last_show = -1.0f;
 static u32 g_test_mode = 1;
@@ -436,181 +326,102 @@ static void set_pane_show(u64 pane, float scale_y) {
 u64 g_bind_dbg[4] = {MARK, MARK, MARK, MARK};   /* slot 0: part, pat, num, pane */
 float g_pos_dbg[8];
 
-static void bind_slots(u64 parent) {
-    if (PART_N <= 1) return;   /* slot parts only exist when stock parts are repurposed */
-    for (u32 i = 0; i < SLOT_N; i++) {
-        SlotPart *s = &g_slot[i];
-        if (s->part) continue;
-        const char *nm = part_name(i + 1);
-        u64 part = (u64)find_part((void *)parent, nm);
-        if (!part) continue;
-        /* find_anim returns a shared "not found" object instead of null: reject it */
-        u64 none = (u64)find_anim((void *)part, "__no_such_anim__");
-        u64 pat = (u64)find_anim((void *)part, "ItemPattern");   /* icon (stored in .ratio) */
-        if (pat == none) pat = 0;
-        u64 num = (u64)find_anim((void *)part, "StockNum");      /* count (stored in .max) */
-        u64 pane = pane_record(parent, nm);
-        g_hud_dbg[10 - 0] += 0;
-        if (i == 0) { g_bind_dbg[0] = MARK | part; g_bind_dbg[1] = MARK | pat; g_bind_dbg[2] = MARK | num; g_bind_dbg[3] = MARK | pane; }
-        if (!pat || !pane) continue;
-        s->part = part; s->ratio = pat; s->max = num; s->pane = pane;
-        s->l_show = -1e9f; s->l_icon = -1e9f;
-        s->done = 0;
-        g_hud_dbg[11] += 1;
+/* ---- stamina ring: SEG_N appended gauge parts, each one radial tick of the ring ----
+ * Every part is a private gauge copy. Its container pane (N_Gauge_01, index 1) is moved to
+ * the part origin and rotated about it, so the bar (which extends left of the container's
+ * origin) becomes a spoke at the wanted angle; the fill pane (P_Gauge_01, 17) is scaled
+ * to show the segment's share of the value. */
+/* octagon: side k is the bar of part k, tangent to a circle of apothem 190 (clockwise from the top).
+ * Per side: container position (bar centre = apothem point, bar length 160) and rotation. */
+static const float OCT_X[SEG_N] = {300.00f, 346.48f, 190.00f, -77.78f, -300.00f, -346.48f, -190.00f, 77.78f};
+static const float OCT_Y[SEG_N] = {190.00f, -77.78f, -300.00f, -346.48f, -190.00f, 77.78f, 300.00f, 346.48f};
+static const float OCT_R[SEG_N] = {0.00000f, -0.78540f, -1.57080f, -2.35619f, -3.14159f, -3.92699f, -4.71239f, -5.49779f};
+typedef struct { u64 bar, ratio, max, trace, layout_arr; u32 init; float l_fill, l_show; } Seg;
+static Seg g_seg[SEG_N];
+u32 g_seg_ok = 0x10000000u;
+
+u32 g_len[3] = {0x7777, 0x7777, 0x7777};
+
+static void bind_segs(u64 parent) {
+    u32 ok = 0;
+    for (u32 k = 0; k < SEG_N; k++) {
+        Seg *s = &g_seg[k];
+        if (s->bar) { ok++; continue; }
+        u64 bar = (u64)find_part((void *)parent, part_name(k));
+        if (!bar) continue;
+        u64 none = (u64)find_anim((void *)bar, "__no_such_anim__");
+        u64 ratio = (u64)find_anim((void *)bar, "GaugeRatio");
+        u64 max = (u64)find_anim((void *)bar, "GaugeMax");
+        u64 trace = (u64)find_anim((void *)bar, "TraceRatio");
+        if (!ratio || !max || !trace || ratio == none || max == none || trace == none) continue;
+        u64 cl = ptr(bar, 0x80);
+        u64 arr = cl ? ptr(cl, 0x100) : 0;
+        if (!arr) continue;
+        s->bar = bar; s->ratio = ratio; s->max = max; s->trace = trace; s->layout_arr = arr;
+        s->l_fill = -1.0f; s->l_show = -1.0f;
+        g_hud_dbg[2] = MARK | bar;
+        ok++;
     }
+    g_seg_ok = 0x10000000u + ok;
 }
 
-/* Slot item buttons (stock item-button parts): placed once, icon = ItemPattern frame,
- * visible only while assigned. */
-static void drive_slots(void) {
-    for (u32 i = 0; i < SLOT_N; i++) {
-        SlotPart *s = &g_slot[i];
-        if (!s->part) continue;
-        if (!s->done) {
-            *(float *)(s->pane + 0x6C) = g_part_x[i + 1];   /* authored translation */
-            *(float *)(s->pane + 0x70) = g_part_y[i + 1];
-            *(u32 *)s->pane |= 0x6F;
-            s->done = 1;
-        }
-        if (s->l_show != s->show) {
-            set_pane_show(s->pane, s->show > 0.5f ? 1.0f : 0.0f);
-            s->l_show = s->show;
-        }
-        if (s->l_icon != s->icon) { set_frame((void *)s->ratio, s->icon); s->l_icon = s->icon; }
-    }
-}
-
-/* Slot circles: four picture panes inside the stamina part's own layout. Panes of the
- * child layout (index = order in PaMpGauge): 6 and 7 particles, 14 flash, 19 sparkle. */
-#define RING_N 12
-#define RING_R 190.0f      /* ring radius, layout units (~0.356 px each) */
-#define RING_DOT 46.0f     /* dot diameter */
-static const u32 RING_PANE[RING_N] = {3, 4, 18, 15, 6, 7, 9, 10, 13, 14, 16, 19};
-/* ring clockwise from the top; dot k lit while value/cap * RING_N > k. Dots are small
- * picture panes of the gauge layout, so the ring is a placeholder until real assets. */
-static const float RING_COS[RING_N] = {0.0f, 0.5f, 0.866f, 1.0f, 0.866f, 0.5f, 0.0f, -0.5f, -0.866f, -1.0f, -0.866f, -0.5f};
-static const float RING_SIN[RING_N] = {1.0f, 0.866f, 0.5f, 0.0f, -0.5f, -0.866f, -1.0f, -0.866f, -0.5f, 0.0f, 0.5f, 0.866f};
-u32 g_ring_dbg[RING_N] = {1};
-static void drive_ring(void) {
-    if (!g_bar) return;
-    u64 cl = ptr(g_bar, 0x80);
-    if (!cl) return;
-    u64 arr = ptr(cl, 0x100);
-    u32 cnt = *(unsigned short *)(cl + 0x13C);
-    if (!arr || cnt < 20) return;
+static void drive_segs(void) {
     float frac = g_cap > 0.0f ? g_value / g_cap : 0.0f;
-    for (u32 k = 0; k < RING_N; k++) {
-        u64 p = arr + (u64)RING_PANE[k] * 0xB0;
-        float on = (g_show > 0.5f && frac * (float)RING_N > (float)k + 0.01f) ? 1.0f : 0.0f;
-        float w_ = *(float *)(p + 0x58), h_ = *(float *)(p + 0x5C);
-        if (w_ < 1.0f) w_ = 32.0f;
-        if (h_ < 1.0f) h_ = 32.0f;
-        g_ring_dbg[k] = (u32)(w_ * 100.0f);
-        *(float *)(p + 0x60) = on * RING_DOT / w_;
-        *(float *)(p + 0x64) = on * RING_DOT / h_;
-        *(float *)(p + 0x6C) = RING_R * RING_COS[k];
-        *(float *)(p + 0x70) = RING_R * RING_SIN[k];
-        *(u32 *)p |= 0x6F;
+    if (frac < 0.0f) frac = 0.0f;
+    if (frac > 1.0f) frac = 1.0f;
+    for (u32 k = 0; k < SEG_N; k++) {
+        Seg *s = &g_seg[k];
+        if (!s->bar) continue;
+        if (!s->init) {
+            set_frame((void *)s->max, 100.0f);      /* bar width is fixed */
+            set_frame((void *)s->ratio, 473.0f);    /* fill pose = sits on the base */
+            set_frame((void *)s->trace, 473.0f);
+            s->init = 1;
+        }
+        float lit = frac * (float)SEG_N - (float)k;   /* 0..1 = this segment's fill */
+        if (lit < 0.0f) lit = 0.0f;
+        if (lit > 1.0f) lit = 1.0f;
+        float show = g_show > 0.5f ? 1.0f : 0.0f;
+        u64 arr = s->layout_arr;
+        u64 c1 = arr + 1 * 0xB0;     /* container: spoke at angle k */
+        *(float *)(c1 + 0x60) = show;
+        *(float *)(c1 + 0x64) = show;
+        *(float *)(c1 + 0x68) = OCT_R[k];      /* radians, counter-clockwise positive */
+        *(float *)(c1 + 0x6C) = OCT_X[k];
+        *(float *)(c1 + 0x70) = OCT_Y[k];
+        *(u32 *)c1 |= 0x6F;        u64 f = arr + 17 * 0xB0;     /* fill */
+        *(float *)(f + 0x60) = lit * 0.908f;
+        *(float *)(f + 0x64) = 1.0f;
+        *(float *)(f + 0x6C) = -380.0f;
+        *(float *)(f + 0x70) = 0.0f;
+        *(u32 *)f |= 0x6F;
+        static const u32 HIDE[1] = {8};   /* gauge shadow window */
+        u64 h = arr + (u64)HIDE[0] * 0xB0;
+        *(float *)(h + 0x60) = 0.0f;
+        *(float *)(h + 0x64) = 0.0f;
+        *(u32 *)h |= 0x6F;
     }
 }
 
-#ifndef DIRECT_FILL
-#define DIRECT_FILL 1
-#endif
-static u32 g_fill_init;
-u32 g_len[3] = {0x7777, 0x7777, 0x7777};   /* anim lengths: ratio, max, trace */
 static void hud_frame(void) {
     g_hud_dbg[1] = MARK | ++g_tick;
     if (!g_mp) return;
-    if (!g_bar) {
+    if (!g_frame_node) {
         u64 owner = ptr(g_mp, 0x18);
         if (!owner) return;
         u64 parent = ptr(owner, 0x28);
         if (!parent) return;
-        u64 bar = (u64)find_part((void *)parent, part_name(0));
-        g_hud_dbg[2] = MARK | bar;
-        if (!bar) return;
-        u64 ratio = (u64)find_anim((void *)bar, "GaugeRatio");
-        u64 max = (u64)find_anim((void *)bar, "GaugeMax");
-        u64 trace = (u64)find_anim((void *)bar, "TraceRatio");
-        g_hud_dbg[3] = MARK | ratio;
-        g_hud_dbg[4] = MARK | max;
-        g_hud_dbg[5] = MARK | trace;
-        u64 pane = pane_record(parent, part_name(0));
-        g_hud_dbg[9] = MARK | pane;
-        if (!ratio || !max || !trace || !pane) return;
-        observe_stock_box(parent);
-        g_frame_node = parent; g_bar = bar; g_ratio = ratio; g_max = max; g_trace = trace;
-        g_pane = pane;
-        {
-            u64 as[3] = {ratio, max, trace};
-            for (int i = 0; i < 3; i++) {
-                u64 tr = ptr(as[i], 0x20);
-                g_len[i] = tr && ptr(tr, 0) ? *(u32 *)(ptr(tr, 0) + 0x28) : 0xFFFF;
-            }
-        }
-        g_last_value = g_last_cap = g_last_show = -1.0f;
+        g_frame_node = parent;
     }
-    bind_slots(g_frame_node);
-    drive_slots();
-    drive_ring();
+    bind_segs(g_frame_node);
     if (g_test_mode) {
-        u32 p = (g_tick / 120) % 13;   /* calibration sweep: raw ratio frame 0..480 step 40, 2 s each */
+        u32 p = (g_tick / 120) % 13;     /* demo sweep 0..100 until the game publishes */
         g_cap = 100.0f;
-        g_value = (float)(p % 11) * 10.0f;   /* 0..100 step 10, 2 s each */
+        (void)p; g_value = 60.0f;
         g_show = 1.0f;
     }
-    if (g_last_show != g_show) {
-        /* The part's own pane stays visible (it also carries the slot circles); only the
-         * bar container (child pane 1, N_Gauge_01) is hidden by scaling it to zero. */
-        set_pane_show(g_pane, 1.0f);
-        u64 cl = ptr(g_bar, 0x80);
-        u64 arr = cl ? ptr(cl, 0x100) : 0;
-        if (arr) {
-            u64 c1 = arr + 1 * 0xB0;
-            *(float *)(c1 + 0x60) = g_show;
-            *(float *)(c1 + 0x64) = g_show;
-            *(u32 *)c1 |= 0x6F;
-        }
-        g_last_show = g_show;
-    }
-    if (g_last_cap != g_cap) {
-        set_frame((void *)g_max, 100.0f);   /* bar width is fixed; the fill shows value / cap */
-        g_last_cap = g_cap;
-    }
-    if (DIRECT_FILL) {
-        /* The gauge's ratio animation slides the whole fill strip without clipping, so the
-         * fill pane (P_Gauge_01, centred on the base pane at x = -380, base width 160) is
-         * driven directly: scaled in X and moved so its left edge stays on the base's. */
-        u64 cl = ptr(g_bar, 0x80);
-        u64 arr = cl ? ptr(cl, 0x100) : 0;
-        if (arr) {
-            if (!g_fill_init) {
-                set_frame((void *)g_ratio, 473.0f);   /* pose where the fill sits on the base */
-                set_frame((void *)g_trace, 473.0f);
-                g_fill_init = 1;
-            }
-            /* the straight bar is not shown any more: only the ring (drive_ring) is */
-            static const u32 HIDE[4] = {8, 11, 12, 17};
-            for (u32 i = 0; i < 4; i++) {
-                u64 f = arr + (u64)HIDE[i] * 0xB0;
-                *(float *)(f + 0x60) = 0.0f;
-                *(float *)(f + 0x64) = 0.0f;
-                *(u32 *)f |= 0x6F;
-            }
-        }
-        g_last_value = g_value;
-    } else if (g_last_value != g_value) {
-        u64 transform = ptr(g_ratio, 0x20);
-        float length = (float)*(u32 *)(ptr(transform, 0) + 0x28);
-        float frame = length - g_value;
-        if (frame < 0.0f) frame = 0.0f;
-        set_frame((void *)g_ratio, frame);
-        set_frame((void *)g_trace, frame);
-        g_last_value = g_value;
-    }
+    drive_segs();
 }
-
 /* -------- observation of the stock item box (to learn icon frames) -------- */
 #define FL_N 24
 typedef struct { u32 tag; float frame; } FrameLog;
@@ -674,8 +485,8 @@ void hud_on_code(u32 id, void *a0, void *a1, void *a2, void *regs) {
     }
     if (id == 1) {
         g_mp = (u64)a0;
-        g_bar = 0;
-        for (u32 i = 0; i < SLOT_N; i++) g_slot[i].part = 0;
+        g_frame_node = 0;
+        for (u32 i = 0; i < SEG_N; i++) { g_seg[i].bar = 0; g_seg[i].init = 0; }
         g_hud_dbg[0] = MARK | g_mp;
     } else if (id == 0) {
         if (a0 && *(u64 *)a0 == (u64)MAIN_SCHED_VT) hud_frame();

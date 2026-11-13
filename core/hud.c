@@ -56,7 +56,7 @@ static const char CIRCLE_TEX[] = "Circle64_00";
 #define SWAP_FILL 1  /* 1 = replace the gauge's fill texture with a flat white one */
 #endif
 
-#define RING_SIZE 0.45f   /* whole-ring scale (part scale) */
+#define RING_SIZE 0.34f   /* whole-ring scale (part scale) */
 #define SEG_N 8   /* ring segments = appended gauge parts */
 static const char *part_replaces(u32 i);
 /* names live in .data as char arrays (no pointer tables: the module has no relocations) */
@@ -72,8 +72,8 @@ __attribute__((unused, noinline)) static const char *part_replaces(u32 i) { (voi
 static const char *asset_name(u32 i) { return g_anames[i % SEG_N]; }
 /* ring centre: where Link usually stands on screen (layout units, root-relative, Y up;
  * ~0.356 px per unit at 720p). Placeholder until the ring follows his projected position. */
-static const float g_part_x[1] = {0.0f};
-static const float g_part_y[1] = {-330.0f};
+static const float g_part_x[1] = {200.0f};   /* beside Link (right), not on him */
+static const float g_part_y[1] = {-300.0f};
 static const float g_part_rgb[1][3] = {{1.0f, 0.85f, 0.15f}};
 #define CIRCLE_CAP 40.0f
 
@@ -181,7 +181,6 @@ static u8 *build_root(const u8 *r) {
         }
         *(u32 *)(root + off + 24) = n + PART_N;
     }
-    extend_pools(root, PART_N);
     g_hud_dbg[6] += 1;
     return root;
 }
@@ -395,6 +394,15 @@ static void drive_segs(void) {
         *(float *)(f + 0x6C) = -380.0f;
         *(float *)(f + 0x70) = 0.0f;
         *(u32 *)f |= 0x6F;
+        /* dark base = border: taller and a bit longer than the fill, centred on it */
+        for (u32 bi = 0; bi < 2; bi++) {
+            u64 bp = arr + (u64)(11 + bi) * 0xB0;
+            *(float *)(bp + 0x60) = show * 1.07f;
+            *(float *)(bp + 0x64) = show * 1.9f;
+            *(float *)(bp + 0x6C) = -380.0f - 5.6f;
+            *(float *)(bp + 0x70) = 0.0f;
+            *(u32 *)bp |= 0x6F;
+        }
         static const u32 HIDE[1] = {8};   /* gauge shadow window */
         u64 h = arr + (u64)HIDE[0] * 0xB0;
         *(float *)(h + 0x60) = 0.0f;

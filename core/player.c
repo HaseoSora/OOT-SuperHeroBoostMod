@@ -201,6 +201,8 @@ int player_active(void) {
 int player_max_life(void) { return g_link_maxlife; }
 
 /* a hostile enemy was within ENEMY_RADIUS of Link in the last 5 seconds */
+void player_mark_combat(void) { u32 f = hud_frame_count(); g_combat_frame = f ? f : 1; }
+
 int player_in_combat(void) {
     return g_combat_frame != 0 && (hud_frame_count() - g_combat_frame) < 300u;
 }

@@ -23,6 +23,7 @@ int player_state_is(const char *name);
 int player_active(void);
 int player_max_life(void);
 int player_in_combat(void);
+void player_mark_combat(void);
 
 /* Capacity: 75 (= 75% of the original 100) up to 3 hearts; every heart after the 3rd adds 75/17, so 20 hearts = 150. */
 #define STAMINA_BASE 75.0f
@@ -87,6 +88,7 @@ static int cost_on(int kind) {
              kind == K_BLOCK ? g_ootcfg.cost_block : kind == K_SHOOT ? g_ootcfg.cost_shoot : g_ootcfg.cost_roll;
     else on = 1;                                             /* hardcore / hardcore combat only: everything */
     if (!on) return 0;
+    if (kind == K_BLOCK) return 1;                           /* taking a hit on the shield is combat by definition (ranged attackers are not "near") */
     return !combat_only_mode() || player_in_combat();
 }
 
@@ -226,6 +228,7 @@ void hero_core_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_result
             g_combat_hold = COMBAT_HOLD_FRAMES;
             spend(g_config.block_base_cost);
             g_hc_guard++;
+            player_mark_combat();
             if (g_stamina.stamina < g_hc_lowest) g_hc_lowest = g_stamina.stamina;
         }
         if ((ev & PEV_JUMP) && cost_on(K_JUMP)) {

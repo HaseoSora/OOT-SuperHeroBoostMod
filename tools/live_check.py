@@ -171,6 +171,9 @@ def main() -> int:
                 print("press", btn, frames, "frames")
                 if "g_stamina" in syms:
                     print("   stamina right after press:", struct.unpack("<f", read_sym("g_stamina", 4))[0])
+                time.sleep(0.7)
+                if "g_stamina" in syms:
+                    print("   stamina 0.7s later:", struct.unpack("<f", read_sym("g_stamina", 4))[0])
                 png0, _, _ = c.screenshot()
                 (ROOT / "build" / f"live_now{n}.png").write_bytes(png0)
                 time.sleep(2.5)   # let the game react before sampling counters
@@ -280,6 +283,8 @@ def main() -> int:
         if "g_names_seen" in syms:
             nn = struct.unpack("<I", read_sym("g_names_n", 4))[0]; raw = read_sym("g_names_seen", 16 * 24)
             print("action names seen:", [raw[i*24:(i+1)*24].split(b"\\0")[0].decode("latin1") for i in range(1, min(nn, 15) + 1)])
+        if "g_link_life" in syms:
+            print("link life value:", struct.unpack("<i", read_sym("g_link_life", 4))[0])
         if "g_stick_dbg" in syms:
             print("stick samples:", struct.unpack("<16i", read_sym("g_stick_dbg", 64)))
         if "g_wrap_entry" in syms:

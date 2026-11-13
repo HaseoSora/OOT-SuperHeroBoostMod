@@ -48,7 +48,7 @@ static const char CIRCLE_TEX[] = "Circle64_00";
  * parts 1..4 are the slot circles: the gauge's fill texture is replaced by the
  * stock Circle64_00 and the gauge is kept full, so it draws a tinted circle. The
  * art is a placeholder until the real assets arrive. */
-#define PART_N 16   /* >1 does not work: only one appended part is built (see docs/RE-NOTES.md) */
+#define PART_N 32   /* >1 does not work: only one appended part is built (see docs/RE-NOTES.md) */
 #define APPEND_ALL 1   /* 1 = append every part (only the first one gets listed by the
                         * engine); 0 = parts 1.. repurpose filler parts (froze the game) */
 #define SLOT_N 4
@@ -57,12 +57,13 @@ static const char CIRCLE_TEX[] = "Circle64_00";
 #endif
 
 #define RING_SIZE 0.34f   /* whole-ring scale (part scale) */
-#define SEG_N 16   /* ring segments = appended gauge parts */
+#define GEO_N 16   /* sides of the polygon */
+#define SEG_N 32   /* ring segments = appended gauge parts */
 static const char *part_replaces(u32 i);
 /* names live in .data as char arrays (no pointer tables: the module has no relocations) */
-static char g_pnames[SEG_N][16] = {"Pa_OotSeg_00", "Pa_OotSeg_01", "Pa_OotSeg_02", "Pa_OotSeg_03", "Pa_OotSeg_04", "Pa_OotSeg_05", "Pa_OotSeg_06", "Pa_OotSeg_07", "Pa_OotSeg_08", "Pa_OotSeg_09", "Pa_OotSeg_10", "Pa_OotSeg_11", "Pa_OotSeg_12", "Pa_OotSeg_13", "Pa_OotSeg_14", "Pa_OotSeg_15"};
-static char g_anames[SEG_N][16] = {"PaOotSeg_00", "PaOotSeg_01", "PaOotSeg_02", "PaOotSeg_03", "PaOotSeg_04", "PaOotSeg_05", "PaOotSeg_06", "PaOotSeg_07", "PaOotSeg_08", "PaOotSeg_09", "PaOotSeg_10", "PaOotSeg_11", "PaOotSeg_12", "PaOotSeg_13", "PaOotSeg_14", "PaOotSeg_15"};
-static const u64 g_phash[SEG_N] = {HASH_PART0, HASH_PART1, HASH_PART2, HASH_PART3, HASH_PART4, HASH_PART5, HASH_PART6, HASH_PART7, HASH_PART8, HASH_PART9, HASH_PART10, HASH_PART11, HASH_PART12, HASH_PART13, HASH_PART14, HASH_PART15};
+static char g_pnames[SEG_N][16] = {"Pa_OotSeg_00", "Pa_OotSeg_01", "Pa_OotSeg_02", "Pa_OotSeg_03", "Pa_OotSeg_04", "Pa_OotSeg_05", "Pa_OotSeg_06", "Pa_OotSeg_07", "Pa_OotSeg_08", "Pa_OotSeg_09", "Pa_OotSeg_10", "Pa_OotSeg_11", "Pa_OotSeg_12", "Pa_OotSeg_13", "Pa_OotSeg_14", "Pa_OotSeg_15", "Pa_OotSeg_16", "Pa_OotSeg_17", "Pa_OotSeg_18", "Pa_OotSeg_19", "Pa_OotSeg_20", "Pa_OotSeg_21", "Pa_OotSeg_22", "Pa_OotSeg_23", "Pa_OotSeg_24", "Pa_OotSeg_25", "Pa_OotSeg_26", "Pa_OotSeg_27", "Pa_OotSeg_28", "Pa_OotSeg_29", "Pa_OotSeg_30", "Pa_OotSeg_31"};
+static char g_anames[SEG_N][16] = {"PaOotSeg_00", "PaOotSeg_01", "PaOotSeg_02", "PaOotSeg_03", "PaOotSeg_04", "PaOotSeg_05", "PaOotSeg_06", "PaOotSeg_07", "PaOotSeg_08", "PaOotSeg_09", "PaOotSeg_10", "PaOotSeg_11", "PaOotSeg_12", "PaOotSeg_13", "PaOotSeg_14", "PaOotSeg_15", "PaOotSeg_16", "PaOotSeg_17", "PaOotSeg_18", "PaOotSeg_19", "PaOotSeg_20", "PaOotSeg_21", "PaOotSeg_22", "PaOotSeg_23", "PaOotSeg_24", "PaOotSeg_25", "PaOotSeg_26", "PaOotSeg_27", "PaOotSeg_28", "PaOotSeg_29", "PaOotSeg_30", "PaOotSeg_31"};
+static const u64 g_phash[SEG_N] = {HASH_PART0, HASH_PART1, HASH_PART2, HASH_PART3, HASH_PART4, HASH_PART5, HASH_PART6, HASH_PART7, HASH_PART8, HASH_PART9, HASH_PART10, HASH_PART11, HASH_PART12, HASH_PART13, HASH_PART14, HASH_PART15, HASH_PART16, HASH_PART17, HASH_PART18, HASH_PART19, HASH_PART20, HASH_PART21, HASH_PART22, HASH_PART23, HASH_PART24, HASH_PART25, HASH_PART26, HASH_PART27, HASH_PART28, HASH_PART29, HASH_PART30, HASH_PART31};
 static const char *part_name(u32 i) { return g_pnames[i % SEG_N]; }
 static u64 part_hash(u32 i) { return g_phash[i % SEG_N]; }
 __attribute__((unused, noinline)) static const char *part_replaces(u32 i) { (void)i; return 0; }
@@ -75,7 +76,7 @@ static const float g_part_rgb[1][3] = {{0.30f, 0.85f, 0.25f}};   /* green */
 #define CIRCLE_CAP 40.0f
 
 /* -------- private allocation pool (bss, never freed) -------- */
-static u8 g_pool[0x1C0000] __attribute__((aligned(16)));
+static u8 g_pool[0x300000] __attribute__((aligned(16)));
 static u32 g_used;
 
 static void *pool_alloc(u32 n) {
@@ -182,6 +183,7 @@ static u8 *build_root(const u8 *r) {
     return root;
 }
 /* -------- step 2: private copy of the gauge file, flat white tinted -------- */
+static float *g_pal_a[SEG_N], *g_pal_b[SEG_N];   /* tint words of each private gauge copy */
 static u8 *build_gauge(const u8 *r, u32 k) {
     const u8 *base = r - 0xF8;
     u32 n = w(base, 8);
@@ -208,18 +210,21 @@ static u8 *build_gauge(const u8 *r, u32 k) {
             *(u64 *)(out + i) = (u64)CIRCLE_TEX;
     }
     /* palette words (verified before touching): our tint instead of green */
-    const float *c = g_part_rgb[0]; (void)k;
+    static const float YEL[3] = {1.0f, 0.85f, 0.10f};
+    const float *c = k >= GEO_N ? YEL : g_part_rgb[0];
     float *a = (float *)(out + 0x74D8);
     if (a[0] == 1.0f && a[1] == 1.0f && a[2] == 1.0f && a[3] == 1.0f) { a[0] = c[0]; a[1] = c[1]; a[2] = c[2]; }
     float *b = (float *)(out + 0x74E8);
     if (b[1] > 0.5646f && b[1] < 0.5648f) { b[0] = c[0]; b[1] = c[1]; b[2] = c[2]; b[3] = 1.0f; }
+    g_pal_a[k % SEG_N] = a;
+    g_pal_b[k % SEG_N] = b;
     *(u64 *)(out + 0x110) = (u64)asset_name(k);
     g_hud_dbg[7] += 1;
     return out + 0xF8;
 }
 
 /* cache of replaced resources and the per-call config copies */
-static struct { const u8 *src; u8 *copy; u32 kind; } g_res[24];
+static struct { const u8 *src; u8 *copy; u32 kind; } g_res[40];
 static u32 g_res_n;
 static struct { void *handle; u8 config[0x100]; } g_calls[64];
 static u32 g_calls_n;
@@ -251,7 +256,7 @@ void *hud_prepare(void *handle, u8 *config) {
     for (i = 0; i < g_res_n; i++)
         if (g_res[i].src == r && g_res[i].kind == kind) { rep = g_res[i].copy; break; }
     if (i == g_res_n) {
-        if (g_res_n == 24) return config;
+        if (g_res_n == 40) return config;
         rep = kind == 1 ? build_root(r) : build_gauge(r, kind - 2);
         if (!rep) return config;
         g_res[i].src = r; g_res[i].copy = rep; g_res[i].kind = kind;
@@ -330,9 +335,9 @@ float g_pos_dbg[8];
 /* octagon: side k is the bar of part k, tangent to a circle of apothem 190 (clockwise from the top).
  * Per side: container position (bar centre = apothem point, bar length 160) and rotation. */
 #define OCT_SX 0.4913f
-static const float OCT_X[SEG_N] = {141.73f, 203.65f, 234.57f, 229.77f, 190.00f, 121.30f, 34.14f, -58.23f, -141.73f, -203.65f, -234.57f, -229.77f, -190.00f, -121.30f, -34.14f, 58.23f};
-static const float OCT_Y[SEG_N] = {190.00f, 121.30f, 34.14f, -58.23f, -141.73f, -203.65f, -234.57f, -229.77f, -190.00f, -121.30f, -34.14f, 58.23f, 141.73f, 203.65f, 234.57f, 229.77f};
-static const float OCT_R[SEG_N] = {0.00000f, -0.39270f, -0.78540f, -1.17810f, -1.57080f, -1.96350f, -2.35619f, -2.74889f, -3.14159f, -3.53429f, -3.92699f, -4.31969f, -4.71239f, -5.10509f, -5.49779f, -5.89049f};
+static const float OCT_X[GEO_N] = {141.73f, 203.65f, 234.57f, 229.77f, 190.00f, 121.30f, 34.14f, -58.23f, -141.73f, -203.65f, -234.57f, -229.77f, -190.00f, -121.30f, -34.14f, 58.23f};
+static const float OCT_Y[GEO_N] = {190.00f, 121.30f, 34.14f, -58.23f, -141.73f, -203.65f, -234.57f, -229.77f, -190.00f, -121.30f, -34.14f, 58.23f, 141.73f, 203.65f, 234.57f, 229.77f};
+static const float OCT_R[GEO_N] = {0.00000f, -0.39270f, -0.78540f, -1.17810f, -1.57080f, -1.96350f, -2.35619f, -2.74889f, -3.14159f, -3.53429f, -3.92699f, -4.31969f, -4.71239f, -5.10509f, -5.49779f, -5.89049f};
 typedef struct { u64 bar, ratio, max, trace, layout_arr; u32 init; float l_fill, l_show; } Seg;
 static Seg g_seg[SEG_N];
 u32 g_seg_ok = 0x10000000u;
@@ -362,6 +367,9 @@ static void bind_segs(u64 parent) {
     g_seg_ok = 0x10000000u + ok;
 }
 
+static u32 g_tired;
+void hud_set_tired(u32 t) { g_tired = t; }
+
 static void drive_segs(void) {
     float frac = g_cap > 0.0f ? g_value / g_cap : 0.0f;
     if (frac < 0.0f) frac = 0.0f;
@@ -375,17 +383,17 @@ static void drive_segs(void) {
             set_frame((void *)s->trace, 473.0f);
             s->init = 1;
         }
-        float lit = frac * (float)SEG_N - (float)k;   /* 0..1 = this segment's fill */
+        float lit = frac * (float)GEO_N - (float)(k & 15);   /* 0..1 = this segment's fill */
         if (lit < 0.0f) lit = 0.0f;
         if (lit > 1.0f) lit = 1.0f;
-        float show = g_show > 0.5f ? 1.0f : 0.0f;
+        float show = (g_show > 0.5f && ((k >= GEO_N) == (g_tired != 0))) ? 1.0f : 0.0f;   /* green set / yellow set */
         u64 arr = s->layout_arr;
         u64 c1 = arr + 1 * 0xB0;     /* container: spoke at angle k */
         *(float *)(c1 + 0x60) = show * OCT_SX;
         *(float *)(c1 + 0x64) = show;
-        *(float *)(c1 + 0x68) = OCT_R[k];      /* radians, counter-clockwise positive */
-        *(float *)(c1 + 0x6C) = OCT_X[k];
-        *(float *)(c1 + 0x70) = OCT_Y[k];
+        *(float *)(c1 + 0x68) = OCT_R[k & 15];      /* radians, counter-clockwise positive */
+        *(float *)(c1 + 0x6C) = OCT_X[k & 15];
+        *(float *)(c1 + 0x70) = OCT_Y[k & 15];
         *(u32 *)c1 |= 0x6F;        u64 f = arr + 17 * 0xB0;     /* fill */
         *(float *)(f + 0x60) = lit * 0.908f;
         *(float *)(f + 0x64) = 1.0f;
@@ -426,6 +434,7 @@ static void hud_frame(void) {
         g_cap = 100.0f;
         (void)p; g_value = 60.0f;
         g_show = 1.0f;
+        g_tired = (g_tick / 480) & 1;   /* demo: alternate green / yellow */
     }
     drive_segs();
 }

@@ -12,6 +12,10 @@ u64 g_link_actor = 1;
 u64 g_link_player = 1;
 u64 g_link_table = 1;
 u32 g_link_seen = 0x10000000u;
+int g_link_life = 0x7777;
+static u32 g_active_frame;
+static int g_alive;
+u32 hud_frame_count(void);
 
 /* events (bit mask), consumed by features through player_take_events() */
 #define PEV_ROLL 1u
@@ -19,9 +23,14 @@ u32 g_link_seen = 0x10000000u;
 #define PEV_JUMP 4u
 #define PEV_ATTACK 8u
 #define PEV_GUARDHIT 16u
+#define PEV_SHOT 32u
+#define PEV_BOOMERANG 64u
+#define PEV_HAMMER 128u
+#define PEV_BACKFLIP 256u
 static u32 g_pending;
 static char g_prev[24];
 static char g_cur[24] = {'W', 'a', 'i', 't'};
+static char g_prev2[24], g_cur2[24];   /* upper-body state name at player+0x34C (bow / slingshot) */
 u32 g_ev_count[8] = {0x10000000u};
 char g_names_seen[16][24] = {{1}};
 u32 g_names_n;
@@ -46,7 +55,11 @@ static int starts(const char *a, const char *p) {
 
 static void classify(const char *n) {
     if (eq(n, "Rolling")) g_pending |= PEV_ROLL;
+    else if (starts(n, "CutHammer")) g_pending |= PEV_HAMMER;
+    else if (starts(n, "BowShoot") || starts(n, "SlingShoot") || starts(n, "SlingshotShoot")) g_pending |= PEV_SHOT;
+    else if (starts(n, "BoomerangThrow") || eq(n, "BoomerangSt")) g_pending |= PEV_BOOMERANG;
     else if (eq(n, "SideStep")) g_pending |= PEV_SIDESTEP;
+    else if (starts(n, "BackFlip")) g_pending |= PEV_BACKFLIP;
     else if (eq(n, "Jump")) g_pending |= PEV_JUMP;
     else if (starts(n, "Guard") && has_hit(n)) g_pending |= PEV_GUARDHIT;
     else if (starts(n, "Cut") || starts(n, "ChargeAttack") || starts(n, "JumpCut") || starts(n, "Stab"))
@@ -68,10 +81,24 @@ void player_track(u64 actor) {
     g_link_table = comp;
     g_link_player = pl;
     g_link_seen++;
+    g_active_frame = hud_frame_count();
+    {   /* life: Life+0x1C10 -> record, value s32 at +8 (0 = dead) */
+        u64 rec = rd(life, 0x1C10);
+        if (rec) { g_link_life = *(volatile int *)(rec + 8); g_alive = g_link_life > 0; }
+    }
 
     const volatile char *s = (const volatile char *)(pl + 0x244);
     for (int i = 0; i < 23; i++) g_cur[i] = s[i];
     g_cur[23] = 0;
+    {   /* second (upper-body) name: BowCharge / BowShoot, also used by the slingshot */
+        const volatile char *s2 = (const volatile char *)(pl + 0x34C);
+        for (int i = 0; i < 23; i++) g_cur2[i] = s2[i];
+        g_cur2[23] = 0;
+        if (!eq(g_cur2, g_prev2)) {
+            for (int i = 0; i < 24; i++) g_prev2[i] = g_cur2[i];
+            classify(g_cur2);
+        }
+    }
     if (!eq(g_cur, g_prev)) {
         for (int i = 0; i < 24; i++) g_prev[i] = g_cur[i];
         classify(g_cur);
@@ -95,3 +122,8 @@ u32 player_take_events(void) {
 }
 /* current action-state name equals / starts with */
 int player_state_is(const char *name) { return eq(g_cur, name); }
+
+/* 1 while Link exists, is alive and his update ran within the last frames (not in menus/pause) */
+int player_active(void) {
+    return g_alive && (hud_frame_count() - g_active_frame) <= 2;
+}

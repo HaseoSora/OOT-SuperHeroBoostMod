@@ -14,6 +14,7 @@ EXPERIMENTS = {
     "jump": [{"buttons": ["X"], "frames": 8}],
     "sprint": [{"buttons": ["A"], "frames": 150, "left_stick": [0.0, 1.0]}],
     "attack": [{"buttons": ["Y"], "frames": 8}],
+    "sling": [{"buttons": ["ZR"], "frames": 90}],
     "run": [{"buttons": [], "frames": 150, "left_stick": [0.0, 1.0]}],
 }
 

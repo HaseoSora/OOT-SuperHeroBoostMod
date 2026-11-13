@@ -38,6 +38,13 @@ EXPERIMENTS = {
     "r_zr_r": [{"buttons": ["R"], "frames": 6}, {"buttons": [], "frames": 10}, {"buttons": ["R"], "frames": 6}, {"buttons": [], "frames": 10}, {"buttons": ["ZR"], "frames": 50}],
     "l_zr": [{"buttons": ["L"], "frames": 6}, {"buttons": [], "frames": 10}, {"buttons": ["ZR"], "frames": 50}],
     "zl_r_zr": [{"buttons": ["ZL", "R"], "frames": 6}, {"buttons": ["ZL"], "frames": 10}, {"buttons": ["ZL", "ZR"], "frames": 50}],
+    "back_zl": [{"buttons": ["ZL"], "frames": 700, "left_stick": [0.0, -1.0]}, {"buttons": ["ZL"], "frames": 700}],
+    "zl_backjump": [{"buttons": ["ZL"], "frames": 40, "left_stick": [0.0, -1.0]}, {"buttons": ["ZL", "X"], "frames": 8, "left_stick": [0.0, -1.0]}],
+    "zl_sidejump": [{"buttons": ["ZL"], "frames": 40, "left_stick": [1.0, 0.0]}, {"buttons": ["ZL", "X"], "frames": 8, "left_stick": [1.0, 0.0]}],
+    "zr_long": [{"buttons": ["ZR"], "frames": 150}],
+    "zr_tap": [{"buttons": ["ZR"], "frames": 6}],
+    "zl_zr_long": [{"buttons": ["ZL"], "frames": 20}, {"buttons": ["ZL", "ZR"], "frames": 150}],
+    "l_long": [{"buttons": ["L"], "frames": 100}],
     "x_hold": [{"buttons": ["X"], "frames": 60}],
     "y_hold": [{"buttons": ["Y"], "frames": 70}],
     "a_hold": [{"buttons": ["A"], "frames": 70}],
@@ -45,7 +52,10 @@ EXPERIMENTS = {
 
 
 def name_at(c, pl):
-    b = bytes(c.read(pl + NAME_OFF, 40))
+    try:
+        b = bytes(c.read(pl + NAME_OFF, 40))
+    except Exception:
+        return '<timeout>'
     return b.split(b"\0")[0].decode("latin1")
 
 
@@ -80,7 +90,7 @@ def main():
 
             t = threading.Thread(target=run); t.start()
             t0 = time.time()
-            while not done.is_set() and time.time() - t0 < 8:
+            while not done.is_set() and time.time() - t0 < 40:
                 n = name_at(c2, pl)
                 if not seq or seq[-1][1] != n:
                     seq.append((round(time.time() - t0, 2), n))

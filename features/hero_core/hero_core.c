@@ -16,13 +16,19 @@
 
 void hud_set_stamina(float value, float cap, float show);
 u32 hud_frame_count(void);
+void hud_set_tired(unsigned int t);
 u32 player_take_events(void);
 int player_state_is(const char *name);
+int player_active(void);
 #define PEV_ROLL 1u
 #define PEV_SIDESTEP 2u
 #define PEV_JUMP 4u
 #define PEV_ATTACK 8u
 #define PEV_GUARDHIT 16u
+#define PEV_SHOT 32u
+#define PEV_BOOMERANG 64u
+#define PEV_HAMMER 128u
+#define PEV_BACKFLIP 256u
 
 #define LIFE_QUARTERS 20u       /* placeholder: 5 hearts, not read from the game yet */
 #define COMBAT_HOLD_FRAMES 180u
@@ -31,6 +37,10 @@ int player_state_is(const char *name);
 #define JUMP_COST 8.0f
 #define RUN_DRAIN_PER_SEC 7.0f
 #define EXHAUST_RECOVER 15.0f
+#define REGEN_DELAY 0.8f             /* seconds without actions before refilling */
+#define REGEN_PER_SEC 24.0f
+#define TIRED_REGEN_DELAY 2.5f       /* exhausted (yellow): longer wait ... */
+#define TIRED_REGEN_PER_SEC 48.0f    /* ... then twice as fast */
 #define STICK_MAX 32767.0f
 #define STICK_MOVE2 (0.30f * 0.30f * STICK_MAX * STICK_MAX)   /* deflected enough to roll/walk */
 #define STICK_RUN2 (0.85f * 0.85f * STICK_MAX * STICK_MAX)    /* running */
@@ -49,6 +59,7 @@ static u32 g_action_token;
 static u32 g_combat_hold;
 static u32 g_exhausted;
 static u32 g_last_frame;
+static u32 g_same_reads;
 
 static void ensure_init(void) {
     if (g_initialized) return;
@@ -114,10 +125,19 @@ void hero_core_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_result
     u32 frames = now - g_last_frame;
     int new_frame = (now == 0) || frames != 0;
     if (frames > 4) frames = 1;
+    if (frames == 0 && now != 0) g_same_reads++; else g_same_reads = 0;
     g_last_frame = now;
+    /* Outside the world (menus, pause, game over, dead) nothing of this runs. */
+    if (!(player_active() && g_same_reads <= 8)) {
+        player_take_events();
+        g_combat_hold = 0;
+        hud_set_tired(0);
+        hud_set_stamina(g_stamina.stamina, g_stamina.cap, 0.0f);
+        return;
+    }
     float dt = (now == 0 ? 1u : frames) * DT_FRAME;
 
-    if (g_exhausted && g_stamina.stamina >= EXHAUST_RECOVER) g_exhausted = 0;
+    if (g_exhausted && g_stamina.stamina >= g_stamina.cap - 0.5f) g_exhausted = 0;   /* must refill completely */
     if (!g_exhausted && g_stamina.stamina <= 0.0f) g_exhausted = 1;
 
     if (new_frame) {
@@ -125,6 +145,7 @@ void hero_core_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_result
         u32 ev = player_take_events();
         if (ev & PEV_ATTACK) {
             g_combat_hold = COMBAT_HOLD_FRAMES;
+            g_stamina.in_combat = 1;   /* the first swing already counts */
             stamina_begin_action(&g_stamina, &g_config, ACTION_SLASH, 0, 0, ++g_action_token);
             g_hc_dbg[4]++;
         }
@@ -133,9 +154,25 @@ void hero_core_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_result
             spend(g_config.roll_cost);
             g_hc_dbg[0]++;
         }
+        if (ev & PEV_BACKFLIP) {
+            g_combat_hold = COMBAT_HOLD_FRAMES;
+            spend(g_config.backflip_cost);
+        }
         if (ev & PEV_SIDESTEP) {
             g_combat_hold = COMBAT_HOLD_FRAMES;
             spend(g_config.sidestep_cost);
+        }
+        if (ev & PEV_SHOT) {   /* bow / slingshot: half an attack */
+            g_combat_hold = COMBAT_HOLD_FRAMES;
+            spend(g_config.weapon_cost[0] * 0.5f);
+        }
+        if (ev & PEV_BOOMERANG) {
+            g_combat_hold = COMBAT_HOLD_FRAMES;
+            spend(g_config.weapon_cost[0] * g_config.move_cost_scale[1]);
+        }
+        if (ev & PEV_HAMMER) {
+            g_combat_hold = COMBAT_HOLD_FRAMES;
+            spend(g_config.weapon_cost[2]);
         }
         if (ev & PEV_GUARDHIT) {   /* a hit on the shield costs stamina */
             g_combat_hold = COMBAT_HOLD_FRAMES;
@@ -157,18 +194,25 @@ void hero_core_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_result
             g_stamina.idle_seconds = 0.0f;
             g_hc_dbg[2]++;
         }
-        stamina_tick(&g_stamina, &g_config, dt, LIFE_QUARTERS, in_combat, draining, 0, 0);
-        if (g_stamina.stamina <= 0.0f) g_exhausted = 1;
+        /* Refill: after a short pause without any action (moving is fine); once exhausted the
+         * pause is longer but the refill is twice as fast. spend()/drain reset idle_seconds. */
+        g_stamina.idle_seconds += dt;
+        if (g_stamina.idle_seconds >= (g_exhausted ? TIRED_REGEN_DELAY : REGEN_DELAY))
+            g_stamina.stamina += (g_exhausted ? TIRED_REGEN_PER_SEC : REGEN_PER_SEC) * dt;
+        if (g_stamina.stamina > g_stamina.cap) g_stamina.stamina = g_stamina.cap;        if (g_stamina.stamina <= 0.0f) g_exhausted = 1;
         g_hc_dbg[3] = 0x10000000u + g_exhausted;
 
+        hud_set_tired(g_exhausted);
         hud_set_stamina(g_stamina.stamina, g_stamina.cap,
                         (in_combat || draining || g_exhausted || g_stamina.stamina < g_stamina.cap - 0.5f)
                             ? 1.0f : 0.0f);
     }
     /* Filters on the input the game sees (every call, not only the first of a frame). */
     u64 strip = 0;
-    if (g_exhausted) strip |= BTN_X | BTN_A;                          /* no jump, no roll */
+    /* exhausted (yellow): every action is blocked, only walking is left */
+    if (g_exhausted) strip |= BTN_A | BTN_B | BTN_X | BTN_Y | BTN_L | BTN_R | BTN_ZL | BTN_ZR;
     if (g_stamina.in_combat && g_stamina.stamina <= 0.0f) strip |= BTN_Y;   /* no sword at 0 */
+    if (g_exhausted && m2 > STICK_FAST2) halve_stick(&view);   /* exhausted: walk only */
     if (strip) {
         for (u32 i = 0; i < count; i++) {
             u64 b = hid_get_buttons(&view, i);

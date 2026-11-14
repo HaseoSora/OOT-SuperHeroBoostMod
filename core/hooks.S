@@ -252,6 +252,10 @@ CODE_HOOK hook_guard2, 8, RES_GUARD2
 CODE_HOOK hook_guard3, 9, RES_GUARD3
 /* Ground movement (x0 player, x1 direction, s0 speed); Link's call returns to main+0x934994. */
 CODE_HOOK hook_code_speed, 10, RES_SPEED
+/* Icon controller init (x0 controller, x1 heap): lets the Classic replica learn the controller it asked for. */
+CODE_HOOK hook_code_iconctrl, 11, RES_ICONCTRL
+/* PlayerStatus HUD init (x0 HUD object, x1 heap): the heap the HUD allocates its icon controllers from. */
+CODE_HOOK hook_code_hudinit, 12, RES_HUDINIT
 
 /* Classic extra-button sites: four `bl 0x1211c00` calls. 0x1211c00 is a normal
  * function (not an import stub), so these use the same wrapper, with their own

@@ -49,6 +49,9 @@ SECTIONS
     RES_GUARD2 = 0x27FB0C4;
     RES_GUARD3 = 0x27FA204;
     RES_SPEED = 0x9352F4;
+    RES_ICONCTRL = 0xA37324;
+    RES_HUDINIT = 0x33F5D24;
+    icon_widget_init = 0x33B7DA0;  /* (widget, heap): widget+0x20 = part holding Pa_ReplaceIcon_00; builds its icon controller (initial icon Item_AgonyStone) */
     tex_replace = 0xA73920;     /* (replacer, const char **name, flag): load UI/Tex/Icon/<name> into a replaceable pane texture */
     MAIN_SCHED_VT = 0x4B05318;
     find_part = 0x43C3E0;

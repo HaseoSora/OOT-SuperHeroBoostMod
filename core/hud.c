@@ -32,6 +32,7 @@ extern void *find_part(void *node, const char *name);
 extern void *find_anim(void *part, const char *name);
 extern void set_frame(void *anim, float frame);
 extern void tex_replace(void *replacer, const char **name, int flag);   /* main+0xA73920 */
+extern void icon_widget_init(void *widget, void *heap);                 /* main+0x33B7DA0 */
 extern void *memcpy(void *d, const void *s, unsigned long n);
 extern long set_text(void *pane, const void *ref, int zero);   /* stock text-pane setter (main+0x439520) */
 extern char GAMEDATA_MGR[];                                      /* main+0x4E842A8: GameData manager pointer slot */
@@ -972,7 +973,7 @@ static const char *slot_anim_name(u32 i) {
     case 8: return "UnSelect"; case 9: return "Decide"; default: return "Assign";
     }
 }
-typedef struct { u64 part, anim[SA_N], rec, rep; u32 icon_set; } SlotBtn;
+typedef struct { u64 part, anim[SA_N], rec, rep, ctrl; u32 icon_set; } SlotBtn;
 static SlotBtn g_sb[PART_N];
 u64 g_sb_dbg[PART_N];       /* part object per button (diagnostic) */
 u32 g_sb_anim[PART_N];      /* bit i = anim i found */
@@ -983,6 +984,47 @@ float g_sb_pos[PART_N][2] = {{-600.0f, 0.0f}, {-300.0f, 0.0f}, {0.0f, 0.0f}, {30
 float g_sb_scale = 0.85f;
 static volatile u32 g_sb_busy;
 #define SLOT_ICON_DIRECT 0
+/* Item icons: the game's own icon setup (main+0x33B7DA0, used for the Agony Stone icon) is called with a small
+ * stand-in "widget" whose +0x20 is our button part. It finds the part's Pa_ReplaceIcon_00, allocates and inits an
+ * icon controller (main+0xA37320, hook 11 captures it) whose +0x30 / +0x38 are the icon / shadow texture
+ * replacers; main+0xA73920 then loads UI/Tex/Icon/<name> and UI/Tex/IconSh/<name>_Sh into them. */
+static u64 g_sb_widget[PART_N][12];   /* stand-in widgets (the init writes +0x30..+0x48) */
+static volatile u32 g_ctrl_capture;
+static volatile u64 g_ctrl_captured;
+u64 g_sb_ctrl_dbg[PART_N];
+void hud_icon_ctrl_init(u64 ctrl) { if (g_ctrl_capture) g_ctrl_captured = ctrl; }
+u64 g_hud_heap;   /* heap passed to the PlayerStatus HUD init (main+0x33F5D20, hook 12) */
+static u64 g_sb_ctrl[PART_N];
+/* Hook 12 (entry of the PlayerStatus HUD init, x0 HUD object, x1 heap): the layout and our parts exist, and the
+ * heap still accepts allocations (it does not afterwards), so the icon controllers are built here. */
+static void hud_slots_init(u64 hud, u64 heap) {
+    g_hud_heap = heap;
+    u64 frame = hud ? ptr(hud, 0x28) : 0;
+    for (u32 k = 0; k < PART_N; k++) {
+        g_sb_ctrl[k] = 0;
+        u64 p = frame ? (u64)find_part((void *)frame, part_name(k)) : 0;
+        if (!p || !heap) continue;
+        for (u32 i = 0; i < 12; i++) g_sb_widget[k][i] = 0;
+        g_sb_widget[k][4] = p;                       /* widget+0x20 = our button part */
+        g_ctrl_captured = 0; g_ctrl_capture = 1; g_sb_busy = 1;
+        icon_widget_init(g_sb_widget[k], (void *)heap);
+        g_sb_busy = 0; g_ctrl_capture = 0;
+        g_sb_ctrl[k] = g_ctrl_captured;
+        g_sb_ctrl_dbg[k] = MARK | g_sb_ctrl[k];
+    }
+}
+static void set_icon(SlotBtn *b, const char *name) {
+    if (!b->ctrl) return;
+    u64 r1 = ptr(b->ctrl, 0x30), r2 = ptr(b->ctrl, 0x38);
+    char sh[40]; u32 n = 0;
+    while (name[n] && n < 32) { sh[n] = name[n]; n++; }
+    sh[n] = '_'; sh[n + 1] = 'S'; sh[n + 2] = 'h'; sh[n + 3] = 0;
+    const char *a = name, *c = sh;
+    g_sb_busy = 1;
+    if (r1) tex_replace((void *)r1, &a, 0);
+    if (r2) tex_replace((void *)r2, &c, 0);
+    g_sb_busy = 0;
+}
 static void slots_update(u64 frame) {
     if (g_sb_busy) return;
     for (u32 k = 0; k < PART_N; k++) {
@@ -1006,6 +1048,7 @@ static void slots_update(u64 frame) {
                 /* its texture replacer (the object the game's HUD gives the item's icon name to) */
                 b->rep = rif ? ptr(rif, 0x6A8) : 0;
                 b->icon_set = 0;
+                b->ctrl = g_sb_ctrl[k];   /* built during the HUD init (hud_slots_init) */
             }
             b->rec = pane_record(frame, part_name(k));
             b->part = p;
@@ -1015,6 +1058,10 @@ static void slots_update(u64 frame) {
          * icon controller with main+0xA37320(controller, part), which creates the icon / shadow replacers at
          * controller+0x30 / +0x38; calling tex_replace directly recursed until the stack overflowed).
          * See docs/CLASSIC-REPLICA.md, "Item icons". */
+        if (b->ctrl && !b->icon_set && !g_sb_busy) {
+            b->icon_set = 1;
+            set_icon(b, g_sb_icon_name[k]);
+        }
         if (SLOT_ICON_DIRECT && b->rep && !b->icon_set && !g_sb_busy) {
             /* tex_replace can run the frame hook again (re-entry): mark first, and never nest */
             const char *nm = g_sb_icon_name[k];
@@ -1099,6 +1146,8 @@ void hud_on_code(u32 id, void *a0, void *a1, void *a2, void *regs) {
     if (id == 5) { player_track((u64)a0); return; }
     if (id >= 6 && id <= 9) { player_guard_event(id); return; }
     if (id == 10) { if (hero_speed_hook) hero_speed_hook(regs); return; }   /* ground movement: sprint speed */
+    if (id == 11) { hud_icon_ctrl_init((u64)a0); return; }                  /* icon controller init */
+    if (id == 12) { hud_slots_init((u64)a0, (u64)a1); return; }             /* PlayerStatus HUD init: build icon controllers */
     if (id == 4) {   /* part instance creation: log the pane index being instantiated */
         u64 layout = (u64)a1, pane = (u64)a2;
         u64 arr = layout ? ptr(layout, 0x100) : 0;

@@ -48,7 +48,7 @@ core/                código común del módulo
   mem.c, slots.c ... utilidades
 features/
   stamina/           estamina (costes, agotamiento, recarga), multiplicador de sprint
-  songbook/          canción elegida en el cancionero nativo -> notas nativas
+  songbook/          canción elegida en el songbook nativo -> notas nativas
   classic_slots/     réplica antigua de ranuras extra (no se publica; ver CLASSIC-REPLICA.md)
   probe/             feature de diagnóstico
 tools/               compilación, publicación, pruebas en vivo y análisis (ver sección 9)
@@ -104,7 +104,7 @@ Ganchos de código actuales (`CODE_SITES`):
 | 5 | 0x2C215E0 | actualización de movimiento de actores físicos (x0 = actor) | `player_track()`: el jugador y enemigos |
 | 6-9 | 0x27F7D00, 0x27F7F90, 0x27FB0C0, 0x27FA200 | nodos de reacción de escudo del jugador | coste de estamina al bloquear |
 | 10 | 0x9352F0 | movimiento en suelo (x0 jugador, x1 dirección, s0 velocidad) | multiplicador de sprint |
-| 13 | 0x2894340 | entrada del modo ocarina (x0 = contexto de ocarina/cancionero) | `songbook_on_ocarina(1, ctx)` |
+| 13 | 0x2894340 | entrada del modo ocarina (x0 = contexto de ocarina/songbook) | `songbook_on_ocarina(1, ctx)` |
 | 14 | 0x28947F0 | salida del modo ocarina | `songbook_on_ocarina(0, ctx)` |
 
 En el callback, `regs` apunta a los registros guardados: `x0` en `+0x10`, `x30` (dirección de retorno) en `+0x08`,
@@ -134,7 +134,7 @@ los lee en cada fotograma (`g_shbcfg`). **Solo se añaden campos al final** (usa
 | 30-32 | `hud_rupees`, `hud_clock`, `clock_24h` | HUD siempre visible (en la app el reloj es un selector: sin reloj / 12 h / 24 h) |
 | 33 | `no_heart_drop` (informativo; lo hace el romfs) | Sin drop de corazones |
 | 34 | `sprint_speed_pct` (u16, defecto 125) | Velocidad del sprint |
-| 36 | `songbook_enabled` | Canción elegida en el cancionero -> Link la toca |
+| 36 | `songbook_enabled` | Canción elegida en el songbook -> Link la toca |
 
 **Añadir una opción nueva:** campo en `config.h` (quitando bytes de `reserved`), valor por defecto en `config.c`,
 escritura en `installer.patch_config` (`f = magia + 16`), campo en `installer.Settings`, flag en `main.cli`,
@@ -174,8 +174,7 @@ multiplica el argumento de velocidad.
 - No llama a las funciones internas de reproducción: inyecta los botones nativos de nota (L, R, A, Y, X) en las
   muestras HID. El juego reconoce la melodía, reproduce el sonido y la animación por su cuenta.
 - Solo canciones aprendidas. La canción 12 (Scarecrow, compuesta por el jugador) no se toca.
-- Secuencias derivadas de `GameParameter/MelodyScoreBook/Default.game__ocarina__MelodyScoreBook.bgyml` (12 entradas),
-  no de un mod externo.
+- Secuencias derivadas de `GameParameter/MelodyScoreBook/Default.game__ocarina__MelodyScoreBook.bgyml` (12 entradas).
 
 ### 4.5 Sin drop de corazones (romfs)
 `tools/make_romfs_opts.py` genera, a partir del volcado del propio juego (`F:\switch2\Longshot\romfs` o `SHB_ROMFS`),
@@ -294,7 +293,7 @@ Los nombres de funciones no están en `main` en texto claro (el motor usa hashes
 | `build_core.py` | compila el módulo y su IPS; genera `hud_names.h` y `dispatch_gen.c` |
 | `make_release.py` / `build_app.py` | payload de la app / ejecutable |
 | `make_romfs_opts.py` | romfs opcionales (sin drop de corazones) |
-| `features/songbook` | canción del cancionero nativo -> notas inyectadas |
+| `features/songbook` | canción del songbook nativo -> notas inyectadas |
 | `check_no_game_data.py` | comprueba que git no tenga archivos del dump ni payloads generados |
 | `hook_sites.py` | lista de sitios de gancho |
 | `live_check.py` | arrancar, cargar partida, capturar y leer diagnósticos |

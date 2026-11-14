@@ -596,9 +596,11 @@ def gui() -> None:
         ui["variant"] = cb
         label(body, L("classic_note"), size=9, color=DIM, bg=PANEL).pack(anchor="w", pady=(8, 0))
 
-    def build_songbook(parent):
-        body = card(parent, L("songbook_title"), L("songbook_desc"))
-        check(body, L("songbook_on"), songbook).pack(anchor="w")
+    def build_misc(parent):
+        body = card(parent, L("misc_title"), L("misc_desc"))
+        label(body, L("songbook_title"), size=11, color=ACCENT, bold=True, bg=PANEL).pack(anchor="w", pady=(2, 0))
+        check(body, L("songbook_on"), songbook).pack(anchor="w", pady=(2, 0))
+        label(body, L("songbook_desc"), size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=(20, 0))
         label(body, L("songbook_note"), size=9, color=AMBER, bg=PANEL).pack(anchor="w", pady=(8, 0))
 
     def build_about(parent):
@@ -643,7 +645,7 @@ def gui() -> None:
         side.pack_propagate(False)
         for key, text in (("install", "nav_install"), ("stamina", "nav_stamina"),
                           ("difficulty", "nav_difficulty"), ("hud", "nav_hud"),
-                          ("songbook", "nav_songbook"), ("about", "nav_about")):
+                          ("misc", "nav_misc"), ("about", "nav_about")):
             b = tk.Button(side, text=L(text), command=lambda k=key: show_section(k), anchor="w",
                           bg=SIDEBAR, fg=TEXT, activebackground=PANEL, activeforeground=ACCENT,
                           relief="flat", bd=0, cursor="hand2", font=(FAM, 10, "bold"),
@@ -658,7 +660,7 @@ def gui() -> None:
         scroll = ScrollArea(wrap, BG)
         scroll.frame.pack(fill="both", expand=True)
         builders = {"install": build_install, "stamina": build_stamina, "difficulty": build_difficulty,
-                    "hud": build_hud, "songbook": build_songbook, "about": build_about}
+                    "hud": build_hud, "misc": build_misc, "about": build_about}
         for key, fn in builders.items():
             f = tk.Frame(scroll.inner, bg=BG)
             fn(f)

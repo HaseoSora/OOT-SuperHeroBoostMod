@@ -21,8 +21,8 @@ producto.
 - `core/`: cabecera MOD0, ganchos, reparto, HID, configuración, seguimiento de jugador/enemigos y HUD.
 - `features/stamina/`: máquina de estados de estamina y ganchos de entrada/velocidad. Los valores de
   `stamina_default_config()` son ajustes propios, no una copia de otro mod.
-- `features/songbook/`: reproducción desde el cancionero nativo. Implementación propia basada en los campos del
-  contexto de ocarina y en inyectar los cinco botones de nota; no usa el IPS de "Songbook Autoplay" ni su código.
+- `features/songbook/`: reproducción desde el songbook nativo. Implementación propia basada en los campos del
+  contexto de ocarina y en inyectar los cinco botones de nota; no usa código de terceros.
 - `app/`: ventana Tkinter, perfiles completos, instalador, rutas multiplataforma y textos en seis idiomas.
 - `tools/`: scripts de compilación, pruebas en vivo, volcados y análisis. Algunos leen el juego o usan el servidor de
   depuración, pero no se empaquetan con la app.

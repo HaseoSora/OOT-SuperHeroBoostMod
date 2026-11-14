@@ -63,7 +63,7 @@ dropped hearts become green rupees (the optional romfs file; see the note below)
 - **Dificultad**: enemy health, damage taken, heart drops.
 - **HUD y botones**: rupee counter, clock (**off / 12 h / 24 h**, one selector), Classic Item Slots and button
   style.
-- **Cancionero**: enables playing a learned song by selecting it in the game's native songbook (ZL). It injects the
+- **Modificaciones varias**: the Songbook option enables playing a learned song by selecting it in the game's native songbook (ZL). It injects the
   five native note buttons, so the game keeps its own recognition, animation and effects. Only learned songs work.
 - **Acerca de**: credits and the material/third-party notice.
 

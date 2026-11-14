@@ -231,9 +231,6 @@ Consequence: only site 3 sees gameplay input. The four classic slot sites
   20 frames, then injects the note buttons for 3 frames each with 4-frame gaps through the gameplay input hook. The
   game recognises the melody with its normal logic (sound, animation, effects).
 - Scarecrow's Song (index 12) is player-composed and is intentionally not injected.
-- The installed third-party "Songbook Autoplay" IPS patches `0x3294578`/`0x3294BCC` and uses a code cave at
-  `0x3C46800`; it is a different implementation and conflicts with ours at the ocarina/songbook state. Do not install
-  both.
 
 ## Sprint speed, shield cost, enemy health (Nov 14)
 - Sprint speed: the player's ground movement is `main+0x9352F0(player, direction, float speed)`; his own call is the

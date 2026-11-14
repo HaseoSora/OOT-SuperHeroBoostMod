@@ -12,7 +12,7 @@ Módulo de gameplay para el remake de consola (actualización v131072) y su app 
 - **Velocidad del sprint** configurable (por defecto +25 %).
 - **Vida de los enemigos** y **daño recibido** multiplicables; opción **sin drop de corazones**.
 - **Reloj y contador de rupias siempre visibles**, con el aspecto nativo del juego (12 / 24 h).
-- **Songbook**: al elegir una canción aprendida en el cancionero nativo (ZL), Link la toca con sus notas y animación
+- **Songbook**: al elegir una canción aprendida en el songbook nativo (ZL), Link la toca con sus notas y animación
   normales. Solo funciona con canciones aprendidas.
 - Compatible con **Classic Item Slots** (la app lo descarga de su release oficial en GitHub y lo instala con su crédito
   original; no va incluido en el código).

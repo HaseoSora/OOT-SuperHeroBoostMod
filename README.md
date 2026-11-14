@@ -19,6 +19,9 @@ Módulo de gameplay para el remake de consola (actualización v131072) y su app 
 - **Selector rápido (beta)**: mantener abajo para elegir botas o arriba para máscaras, con izquierda/derecha y
   soltar para equipar, sin abrir el menú. Son experimentales
   y pueden romper puzles, misiones o el rendimiento; se activan en la app y se instalan como romfs extra.
+- **Cambios del mundo (beta)**: reordena las magias de las Grandes Hadas (Hyrule niño → Amor de Nayru, cráter →
+  ataque circular, coloso del desierto → doble magia) y permite colocar puntos del Viento de Farore fuera de los
+  calabozos. El diálogo de la hada de Din sigue describiendo el orden original.
 - Compatible con **Classic Item Slots** (la app lo descarga de su release oficial en GitHub y lo instala con su crédito
   original; no va incluido en el código).
 

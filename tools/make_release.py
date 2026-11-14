@@ -54,6 +54,12 @@ def main():
     r = subprocess.run([sys.executable, str(ROOT / "tools" / "make_enemy_opts.py")], cwd=ROOT)
     if r.returncode:
         print("WARNING: beta enemy mods not built (game dump missing?): the payload keeps any previous files")
+    r = subprocess.run([sys.executable, str(ROOT / "tools" / "make_farore_opts.py")], cwd=ROOT)
+    if r.returncode:
+        print("WARNING: Farore's Wind beta not built (game dump missing?): the payload keeps any previous files")
+    r = subprocess.run([sys.executable, str(ROOT / "tools" / "make_great_fairy_opts.py")], cwd=ROOT)
+    if r.returncode:
+        print("WARNING: Great Fairy beta not built (game dump or evfl missing?): the payload keeps any previous files")
     (OUT / "manifest.json").write_text(json.dumps(man, indent=2))
     print("payload staged in", OUT)
 

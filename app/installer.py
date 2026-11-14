@@ -55,6 +55,8 @@ class Settings:
     quick_mask: bool = False         # beta: hold D-pad up to pick a mask
     enemy_double: bool = False       # beta: install the duplicated-enemy romfs mod
     enemy_speed: bool = False        # beta: install the x2 enemy animation/movement/cadence romfs mod
+    great_fairy: bool = False        # beta: reorder the three Great Fairy magic rewards
+    farore_outdoor: bool = False     # beta: allow Farore's Wind points outside dungeons
 
     def to_dict(self): return dict(self.__dict__)
 
@@ -294,7 +296,9 @@ def install(emu: Path, s: Settings, classic_variant: str = "default", name: str 
             # rest of the installation just because this optional file was not built.
             res.notes.append(("no_heart_drop_missing", ""))
 
-    for opt, enabled in (("enemy_double", s.enemy_double), ("enemy_speed", s.enemy_speed)):
+    for opt, enabled in (("enemy_double", s.enemy_double), ("enemy_speed", s.enemy_speed),
+                         ("farore_outdoor", s.farore_outdoor),
+                         ("great_fairy", s.great_fairy)):
         if not enabled:
             continue
         src = pay.parent / "romfs_opts" / opt

@@ -77,6 +77,14 @@ dropped hearts become green rupees (the optional romfs file; see the note below)
     not change, or may desync.
   Both beta mods are generated from the user's dump at build time and installed as extra romfs files. They are not
   part of the normal payload and can break puzzles, quests or performance. Back up the save and test one at a time.
+- **World changes (beta)**, inside *Modificaciones varias*:
+  - **Great Fairy rewards**: the three magic rewards are reordered. Hyrule Castle (child) gives **Nayru's Love**,
+    Death Mountain Crater gives the **magic spin attack**, and Desert Colossus gives **double magic**. Each fountain
+    keeps its own Great Fairy and its own dialogue; the reward line is switched to the new power. The Din fairy's
+    overview dialogue still describes the original order, so trust the fountain itself.
+  - **Farore's Wind outdoors**: allows placing Farore's Wind warp points outside dungeons. The real forbidden areas
+    inside dungeons (for example the FireTemple areas) stay blocked. It is a patched event flow, installed as a romfs
+    file.
 - **Acerca de**: credits and the material/third-party notice.
 
 The bottom bar always shows the install state and the **Instalar / Desinstalar** buttons. Changes are saved

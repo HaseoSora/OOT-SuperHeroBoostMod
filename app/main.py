@@ -62,6 +62,8 @@ def cli(argv) -> int:
     ap.add_argument("--quick-mask", action="store_true", help="beta: hold D-pad up to pick a mask")
     ap.add_argument("--enemy-double", action="store_true", help="beta: duplicate generic enemies (romfs)")
     ap.add_argument("--enemy-speed", action="store_true", help="beta: accelerate enemy animation/movement/cadence (romfs)")
+    ap.add_argument("--great-fairy", action="store_true", help="beta: reorder the three Great Fairy magic rewards (romfs)")
+    ap.add_argument("--farore-outdoor", action="store_true", help="beta: allow Farore's Wind points outside dungeons (romfs)")
     ap.add_argument("--off", default=None, help="advanced: comma list of jump,attack,sprint,block,shoot,roll to disable")
     ap.add_argument("--combat-only", action="store_true", default=None)
     ap.add_argument("--name", default=I.MOD_NAME)
@@ -111,6 +113,10 @@ def cli(argv) -> int:
         s.enemy_double = True
     if a.enemy_speed:
         s.enemy_speed = True
+    if a.great_fairy:
+        s.great_fairy = True
+    if a.farore_outdoor:
+        s.farore_outdoor = True
     if a.combat_only:
         s.combat_only = True
     if a.enemy_hp is not None:
@@ -225,6 +231,8 @@ def gui() -> None:
     quick_mask = tk.BooleanVar(value=bool(cfg.get("quick_mask", False)))
     enemy_double = tk.BooleanVar(value=bool(cfg.get("enemy_double", False)))
     enemy_speed = tk.BooleanVar(value=bool(cfg.get("enemy_speed", False)))
+    great_fairy = tk.BooleanVar(value=bool(cfg.get("great_fairy", False)))
+    farore_outdoor = tk.BooleanVar(value=bool(cfg.get("farore_outdoor", False)))
     mode = tk.StringVar(value=cfg.get("stamina_mode") if cfg.get("stamina_mode") in STAMINA_MODES
                         else STAMINA_MODES[cfg.get("preset", 0)] if cfg.get("preset", 0) in range(4) else "hardcore")
 
@@ -345,6 +353,8 @@ def gui() -> None:
         clock_mode.set("24" if v["clock_24h"] else "12" if v["hud_clock"] else "off")
         enemy_double.set(v["enemy_double"])
         enemy_speed.set(v["enemy_speed"])
+        great_fairy.set(v["great_fairy"])
+        farore_outdoor.set(v["farore_outdoor"])
         guard["on"] = False
         refresh()
         if save:
@@ -368,7 +378,8 @@ def gui() -> None:
         refresh()
         autosave()
 
-    for var in (classic, stamina, songbook, quick_boots, quick_mask, enemy_double, enemy_speed, mode,
+    for var in (classic, stamina, songbook, quick_boots, quick_mask, enemy_double, enemy_speed,
+                great_fairy, farore_outdoor, mode,
                 combat, hp, dmg, speed, nodrop,
                 rupees, clock_mode, *costs.values()):
         var.trace_add("write", on_setting_change)
@@ -400,6 +411,7 @@ def gui() -> None:
         return I.Settings(classic=classic.get(), stamina=stamina.get(), songbook=songbook.get(),
                           quick_boots=quick_boots.get(), quick_mask=quick_mask.get(),
                           enemy_double=enemy_double.get(), enemy_speed=enemy_speed.get(),
+                          great_fairy=great_fairy.get(), farore_outdoor=farore_outdoor.get(),
                           preset=STAMINA_MODES.index(mode.get()),
                           combat_only=combat.get(),
                           **{k: costs[k].get() for k in KEYS},
@@ -413,7 +425,9 @@ def gui() -> None:
             "classic": classic.get(), "variant": variant.get(),
             "stamina": stamina.get(), "songbook": songbook.get(),
             "quick_boots": quick_boots.get(), "quick_mask": quick_mask.get(),
-            "enemy_double": enemy_double.get(), "enemy_speed": enemy_speed.get(), "stamina_mode": mode.get(),
+            "enemy_double": enemy_double.get(), "enemy_speed": enemy_speed.get(),
+            "great_fairy": great_fairy.get(), "farore_outdoor": farore_outdoor.get(),
+            "stamina_mode": mode.get(),
             "costs": {**{k: costs[k].get() for k in KEYS}, "combat_only": combat.get()},
             "combat_only": combat.get(),
             "enemy_hp": hp.get(), "damage": dmg.get(), "no_heart_drop": nodrop.get(),
@@ -649,6 +663,16 @@ def gui() -> None:
         label(body, L("enemy_speed_desc"), size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=(20, 0))
         label(body, L("enemy_beta_note"), size=9, color=AMBER, bg=PANEL).pack(anchor="w", pady=(8, 0))
 
+        body = card(parent, L("world_beta_title"), L("world_beta_desc"))
+        label(body, L("beta_warning"), size=9, color=RED, bold=True, bg=PANEL).pack(anchor="w", pady=(0, 6))
+        label(body, L("great_fairy"), size=10, color=ACCENT, bold=True, bg=PANEL).pack(anchor="w")
+        check(body, L("great_fairy_on"), great_fairy).pack(anchor="w")
+        label(body, L("great_fairy_desc"), size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=(20, 0), pady=(0, 8))
+        label(body, L("farore"), size=10, color=ACCENT, bold=True, bg=PANEL).pack(anchor="w")
+        check(body, L("farore_on"), farore_outdoor).pack(anchor="w")
+        label(body, L("farore_desc"), size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=(20, 0))
+        label(body, L("world_beta_note"), size=9, color=AMBER, bg=PANEL).pack(anchor="w", pady=(8, 0))
+
     def build_about(parent):
         body = card(parent, L("about_title"))
         label(body, L("about_body"), size=10, bg=PANEL).pack(anchor="w")
@@ -761,7 +785,7 @@ def gui() -> None:
         apply_profile(profile.get(), save=False)
 
     for v in (emu, classic, variant, stamina, songbook, quick_boots, quick_mask, enemy_double,
-              enemy_speed, mode, combat, hp, dmg, speed,
+              enemy_speed, great_fairy, farore_outdoor, mode, combat, hp, dmg, speed,
               nodrop, rupees, clock_mode, *costs.values()):
         v.trace_add("write", autosave)
     emu.trace_add("write", lambda *_: (status.set(""), refresh()))

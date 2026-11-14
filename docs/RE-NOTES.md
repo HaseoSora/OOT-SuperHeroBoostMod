@@ -285,3 +285,22 @@ Both mods are generated from the user's own dump by `tools/make_enemy_opts.py`; 
 - Enemy health: works (g_hp_log). Small enemies with MaxLife 1 scale to 3; the large enemy with MaxLife 6 only takes
   damage on its root (IsHeadshotOnlyDamage, bone Tail_1). The starting sword has EquipmentPerformance 1.
 - Stamina refill wait: 0.8 s, 1.8 s in combat, 2.5 s after exhaustion.
+
+## Great Fairy rewards and Farore's Wind outdoors (Nov 14)
+- Fountain -> flow mapping (from `Banc/<stage>/*_Dynamic.bcett.byml`, `MapIconFacilityIsOpen`):
+  `HyruleCastle` -> `Dm_FairyFountain_Power`; `DeathMountainTrail` -> `Dm_FairyFountain_Din`;
+  `DeathMountainCrater` -> `Dm_FairyFountain_Wisdom`; `DesertColossus` -> `Dm_FairyFountain_Nayru`;
+  `ZoraFountain` -> `Dm_FairyFountain_Frore`; `GanonCastle` -> `Dm_FairyFountain_Courage`.
+- Each flow carries two item strings: a `SwitchEvent` param `GameDataName = IsGet.<item>` (already received?)
+  and a `SubFlowEvent` to `Dm_SY_GetInEvent:GetInEvent_Demo_NotLookatObjectEntry` with `ActorName = <item>`.
+  The reward line is an `EventTalk` param `MessageId = EventFlowMsg/<fountain>:<fountain>_0004`.
+  `Dm_FairyFountain_Power/Wisdom/Nayru` can be remapped by changing those three only; the `evfl` Python library
+  rewrites the file and is byte-identical when nothing changes. The `ForbidSetWarpPointArea` actor only appears in
+  FireTemple, so it is unrelated to the outdoor rule.
+- Farore's Wind: `Event/EventFlow/WarpEvent.bfevfl` entry `FaroreWind_SetWarpPoint` starts with a
+  `SwitchEvent` on `EventQueryIsForbidSetWarpPoint`: `0` = `DisableSetWarpPoint` (real forbidden area),
+  `1` = `DisableSetWarpPointDungeon` (message "you cannot place a warp point outside a dungeon"),
+  `2` = set the point. Pointing case 1 at the same event as case 2 allows outdoor points; case 0 stays blocked.
+  The `FaroreWind_Warp` entry has no dungeon check, only the MP check.
+- `Mals/<lang>.Product.110.sarc.zs` holds `EventFlowMsg/*.msbt`. The Din fairy's sister overview (messages 7/9/10)
+  still names the original rewards; fixing it needs an MSBT TXT2 rebuild (not done in this beta).

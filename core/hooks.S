@@ -296,7 +296,7 @@ hook_songbook_select:
     ldp x16, x17, [sp, #0x80]
     add sp, sp, #0x100
     str w20, [x19, #0x22c]
-    b   0x3294bd0
+    b   RES_SONGBOOK_RESUME
     .size hook_songbook_select, . - hook_songbook_select
 
 

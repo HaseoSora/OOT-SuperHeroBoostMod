@@ -51,6 +51,9 @@ SECTIONS
     RES_SPEED = 0x9352F4;
     RES_OCARINA_ENTER = 0x2894344;
     RES_OCARINA_LEAVE = 0x28947F4;
+    /* Songbook store hook: continue right after `str w20,[x19,#0x22c]`. Must be a
+     * linker symbol: a numeric literal here assembles as a PC-relative offset. */
+    RES_SONGBOOK_RESUME = 0x3294BD0;
     MAIN_SCHED_VT = 0x4B05318;
     find_part = 0x43C3E0;
     find_anim = 0x43C7A0;

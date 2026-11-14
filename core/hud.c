@@ -1172,11 +1172,31 @@ static void zr_mirror(void) {
  * and the replica does not act. */
 static u64 g_ps_frame;
 int hud_ingame(void) { return !g_ps_frame || (*(volatile u32 *)(g_ps_frame + 0x1A4) & 0x20000u) != 0; }
+/* Y shows the equipped sword: GameData PlayerStatus.EquipWeapon (String64 table k = 16, record 23, 0x108 bytes
+ * each, the live string at +0x74 / pointed to by +0x68). Its value is the icon name itself (Weapon_Sword_Kokiri,
+ * _Master, _Giant, _Biggoron, _BrokenGiant); empty = no sword, the Y icon is hidden. */
+static void sword_mirror(void) {
+    u64 mgr = *(u64 *)GAMEDATA_MGR;
+    if (!mgr) return;
+    u32 cnt = *(u32 *)(mgr + 8 + 0x60 * 16 + 8);
+    u64 rec = *(u64 *)(mgr + 8 + 0x60 * 16 + 0x10);
+    if (!rec || cnt < 24) return;
+    u64 r = rec + 23 * 0x108;
+    const char *s = *(const char **)(r + 0x68);
+    if (!s) s = (const char *)(r + 0x74);
+    char *dst = g_sb_force[9];
+    if (!s[0] || s[0] != 'W') { dst[0] = 1; return; }   /* none: hidden (a later sword sets it again) */
+    if (str_eq(dst, s)) return;
+    u32 i;
+    for (i = 0; i < 30 && s[i]; i++) dst[i] = s[i];
+    dst[i] = 0;
+    dst[31] = 0;   /* apply again */
+}
 static void slots_update(u64 frame) {
     if (g_sb_busy) return;
     if (!g_ps_frame && g_sb[0].part) g_ps_frame = ptr(g_sb[0].part, 0x28);
     if (!hud_ingame()) return;
-    if (REPLICA) zr_mirror();   /* (the index keeps tracking the box; the ZR icon is frozen while held) */
+    if (REPLICA) { zr_mirror(); sword_mirror(); }   /* (the ZR icon is frozen while a slot borrows the box) */
     if (!g_stock_box_rec) g_stock_box_rec = pane_record(frame, "Pa_SelectItem_00");
     if (!g_stock_dots_rec) g_stock_dots_rec = pane_record(frame, "N_Shortcut_00");
     for (u32 i = 0; i < 2 && g_sb_hide_stock && REPLICA; i++) {

@@ -74,7 +74,8 @@ SECTIONS
     ui_owner_layout = 0x43C040; /* (pane+0x40): the layout that owns a pane */
     find_anim = 0x43C7A0;
     set_frame = 0x2D2D90;
-    anim_play = 0x2D0FE0;      /* (anim): play from the start */
+    ui_btn_anim = 0x3772000;   /* (menu cell button, index): its animation (4 = Decide) */
+    ui_btn_decide = 0x3772100; /* (menu cell button): the game's own Decide play, with its sound (A on an Items cell) */
     PLT0 = 0x3C41C50;
     GOT0 = 0x4CBF5C0;
     GOT1 = 0x4CBF5D0;

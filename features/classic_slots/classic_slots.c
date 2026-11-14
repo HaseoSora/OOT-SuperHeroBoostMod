@@ -70,7 +70,11 @@ void hud_menu_decide(void); /* core/hud.c: play the highlighted cell's Decide an
 int hud_menu_decided(void); /* core/hud.c: that animation is playing */
 void hud_menu_zr(int item); /* core/hud.c: show an item on ZR now */
 void hud_menu_off(void);    /* core/hud.c: not on the Items tab: hide the assign legend */
-static int g_menu_a_item = -1, g_menu_a_wait;   /* A pressed on this item: did the game put it in its box? */   /* core/hud.c: keep showing the ZR item while a slot item borrows the item box */
+static int g_menu_a_item = -1, g_menu_a_wait;
+static int g_paused;        /* + pressed in gameplay: the pause menu is up */
+static u32 g_run, g_run_frame;
+u32 hud_frame_count(void);  /* core/hud.c */
+#define BTN_PLUS 0x0400ull   /* A pressed on this item: did the game put it in its box? */   /* core/hud.c: keep showing the ZR item while a slot item borrows the item box */
 /* The game's own "put this item in the item box" call, as the R button makes it (main+0x33C9AB4):
  * main+0x1211C00(item manager, item set, item index, 1, 1); manager = **(main+0x4C7E0D0),
  * set = byte +0x5C0 of **(main+0x4C7E2A8). Calling it directly equips without pressing R (R opens the selector). */
@@ -175,8 +179,18 @@ void classic_slots_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_re
 
     /* Pause menu, Items tab: X, L and R assign the highlighted item to the B, L and R slots (like Classic's X / L / R;
      * B stays "back"). An item already on another slot swaps with it. The game's ZL / ZR still change tabs. */
-    if (g_ootcfg.classic_replica && !hud_menu_items()) hud_menu_off();
-    if (g_ootcfg.classic_replica && hud_menu_items()) {
+    /* The pause menu is open only after + was pressed in gameplay, until gameplay runs again (the Items panel exists
+     * from boot and looks "open" on the title screen and while loading, where its cells are not ready). */
+    {   /* gameplay runs while the HUD's frame count moves (it stops under the menu) */
+        u32 f = hud_frame_count();
+        g_run = f != g_run_frame ? g_run + 1 : 0;
+        g_run_frame = f;
+        if ((pressed & BTN_PLUS) && player_active()) g_paused = 1;
+        else if (g_run > 10) g_paused = 0;
+    }
+    int menu = g_paused && hud_menu_items();
+    if (g_ootcfg.classic_replica && !menu) hud_menu_off();
+    if (g_ootcfg.classic_replica && menu) {
         static const u64 MENU_BTN[SLOT_ZR] = {BTN_X, BTN_L, BTN_R};   /* -> SLOT_B, SLOT_L, SLOT_R */
         for (int s = 0; s < SLOT_ZR; s++) {
             if (!(pressed & MENU_BTN[s])) continue;

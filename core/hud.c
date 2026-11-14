@@ -1273,8 +1273,9 @@ int hud_ingame(void) { return !g_ps_frame || (*(volatile u32 *)(g_ps_frame + 0x1
  * pattern frame ([[entry+0x48]+0x20]+0x18, entry = the panel's list +0x78 / count +0x70 whose +0xE8 is the
  * cell) is not 0: the game's own test before it shows the caption. */
 extern u64 g_menu_panel, g_menu_cell;
-int hud_menu_items(void) {
-    return g_menu_panel && !hud_ingame() && *(volatile u8 *)(g_menu_panel + 0x28) == 2;
+u64 player_get(void);
+int hud_menu_items(void) {   /* (the panel is built at boot: before a game is loaded it says nothing) */
+    return g_menu_panel && player_get() && !hud_ingame() && *(volatile u8 *)(g_menu_panel + 0x28) == 2;
 }
 /* the highlighted cell's widget (main+0x43E500's: +0x30 Decide, +0x38 Failure, +0x48 State animations) */
 static u64 menu_cell_widget(void) {
@@ -1350,11 +1351,14 @@ int hud_menu_item(void) {
     return a && *(volatile float *)(a + 0x18) != 0.0f ? idx : -1;
 }
 /* The cell's Decide animation: what the game plays when A puts an item in its box. main+0x2D0FE0 plays an
- * animation from its start; a playing one is linked in its layout's list (idle, its list node points to itself). */
-extern void anim_play(u64 anim);
-void hud_menu_decide(void) {
-    u64 e = menu_cell_widget(), a = e ? ptr(e, 0x30) : 0;
-    if (a) { anim_play(a); *(volatile float *)(a + 0x10) = 1.0f; }   /* play leaves the speed at 0 (the game's sets 1) */
+ * animation from its start (no sound); main+0x3772100 is what A does on a cell: the cell's button object
+ * (widget +0xE8) plays Decide through its own animation list, at speed 1, with the menu's sound. A playing animation is linked in its
+ * layout's list (idle, its list node points to itself). */
+extern void ui_btn_decide(u64 button);
+extern u64 ui_btn_anim(u64 button, u32 index);   /* main+0x3772000: the button's animation (4 = Decide), 0 if none */
+void hud_menu_decide(void) {   /* the game's own Decide play for the cell (what A does: its sound comes with it) */
+    u64 e = menu_cell_widget(), btn = e ? ptr(e, 0xE8) : 0;   /* the cell's button object (= g_menu_cell) */
+    if (btn && ui_btn_anim(btn, 4)) ui_btn_decide(btn);
 }
 int hud_menu_decided(void) {
     u64 e = menu_cell_widget(), a = e ? ptr(e, 0x30) : 0;

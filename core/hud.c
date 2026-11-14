@@ -1034,7 +1034,7 @@ static void plates_update(u64 frame) {
     u32 sd = 0, st = 0, hd = 0, ht = 0;
     u32 col = (active && g_shbcfg.hud_collectibles) ?
               (u32)collect_counts(&sd, &st, &hd, &ht) : 0;
-    u32 skull_on = col && st, heart_on = col && ht;
+    (void)col;
     /* outside gameplay (loading, menus, cutscenes) nothing is touched except hiding the plates once:
      * setting texts there costs the engine a slow lookup per call */
     if (!clk && !rup && !col) {
@@ -1047,48 +1047,44 @@ static void plates_update(u64 frame) {
     int sec = clk ? world_seconds() : -1;
     if (sec < 0) clk = 0;
     g_hud_show[0] = 0x10000000u + clk; g_hud_show[1] = 0x10000000u + rup;
-    /* four independent blocks in a row: rupees, clock, Skulltulas, hearts.
-     * Disabled blocks leave no hole: the rest move one slot to the left. */
-    int ir = -1, ic = -1, is = -1, ih = -1;
-    u32 nb = 0;
-    if (rup) ir = (int)nb++;
-    if (clk) ic = (int)nb++;
-    if (skull_on) is = (int)nb++;
-    if (heart_on) ih = (int)nb++;
-#define BX(k) (-1518.0f + 490.0f * (float)(k))
+    /* Block positions come from the installer: the enabled blocks are packed left to right without holes. */
+    int bxr = g_shbcfg.hud_x[0], bxc = g_shbcfg.hud_x[1], bxs = g_shbcfg.hud_x[2], bxh = g_shbcfg.hud_x[3];
+    u32 show_r = rup && bxr != -32768, show_c = clk && bxc != -32768;
+    u32 show_s = active && g_shbcfg.hud_collectibles && bxs != -32768;
+    u32 show_h = active && g_shbcfg.hud_collectibles && bxh != -32768;
 #define BY (-960.0f)
-    if (rup) for (u32 j = 0; j < 4; j++) {
+    if (show_r) for (u32 j = 0; j < 4; j++) {
         u64 rec = g_pic_rec[4 + j];
         float sx = P[3] * ((j & 1) ? -1.0f : 1.0f);
-        place(rec, BX(ir), BY, sx, P[4], 0.0f);
+        place(rec, (float)bxr, BY, sx, P[4], 0.0f);
         if (j < 2) tint_rec(rec, 0.0f, 0.0f, 0.0f, P[10]);
         else tint_rec(rec, P[15], P[15], P[15], P[11]);
     }
-    if (clk) for (u32 j = 0; j < 4; j++) {
+    if (show_c) for (u32 j = 0; j < 4; j++) {
         u64 rec = g_pic_rec[j];
         float sx = P[3] * ((j & 1) ? -1.0f : 1.0f);
-        place(rec, BX(ic), BY, sx, P[4], 0.0f);
+        place(rec, (float)bxc, BY, sx, P[4], 0.0f);
         if (j < 2) tint_rec(rec, 0.0f, 0.0f, 0.0f, P[10]);
         else tint_rec(rec, P[15], P[15], P[15], P[11]);
     }
     /* collectible sections */
-    for (u32 sec = 0; sec < 2; sec++) {
-        int bi = sec ? ih : is;
-        if (bi < 0) continue;
+    for (u32 sec2 = 0; sec2 < 2; sec2++) {
+        int bi = sec2 ? bxh : bxs;
+        if (bi == -32768) continue;
         for (u32 j = 0; j < 4; j++) {
-            u64 rec = g_pic_rec[PIC_COLL + sec * 4 + j];
+            u64 rec = g_pic_rec[PIC_COLL + sec2 * 4 + j];
             float sx = 0.42f * ((j & 1) ? -1.0f : 1.0f);
-            place(rec, BX(bi), BY, sx, P[4], 0.0f);
+            place(rec, (float)bi, BY, sx, P[4], 0.0f);
             if (j < 2) tint_rec(rec, 0.0f, 0.0f, 0.0f, P[10]);
             else tint_rec(rec, P[15], P[15], P[15], P[11]);
         }
-        u64 icn = g_pic_rec[PIC_COLL + 8 + sec];
-        place(icn, BX(bi) - 140.0f, BY, 0.52f, 0.52f, 0.0f);
+        u64 icn = g_pic_rec[PIC_COLL + 8 + sec2];
+        place(icn, (float)bi - 140.0f, BY, 0.52f, 0.52f, 0.0f);
         tint_rec(icn, 1.0f, 1.0f, 1.0f, 1.0f);
     }
     /* rupee icon */
-    if (rup) {
-        place(g_pic_rec[8], BX(ir) + P[5], BY, P[6], P[6], 0.0f);
+    if (show_r) {
+        place(g_pic_rec[8], (float)bxr + P[5], BY, P[6], P[6], 0.0f);
         tint_rec(g_pic_rec[8], 1.0f, 1.0f, 1.0f, 1.0f);
     }
     /* sun (06:00-18:00) or moon */
@@ -1096,8 +1092,8 @@ static void plates_update(u64 frame) {
     sec %= 86400;
     u32 day = sec >= 6 * 3600 && sec < 18 * 3600;
     if (P[16] > 0.5f) day = P[16] < 1.5f;
-    u32 sun = clk && day, moon = clk && !day;
-    float ix = BX(ic) + P[5], iy = BY;
+    u32 sun = show_c && day, moon = show_c && !day;
+    float ix = (float)bxc + P[5], iy = BY;
     static const float SUN[3] = {1.0f, 0.86f, 0.42f};
     place(g_pic_rec[9], ix, iy, sun ? 1.0f : 0.0f, sun ? 1.0f : 0.0f, 0.0f);
     tint_rec(g_pic_rec[9], SUN[0], SUN[1], SUN[2], 1.0f);
@@ -1122,7 +1118,7 @@ static void plates_update(u64 frame) {
     {   /* clock (or the quick-select text while it is open) */
         char b[16]; u32 n = 0;
         if (quick_select_text && quick_select_text(b, sizeof b)) {
-            put_text(frame, 0, b, BX(ic) + P[7], BY + ty, clk, WHITE);
+            put_text(frame, 0, b, (float)bxc + P[7], BY + ty, show_c, WHITE);
         } else {
         int h = sec / 3600, m = (sec / 60) % 60, hh = h;
         if (!g_shbcfg.clock_24h) { hh = h % 12; if (!hh) hh = 12; }
@@ -1131,7 +1127,7 @@ static void plates_update(u64 frame) {
         b[n++] = ':'; b[n++] = (char)('0' + m / 10); b[n++] = (char)('0' + m % 10);
         if (!g_shbcfg.clock_24h) { b[n++] = ' '; b[n++] = h < 12 ? 'A' : 'P'; b[n++] = 'M'; }
         b[n] = 0;
-        put_text(frame, 0, b, BX(ic) + P[7], BY + ty, clk, WHITE);
+        put_text(frame, 0, b, (float)bxc + P[7], BY + ty, show_c, WHITE);
         }
     }
     {   /* rupees: GameData Int table (k = 2), records 0x28 bytes, live value at +0x1C.
@@ -1154,17 +1150,17 @@ static void plates_update(u64 frame) {
         * ("/" is narrower than a digit: it counts as SLASH_W digits) */
         const float SLASH_W = 0.55f;
         float wa = (float)na, wb = (float)(nb - 1) + SLASH_W;
-        float tx = BX(ir) + P[7];
+        float tx = (float)bxr + P[7];
         float x0 = tx - P[9] * (wa + wb) * 0.5f;
-        put_text(frame, 1, a, x0 + P[9] * wa * 0.5f, BY + ty, rup, GREEN);
-        put_text(frame, 2, b, x0 + P[9] * (wa + wb * 0.5f), BY + ty, rup, WHITE);
+        put_text(frame, 1, a, x0 + P[9] * wa * 0.5f, BY + ty, show_r, GREEN);
+        put_text(frame, 2, b, x0 + P[9] * (wa + wb * 0.5f), BY + ty, show_r, WHITE);
     }
     {   /* per-area Skulltulas / heart pieces: collected / total, one section each */
         char b[16]; u32 n;
         n = put_int(b, (int)sd); b[n++] = '/'; n += put_int(b + n, (int)st); b[n] = 0;
-        put_text(frame, 3, b, BX(is) + 15.0f, BY + ty, skull_on, WHITE);
+        put_text(frame, 3, b, (float)bxs + 15.0f, BY + ty, show_s, WHITE);
         n = put_int(b, (int)hd); b[n++] = '/'; n += put_int(b + n, (int)ht); b[n] = 0;
-        put_text(frame, 6, b, BX(ih) + 15.0f, BY + ty, heart_on, WHITE);
+        put_text(frame, 6, b, (float)bxh + 15.0f, BY + ty, show_h, WHITE);
     }
 }
 static void txt_update(u64 frame) {

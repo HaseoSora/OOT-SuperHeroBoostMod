@@ -34,7 +34,8 @@ typedef struct {
     unsigned char quick_boots;       /* beta: hold D-pad down to pick the boots */
     unsigned char quick_mask;        /* beta: hold D-pad up to pick a mask */
     unsigned char hud_collectibles; /* beta: per-area Skulltula / heart-piece counter */
-    unsigned char reserved[26];
+    signed short hud_x[4];          /* installer: x of the rupee, clock, skull and heart blocks (-32768 = off) */
+    unsigned char reserved[18];
 } ShbConfig;
 
 extern volatile ShbConfig g_shbcfg;

@@ -182,6 +182,14 @@ def patch_config(nso: bytes, s: Settings) -> bytes:
     b[f + 25] = int(s.quick_boots)
     b[f + 26] = int(s.quick_mask)
     b[f + 27] = int(s.hud_collectibles)
+    slots = []
+    if s.hud_rupees: slots.append(0)
+    if s.hud_clock: slots.append(1)
+    if s.hud_collectibles: slots += [2, 3]
+    pos = [-32768] * 4
+    for i, block in enumerate(slots):
+        pos[block] = -1518 + 490 * i
+    struct.pack_into("<4h", b, f + 28, *pos)
     return bytes(b)
 
 

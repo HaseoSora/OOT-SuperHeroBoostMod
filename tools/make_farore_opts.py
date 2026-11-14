@@ -75,6 +75,16 @@ def main():
         switch.cases[case] = switch.cases[2]
         print(f"switch {switch_idx}: case {case} {old} -> {switch.cases[2]._idx}")
 
+    # The item-use gate asks EventQueryCanUseFaroreWind first. 1 is "cannot use it here"
+    # (DisableWarp); point it at the normal "can use" branch (0) instead.
+    for i, ev in enumerate(fc.events):
+        d = ev.data
+        if isinstance(d, evfl.SwitchEvent) and getattr(d.actor_query, "v", None) and \
+           getattr(d.actor_query.v, "v", None) == "EventQueryCanUseFaroreWind":
+            old = d.cases[1]._idx
+            d.cases[1] = d.cases[0]
+            print(f"switch {i}: canUse case 1 {old} -> {d.cases[0]._idx}")
+
     buf = io.BytesIO()
     if not flow.write(buf):
         raise RuntimeError("evfl write failed")

@@ -1,312 +1,311 @@
-# Super Hero Boost: guía de desarrollo
+# Super Hero Boost: development guide
 
-Cómo está hecho el mod, cómo se compila, se instala y se prueba, y cómo modificar cada parte. Juego: remake para
-consola, actualización v131072, `main` Build ID `E0F3CCFAF50065AE4EA01EB5AEB13B1A45DA3348`.
-El emulador de pruebas carga los mods desde su `LoadDir` (la ruta se configura con `load_directory` en
-`qt-config.ini`; las herramientas aceptan la carpeta con `--emu` o la variable `SHB_EMU`).
+How the mod is built, compiled, installed and tested, and how to change each part. Game: console remake, update
+v131072, `main` Build ID `E0F3CCFAF50065AE4EA01EB5AEB13B1A45DA3348`.
+The test emulator loads mods from its `LoadDir` (configured with `load_directory` in `qt-config.ini`; the tools accept
+the folder with `--emu` or the `SHB_EMU` environment variable).
 
-Documentos relacionados:
-- [RE-NOTES.md](RE-NOTES.md): hallazgos de ingeniería inversa (direcciones, formatos, qué funcionó y qué no).
-- [APP.md](APP.md): la app de configuración.
-- [BUTTON-MAPPING.md](BUTTON-MAPPING.md): diseño del mapeo de botones (buttonMapping).
+Related documents:
+- [RE-NOTES.md](RE-NOTES.md): reverse-engineering findings (addresses, formats, what worked and what did not).
+- [APP.md](APP.md): the configuration app.
+- [BUTTON-MAPPING.md](BUTTON-MAPPING.md): button mapping design (buttonMapping).
 
 ---
 
-## 1. Visión general
+## 1. Overview
 
-El mod son dos piezas que el emulador carga junto al juego:
+The mod is two pieces loaded next to the game by the emulator:
 
-| Pieza | Qué es | Dónde se genera |
+| Piece | What it is | Where it is generated |
 |---|---|---|
-| `exefs/subsdk9` | Nuestro módulo de código (NSO, ARM64, sin relocaciones) | `tools/build_core.py` |
-| `exefs/<BuildID>.ips` | Parche IPS32 sobre `main`: cada punto de gancho salta a nuestro módulo | `tools/build_core.py` |
-| `romfs/...` (opcional) | Datos del juego modificados (p. ej. "sin drop de corazones") | `tools/make_romfs_opts.py` |
+| `exefs/subsdk9` | Our code module (NSO, ARM64, no relocations) | `tools/build_core.py` |
+| `exefs/<BuildID>.ips` | IPS32 patch over `main`: each hook site jumps into our module | `tools/build_core.py` |
+| `romfs/...` (optional) | Modified game data (for example "no heart drops") | `tools/make_romfs_opts.py` |
 
-La **app** (`release/SuperHeroBoostConfig` en Windows/macOS/Linux) no compila nada: lleva el módulo ya compilado,
-escribe las opciones del usuario en un bloque de configuración dentro de `subsdk9` y copia todo a la carpeta de mods
+The **app** (`release/SuperHeroBoostConfig` on Windows/macOS/Linux) compiles nothing: it carries the prebuilt module,
+writes the user's options into a configuration block inside `subsdk9` and copies everything into the mod folder
 (`00-Super-Hero-Boost`).
 
-Flujo de una modificación:
+Change flow:
 
 ```
-editar core/ o features/  ->  build_core.py (prueba)  ->  probar en el emulador  ->  make_release.py  ->  build_app.py
+edit core/ or features/  ->  build_core.py (test)  ->  test in the emulator  ->  make_release.py  ->  build_app.py
 ```
 
-## 2. Estructura del repositorio
+## 2. Repository layout
 
 ```
-core/                código común del módulo
-  module.S           cabecera MOD0 y sección dinámica mínima
-  link.ld            enlace: base del módulo y direcciones de funciones del juego (main-relative)
-  hooks.S            envoltorios de ganchos (entrada de mando, ranuras, ganchos de código)
-  dispatch.c/.h      reparto de eventos de entrada a las features (tabla generada, sin punteros)
-  hid.c/.h           lectura/escritura de botones y sticks en las muestras HID
-  config.c/.h        bloque de configuración SHBCFG01 (lo parchea la app)
-  player.c           seguimiento del jugador y enemigos: estado de acción, vida, combate, escala de vida, escudo
-  hud.c              todo el HUD propio: anillo de estamina, reloj, contador de rupias
-  mem.c, slots.c ... utilidades
+core/                common module code
+  module.S           MOD0 header and minimal dynamic section
+  link.ld            linking: module base and game function addresses (main-relative)
+  hooks.S            hook wrappers (controller input, slots, code hooks)
+  dispatch.c/.h      dispatches input events to the features (generated table, no pointers)
+  hid.c/.h           reads/writes buttons and sticks in the HID samples
+  config.c/.h        SHBCFG01 configuration block (patched by the app)
+  player.c           player and enemy tracking: action state, life, combat, life scaling, shield
+  hud.c              the whole custom HUD: stamina ring, clock, rupee counter
+  mem.c, slots.c ... utilities
 features/
-  stamina/           estamina (costes, agotamiento, recarga), multiplicador de sprint
-  songbook/          canción elegida en el songbook nativo -> notas nativas
-  button_mapping/    buttonMapping: botones de objetos propios B/L/R/ZR (ver BUTTON-MAPPING.md)
-  probe/             feature de diagnóstico
-tools/               compilación, publicación, pruebas en vivo y análisis (ver sección 9)
-app/                 app de configuración (Tkinter) + payload precompilado
-  main.py            ventana, navegación y modo --cli
-  presets.py         perfiles completos de juego
-  installer.py       instalación y parcheo del bloque de configuración
-  paths.py           rutas portables / por usuario (Windows, macOS, Linux)
-  i18n.py            textos en seis idiomas
-docs/                esta guía y las notas
-build/               salidas y capturas (ignorado por git)
-release/             binario de la app (ignorado por git)
+  stamina/           stamina (costs, exhaustion, regeneration), sprint multiplier
+  songbook/          song selected in the native songbook -> native notes
+  button_mapping/    buttonMapping: own B/L/R/ZR item buttons (see BUTTON-MAPPING.md)
+  probe/             diagnostic feature
+tools/               build, release, live tests and analysis (see section 9)
+app/                 configuration app (Tkinter) + prebuilt payload
+  main.py            window, navigation and --cli mode
+  presets.py         complete game profiles
+  installer.py       installation and configuration block patching
+  paths.py           portable / per-user paths (Windows, macOS, Linux)
+  i18n.py            texts in six languages
+docs/                this guide and the notes
+build/               outputs and screenshots (ignored by git)
+release/             app binary (ignored by git)
 ```
 
-Rutas externas que usan las herramientas (en este PC, todas configurables por variable de entorno):
-- Toolchain LLVM: `F:\project\oot\tools\llvm-mingw\llvm-mingw-20261104-ucrt-x86_64\bin` (`SHB_LLVM`; en Linux, una
-  carpeta con `clang`, `ld.lld`, `llvm-objcopy`, `llvm-size` y `llvm-nm`).
-- `main` original (solo lectura, para verificar ganchos y desensamblar): `F:\project\oot\data\stock-exefs\main`
+External paths used by the tools (on this PC, all configurable through environment variables):
+- LLVM toolchain: `F:\project\oot\tools\llvm-mingw\llvm-mingw-20261104-ucrt-x86_64\bin` (`SHB_LLVM`; on Linux, a
+  folder with `clang`, `ld.lld`, `llvm-objcopy`, `llvm-size` and `llvm-nm`).
+- Original `main` (read-only, to verify hooks and disassemble): `F:\project\oot\data\stock-exefs\main`
   (`SHB_STOCK_MAIN`).
-- Volcado del romfs: `F:\switch2\Longshot\romfs` (`SHB_ROMFS`).
-- Cliente del servidor de depuración y lectores de BYML/GameData (solo desarrollo): `SHB_DEVTOOL`.
-- Diccionario zstd del archivo de UI: `F:\project\oot\data\zsdic1.bin`
+- romfs dump: `F:\switch2\Longshot\romfs` (`SHB_ROMFS`).
+- Debug server client and BYML/GameData readers (development only): `SHB_DEVTOOL`.
+- zstd dictionary of the UI archive: `F:\project\oot\data\zsdic1.bin`
 
-## 3. Cómo funciona el módulo
+## 3. How the module works
 
-### 3.1 Restricciones
-- **Sin relocaciones**: ninguna tabla en datos puede guardar direcciones (valdrían la dirección de enlace, no la real).
-  Los nombres se guardan como `char[]` y se devuelven desde código; las listas de manejadores se generan como
-  llamadas directas (`build/native/dispatch_gen.c`). Compilado con `-fno-jump-tables` porque clang convertía
-  `switch` en tablas de punteros absolutos.
-- Las funciones y datos del juego se referencian como símbolos en `core/link.ld` (offsets dentro de `main`). Con la
-  base del módulo (`__base`) el enlazador produce saltos PC-relativos correctos.
-- Base del módulo: `0x4F80000` (variante "standalone"). `make_release.py` la compila.
+### 3.1 Constraints
+- **No relocations**: no table in data may hold addresses (they would be link addresses, not real ones). Names are
+  stored as `char[]` and returned from code; handler lists are generated as direct calls
+  (`build/native/dispatch_gen.c`). Compiled with `-fno-jump-tables` because clang turned `switch` into absolute
+  pointer tables.
+- Game functions and data are referenced as symbols in `core/link.ld` (offsets inside `main`). With the module base
+  (`__base`) the linker produces correct PC-relative branches.
+- Module base: `0x4F80000` (the "standalone" variant). `make_release.py` builds it.
 
-### 3.2 Tipos de gancho (todos en `core/hooks.S`, sitios en `tools/hook_sites.py`)
-| Tipo | Cómo se parchea | Uso |
+### 3.2 Hook types (all in `core/hooks.S`, sites in `tools/hook_sites.py`)
+| Type | How it is patched | Use |
 |---|---|---|
-| `INPUT_HOOK` | el `bl` del juego a un lector de mando pasa a ser `bl` a nuestro envoltorio, que llama al lector original y luego a `mod_on_input` | lectura de mando (botones de objeto, estamina) |
-| `WRAP_HOOK` (ranuras) | `bl 0x1211C00` (equipar objeto) → nuestro envoltorio con pre-gancho que puede cambiar el objeto | buttonMapping |
-| `CODE_HOOK` | la instrucción `pacibsp` de la entrada de una función pasa a `b` a nuestro envoltorio; este guarda registros, llama `mod_on_code(id, x0, x1, x2, regs)`, los restaura (los cambios en `regs` se aplican), ejecuta `pacibsp` y vuelve a `sitio+4` | la mayoría de ganchos |
+| `INPUT_HOOK` | the game's `bl` to a controller reader becomes a `bl` to our wrapper, which calls the original reader and then `mod_on_input` | controller input (item buttons, stamina) |
+| `WRAP_HOOK` (slots) | `bl 0x1211C00` (equip item) → our wrapper with a pre-hook that can change the item | buttonMapping |
+| `CODE_HOOK` | the `pacibsp` instruction at a function entry becomes a `b` to our wrapper; it saves registers, calls `mod_on_code(id, x0, x1, x2, regs)`, restores them (changes in `regs` are applied), runs `pacibsp` and returns to `site+4` | most hooks |
 
-Ganchos de código actuales (`CODE_SITES`):
+Current code hooks (`CODE_SITES`):
 
-| id | sitio (main) | qué es | quién lo usa |
+| id | site (main) | what it is | who uses it |
 |---|---|---|---|
-| 0 | 0x2B30DE0 | actualización por fotograma del planificador | `hud_frame()` (todo el HUD) |
-| 1 | 0x33BDCE0 | init del controlador de la barra de magia | ancla del HUD (`g_mp`) |
-| 2 | 0x43A6F8 | construcción de un recurso de UI | `hud_prepare()`: inyecta paneles en PlayerStatus_00 |
-| 3 | 0x2D2D90 | `set_frame(anim, frame)` | observación de animaciones (diagnóstico) |
-| 4 | 0x152F8F0 | creación de instancias de partes de layout | diagnóstico |
-| 5 | 0x2C215E0 | actualización de movimiento de actores físicos (x0 = actor) | `player_track()`: el jugador y enemigos |
-| 6-9 | 0x27F7D00, 0x27F7F90, 0x27FB0C0, 0x27FA200 | nodos de reacción de escudo del jugador | coste de estamina al bloquear |
-| 10 | 0x9352F0 | movimiento en suelo (x0 jugador, x1 dirección, s0 velocidad) | multiplicador de sprint |
-| 13 | 0x2894340 | entrada del modo ocarina (x0 = contexto de ocarina/songbook) | `songbook_on_ocarina(1, ctx)` |
-| 14 | 0x28947F0 | salida del modo ocarina | `songbook_on_ocarina(0, ctx)` |
+| 0 | 0x2B30DE0 | per-frame scheduler update | `hud_frame()` (the whole HUD) |
+| 1 | 0x33BDCE0 | magic-gauge controller init | HUD anchor (`g_mp`) |
+| 2 | 0x43A6F8 | UI resource build | `hud_prepare()`: injects panes into PlayerStatus_00 |
+| 3 | 0x2D2D90 | `set_frame(anim, frame)` | animation observation (diagnostic) |
+| 4 | 0x152F8F0 | layout part instance creation | diagnostic |
+| 5 | 0x2C215E0 | physics-actor movement update (x0 = actor) | `player_track()`: player and enemies |
+| 6-9 | 0x27F7D00, 0x27F7F90, 0x27FB0C0, 0x27FA200 | player shield reaction nodes | stamina cost when blocking |
+| 10 | 0x9352F0 | ground movement (x0 player, x1 direction, s0 speed) | sprint multiplier |
+| 13 | 0x2894340 | ocarina mode enter (x0 = ocarina/songbook context) | `songbook_on_ocarina(1, ctx)` |
+| 14 | 0x28947F0 | ocarina mode leave | `songbook_on_ocarina(0, ctx)` |
 
-En el callback, `regs` apunta a los registros guardados: `x0` en `+0x10`, `x30` (dirección de retorno) en `+0x08`,
-`d0` en `+0xB0`. Ejemplo: el sprint comprueba `x30 == main+0x934994` (solo la llamada del jugador) y multiplica `s0`.
+In the callback, `regs` points to the saved registers: `x0` at `+0x10`, `x30` (return address) at `+0x08`, `d0` at
+`+0xB0`. Example: the sprint checks `x30 == main+0x934994` (the player's own call only) and multiplies `s0`.
 
-**Añadir un gancho de código nuevo:**
-1. Comprobar con `python tools/disasm.py <dir> 0x10` que la función empieza con `pacibsp` (0xD503237F).
-2. `tools/hook_sites.py`: añadir `(sitio, "hook_x", id)` a `CODE_SITES`.
-3. `core/link.ld`: `RES_X = sitio + 4;`
+**Adding a new code hook:**
+1. Check with `python tools/disasm.py <dir> 0x10` that the function starts with `pacibsp` (0xD503237F).
+2. `tools/hook_sites.py`: add `(site, "hook_x", id)` to `CODE_SITES`.
+3. `core/link.ld`: `RES_X = site + 4;`
 4. `core/hooks.S`: `CODE_HOOK hook_x, id, RES_X`
-5. `core/hud.c`, `hud_on_code()`: manejar `id`. Si la lógica está en una feature, declararla `__attribute__((weak))`.
-6. `build_core.py` verifica que el sitio tiene la instrucción esperada antes de generar el IPS.
+5. `core/hud.c`, `hud_on_code()`: handle `id`. If the logic lives in a feature, declare it `__attribute__((weak))`.
+6. `build_core.py` verifies that the site has the expected instruction before generating the IPS.
 
-### 3.3 Configuración en tiempo de ejecución (`core/config.h`)
-Bloque `ShbConfig` con magia `SHBCFG01` en `.data`. La app busca la magia en `subsdk9` y escribe los campos; el mod
-los lee en cada fotograma (`g_shbcfg`). **Solo se añaden campos al final** (usar `reserved`), sin reordenar.
+### 3.3 Runtime configuration (`core/config.h`)
+`ShbConfig` block with magic `SHBCFG01` in `.data`. The app finds the magic in `subsdk9` and writes the fields; the mod
+reads them every frame (`g_shbcfg`). **Fields are only appended at the end** (use `reserved`), never reordered.
 
-| offset | campo | app (`installer.patch_config`) |
+| offset | field | app (`installer.patch_config`) |
 |---|---|---|
-| 16 | `stamina_enabled` | casilla Estamina |
-| 17 | `preset` (0 hardcore, 1 solo combate, 2 solo sprint, 3 avanzado) | Preset |
-| 18-23 | `cost_jump/attack/sprint/block/shoot/roll` | Qué gasta estamina |
-| 24 | `combat_only` | Solo en combate |
-| 25 | reservado (legado) | — |
-| 26 | `enemy_hp_pct` (u16) | Vida de los enemigos |
-| 28 | `damage_taken_pct` (u16) | Daño que recibes |
-| 30-32 | `hud_rupees`, `hud_clock`, `clock_24h` | HUD siempre visible (en la app el reloj es un selector: sin reloj / 12 h / 24 h) |
-| 33 | `no_heart_drop` (informativo; lo hace el romfs) | Sin drop de corazones |
-| 34 | `sprint_speed_pct` (u16, defecto 125) | Velocidad del sprint |
-| 36 | `songbook_enabled` | Canción elegida en el songbook -> la toca el héroe |
-| 37 | `button_mapping` | Botones de objeto (mapeo de botones) |
-| 38 | `button_style` (0 Switch, 1 Xbox, 2 PlayStation) | Estilo de los botones |
-| 39 | `bm_simple` | Diseño simple (solo botones asignables) |
-| 40 | `bm_l_mode` (0 objeto, 1 escudo, 2 selector) | Qué hace el botón L |
+| 16 | `stamina_enabled` | Stamina checkbox |
+| 17 | `preset` (0 hardcore, 1 combat only, 2 sprint only, 3 advanced) | Preset |
+| 18-23 | `cost_jump/attack/sprint/block/shoot/roll` | What costs stamina |
+| 24 | `combat_only` | Combat only |
+| 25 | reserved (legacy) | — |
+| 26 | `enemy_hp_pct` (u16) | Enemy health |
+| 28 | `damage_taken_pct` (u16) | Damage taken |
+| 30-32 | `hud_rupees`, `hud_clock`, `clock_24h` | Always-visible HUD (in the app the clock is a selector: off / 12 h / 24 h) |
+| 33 | `no_heart_drop` (informational; the romfs does it) | No heart drops |
+| 34 | `sprint_speed_pct` (u16, default 125) | Sprint speed |
+| 36 | `songbook_enabled` | Song selected in the songbook -> the hero plays it |
+| 37 | `button_mapping` | Item buttons (button mapping) |
+| 38 | `button_style` (0 Switch, 1 Xbox, 2 PlayStation) | Button style |
+| 39 | `bm_simple` | Simple layout (assignable buttons only) |
+| 40 | `bm_l_mode` (0 item, 1 shield, 2 selector) | What the L button does |
 
-**Añadir una opción nueva:** campo en `config.h` (quitando bytes de `reserved`), valor por defecto en `config.c`,
-escritura en `installer.patch_config` (`f = magia + 16`), campo en `installer.Settings`, flag en `main.cli`,
-control en `main.py` (variable, guardado en `cfg`, `Settings(...)`) y textos en `app/i18n.py` para los 6
-idiomas (`en es pt fr de it`).
+**Adding a new option:** field in `config.h` (taking bytes from `reserved`), default value in `config.c`, write in
+`installer.patch_config` (`f = magic + 16`), field in `installer.Settings`, flag in `main.cli`, control in `main.py`
+(variable, saved in `cfg`, `Settings(...)`) and texts in `app/i18n.py` for the 6 languages (`en es pt fr de it`).
 
 ## 4. Features
 
-### 4.1 Estamina (`features/stamina/stamina_hooks.c`, `stamina.c`)
-- Corre dentro de la lectura de mando de juego (sitio 3). Los costes salen de las **acciones** del jugador
-  (`player_track` lee su estado en `player+0x244`: `Rolling`, `Jump`, `Cut...`, `Guard...`), no de los botones.
-- Capacidad: 75 + 75/17 por corazón a partir del 4.º (hasta 150).
-- Sprint = A mantenido en estado `Move` durante 12 fotogramas: gasta 7/s.
-- Agotado (amarillo): se bloquean las acciones según el preset (se quitan botones de la entrada) y se camina.
-- Recarga tras 0,8 s sin acciones (1,8 s en combate, 2,5 s tras agotarse), a 24/s (48/s tras agotarse).
-- Bloqueo con escudo: los ganchos 6-9 y los estados `Guard*Hit/Break/Reaction/Repel` (no `GuardFailHit`) suben un
-  contador (`player_guard_seq`) que sobrevive a pausas cortas (el golpe llega durante la reacción del jugador, cuando su
-  actualización se detiene unos fotogramas).
-- Combate: un enemigo vivo a menos de 10 m que se acerca o está encima (5 s de margen).
-- Constantes: `#define` al principio de `stamina_hooks.c` y `stamina_default_config()`.
+### 4.1 Stamina (`features/stamina/stamina_hooks.c`, `stamina.c`)
+- Runs inside the gameplay controller read (site 3). Costs come from the player's **actions** (`player_track` reads
+  his state at `player+0x244`: `Rolling`, `Jump`, `Cut...`, `Guard...`), not from the buttons.
+- Capacity: 75 + 75/17 per heart from the 4th onward (up to 150).
+- Sprint = A held in the `Move` state for 12 frames: costs 7/s.
+- Exhausted (yellow): actions are blocked according to the preset (buttons are removed from the input) and the player
+  walks.
+- Recharge after 0.8 s without actions (1.8 s in combat, 2.5 s after exhaustion), at 24/s (48/s after exhaustion).
+- Shield blocking: hooks 6-9 and the `Guard*Hit/Break/Reaction/Repel` states (not `GuardFailHit`) raise a counter
+  (`player_guard_seq`) that survives short pauses (the hit arrives during the player's reaction, when his update
+  stops for a few frames).
+- Combat: a living enemy closer than 10 m that approaches or is on top of the player (5 s grace).
+- Constants: `#define` at the top of `stamina_hooks.c` and `stamina_default_config()`.
 
-### 4.2 Multiplicador de sprint (gancho 10, `stamina_speed_hook`)
-Multiplica la velocidad del movimiento en suelo del jugador mientras A está pulsado y no lo ha quitado la estamina.
-Rodar, nadar y trepar no pasan por esa llamada. La implementación es propia: solo lee la dirección de retorno y
-multiplica el argumento de velocidad.
+### 4.2 Sprint multiplier (hook 10, `stamina_speed_hook`)
+Multiplies the player's ground movement speed while A is held and stamina has not removed it. Rolling, swimming and
+climbing do not go through that call. The implementation is original: it only reads the return address and multiplies
+the speed argument.
 
-### 4.3 Vida de enemigos y daño recibido (`core/player.c`)
-- Enemigo = actor cuyo recurso de vida se llama `Enemy_*`. Al verlo por primera vez se escalan su vida máxima y
-  actual (`life+0x1C10` actual, `+0x1C18` máxima, valor s32 en `+8`). Diagnóstico: `g_hp_log`.
-- Daño recibido: cuando baja la vida del jugador se resta el extra (nunca mata solo el extra).
-- Valores de vida de cada enemigo: `Pack/Actor/<Enemigo>.pack.zs` → `Life/LifeParameters/*.bgyml` (`MaxLife`).
+### 4.3 Enemy health and damage taken (`core/player.c`)
+- Enemy = actor whose life resource is named `Enemy_*`. When first seen, its maximum and current life are scaled
+  (`life+0x1C10` current, `+0x1C18` maximum, s32 value at `+8`). Diagnostic: `g_hp_log`.
+- Damage taken: when the player's life drops, the extra share is subtracted (the extra share alone never kills).
+- Life values for each enemy: `Pack/Actor/<Enemy>.pack.zs` → `Life/LifeParameters/*.bgyml` (`MaxLife`).
 
 ### 4.4 Songbook (`features/songbook/songbook.c`)
-- Engancha la entrada/salida del modo ocarina (ids 13 y 14) para guardar el contexto (`x0`).
-- En el gancho de entrada de gameplay (sitio 3) lee `ctx+0x22C` (canción seleccionada) y `ctx+0x264+idx`
-  (aprendida). Si cambia la selección, espera 20 fotogramas y emite la secuencia de notas de esa canción.
-- No llama a las funciones internas de reproducción: inyecta los botones nativos de nota (L, R, A, Y, X) en las
-  muestras HID. El juego reconoce la melodía, reproduce el sonido y la animación por su cuenta.
-- Solo canciones aprendidas. La canción 12 (Scarecrow, compuesta por el jugador) no se toca.
-- Secuencias derivadas de `GameParameter/MelodyScoreBook/Default.game__ocarina__MelodyScoreBook.bgyml` (12 entradas).
+- Hooks the ocarina mode enter/leave (ids 13 and 14) to store the context (`x0`).
+- On the gameplay input hook (site 3) it reads `ctx+0x22C` (selected song) and `ctx+0x264+idx` (learned). If the
+  selection changes, it waits 20 frames and emits that song's note sequence.
+- It does not call the internal playback functions: it injects the native note buttons (L, R, A, Y, X) into the HID
+  samples. The game recognises the melody and plays the sound and animation on its own.
+- Learned songs only. Song 12 (Scarecrow, composed by the player) is not played.
+- Sequences derived from `GameParameter/MelodyScoreBook/Default.game__ocarina__MelodyScoreBook.bgyml` (12 entries).
 
-### 4.5 Sin drop de corazones (romfs)
-`tools/make_romfs_opts.py` genera, a partir del volcado del propio juego (`F:\switch2\Longshot\romfs` o `SHB_ROMFS`),
-`GameParameter/DropGlobalParam/...` con `DropGlobalParam.HpActor` (el actor que cae como "corazón") apuntando a la
-rupia verde. Solo se necesita al compilar: el payload/release ya incluye el archivo generado, así que el usuario final
-no necesita el volcado. La app copia ese romfs si la opción está marcada; si falta, instala el resto y avisa con una
-nota sin bloquear.
+### 4.5 No heart drops (romfs)
+`tools/make_romfs_opts.py` generates, from the game's own dump (`F:\switch2\Longshot\romfs` or `SHB_ROMFS`),
+`GameParameter/DropGlobalParam/...` with `DropGlobalParam.HpActor` (the actor that drops as a "heart") pointing to the
+green rupee. It is only needed at build time: the payload/release already includes the generated file, so the end user
+does not need the dump. The app copies that romfs if the option is enabled; if it is missing, it installs the rest and
+shows a note without blocking.
 
-## 5. HUD propio (`core/hud.c`)
+## 5. Custom HUD (`core/hud.c`)
 
-### 5.1 Cómo se añaden paneles al HUD del juego
-1. El gancho 2 (`hud_prepare`) intercepta la construcción del layout `PlayerStatus_00` y entrega al motor una
-   **copia privada de sus metadatos** (`build_root`) con paneles extra: imágenes `P_ShbPic_000..` y textos
-   `T_ShbTxt_00..05`. Cada nombre lleva su CityHash64 (generado por `build_core.py` en `hud_names.h`).
-2. Cada panel se describe en varias tablas del layout (lista común `+0x20`, imagen/texto `+0x40`, imágenes `+0x60`,
-   textos `+0x80`). Detalles del formato en RE-NOTES ("Layout file format", "Rupee counter / clock HUD").
-   **Importante:** en el descriptor común de una imagen, `+0x40 = 0xFFFF` y `+0x42 = índice en la lista de imágenes`.
-   Al revés, el motor busca en listas basura en cada consulta (cientos de miles de lecturas inválidas y la carga
-   en negro ~2 minutos).
-3. **Texturas:** cada textura usa una copia de un material con textura (el de `P_SubItemBg_00`) cuyo sampler apunta
-   al nombre de otra textura del archivo `Common` (`add_material`). Texturas usadas: `NumBaseSide_00/01` (placa),
-   `Nt_RupeeIconNew_00` (rupia), `Circle64_00` (círculos), `White8_00_BC4L` (rayos).
-4. Cada fotograma, `hud_frame()` coloca los paneles escribiendo su registro (`+0x60/+0x64` escala, `+0x68` rotación,
-   `+0x6C/+0x70` posición, marcar `|= 0x6F`) y su color (objeto del panel `+0x20`, RGBA float).
-5. Texto: `set_text` del juego (`main+0x439520`). Cada campo tiene dos paneles y se escribe en el oculto para
-   evitar parpadeo.
-6. Fuera del juego (menús, cargas) todo se oculta una vez y no se toca; al reconstruirse el layout se vacían las
-   cachés (`plates_reset`).
+### 5.1 How panes are added to the game's HUD
+1. Hook 2 (`hud_prepare`) intercepts the build of the `PlayerStatus_00` layout and gives the engine a **private copy of
+   its metadata** (`build_root`) with extra panes: pictures `P_ShbPic_000..` and texts `T_ShbTxt_00..05`. Each name
+   carries its CityHash64 (generated by `build_core.py` in `hud_names.h`).
+2. Each pane is described in several layout tables (common list `+0x20`, picture/text `+0x40`, pictures `+0x60`,
+   texts `+0x80`). Format details are in RE-NOTES ("Layout file format", "Rupee counter / clock HUD").
+   **Important:** in a picture's common descriptor, `+0x40 = 0xFFFF` and `+0x42 = index in the picture list`. The other
+   way round, the engine searches garbage lists on every query (hundreds of thousands of invalid reads and a black
+   load of ~2 minutes).
+3. **Textures:** each texture uses a copy of a material with a texture (the one from `P_SubItemBg_00`) whose sampler
+   points to another texture name in the `Common` archive (`add_material`). Textures used: `NumBaseSide_00/01`
+   (plate), `Nt_RupeeIconNew_00` (rupee), `Circle64_00` (circles), `White8_00_BC4L` (rays).
+4. Every frame, `hud_frame()` places the panes by writing their record (`+0x60/+0x64` scale, `+0x68` rotation,
+   `+0x6C/+0x70` position, set `|= 0x6F`) and their colour (pane object `+0x20`, RGBA float).
+5. Text: the game's `set_text` (`main+0x439520`). Each field has two panes and is written to the hidden one to avoid
+   flicker.
+6. Outside gameplay (menus, loading) everything is hidden once and left alone; when the layout is rebuilt the caches
+   are cleared (`plates_reset`).
 
-### 5.2 Reloj y rupias
-- Placa nativa del contador de rupias, dibujada dos veces (en espejo) para tener chevrones en ambos lados.
-- Hora: `World_CurrentDateTime` (GameData) o el reloj del mundo; sol de 6:00 a 18:00, luna (media luna) el resto.
-- Rupias: GameData Int `PlayerStatus.CurrentRupee` (registro 962) y capacidad de la cartera (976).
-- Aspecto ajustable: `g_hudp[]` (índices documentados en `hud.c`).
+### 5.2 Clock and rupees
+- Native rupee-counter plate, drawn twice (mirrored) to have chevrons on both sides.
+- Time: `World_CurrentDateTime` (GameData) or the world clock; sun from 6:00 to 18:00, moon (half moon) the rest.
+- Rupees: GameData Int `PlayerStatus.CurrentRupee` (record 962) and wallet capacity (976).
+- Adjustable look: `g_hudp[]` (indices documented in `hud.c`).
 
-### 5.3 Anillo de estamina
-Unos 230 paneles `Circle64_00` solapados (48 en el anillo interior, 64 en el exterior) que forman un tubo
-continuo, con una pista negra detrás; el último punto va en el ángulo exacto del relleno. Sigue al jugador proyectando su
-posición con la matriz de la cámara (`anchor_update`). Aspecto: `g_ringp[]`.
+### 5.3 Stamina ring
+About 230 overlapping `Circle64_00` panes (48 on the inner ring, 64 on the outer one) that form a continuous tube,
+with a black track behind; the last dot sits at the exact fill angle. It follows the player by projecting his position
+with the camera matrix (`anchor_update`). Look: `g_ringp[]`.
 
-### 5.4 Ajustar el aspecto en vivo
-Con el juego abierto mediante `live_check.py --keep` (o `run`), sin recompilar:
+### 5.4 Tuning the look live
+With the game open through `live_check.py --keep` (or `run`), without recompiling:
 ```
 python tools/hud_tune.py get
 python tools/hud_tune.py set 0=-1518 3=0.46 --shot build/tune.png --crop 0,600,400,720
 python tools/hud_tune.py set 6=0.0 --sym g_ringp
 python tools/hud_tune.py cfg rupees=1 clock=1 clock24=0
 ```
-Cuando el aspecto convence, se copian los valores a los inicializadores de `g_hudp` / `g_ringp`.
+When the look is right, copy the values into the `g_hudp` / `g_ringp` initialisers.
 
-## 6. Compilar, publicar y la app
-
-```
-python tools/build_core.py --features stamina,songbook,button_mapping --slots --base 0x4F80000   # módulo de prueba en build/native
-python tools/make_release.py     # compila el módulo en app/payload + texturas de botones + romfs opcional
-python tools/build_app.py        # binario nativo de la app (PyInstaller). Cerrar la app antes.
-```
-
-`build_app.py` funciona en Windows, macOS y Linux, pero PyInstaller no compila de forma cruzada: hay que ejecutarlo en
-cada sistema destino. La app usa Tkinter y rutas portables (`app/paths.py`); no requiere permisos de administrador.
-
-La app (`app/main.py` interfaz, `app/presets.py` perfiles, `app/installer.py` lógica, `app/i18n.py` textos):
-1. encuentra la carpeta de mods del emulador (respeta `load_directory`);
-2. copia la variante standalone, las texturas del estilo de botones elegido y parchea el bloque de configuración;
-3. avisa de otros mods con exefs que pueden chocar.
-
-También tiene modo línea de comandos (el mismo código de instalación):
-```
-python app/main.py --cli --emu "RUTA_DEL_EMULADOR" --profile hero-stamina --preset 0 --rupees --clock --sprint-speed 125
-```
-
-## 7. Probar en el emulador
-
-`tools/live_check.py` arranca el emulador de pruebas con el servidor de depuración (`EDEN_NX2_DEBUG_SERVER=127.0.0.1:6545`), espera
-la pantalla de título, pulsa A 4 veces, espera a que cargue la partida (≈30 s), saca capturas en `build/` e imprime
-los diagnósticos del módulo (símbolos leídos de `build/native/module.elf`).
+## 6. Build, release and the app
 
 ```
-python tools/live_check.py --load-a 4 --keep --linger 3     # deja el juego abierto
+python tools/build_core.py --features stamina,songbook,button_mapping --slots --base 0x4F80000   # test module in build/native
+python tools/make_release.py     # builds the module in app/payload + button textures + optional romfs
+python tools/build_app.py        # native app binary (PyInstaller). Close the app first.
 ```
 
-Puntos clave:
-- Instalar primero (app o `--cli`) y **después** volver a ejecutar `build_core.py` con la misma variante, para que
-  `module.elf` (los símbolos) coincida con lo instalado.
-- El servidor de depuración atiende en serie: mientras se ejecuta una entrada (`input_sequence`), las lecturas
-  esperan. Para medir durante una entrada, leer la memoria del proceso con `HostMemory` del devtool (como hacen
-  `hud_tune.py` y los scripts de velocidad).
-- Escribir memoria en vivo: `HostMemory(pid).calibrate(cliente, [base_main])` y luego `write(dir, bytes)`.
-- El log del emulador (`user/log/eden_log.txt`) debe quedar limpio: muchas líneas `Unmapped Read/Write` indican
-  un fallo de descriptores o punteros y ralentizan muchísimo el juego.
-- Mods de terceros que chocan (contadores de HUD, otras versiones del sistema de estamina, otros mapeos de botones...)
-  deben estar desactivados en el emulador.
+`build_app.py` works on Windows, macOS and Linux, but PyInstaller does not cross-compile: run it on each target OS.
+The app uses Tkinter and portable paths (`app/paths.py`); it needs no administrator permissions.
 
-## 8. Investigar el juego (receta)
+The app (`app/main.py` UI, `app/presets.py` profiles, `app/installer.py` logic, `app/i18n.py` texts):
+1. finds the emulator's mods folder (honours `load_directory`);
+2. copies the standalone variant and the textures of the chosen button style, and patches the configuration block;
+3. warns about other exefs mods that may conflict.
 
-| Necesito | Cómo |
+It also has a command-line mode (the same install code):
+```
+python app/main.py --cli --emu "EMULATOR_PATH" --profile hero-stamina --preset 0 --rupees --clock --sprint-speed 125
+```
+
+## 7. Testing in the emulator
+
+`tools/live_check.py` starts the test emulator with the debug server (`EDEN_NX2_DEBUG_SERVER=127.0.0.1:6545`), waits
+for the title screen, presses A 4 times, waits for the save to load (~30 s), takes screenshots in `build/` and prints
+the module diagnostics (symbols read from `build/native/module.elf`).
+
+```
+python tools/live_check.py --load-a 4 --keep --linger 3     # leaves the game open
+```
+
+Key points:
+- Install first (app or `--cli`) and **then** re-run `build_core.py` with the same variant, so `module.elf` (the
+  symbols) matches what is installed.
+- The debug server serves one request at a time: while an input (`input_sequence`) is running, reads wait. To measure
+  during an input, read the process memory with the devtool's `HostMemory` (as `hud_tune.py` and the speed scripts do).
+- Writing memory live: `HostMemory(pid).calibrate(client, [main_base])` and then `write(address, bytes)`.
+- The emulator log (`user/log/eden_log.txt`) should stay clean: many `Unmapped Read/Write` lines mean a descriptor or
+  pointer bug and slow the game down heavily.
+- Conflicting third-party mods (HUD counters, other stamina system versions, other button mappings...) must be
+  disabled in the emulator.
+
+## 8. Investigating the game (recipe)
+
+| I need | How |
 |---|---|
-| Ver código de una dirección | `python tools/disasm.py 0x9352f0 0x40` |
-| Quién llama a una función | buscar `bl` a esa dirección en el texto de `main` (ver scripts en RE-NOTES) |
-| Parámetros de un actor | `Pack/Actor/<Actor>.pack.zs` (zstd con `pack.zsdic` de `Pack/ZsDic.pack.zs`, SARC, BYML) |
-| Tablas RSDB (objetos, armas) | `RSDB/*.rstbl.byml.zs` (zstd con `zs.zsdic`) |
-| Layouts de UI | `UI/Layout2Archive/Common...blarc.zs` (SARC de `.buil`, formato BFFH en RE-NOTES) |
-| Texturas de UI | `Common...bntx.zs`: `tools/bntx_probe.py` lista, `tools/bntx_decode.py` decodifica BC4 (altura de bloque 4 para 128x128) |
-| Un valor en memoria | `DebugClient.search(...)` + leer vecinos; bisección escribiendo valores con `HostMemory` |
-| Estado del jugador | `player+0x244` (nombre de acción), `actor+0x31C` posición (solo lectura efectiva), `actor+0x388` velocidad (salida) |
+| See the code at an address | `python tools/disasm.py 0x9352f0 0x40` |
+| Who calls a function | look for `bl` to that address in the `main` text (see RE-NOTES scripts) |
+| Actor parameters | `Pack/Actor/<Actor>.pack.zs` (zstd with `pack.zsdic` from `Pack/ZsDic.pack.zs`, SARC, BYML) |
+| RSDB tables (items, weapons) | `RSDB/*.rstbl.byml.zs` (zstd with `zs.zsdic`) |
+| UI layouts | `UI/Layout2Archive/Common...blarc.zs` (SARC of `.buil`, BFFH format in RE-NOTES) |
+| UI textures | `Common...bntx.zs`: `tools/bntx_probe.py` lists, `tools/bntx_decode.py` decodes BC4 (block height 4 for 128x128) |
+| A value in memory | `DebugClient.search(...)` + read neighbours; bisect by writing values with `HostMemory` |
+| Player state | `player+0x244` (action name), `actor+0x31C` position (effectively read-only), `actor+0x388` velocity (output) |
 
-Los nombres de funciones no están en `main` en texto claro (el motor usa hashes); las pistas salen de los datos
-(AINB, BYML) y de las direcciones que ya usan otros mods.
+Function names are not in `main` in plain text (the engine uses hashes); clues come from the data (AINB, BYML) and
+from addresses already used by other mods.
 
-## 9. Herramientas (`tools/`)
+## 9. Tools (`tools/`)
 
-| Herramienta | Para qué |
+| Tool | Purpose |
 |---|---|
-| `build_core.py` | compila el módulo y su IPS; genera `hud_names.h` y `dispatch_gen.c` |
-| `make_release.py` / `build_app.py` | payload de la app / ejecutable |
-| `make_romfs_opts.py` | romfs opcionales (sin drop de corazones) |
-| `make_enemy_opts.py` | beta: genera romfs de duplicado de enemigos y velocidad ×2 desde el dump |
-| `features/songbook` | canción del songbook nativo -> notas inyectadas |
-| `check_no_game_data.py` | comprueba que git no tenga archivos del dump ni payloads generados |
-| `hook_sites.py` | lista de sitios de gancho |
-| `live_check.py` | arrancar, cargar partida, capturar y leer diagnósticos |
-| `hud_tune.py` | ajustar HUD y opciones en vivo, capturas |
-| `disasm.py` | desensamblar `main` |
-| `bntx_probe.py`, `bntx_decode.py` | texturas de UI |
-| `pane_dump.py`, `gauge_dump.py`, `text_probe.py`, `clock_probe.py` | volcados del HUD en vivo |
-| `enemy_probe.py`, `find_player.py`, `player_strings.py`, `action_names.py` | actores y estados del jugador |
-| `e2e_matrix.py` | prueba completa: instala cada configuración con el binario (sin ventana), arranca, hace acciones y comprueba que la estamina se comporta como promete esa configuración (`build/e2e/results.txt`) |
-| `make_restbl.py` | tabla de tamaños de recursos (presupuesto de memoria de la UI) |
-| `lib/` | `nso.py` (NSO/IPS), `sarc.py`, `cityhash.py` (implementación propia del algoritmo público), `winmove.py` |
+| `build_core.py` | compiles the module and its IPS; generates `hud_names.h` and `dispatch_gen.c` |
+| `make_release.py` / `build_app.py` | app payload / executable |
+| `make_romfs_opts.py` | optional romfs (no heart drops) |
+| `make_enemy_opts.py` | beta: generates the enemy duplication and ×2 speed romfs from the dump |
+| `features/songbook` | native songbook song -> injected notes |
+| `check_no_game_data.py` | checks that git has no dump files or generated payloads |
+| `hook_sites.py` | list of hook sites |
+| `live_check.py` | start, load save, capture and read diagnostics |
+| `hud_tune.py` | tune the HUD and options live, screenshots |
+| `disasm.py` | disassemble `main` |
+| `bntx_probe.py`, `bntx_decode.py` | UI textures |
+| `pane_dump.py`, `gauge_dump.py`, `text_probe.py`, `clock_probe.py` | live HUD dumps |
+| `enemy_probe.py`, `find_player.py`, `player_strings.py`, `action_names.py` | actors and player states |
+| `e2e_matrix.py` | full test: installs each configuration with the binary (no window), starts the game, performs actions and checks that stamina behaves as that configuration promises (`build/e2e/results.txt`) |
+| `make_restbl.py` | resource size table (UI memory budget) |
+| `lib/` | `nso.py` (NSO/IPS), `sarc.py`, `cityhash.py` (own implementation of the public algorithm), `winmove.py` |
 
-## 10. Licencias y referencias
-- El cliente del servidor de depuración, `HostMemory` y los lectores de BYML/GameData son herramientas de
-  desarrollo y no se distribuyen con el mod.
-- El resto del código (módulo, HUD, estamina, mapeo de botones, app e instalador) es propio. Ver [AUDIT.md](AUDIT.md).
+## 10. Licences and references
+- The debug server client, `HostMemory` and the BYML/GameData readers are development tools and are not distributed
+  with the mod.
+- The rest of the code (module, HUD, stamina, button mapping, app and installer) is original. See [AUDIT.md](AUDIT.md).

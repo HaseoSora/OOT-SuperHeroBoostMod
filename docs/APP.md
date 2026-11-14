@@ -9,7 +9,7 @@ The app only:
 2. patches the config bytes inside the prebuilt `subsdk9`: stamina on/off, stamina style, per-action costs,
    combat only, enemy health, damage taken, rupee counter / clock / 24 h, sprint speed, button mapping style,
    layout and L mode
-   (field table in [GUIA-DESARROLLO.md](GUIA-DESARROLLO.md#33-configuración-en-tiempo-de-ejecución-coreconfigh)),
+   (field table in [GUIA-DESARROLLO.md](GUIA-DESARROLLO.md#33-runtime-configuration-coreconfigh)),
 3. copies the button textures for the chosen style (Switch / PlayStation / Xbox) into the mod's romfs,
 4. with "no heart drops", copies the generated romfs option (if that optional file was not built from the user's game
    dump, the app installs everything else and shows a note instead of failing),
@@ -55,14 +55,14 @@ dropped hearts become green rupees (the optional romfs file; see the note below)
 
 ## Window
 
-- **Inicio**: profile list (the only profile selector), explanation of the active profile, emulator folder and install
+- **Home**: profile list (the only profile selector), explanation of the active profile, emulator folder and install
   status.
-- **Estamina**: on/off, stamina style, what costs stamina (the checkboxes update automatically for each style), sprint
+- **Stamina**: on/off, stamina style, what costs stamina (the checkboxes update automatically for each style), sprint
   speed.
-- **Dificultad**: enemy health, damage taken, heart drops.
-- **HUD y botones**: rupee counter, clock (**off / 12 h / 24 h**, one selector), button mapping (on/off), button
+- **Difficulty**: enemy health, damage taken, heart drops.
+- **HUD & buttons**: rupee counter, clock (**off / 12 h / 24 h**, one selector), button mapping (on/off), button
   style (Switch / PlayStation / Xbox), layout (extended / simple) and L mode (item / shield / selector).
-- **Modificaciones varias**: Songbook autoplay (select a learned song in the game's native songbook with ZL and it plays
+- **Miscellaneous**: Songbook autoplay (select a learned song in the game's native songbook with ZL and it plays
   automatically, effect included; not the Scarecrow's Song) and two
   **beta** toggles:
   - **Duplicate enemies (Option A)**: clones generic enemy placements in `Banc` and doubles field auto-spawn counts.
@@ -71,9 +71,9 @@ dropped hearts become green rupees (the optional romfs file; see the note below)
     not change, or may desync.
   Both beta mods are generated from the user's dump at build time and installed as extra romfs files. They are not
   part of the normal payload and can break puzzles, quests or performance. Back up the save and test one at a time.
-- **Acerca de**: credits and the material/third-party notice.
+- **About**: credits and the material/third-party notice.
 
-The bottom bar always shows the install state and the **Instalar / Desinstalar** buttons. Changes are saved
+The bottom bar always shows the install state and the **Install / Uninstall** buttons. Changes are saved
 automatically (250 ms debounce).
 
 ## Command line
@@ -81,10 +81,10 @@ automatically (250 ms debounce).
 The same install code is available without a window:
 
 ```
-python app/main.py --cli --emu "RUTA_DEL_EMULADOR" --profile recommended
-python app/main.py --cli --emu "RUTA_DEL_EMULADOR" --preset 3 --off jump,shoot --combat-only
-python app/main.py --cli --emu "RUTA_DEL_EMULADOR" --profile hero-explorer --rupees --clock --clock24
-python app/main.py --cli --emu "RUTA_DEL_EMULADOR" --profile recommended --no-songbook
+python app/main.py --cli --emu "EMULATOR_PATH" --profile recommended
+python app/main.py --cli --emu "EMULATOR_PATH" --preset 3 --off jump,shoot --combat-only
+python app/main.py --cli --emu "EMULATOR_PATH" --profile hero-explorer --rupees --clock --clock24
+python app/main.py --cli --emu "EMULATOR_PATH" --profile recommended --no-songbook
 python app/main.py --list-profiles
 ```
 

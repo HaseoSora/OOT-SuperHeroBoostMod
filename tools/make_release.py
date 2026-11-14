@@ -12,9 +12,9 @@ ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "app" / "payload"
 BUILD_ID = "E0F3CCFAF50065AE4EA01EB5AEB13B1A45DA3348"
 VARIANTS = {"classic": "0x4F87000", "standalone": "0x4F80000"}
-# standalone (no third-party Classic) carries our own Classic replica: its feature and the equip-call hooks
+# standalone (no third-party Classic) carries our own buttonMapping: its feature and the equip-call hooks
 VARIANT_ARGS = {"classic": ["--features", "hero_core"],
-                "standalone": ["--features", "hero_core,classic_slots", "--slots"]}
+                "standalone": ["--features", "hero_core,button_mapping", "--slots"]}
 
 
 CLASSIC_TAG = "v1.4.3"
@@ -45,7 +45,7 @@ def stage_rupee_ips():
 
 
 def stage_replica():
-    """Romfs of our Classic replica: the button textures per platform (tools/make_buttons.py) and a resource size
+    """Romfs of our buttonMapping: the button textures per platform (tools/make_buttons.py) and a resource size
     table with a bigger UI budget (the 12 extra HUD parts do not fit the stock one; the game hangs at boot)."""
     subprocess.run([sys.executable, str(ROOT / "tools" / "make_buttons.py")], check=True, cwd=ROOT)
     for plat in ("switch", "xbox", "playstation"):

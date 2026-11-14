@@ -61,15 +61,15 @@ CFLAGS = [
 FEATURE_INPUT_HANDLERS = {
     "probe": ["probe_on_input"],
     "hero_core": ["hero_core_on_input"],
-    "classic_slots": ["classic_slots_on_input"],
+    "button_mapping": ["button_mapping_on_input"],
 }
 FEATURE_SLOT_HANDLERS = {
-    "classic_slots": ["classic_slots_on_call"],
+    "button_mapping": ["button_mapping_on_call"],
 }
 
 
 FEATURE_SLOT_PRE = {
-    "classic_slots": ["classic_slots_pre"],
+    "button_mapping": ["button_mapping_pre"],
 }
 
 
@@ -223,7 +223,7 @@ def write_handler_table(features: list[str], path: Path) -> None:
 
 
 COMPAT = False   # --compat: coexist with Classic Item Slots (its IPS owns the input/slot sites)
-SLOTS = False    # --slots: also hook the four equip calls (our own Classic replica, Classic not installed)
+SLOTS = False    # --slots: also hook the four equip calls (our own buttonMapping, Classic not installed)
 # PLT stub of the input reader used during gameplay: first instruction `adrp x16, GOT3`.
 COMPAT_STUB = (0x3C42800, "hook_stub3", 0xB00083F0)
 
@@ -267,7 +267,7 @@ def main() -> int:
                     help="coexist with Classic Item Slots (module placed after it, PLT-stub input hook)")
     ap.add_argument("--base", default="0x4F88000", help="module base used with --compat")
     ap.add_argument("--slots", action="store_true",
-                    help="hook the equip calls too (own Classic replica; only without Classic Item Slots)")
+                    help="hook the equip calls too (own buttonMapping; only without Classic Item Slots)")
     args = ap.parse_args()
     global COMPAT, BASE, LINK_SCRIPT, SLOTS
     SLOTS = args.slots
@@ -306,8 +306,8 @@ def main() -> int:
     for src in sources + [gen]:
         obj = OUT / (src.stem + ".o")
         extra = ["-DCLASSIC_PROBE"] if os.environ.get("CLASSIC_PROBE") else []
-        if "classic_slots" in features:
-            extra.append("-DCLASSIC_REPLICA")   # core/hud.c draws the replica's buttons
+        if "button_mapping" in features:
+            extra.append("-DBUTTON_MAPPING")   # core/hud.c draws the buttonMapping buttons
         run([str(CLANG), *CFLAGS, *extra, "-I", str(OUT), "-I", str(CORE_SRC),
              "-c", str(src), "-o", str(obj)])
         objs.append(str(obj))

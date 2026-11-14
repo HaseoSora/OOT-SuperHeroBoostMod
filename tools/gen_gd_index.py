@@ -1,4 +1,4 @@
-"""Developer step: write core/gd_index.h, the GameData Bool indices the Classic replica reads.
+"""Developer step: write core/gd_index.h, the GameData Bool indices the buttonMapping reads.
 
   GD_IS_CHILDHOOD          index of Sequence_IsChildhood (1 while Link is a child)
   GD_BOX_CHILD / _ADULT    Enum indices of PlayerStatus.AssignableItem.Child / .Adult (the item box), GD_EMPTY_HASH

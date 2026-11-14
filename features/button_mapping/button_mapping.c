@@ -2,7 +2,8 @@
 #include "../../core/hid.h"
 #include "../../core/config.h"
 
-/* classic_slots (F3): replica of the "legacy" extra item buttons.
+/* button_mapping (F3, "buttonMapping"): our own extra item buttons, in the spirit of the "legacy" Classic
+ * Item Slots mod (not its code).
  *
  * Controls on this game: X jump, A dodge, Y sword, B / L / R / ZR are the free
  * buttons. In-game R equips an item into the HUD item box and ZR uses it
@@ -150,7 +151,7 @@ static void set_all(const HidView *v, u64 clear, u64 set) {
     }
 }
 
-void classic_slots_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_result) {
+void button_mapping_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_result) {
     (void)a2;
     if (site != 3 || !a0) return;
     u32 count = (u32)(unsigned long)a1;
@@ -159,7 +160,7 @@ void classic_slots_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_re
     HidView view = {a0, count, 0};
 
     /* Link's age picks the set; an item the player does not have (a new game, an older save) leaves its slot */
-    if (g_ootcfg.classic_replica && player_active()) {
+    if (g_ootcfg.button_mapping && player_active()) {
         int ch = hud_is_child();
         if (ch >= 0) {
             int age = ch ? 0 : 1;
@@ -172,7 +173,7 @@ void classic_slots_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_re
         }
     }
 
-    /* Publish the slots to the HUD replica (core/hud.c): B, L, R as assigned (ZR mirrors the game's own box). */
+    /* Publish the slots to the HUD (core/hud.c): B, L, R as assigned (ZR mirrors the game's own box). */
     for (int s = 0; s < SLOT_N; s++)
         hud_slot_item((u32)s, s == SLOT_ZR && g_assign[s] < 0 ? g_zr_item : g_assign[s]);
 
@@ -192,8 +193,8 @@ void classic_slots_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_re
         else if (g_run > 10) g_paused = 0;
     }
     int menu = g_paused && hud_menu_items();
-    if (g_ootcfg.classic_replica && !menu) hud_menu_off();
-    if (g_ootcfg.classic_replica && menu) {
+    if (g_ootcfg.button_mapping && !menu) hud_menu_off();
+    if (g_ootcfg.button_mapping && menu) {
         static const u64 MENU_BTN[SLOT_ZR] = {BTN_X, BTN_L, BTN_R};   /* -> SLOT_B, SLOT_L, SLOT_R */
         for (int s = 0; s < SLOT_ZR; s++) {
             if (!(pressed & MENU_BTN[s])) continue;
@@ -232,7 +233,7 @@ void classic_slots_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_re
     int ingame = player_active() && hud_ingame();
     int free_now = ingame && (player_state_is("Wait") || player_state_is("Move") ||
                               player_state_starts("LockOn"));   /* LockOn*: ZL held (target or free), aiming */
-    if (!g_ootcfg.classic_replica || (!free_now && g_phase == PH_IDLE)) {
+    if (!g_ootcfg.button_mapping || (!free_now && g_phase == PH_IDLE)) {
         if (ingame && (pressed & (BTN_B | BTN_L | BTN_R))) {   /* remember why a slot button did nothing */
             const char *n = player_state_name();
             for (int i = 0; i < 23; i++) g_cl_refused[i] = n[i];
@@ -326,7 +327,7 @@ void classic_slots_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_re
 }
 
 /* Called before the stock item function: may replace its item index (x2). */
-u64 classic_slots_pre(u32 site, void *a0, void *a1, u64 a2) {
+u64 button_mapping_pre(u32 site, void *a0, void *a1, u64 a2) {
     (void)a0; (void)a1;
     if (site != 3) return a2;
     if (g_pending >= 0) {
@@ -339,7 +340,7 @@ u64 classic_slots_pre(u32 site, void *a0, void *a1, u64 a2) {
     return a2;
 }
 
-void classic_slots_on_call(u32 site, void *a0, void *a1, void *a2, u32 stock_result) {
+void button_mapping_on_call(u32 site, void *a0, void *a1, void *a2, u32 stock_result) {
     if (site < 4) g_slot_count[site]++;
     SlotLog *e = &g_slot_log[(g_slot_log_n - SLOT_BASE) % LOG_N];
     g_slot_log_n++;
@@ -414,8 +415,8 @@ static void save_read(const char *ours) {
     g_save_dbg[2]++;
 }
 /* core/hud.c, hook on nn::fs::OpenFile (main+0x3C42590): any file the game opens */
-void classic_slots_on_open(const char *path, int mode) {
-    if (path[0] != 's' || !g_ootcfg.classic_replica) return;   /* not save: (content: is the romfs) */
+void button_mapping_on_open(const char *path, int mode) {
+    if (path[0] != 's' || !g_ootcfg.button_mapping) return;   /* not save: (content: is the romfs) */
     char ours[48];
     if (!our_path(path, ours)) return;
     if (mode & 2) save_write(ours);

@@ -61,8 +61,8 @@ def cli(argv):
     ap.add_argument("--enemy-hp", type=int, default=100, help="enemy health, percent (150 = Hero Mode)")
     ap.add_argument("--damage", type=int, default=100, help="damage taken, percent (200 = Hero Mode)")
     ap.add_argument("--no-heart-drop", action="store_true")
-    ap.add_argument("--classic-replica", action="store_true",
-                    help="our own Classic Item Slots replica (experimental; use with --no-classic)")
+    ap.add_argument("--button-mapping", "--classic-replica", dest="button_mapping", action="store_true",
+                    help="buttonMapping: our own item buttons B/L/R/ZR (experimental; use with --no-classic)")
     ap.add_argument("--sprint-speed", type=int, default=125, help="sprint speed, percent (125 = default, 100 = vanilla)")
     ap.add_argument("--rupees", action="store_true", help="always-visible rupee counter")
     ap.add_argument("--clock", action="store_true", help="always-visible clock")
@@ -80,7 +80,7 @@ def cli(argv):
     s.enemy_hp, s.damage, s.no_heart_drop = a.enemy_hp, a.damage, a.no_heart_drop
     s.hud_rupees, s.hud_clock, s.clock_24h = a.rupees, a.clock, a.clock24
     s.sprint_speed = a.sprint_speed
-    s.classic_replica = a.classic_replica
+    s.button_mapping = a.button_mapping
     try:
         r = I.install(Path(a.emu), s, a.classic_variant, a.name)
     except I.InstallError as e:
@@ -113,7 +113,7 @@ def gui():
     lang = tk.StringVar(value=cfg.get("lang") if cfg.get("lang") in LANGS else system_lang())
     emu = tk.StringVar(value=cfg.get("emu", ""))
     v_classic = tk.BooleanVar(value=cfg.get("classic", True))
-    v_replica = tk.BooleanVar(value=cfg.get("classic_replica", False))
+    v_replica = tk.BooleanVar(value=cfg.get("button_mapping", cfg.get("classic_replica", False)))   # (old key)
     v_variant = tk.StringVar(value=cfg.get("variant", "default") if cfg.get("variant") in I.CLASSIC_VARIANTS else "default")
     v_stam = tk.BooleanVar(value=cfg.get("stamina", True))
     v_preset = tk.IntVar(value=cfg.get("preset", 0))
@@ -170,12 +170,12 @@ def gui():
         p = v_preset.get()
         vals = {k: adv[k].get() for k in KEYS} if p == 3 else {k: bool(I.PRESET_VIEW[p][k]) for k in KEYS}
         co = v_combat.get() if p == 3 else bool(I.PRESET_VIEW[p]["combat_only"])
-        return I.Settings(classic=v_classic.get(), classic_replica=v_replica.get() and not v_classic.get(), stamina=v_stam.get(), preset=p, combat_only=co, **vals,
+        return I.Settings(classic=v_classic.get(), button_mapping=v_replica.get() and not v_classic.get(), stamina=v_stam.get(), preset=p, combat_only=co, **vals,
                           enemy_hp=v_hp.get(), damage=v_dmg.get(), no_heart_drop=v_nodrop.get(), sprint_speed=v_speed.get(),
                           hud_rupees=v_rup.get(), hud_clock=v_clock.get(), clock_24h=v_24h.get())
 
     def remember():
-        return save_cfg({"lang": lang.get(), "emu": emu.get(), "classic": v_classic.get(), "classic_replica": v_replica.get(), "variant": v_variant.get(),
+        return save_cfg({"lang": lang.get(), "emu": emu.get(), "classic": v_classic.get(), "button_mapping": v_replica.get(), "variant": v_variant.get(),
                   "stamina": v_stam.get(), "preset": v_preset.get(), "custom": custom,
                   "enemy_hp": v_hp.get(), "damage": v_dmg.get(), "no_heart_drop": v_nodrop.get(), "sprint_speed": v_speed.get(),
                   "hud_rupees": v_rup.get(), "hud_clock": v_clock.get(), "clock_24h": v_24h.get()})

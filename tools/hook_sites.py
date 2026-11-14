@@ -43,7 +43,7 @@ CODE_SITES = (
     (0x27FB0C0, "hook_guard2", 8),       # ExecutePlayerReactionGuardJustRepelled slot 10
     (0x27FA200, "hook_guard3", 9),       # ExecutePlayerReactionGuardBreak slot 10
     (0x9352F0, "hook_code_speed", 10),   # ground movement (x0 player, x1 direction, s0 speed): sprint multiplier
-    (0xA37320, "hook_code_iconctrl", 11),  # icon controller init (x0 controller, x1 heap): Classic replica icons
+    (0xA37320, "hook_code_iconctrl", 11),  # icon controller init (x0 controller, x1 heap): buttonMapping icons
     (0x33F5D20, "hook_code_hudinit", 12),  # PlayerStatus HUD init (x0 HUD, x1 heap): heap for our icon controllers
     (0x2CBD20, "hook_code_menusel", 14),
     (0x3C42590, "hook_fs_open", 18, 0xB00083F0),   # nn::fs::OpenFile import stub (x1 path, x2 mode): save slot files

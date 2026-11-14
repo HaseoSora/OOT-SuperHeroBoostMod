@@ -257,14 +257,14 @@ for _lang, _txt in {
     T[_lang].update({"sprint_speed": _txt[0], "speed_van": _txt[1]})
 
 
-# own Classic Item Slots replica (experimental)
+# buttonMapping: our own item buttons (experimental)
 for _lang, _txt in {
-    "en": ("Own Classic slots (experimental)", "Our own replica: buttons B/L/R/ZR with items, Jump and context A. Only without Classic Item Slots."),
-    "es": ("Classic propio (experimental)", "Réplica propia: botones B/L/R/ZR con objetos, Saltar y A contextual. Solo sin Classic Item Slots."),
-    "pt": ("Classic próprio (experimental)", "Réplica própria: botões B/L/R/ZR com itens, Pular e A contextual. Só sem o Classic Item Slots."),
-    "fr": ("Classic maison (expérimental)", "Notre réplique : boutons B/L/R/ZR avec objets, Saut et A contextuel. Sans Classic Item Slots."),
-    "de": ("Eigenes Classic (experimentell)", "Eigene Nachbildung: Tasten B/L/R/ZR mit Items, Springen und kontextuelles A. Nur ohne Classic Item Slots."),
-    "it": ("Classic proprio (sperimentale)", "Replica nostra: tasti B/L/R/ZR con oggetti, Salto e A contestuale. Solo senza Classic Item Slots."),
+    "en": ("Button mapping (experimental)", "Our own item buttons: B/L/R/ZR with items, Jump and context A. Only without Classic Item Slots."),
+    "es": ("Mapeo de botones (experimental)", "Botones propios: B/L/R/ZR con objetos, Saltar y A contextual. Solo sin Classic Item Slots."),
+    "pt": ("Mapeamento de botões (experimental)", "Botões próprios: B/L/R/ZR com itens, Pular e A contextual. Só sem o Classic Item Slots."),
+    "fr": ("Mappage des boutons (expérimental)", "Nos propres boutons : B/L/R/ZR avec objets, Saut et A contextuel. Sans Classic Item Slots."),
+    "de": ("Tastenbelegung (experimentell)", "Eigene Item-Tasten: B/L/R/ZR mit Items, Springen und kontextuelles A. Nur ohne Classic Item Slots."),
+    "it": ("Mappatura tasti (sperimentale)", "Tasti nostri: B/L/R/ZR con oggetti, Salto e A contestuale. Solo senza Classic Item Slots."),
 }.items():
     T[_lang].update({"replica": _txt[0], "replica_desc": _txt[1]})
 

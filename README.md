@@ -20,7 +20,7 @@ Todo el proceso (arquitectura, ganchos, HUD, configuración, compilación, prueb
 opciones) está en **[docs/GUIA-DESARROLLO.md](docs/GUIA-DESARROLLO.md)**.
 
 Otras notas: [docs/RE-NOTES.md](docs/RE-NOTES.md) (ingeniería inversa), [docs/APP.md](docs/APP.md) (app),
-[docs/CLASSIC-HOOKS.md](docs/CLASSIC-HOOKS.md) y [docs/CLASSIC-REPLICA.md](docs/CLASSIC-REPLICA.md) (Classic Item
+[docs/CLASSIC-HOOKS.md](docs/CLASSIC-HOOKS.md) y [docs/BUTTON-MAPPING.md](docs/BUTTON-MAPPING.md) (Classic Item
 Slots).
 
 Pasos rápidos:

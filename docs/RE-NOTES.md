@@ -228,7 +228,7 @@ Consequence: only site 3 sees gameplay input. The four classic slot sites
   its root (IsHeadshotOnlyDamage, bone Tail_1). Kokiri Sword EquipmentPerformance 1.
 - Stamina refill wait: 0.8 s, 1.8 s in combat, 2.5 s after exhaustion.
 
-## Classic replica: per-save assignments (Nov 2026)
+## buttonMapping: per-save assignments (Nov 2026)
 
 - Save files: mount `save:`, `slot_00`..`slot_11/progress.sav` (+ `caption.sav`), `account.sav`, `option.sav`.
   The game opens `progress.sav` with mode 1 when it loads that save and mode 6 (write | append) when it saves,

@@ -58,7 +58,7 @@ static const char CIRCLE_TEX[] = "Circle64_00";
  * parts 1..4 are the slot circles: the gauge's fill texture is replaced by the
  * stock Circle64_00 and the gauge is kept full, so it draws a tinted circle. The
  * art is a placeholder until the real assets arrive. */
-#define PART_N 12  /* Classic replica: parts 0..6 buttons (L X R Y A ZR B), 7..11 items (L R Y ZR B); clones of the stock item box Pa_SelectItem_00 (asset PaItemBtn_00).
+#define PART_N 12  /* buttonMapping: parts 0..6 buttons (L X R Y A ZR B), 7..11 items (L R Y ZR B); clones of the stock item box Pa_SelectItem_00 (asset PaItemBtn_00).
                     * (The old gauge-part ring is retired: the stamina ring is drawn with picture panes, RT1..) */
 #define APPEND_ALL 1   /* 1 = append every part (only the first one gets listed by the
                         * engine); 0 = parts 1.. repurpose filler parts (froze the game) */
@@ -74,12 +74,12 @@ static const char *part_replaces(u32 i);
 static char g_pnames[SEG_N][16] = {"Pa_OotSeg_000", "Pa_OotSeg_001", "Pa_OotSeg_002", "Pa_OotSeg_003", "Pa_OotSeg_004", "Pa_OotSeg_005", "Pa_OotSeg_006", "Pa_OotSeg_007", "Pa_OotSeg_008", "Pa_OotSeg_009", "Pa_OotSeg_010", "Pa_OotSeg_011", "Pa_OotSeg_012", "Pa_OotSeg_013", "Pa_OotSeg_014", "Pa_OotSeg_015", "Pa_OotSeg_016", "Pa_OotSeg_017", "Pa_OotSeg_018", "Pa_OotSeg_019", "Pa_OotSeg_020", "Pa_OotSeg_021", "Pa_OotSeg_022", "Pa_OotSeg_023", "Pa_OotSeg_024", "Pa_OotSeg_025", "Pa_OotSeg_026", "Pa_OotSeg_027", "Pa_OotSeg_028", "Pa_OotSeg_029", "Pa_OotSeg_030", "Pa_OotSeg_031", "Pa_OotSeg_032", "Pa_OotSeg_033", "Pa_OotSeg_034", "Pa_OotSeg_035", "Pa_OotSeg_036", "Pa_OotSeg_037", "Pa_OotSeg_038", "Pa_OotSeg_039", "Pa_OotSeg_040", "Pa_OotSeg_041", "Pa_OotSeg_042", "Pa_OotSeg_043", "Pa_OotSeg_044", "Pa_OotSeg_045", "Pa_OotSeg_046", "Pa_OotSeg_047", "Pa_OotSeg_048", "Pa_OotSeg_049", "Pa_OotSeg_050", "Pa_OotSeg_051", "Pa_OotSeg_052", "Pa_OotSeg_053", "Pa_OotSeg_054", "Pa_OotSeg_055", "Pa_OotSeg_056", "Pa_OotSeg_057", "Pa_OotSeg_058", "Pa_OotSeg_059", "Pa_OotSeg_060", "Pa_OotSeg_061", "Pa_OotSeg_062", "Pa_OotSeg_063", "Pa_OotSeg_064", "Pa_OotSeg_065", "Pa_OotSeg_066", "Pa_OotSeg_067", "Pa_OotSeg_068", "Pa_OotSeg_069", "Pa_OotSeg_070", "Pa_OotSeg_071", "Pa_OotSeg_072", "Pa_OotSeg_073", "Pa_OotSeg_074", "Pa_OotSeg_075", "Pa_OotSeg_076", "Pa_OotSeg_077", "Pa_OotSeg_078", "Pa_OotSeg_079", "Pa_OotSeg_080", "Pa_OotSeg_081", "Pa_OotSeg_082", "Pa_OotSeg_083", "Pa_OotSeg_084", "Pa_OotSeg_085", "Pa_OotSeg_086", "Pa_OotSeg_087", "Pa_OotSeg_088", "Pa_OotSeg_089", "Pa_OotSeg_090", "Pa_OotSeg_091", "Pa_OotSeg_092", "Pa_OotSeg_093", "Pa_OotSeg_094", "Pa_OotSeg_095", "Pa_OotSeg_096", "Pa_OotSeg_097", "Pa_OotSeg_098", "Pa_OotSeg_099", "Pa_OotSeg_100", "Pa_OotSeg_101", "Pa_OotSeg_102", "Pa_OotSeg_103", "Pa_OotSeg_104", "Pa_OotSeg_105", "Pa_OotSeg_106", "Pa_OotSeg_107", "Pa_OotSeg_108", "Pa_OotSeg_109", "Pa_OotSeg_110", "Pa_OotSeg_111", "Pa_OotSeg_112", "Pa_OotSeg_113", "Pa_OotSeg_114", "Pa_OotSeg_115", "Pa_OotSeg_116", "Pa_OotSeg_117", "Pa_OotSeg_118", "Pa_OotSeg_119", "Pa_OotSeg_120", "Pa_OotSeg_121", "Pa_OotSeg_122", "Pa_OotSeg_123", "Pa_OotSeg_124", "Pa_OotSeg_125", "Pa_OotSeg_126", "Pa_OotSeg_127"};
 static char g_anames[SEG_N][16] = {"PaOotSeg_000", "PaOotSeg_001", "PaOotSeg_002", "PaOotSeg_003", "PaOotSeg_004", "PaOotSeg_005", "PaOotSeg_006", "PaOotSeg_007", "PaOotSeg_008", "PaOotSeg_009", "PaOotSeg_010", "PaOotSeg_011", "PaOotSeg_012", "PaOotSeg_013", "PaOotSeg_014", "PaOotSeg_015", "PaOotSeg_016", "PaOotSeg_017", "PaOotSeg_018", "PaOotSeg_019", "PaOotSeg_020", "PaOotSeg_021", "PaOotSeg_022", "PaOotSeg_023", "PaOotSeg_024", "PaOotSeg_025", "PaOotSeg_026", "PaOotSeg_027", "PaOotSeg_028", "PaOotSeg_029", "PaOotSeg_030", "PaOotSeg_031", "PaOotSeg_032", "PaOotSeg_033", "PaOotSeg_034", "PaOotSeg_035", "PaOotSeg_036", "PaOotSeg_037", "PaOotSeg_038", "PaOotSeg_039", "PaOotSeg_040", "PaOotSeg_041", "PaOotSeg_042", "PaOotSeg_043", "PaOotSeg_044", "PaOotSeg_045", "PaOotSeg_046", "PaOotSeg_047", "PaOotSeg_048", "PaOotSeg_049", "PaOotSeg_050", "PaOotSeg_051", "PaOotSeg_052", "PaOotSeg_053", "PaOotSeg_054", "PaOotSeg_055", "PaOotSeg_056", "PaOotSeg_057", "PaOotSeg_058", "PaOotSeg_059", "PaOotSeg_060", "PaOotSeg_061", "PaOotSeg_062", "PaOotSeg_063", "PaOotSeg_064", "PaOotSeg_065", "PaOotSeg_066", "PaOotSeg_067", "PaOotSeg_068", "PaOotSeg_069", "PaOotSeg_070", "PaOotSeg_071", "PaOotSeg_072", "PaOotSeg_073", "PaOotSeg_074", "PaOotSeg_075", "PaOotSeg_076", "PaOotSeg_077", "PaOotSeg_078", "PaOotSeg_079", "PaOotSeg_080", "PaOotSeg_081", "PaOotSeg_082", "PaOotSeg_083", "PaOotSeg_084", "PaOotSeg_085", "PaOotSeg_086", "PaOotSeg_087", "PaOotSeg_088", "PaOotSeg_089", "PaOotSeg_090", "PaOotSeg_091", "PaOotSeg_092", "PaOotSeg_093", "PaOotSeg_094", "PaOotSeg_095", "PaOotSeg_096", "PaOotSeg_097", "PaOotSeg_098", "PaOotSeg_099", "PaOotSeg_100", "PaOotSeg_101", "PaOotSeg_102", "PaOotSeg_103", "PaOotSeg_104", "PaOotSeg_105", "PaOotSeg_106", "PaOotSeg_107", "PaOotSeg_108", "PaOotSeg_109", "PaOotSeg_110", "PaOotSeg_111", "PaOotSeg_112", "PaOotSeg_113", "PaOotSeg_114", "PaOotSeg_115", "PaOotSeg_116", "PaOotSeg_117", "PaOotSeg_118", "PaOotSeg_119", "PaOotSeg_120", "PaOotSeg_121", "PaOotSeg_122", "PaOotSeg_123", "PaOotSeg_124", "PaOotSeg_125", "PaOotSeg_126", "PaOotSeg_127"};
 static const u64 g_phash[SEG_N] = {HASH_PART0, HASH_PART1, HASH_PART2, HASH_PART3, HASH_PART4, HASH_PART5, HASH_PART6, HASH_PART7, HASH_PART8, HASH_PART9, HASH_PART10, HASH_PART11, HASH_PART12, HASH_PART13, HASH_PART14, HASH_PART15, HASH_PART16, HASH_PART17, HASH_PART18, HASH_PART19, HASH_PART20, HASH_PART21, HASH_PART22, HASH_PART23, HASH_PART24, HASH_PART25, HASH_PART26, HASH_PART27, HASH_PART28, HASH_PART29, HASH_PART30, HASH_PART31, HASH_PART32, HASH_PART33, HASH_PART34, HASH_PART35, HASH_PART36, HASH_PART37, HASH_PART38, HASH_PART39, HASH_PART40, HASH_PART41, HASH_PART42, HASH_PART43, HASH_PART44, HASH_PART45, HASH_PART46, HASH_PART47, HASH_PART48, HASH_PART49, HASH_PART50, HASH_PART51, HASH_PART52, HASH_PART53, HASH_PART54, HASH_PART55, HASH_PART56, HASH_PART57, HASH_PART58, HASH_PART59, HASH_PART60, HASH_PART61, HASH_PART62, HASH_PART63, HASH_PART64, HASH_PART65, HASH_PART66, HASH_PART67, HASH_PART68, HASH_PART69, HASH_PART70, HASH_PART71, HASH_PART72, HASH_PART73, HASH_PART74, HASH_PART75, HASH_PART76, HASH_PART77, HASH_PART78, HASH_PART79, HASH_PART80, HASH_PART81, HASH_PART82, HASH_PART83, HASH_PART84, HASH_PART85, HASH_PART86, HASH_PART87, HASH_PART88, HASH_PART89, HASH_PART90, HASH_PART91, HASH_PART92, HASH_PART93, HASH_PART94, HASH_PART95, HASH_PART96, HASH_PART97, HASH_PART98, HASH_PART99, HASH_PART100, HASH_PART101, HASH_PART102, HASH_PART103, HASH_PART104, HASH_PART105, HASH_PART106, HASH_PART107, HASH_PART108, HASH_PART109, HASH_PART110, HASH_PART111, HASH_PART112, HASH_PART113, HASH_PART114, HASH_PART115, HASH_PART116, HASH_PART117, HASH_PART118, HASH_PART119, HASH_PART120, HASH_PART121, HASH_PART122, HASH_PART123, HASH_PART124, HASH_PART125, HASH_PART126, HASH_PART127};
-#ifdef CLASSIC_REPLICA      /* built with features/classic_slots (variant without the third-party Classic) */
-#define PART_TOT (g_ootcfg.classic_replica ? PART_N : 0)   /* parts appended to PlayerStatus_00 */
-#define REPLICA (g_ootcfg.classic_replica != 0)
+#ifdef BUTTON_MAPPING      /* built with features/button_mapping (variant without the third-party Classic) */
+#define PART_TOT (g_ootcfg.button_mapping ? PART_N : 0)   /* parts appended to PlayerStatus_00 */
+#define BTNMAP (g_ootcfg.button_mapping != 0)
 #else
 #define PART_TOT 0         /* the third-party Classic draws its own buttons: no replica parts at all */
-#define REPLICA 0
+#define BTNMAP 0
 #endif
 static const char *part_name(u32 i) { return g_pnames[i % SEG_N]; }
 static u64 part_hash(u32 i) { return g_phash[i % SEG_N]; }
@@ -561,8 +561,8 @@ void *hud_prepare(void *handle, u8 *config) {
         char *d = g_pl[g_pl_n++];
         for (int i = 0; i < 15; i++) { d[i] = inst[i]; d[16 + i] = asset[i]; }
     }
-    u32 kind = str_eq(asset, "PlayerStatus_00") ? 1 : REPLICA && str_eq(asset, "PaItemMenu_00") ? 3 :
-               REPLICA && str_eq(asset, "PlusMenu_00") ? 4 : 0;
+    u32 kind = str_eq(asset, "PlayerStatus_00") ? 1 : BTNMAP && str_eq(asset, "PaItemMenu_00") ? 3 :
+               BTNMAP && str_eq(asset, "PlusMenu_00") ? 4 : 0;
     /* one of our slot buttons: its nested Pa_ReplaceIcon_00 is built next and gets the private copy */
     for (u32 k = 0; !kind && k < PART_N; k++)
         if (str_eq(inst, part_name(k))) { g_repicon_armed = 1; return config; }
@@ -1100,7 +1100,7 @@ static void ring_update(void) {
     ring_draw(RT2, RF2, RING2_DOTS, g_rs2, g_rc2, G[1], G[3], u2, f2, on, rgb);
 }
 
-/* ---- Classic replica: slot item buttons (appended PaItemBtn_00 parts) ----
+/* ---- buttonMapping: slot item buttons (appended PaItemBtn_00 parts) ----
  * Phase 1 test: bind the parts, place them, show a fixed icon per button through the stock ItemPattern animation. */
 #define SA_N 11
 static const char *slot_anim_name(u32 i) {
@@ -1120,7 +1120,7 @@ u64 g_sb_rif[PART_N][2];    /* nested Pa_ReplaceIcon_00 frame, its layout (diagn
  * (The icon's shadow pane cannot carry the button: it draws only the texture's shape in a fixed shadow tone.) */
 enum { SB_L, SB_X, SB_R, SB_Y, SB_A, SB_ZR, SB_B, SB_NBTN };
 int g_sb_item[PART_N] = {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1};   /* set by hud_slot_item() */
-/* features/classic_slots publishes its slots here: slot 0 B, 1 L, 2 R, 3 ZR (the item the game has equipped) */
+/* features/button_mapping publishes its slots here: slot 0 B, 1 L, 2 R, 3 ZR (the item the game has equipped) */
 void hud_slot_item(u32 slot, int item) {
     static const u8 PART_OF[3] = {11, 7, 8};
     if (slot < 3) g_sb_item[PART_OF[slot]] = item;   /* ZR (slot 3) mirrors the game's own item box: zr_mirror() */
@@ -1231,12 +1231,12 @@ static void set_icon_btn(SlotBtn *b, const char *name, const char *btn) {
 }
 /* ZR shows what the game has in its own (hidden) item box: the name its icon replacer last loaded
  * ([[[[our part + 0x28] + 0x150] + 0x1F0] + 0x38], e.g. "Item_DekuNut"), copied into the ZR item part's
- * fixed texture. hud_zr_item() turns it back into the item index (features/classic_slots re-equips it). */
+ * fixed texture. hud_zr_item() turns it back into the item index (features/button_mapping re-equips it). */
 char g_zr_name[32];
 static int g_zr_index = -1;
 int hud_zr_item(void) { return g_zr_index; }
 static int g_zr_hold;
-void hud_zr_hold(int hold) { g_zr_hold = hold; }   /* features/classic_slots: a slot item borrows the item box */
+void hud_zr_hold(int hold) { g_zr_hold = hold; }   /* features/button_mapping: a slot item borrows the item box */
 static int box_item(void);
 static void zr_mirror(void) {
     u64 part = g_sb[0].part;   /* any of our bound parts: [part + 0x28] is the PlayerStatus frame it lives in */
@@ -1480,7 +1480,7 @@ static void slots_draw(SlotBtn *set, const u64 *ctrls, u64 frame, float dx, floa
         }
         /* an item part with no item (and no fixed texture, like the sword) is hidden */
         u32 empty = k >= SB_NBTN && g_sb_item[k] < 0 && g_sb_force[k][0] <= 1;
-        float sc = empty || !REPLICA ? 0.0f : g_sb_sc[k] * scale;
+        float sc = empty || !BTNMAP ? 0.0f : g_sb_sc[k] * scale;
         if (b->rec) place(b->rec, g_sb_pos[k][0] * scale + dx, g_sb_pos[k][1] * scale + dy, sc, sc, 0.0f);
         /* ItemPattern = icon framing. Frame 0 shows the full picture: buttons, and items drawn big and even
          * like Classic (item_pattern() keeps the stock box's per-item framing for a smaller style) */
@@ -1525,7 +1525,7 @@ static void slots_draw(SlotBtn *set, const u64 *ctrls, u64 frame, float dx, floa
     }
 }
 /* Pause menu, Items tab: the cluster drawn on the menu page itself. Neither the HUD layer nor its frame update
- * run under the menu, so this is driven by the input hook (features/classic_slots), every frame. */
+ * run under the menu, so this is driven by the input hook (features/button_mapping), every frame. */
 /* Assign legend on the Items tab, bottom right above the game's own guide: which menu button assigns to which
  * slot. g_leg_pos = x of the first text, y, x step, text scale (layout units of PlusMenu_00, y up). */
 static char g_leg_txt[LEG_N][16] = {"Asignar:", "X: B", "L: L", "R: R", "A: ZR"};
@@ -1564,7 +1564,7 @@ void hud_menu_off(void) {
     for (u32 t = 0; t < LEG_N; t++) if (g_leg_rec[t]) place(g_leg_rec[t], 0.0f, 0.0f, 0.0f, 0.0f, 0.0f);
 }
 void hud_menu_tick(void) {
-    if (!REPLICA || g_sb_busy || !hud_menu_items()) return;
+    if (!BTNMAP || g_sb_busy || !hud_menu_items()) return;
     u64 mf = ptr(g_menu_panel, 0x20);
     if (!mf) return;
     if (mf != g_mb_frame) { g_mb_frame = mf; for (u32 k = 0; k < PART_N; k++) g_mb[k].part = 0; }
@@ -1575,10 +1575,10 @@ static void slots_update(u64 frame) {
     if (g_sb_busy) return;
     if (!g_ps_frame && g_sb[0].part) g_ps_frame = ptr(g_sb[0].part, 0x28);
     if (!hud_ingame()) return;
-    if (REPLICA) { zr_mirror(); sword_mirror(); }   /* (the ZR icon is frozen while a slot borrows the box) */
+    if (BTNMAP) { zr_mirror(); sword_mirror(); }   /* (the ZR icon is frozen while a slot borrows the box) */
     if (!g_stock_box_rec) g_stock_box_rec = pane_record(frame, "Pa_SelectItem_00");
     if (!g_stock_dots_rec) g_stock_dots_rec = pane_record(frame, "N_Shortcut_00");
-    for (u32 i = 0; i < 2 && g_sb_hide_stock && REPLICA; i++) {
+    for (u32 i = 0; i < 2 && g_sb_hide_stock && BTNMAP; i++) {
         u64 r = i ? g_stock_dots_rec : g_stock_box_rec;
         if (!r) continue;
         *(float *)(r + 0x60) = 0.0f; *(float *)(r + 0x64) = 0.0f;
@@ -1628,7 +1628,7 @@ static void a_label_update(void) {
     g_sb_force[SB_A][31] = 0;
 }
 static void slots_labels(u64 frame) {
-    if (!REPLICA) return;
+    if (!BTNMAP) return;
     static const float LABEL[3] = {0.92f, 0.92f, 0.92f};
     if (!hud_ingame()) return;
     a_label_update();
@@ -1763,7 +1763,7 @@ static int icon_list_ok(u64 part) {
 static u64 g_mb_ctrl_frame;
 u32 g_mb_ctrl_dbg[3];   /* controllers built, failed, parts whose list was not ready */
 static void hud_menu_ctrl_init(u64 fr, u64 heap) {
-    if (!REPLICA || !fr || !heap || fr == g_mb_ctrl_frame) return;
+    if (!BTNMAP || !fr || !heap || fr == g_mb_ctrl_frame) return;
     if (!find_part((void *)fr, part_name(0))) return;   /* not the page that carries our parts (build_menu) */
     g_mb_ctrl_frame = fr;
     for (u32 k = 0; k < PART_N; k++) {
@@ -1784,7 +1784,7 @@ static void hud_menu_ctrl_init(u64 fr, u64 heap) {
 /* pause menu: the caption panel of the highlighted item (its name string at +0x68, written by the call) */
 u64 g_menu_panel, g_menu_cell;
 u32 g_menu_sel_n;
-extern void classic_slots_on_open(const char *path, int mode) __attribute__((weak));
+extern void button_mapping_on_open(const char *path, int mode) __attribute__((weak));
 void hud_on_code(u32 id, void *a0, void *a1, void *a2, void *regs) {
     (void)a1; (void)a2;
     if (id == 5) { player_track((u64)a0); return; }
@@ -1797,7 +1797,7 @@ void hud_on_code(u32 id, void *a0, void *a1, void *a2, void *regs) {
     if (id == 12) { hud_slots_init((u64)a0, (u64)a1); return; }             /* PlayerStatus HUD init: build icon controllers */
     if (id == 18) {   /* nn::fs::OpenFile(handle, path, mode) */
         const char *path = (const char *)a1;
-        if (classic_slots_on_open && path) classic_slots_on_open(path, (int)(u64)a2);
+        if (button_mapping_on_open && path) button_mapping_on_open(path, (int)(u64)a2);
         return;
     }
     if (id == 15) { hud_menu_ctrl_init(ptr(*(u64 *)((u8 *)regs + 0xA0), 0x20), *(u64 *)((u8 *)regs + 0xA8)); return; }

@@ -12,7 +12,7 @@ Módulo de gameplay para el remake de consola (actualización v131072) y su app 
 - **Velocidad del sprint** configurable (por defecto +25 %).
 - **Vida de los enemigos** y **daño recibido** multiplicables; opción **sin drop de corazones**.
 - **Reloj y contador de rupias siempre visibles**, con el aspecto nativo del juego (12 / 24 h).
-- **Songbook**: al elegir una canción aprendida en el songbook nativo (ZL), Link la toca con sus notas y animación
+- **Songbook**: al elegir una canción aprendida en el songbook nativo (ZL), el héroe la toca con sus notas y animación
   normales. Solo funciona con canciones aprendidas.
 - **Opciones beta**: duplicar enemigos genéricos (Opción A) y acelerar su movimiento/cadencia ×2. Son experimentales
   y pueden romper puzles, misiones o el rendimiento; se activan en la app y se instalan como romfs extra.

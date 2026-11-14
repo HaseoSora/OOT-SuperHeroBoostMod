@@ -134,7 +134,7 @@ los lee en cada fotograma (`g_shbcfg`). **Solo se añaden campos al final** (usa
 | 30-32 | `hud_rupees`, `hud_clock`, `clock_24h` | HUD siempre visible (en la app el reloj es un selector: sin reloj / 12 h / 24 h) |
 | 33 | `no_heart_drop` (informativo; lo hace el romfs) | Sin drop de corazones |
 | 34 | `sprint_speed_pct` (u16, defecto 125) | Velocidad del sprint |
-| 36 | `songbook_enabled` | Canción elegida en el songbook -> Link la toca |
+| 36 | `songbook_enabled` | Canción elegida en el songbook -> la toca el héroe |
 
 **Añadir una opción nueva:** campo en `config.h` (quitando bytes de `reserved`), valor por defecto en `config.c`,
 escritura en `installer.patch_config` (`f = magia + 16`), campo en `installer.Settings`, flag en `main.cli`,

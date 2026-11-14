@@ -224,7 +224,7 @@ Consequence: only site 3 sees gameplay input. The four classic slot sites
   byte per song at `+0x264 + index` (1 = learned), page/state at `+0x278`, UI state at `+0x230`, busy flag at
   `+0x114`.
 - Song data: `GameParameter/MelodyScoreBook/Default.game__ocarina__MelodyScoreBook.bgyml`. It has 12 entries
-  (Zelda's Lullaby, Epona, Saria, Sun, Time, Storms, Minuet, Bolero, Serenade, Requiem, Nocturne, Prelude). Each
+  (Lullaby, Epona, Saria, Sun, Time, Storms, Minuet, Bolero, Serenade, Requiem, Nocturne, Prelude). Each
   `MelodyScore` is a list of note hashes.
 - Note hashes map to the five remake buttons: `0xCC...` (3433458314)=Y, `0x313...` (825411668)=X,
   `0x54D...` (1423767502)=A, `0x982...` (2552959238)=R, `0x63C...` (1673550086)=L.

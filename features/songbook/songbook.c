@@ -23,7 +23,7 @@ typedef struct {
 /* MelodyScoreBook order (GameParameter/MelodyScoreBook), translated with the
  * remake's five note buttons: L, R, A, Y, X. */
 static const Song g_songs[12] = {
-    {6, {BTN_Y, BTN_X, BTN_A, BTN_Y, BTN_X, BTN_A}},                  /* Zelda's Lullaby */
+    {6, {BTN_Y, BTN_X, BTN_A, BTN_Y, BTN_X, BTN_A}},                  /* Lullaby */
     {6, {BTN_X, BTN_Y, BTN_A, BTN_X, BTN_Y, BTN_A}},                  /* Epona's Song */
     {6, {BTN_R, BTN_A, BTN_Y, BTN_R, BTN_A, BTN_Y}},                  /* Saria's Song */
     {6, {BTN_A, BTN_R, BTN_X, BTN_A, BTN_R, BTN_X}},                  /* Sun's Song */

@@ -44,7 +44,6 @@ CODE_SITES = (
     (0x9352F0, "hook_code_speed", 10),   # ground movement (x0 player, x1 direction, s0 speed): sprint multiplier
     (0x2894340, "hook_code_ocarina_enter", 13),  # ocarina enter (x0 = ocarina/songbook context)
     (0x28947F0, "hook_code_ocarina_leave", 14),  # ocarina leave
-    (0x3296E20, "hook_code_ocarina_update", 15), # ocarina state machine (x0 = context)
     (0x152F8F0, "hook_code_inst", 4),   # part instance creation (x1 layout, x2 pane): diagnostics
     (0x43A6F8, "hook_ui", 2),            # UI resource build (x0 = handle, x1 = config)
 )

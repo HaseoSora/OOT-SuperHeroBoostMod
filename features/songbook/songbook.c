@@ -115,10 +115,11 @@ void songbook_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_result)
     if (sel < 12u && sel != g_songbook_sel && learned(g_songbook_ctx, sel)) arm(g_songbook_ctx, sel);
 }
 
-/* Ocarina update entry (code hook id 15): runs right before the state machine. */
-void songbook_on_update(void *ctx_) {
-    u64 ctx = (u64)ctx_;
-    if (!g_shbcfg.songbook_enabled) return;
+/* Per-frame hook (runs from the scheduler): the ocarina state machine is only
+ * called when the "finished playing" flag is set, so we must set it from here. */
+void songbook_on_frame(void) {
+    if (!g_shbcfg.songbook_enabled || !g_songbook_active) return;
+    u64 ctx = g_songbook_ctx;
     if (!valid_ptr(ctx)) return;
 
     u32 song_id = g_songbook_pending;
@@ -137,7 +138,7 @@ void songbook_on_update(void *ctx_) {
     if (busy != 0) return;
     u32 page = *(volatile u32 *)(ctx + 0x278);
     g_songbook_page = page;
-    /* The game calls this state machine only on page 0 (free play). */
+    /* The ocarina state machine only runs on page 0 (free play). */
     if (page != 0u) return;
 
     const Song *song = &g_songs[song_id];

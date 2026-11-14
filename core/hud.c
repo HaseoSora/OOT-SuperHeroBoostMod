@@ -35,6 +35,15 @@ extern void *memcpy(void *d, const void *s, unsigned long n);
 extern long set_text(void *pane, const void *ref, int zero);   /* stock text-pane setter (main+0x439520) */
 __attribute__((weak)) int quick_select_text(char *b, u32 cap);   /* features/quick_select */
 extern char GAMEDATA_MGR[];                                      /* main+0x4E842A8: GameData manager pointer slot */
+
+#if __has_include("../build/collectibles_data.h")
+#include "../build/collectibles_data.h"
+#else
+#define COLLECT_STAGES 0
+#define COLLECT_FLAGS 0
+static const unsigned char g_collect_table[1] = {0};
+static const unsigned short g_collect_flags[1] = {0};
+#endif
 extern char WORLD_MGR[];                                         /* main+0x4E7EAB0: world manager pointer slot */
 int player_active(void);
 
@@ -140,14 +149,16 @@ static void extend_pools(u8 *root, u32 add) {
     }
 }
 
-/* ---- clock / rupee plates, drawn like the game's own number display ----
- * Text fields: 0 = clock, 1 = rupees (green), 2 = "/wallet" (white). Each field has two panes
- * (field f uses panes f and f + FLD_N): the text is written to the hidden one. */
-#define FLD_N 3
+/* ---- clock / rupee / collectible plates, drawn like the game's own number display ----
+ * Text fields: 0 = clock, 1 = rupees (green), 2 = "/wallet" (white), 3 = area collectibles.
+ * Each field has two panes (field f uses panes f and f + FLD_N): the text is written to the hidden one. */
+#define FLD_N 4
 #define TXT_N (FLD_N * 2)
 static const char g_font_normal[] = "Normal";
-static char g_tnames[TXT_N][16] = {"T_ShbTxt_00", "T_ShbTxt_01", "T_ShbTxt_02", "T_ShbTxt_03", "T_ShbTxt_04", "T_ShbTxt_05"};
-static const u64 g_thash[TXT_N] = {HASH_TXT0, HASH_TXT1, HASH_TXT2, HASH_TXT3, HASH_TXT4, HASH_TXT5};
+static char g_tnames[TXT_N][16] = {"T_ShbTxt_00", "T_ShbTxt_01", "T_ShbTxt_02", "T_ShbTxt_03",
+                                   "T_ShbTxt_04", "T_ShbTxt_05", "T_ShbTxt_06", "T_ShbTxt_07"};
+static const u64 g_thash[TXT_N] = {HASH_TXT0, HASH_TXT1, HASH_TXT2, HASH_TXT3,
+                                   HASH_TXT4, HASH_TXT5, HASH_TXT6, HASH_TXT7};
 /* Picture panes. Each gets its own copy of the textured material of P_SubItemBg_00 with the game's
  * texture named below (all in the Common texture archive):
  *  0..3  clock plate:  fill, fill mirrored, edge, edge mirrored   (NumBaseSide_00 / _01, the plate of
@@ -164,7 +175,8 @@ static const u64 g_thash[TXT_N] = {HASH_TXT0, HASH_TXT1, HASH_TXT2, HASH_TXT3, H
 #define RT2 (RT1 + RING1_DOTS)              /* ring 2 track */
 #define RF1 (RT2 + RING2_DOTS)              /* ring 1 fill (+1 end dot) */
 #define RF2 (RF1 + RING1_DOTS + 1)          /* ring 2 fill (+1 end dot) */
-#define PIC_N (RF2 + RING2_DOTS + 1)
+#define PIC_PLATE3 (RF2 + RING2_DOTS + 1)   /* first pane of the collectible plate */
+#define PIC_N (PIC_PLATE3 + 4)              /* + fill, fill mirrored, edge, edge mirrored */
 static char g_pinames[PIC_N][16];           /* "P_ShbPic_000".. filled by pic_names() */
 static const u64 g_pihash[400] = {HASH_PIC_LIST};   /* CityHash64 of "P_ShbPic_000".. (tools/build_core.py) */
 _Static_assert(PIC_N <= 400, "more picture panes than generated hashes");
@@ -174,9 +186,12 @@ static const u8 g_pitex0[20] = {0, 0, 1, 1, 0, 0, 1, 1, 2, 3, 4, 4, 4, 4, 4, 4, 
 /* pane sizes in layout units (scaled at runtime); ring dots are 100 x 100 */
 static const float g_pic_w0[20] = {1014, 1014, 1014, 1014, 1014, 1014, 1014, 1014, 120, 60, 9, 9, 9, 9, 9, 9, 9, 9, 76, 70};
 static const float g_pic_h0[20] = {160, 160, 160, 160, 160, 160, 160, 160, 120, 60, 26, 26, 26, 26, 26, 26, 26, 26, 76, 70};
-static u32 pic_tex(u32 k) { return k < 20 ? g_pitex0[k] : 3; }
-static float pic_w(u32 k) { return k < 20 ? g_pic_w0[k] : 100.0f; }
-static float pic_h(u32 k) { return k < 20 ? g_pic_h0[k] : 100.0f; }
+static u32 pic_tex(u32 k) {
+    if (k >= PIC_PLATE3) return (k - PIC_PLATE3) < 2 ? 0 : 1;
+    return k < 20 ? g_pitex0[k] : 3;
+}
+static float pic_w(u32 k) { return k >= PIC_PLATE3 ? 1014.0f : k < 20 ? g_pic_w0[k] : 100.0f; }
+static float pic_h(u32 k) { return k >= PIC_PLATE3 ? 160.0f : k < 20 ? g_pic_h0[k] : 100.0f; }
 static void pic_names(void) {
     for (u32 k = 0; k < PIC_N; k++) {
         static const char P[] = "P_ShbPic_";
@@ -189,17 +204,19 @@ static void pic_names(void) {
 #define HUD_X (-1450.0f)
 #define HUD_Y_CLOCK (-880.0f)
 #define HUD_Y_RUPEE (-990.0f)
+#define HUD_Y_COLLECT (-1100.0f)
 /* Look parameters (in .data so they can be tuned live with tools/hud_tune.py):
  *  0 plate centre x, 1 clock row y, 2 rupee row y, 3 plate scale x, 4 plate scale y,
  *  5 icon x (from the plate centre), 6 icon scale, 7 text x (from the plate centre), 8 text y offset,
  *  9 advance of one digit (text units), 10 fill alpha, 11 edge alpha, 12 sun ray radius,
  *  13 text scale, 14 moon shadow offset, 15 edge brightness, 16 icon override (0 by the hour, 1 sun, 2 moon),
  *  17 moon scale, 18 moon shadow scale, 19 moon shadow brightness (matches the plate),
- *  20 clock plate x, 21 clock plate y (the clock sits to the right of the rupee counter)
+ *  20 clock plate x, 21 clock plate y (the clock sits to the right of the rupee counter),
+ *  22 collectible plate x, 23 collectible plate y (below the rupee counter)
  * Values tuned live against the look of the game's own rupee counter. */
-float g_hudp[22] = {-1518.0f, -860.0f, -960.0f, 0.46f, 0.62f, -165.0f, 0.85f, 30.0f, 0.0f,
+float g_hudp[24] = {-1518.0f, -860.0f, -960.0f, 0.46f, 0.62f, -165.0f, 0.85f, 30.0f, 0.0f,
                     29.0f, 0.9f, 0.6f, 30.0f, 0.7f, 14.0f, 0.45f, 0.0f, 0.75f, 0.75f, 0.09f,
-                    -1000.0f, -960.0f};
+                    -1000.0f, -960.0f, -1518.0f, -1100.0f};
 static int tbl_add(u8 *root, u32 off, const char *name, void *desc, u64 hash) {
     u32 n = w(root, off + 24);
     for (u32 j = 0; j < 3; j++) {
@@ -345,7 +362,8 @@ static u8 *build_root(const u8 *r) {
             *(u32 *)(cd + 40) = 0;
             *(u32 *)(cd + 52) = npane + t + 1;
             *(float *)(cd + 28) = HUD_X + 40.0f;
-            *(float *)(cd + 32) = (t % FLD_N) ? HUD_Y_RUPEE : HUD_Y_CLOCK;
+            u32 fld = t % FLD_N;
+            *(float *)(cd + 32) = fld == 0 ? HUD_Y_CLOCK : fld == 3 ? HUD_Y_COLLECT : HUD_Y_RUPEE;
             *(unsigned short *)(cd + 0x3c) = (unsigned short)(nb + t);
             *(unsigned short *)(cd + 0x42) = (unsigned short)(nt + t);
             if (!tbl_add(root, 0x20, g_tnames[t], cd, g_thash[t]) || !tbl_add(root, 0x40, g_tnames[t], bd, g_thash[t]) ||
@@ -689,8 +707,8 @@ static void drive_segs(void) {
 
 /* ---- clock / rupee plates ---- */
 u64 g_txt_dbg[8] = {MARK, MARK, MARK, MARK, MARK, MARK, MARK, MARK};
-static char g_tbuf[TXT_N][16];      /* ASCII: the engine's text setter takes 8-bit text + byte length */
-static char g_tlast[FLD_N][16];
+static char g_tbuf[TXT_N][48];      /* ASCII: the engine's text setter takes 8-bit text + byte length */
+static char g_tlast[FLD_N][48];
 static u32 g_tfront[FLD_N], g_tpend[FLD_N], g_twait[FLD_N];
 /* Setting the text of a pane leaves it blank for a frame. Each field has two panes: the new text goes to the
  * hidden one, and after it has been drawn a few frames the two swap (shown = Y scale > 0, hidden = 0). */
@@ -722,7 +740,7 @@ static void put_text(u64 frame, u32 f, const char *ascii, float x, float y, u32 
     place(rb, x, y, ts, 0.0f, 0.0f);
     if (g_tpend[f]) return;
     u32 n = 0;
-    while (ascii[n] && n < 15) n++;
+    while (ascii[n] && n < 47) n++;
     int same = 1;
     for (u32 i = 0; i <= n; i++) if (g_tlast[f][i] != ascii[i]) same = 0;
     if (same) return;
@@ -784,15 +802,67 @@ static void plates_hide(u64 frame) {
         if (rec) place(rec, g_hudp[0], g_hudp[2], 0.0f, 0.0f, 0.0f);
     }
 }
+/* ---- per-area collectibles (beta) ----
+ * Sequence_CurrentBanc is String64 record 31 (same layout as quick_select): the live string is at
+ * +0x74 of a 0x108-byte record. The generated table has the Bool-table indexes of the Gold
+ * Skulltula flags and of the HeartPieceAnchor_GameDataPath flags for every Banc. */
+static u32 collect_stage(char *out, u32 cap) {
+    u64 mgr = *(u64 *)GAMEDATA_MGR;
+    if (!mgr) return 0;
+    u64 tab = mgr + 8 + 0x60 * 16;                 /* String64 table */
+    u32 cnt = *(u32 *)(tab + 8);
+    u64 rec = *(u64 *)(tab + 0x10);
+    if (!rec || cnt <= 31) return 0;
+    const char *s = (const char *)(rec + 31ull * 0x108ull + 0x74ull);
+    u32 n = 0;
+    while (s[n] && n + 1 < cap) { out[n] = s[n]; n++; }
+    out[n] = 0;
+    return n;
+}
+static u32 collect_bool(u64 recs, u32 count, u32 idx) {
+    if (!recs || idx >= count) return 0;
+    return *(volatile unsigned char *)(recs + (u64)idx * 0x18ull + 0x16ull) != 0;
+}
+static int collect_counts(u32 *sd, u32 *st, u32 *hd, u32 *ht) {
+    *sd = *st = *hd = *ht = 0;
+    char stage[40];
+    if (!collect_stage(stage, sizeof stage)) return 0;
+    for (u32 i = 0; i < COLLECT_STAGES; i++) {
+        const unsigned char *r = g_collect_table + (u64)i * 48ull;
+        int hit = 0;
+        for (u32 j = 0; j < 40; j++) {
+            if (r[j] != (unsigned char)stage[j]) break;
+            if (!r[j]) { hit = 1; break; }
+        }
+        if (!hit) continue;
+        u32 so = (u32)r[40] | ((u32)r[41] << 8), sn = r[42];
+        u32 ho = (u32)r[44] | ((u32)r[45] << 8), hn = r[46];
+        u64 mgr = *(u64 *)GAMEDATA_MGR;
+        if (!mgr) return 0;
+        u32 cnt = *(u32 *)(mgr + 8 + 8);           /* Bool table */
+        u64 recs = *(u64 *)(mgr + 8 + 0x10);
+        for (u32 k = 0; k < sn && so + k < COLLECT_FLAGS; k++) {
+            *st += 1; *sd += collect_bool(recs, cnt, g_collect_flags[so + k]);
+        }
+        for (u32 k = 0; k < hn && ho + k < COLLECT_FLAGS; k++) {
+            *ht += 1; *hd += collect_bool(recs, cnt, g_collect_flags[ho + k]);
+        }
+        return (*st || *ht) ? 1 : 0;
+    }
+    return 0;
+}
 static void plates_update(u64 frame) {
     for (u32 k = 0; k < PIC_N; k++)
         if (!g_pic_rec[k]) g_pic_rec[k] = pane_record(frame, g_pinames[k]);
     for (u32 k = 0; k < PIC_N; k++) if (!g_pic_rec[k]) return;
     u32 active = player_active() != 0;
     u32 clk = active && g_shbcfg.hud_clock, rup = active && g_shbcfg.hud_rupees;
+    u32 sd = 0, st = 0, hd = 0, ht = 0;
+    u32 col = (active && g_shbcfg.hud_collectibles) ?
+              (u32)collect_counts(&sd, &st, &hd, &ht) : 0;
     /* outside gameplay (loading, menus, cutscenes) nothing is touched except hiding the plates once:
      * setting texts there costs the engine a slow lookup per call */
-    if (!clk && !rup) {
+    if (!clk && !rup && !col) {
         g_hud_show[0] = g_hud_show[1] = 0x10000000u;
         if (g_plates_shown) { plates_hide(frame); g_plates_shown = 0; }
         return;
@@ -814,6 +884,14 @@ static void plates_update(u64 frame) {
             if (j < 2) tint_rec(rec, 0.0f, 0.0f, 0.0f, P[10]);
             else tint_rec(rec, P[15], P[15], P[15], P[11]);
         }
+    }
+    /* collectible plate (below the rupee counter) */
+    for (u32 j = 0; j < 4; j++) {
+        u64 rec = g_pic_rec[PIC_PLATE3 + j];
+        float sx = P[3] * ((j & 1) ? -1.0f : 1.0f);
+        place(rec, P[22], P[23], col ? sx : 0.0f, col ? P[4] : 0.0f, 0.0f);
+        if (j < 2) tint_rec(rec, 0.0f, 0.0f, 0.0f, P[10]);
+        else tint_rec(rec, P[15], P[15], P[15], P[11]);
     }
     /* rupee icon */
     place(g_pic_rec[8], P[0] + P[5], P[2], rup ? P[6] : 0.0f, rup ? P[6] : 0.0f, 0.0f);
@@ -885,6 +963,15 @@ static void plates_update(u64 frame) {
         float x0 = tx - P[9] * (wa + wb) * 0.5f;
         put_text(frame, 1, a, x0 + P[9] * wa * 0.5f, P[2] + ty, rup, GREEN);
         put_text(frame, 2, b, x0 + P[9] * (wa + wb * 0.5f), P[2] + ty, rup, WHITE);
+    }
+    {   /* per-area Skulltulas / heart pieces */
+        char b[40]; u32 n = 0;
+        b[n++] = 'S'; b[n++] = 'K'; b[n++] = 'U'; b[n++] = 'L'; b[n++] = 'L'; b[n++] = ' ';
+        n += put_int(b + n, (int)sd); b[n++] = '/'; n += put_int(b + n, (int)st);
+        b[n++] = ' '; b[n++] = ' '; b[n++] = 'C'; b[n++] = 'O'; b[n++] = 'R'; b[n++] = ' ';
+        n += put_int(b + n, (int)hd); b[n++] = '/'; n += put_int(b + n, (int)ht);
+        b[n] = 0;
+        put_text(frame, 3, b, P[22] + P[7], P[23] + ty, col, WHITE);
     }
 }
 static void txt_update(u64 frame) {

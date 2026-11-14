@@ -53,6 +53,7 @@ class Settings:
     songbook: bool = True            # play a learned song by selecting it in the native songbook
     quick_boots: bool = False        # beta: hold D-pad down to pick the boots
     quick_mask: bool = False         # beta: hold D-pad up to pick a mask
+    hud_collectibles: bool = False   # beta: per-area Skulltula / heart-piece counter
     enemy_double: bool = False       # beta: install the duplicated-enemy romfs mod
     enemy_speed: bool = False        # beta: install the x2 enemy animation/movement/cadence romfs mod
     great_fairy: bool = False        # beta: reorder the three Great Fairy magic rewards
@@ -174,6 +175,7 @@ def patch_config(nso: bytes, s: Settings) -> bytes:
     b[f + 20] = int(s.songbook)
     b[f + 21] = int(s.quick_boots)
     b[f + 22] = int(s.quick_mask)
+    b[f + 23] = int(s.hud_collectibles)
     return bytes(b)
 
 

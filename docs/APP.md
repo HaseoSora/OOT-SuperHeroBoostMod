@@ -68,6 +68,11 @@ dropped hearts become green rupees (the optional romfs file; see the note below)
   PlayerStatus.EquipHeadArmor GameData slots as the pause menu. A short tap keeps the normal behaviour.
   Experimental: back up the save. Masks are the child head-armour set; the Lens of Truth is a C-item, not a
   head armour.
+- **Area collectibles counter (beta)**: adds a third native-style plate below the rupee/clock row with the
+  Gold Skulltulas and heart pieces of the current Banc, for example `SKULL 3/8  COR 1/2`. It reads the live
+  `IsGoldSkullDead` and `HeartPieceAnchor_GameDataPath` flags and `Sequence_CurrentBanc`. The heart count only
+  includes pieces that the game associates with a map anchor; some chest/minigame pieces without one are not
+  counted yet.
 - **Modificaciones varias**: Songbook autoplay (select a learned song in the game's native songbook with ZL and it plays
   automatically, effect included; not the Scarecrow's Song) and two
   **beta** toggles:

@@ -304,3 +304,19 @@ Both mods are generated from the user's own dump by `tools/make_enemy_opts.py`; 
   The `FaroreWind_Warp` entry has no dungeon check, only the MP check.
 - `Mals/<lang>.Product.110.sarc.zs` holds `EventFlowMsg/*.msbt`. The Din fairy's sister overview (messages 7/9/10)
   still names the original rewards; fixing it needs an MSBT TXT2 rebuild (not done in this beta).
+
+## Area collectible HUD counter (Nov 14)
+- Current area: GameData `Sequence_CurrentBanc` is **String64 index 31** (`HyruleField_Child`, `Market_Child`,
+  ...); the live string is at `+0x74` of a 0x108-byte record, same layout as the quick-select equipment slots.
+- Gold Skulltulas: `IsGoldSkullDead` is a **Struct** with 100 Bool members. The member name is
+  `IsGoldSkullDead_<placement hash as unsigned decimal>` and the full Bool entry is
+  `IsGoldSkullDead.IsGoldSkullDead_<hash>`. Those Bool entries are also in the GameDataList's `Bool` section,
+  so the live value is the Bool table record at index `position in that section` (stride 0x18, live byte at +0x16).
+  114 Gold Skulltula actors map to 100 unique flags (adult/child Banc variants repeat some).
+- Heart pieces: `HeartPieceAnchor` actors with `Dynamic.HeartPieceAnchor_GameDataPath` name a Bool flag
+  (e.g. `DeathMountain_Enemy_Scrub_Business_HeartPiece_01`); 21 anchors / 16 unique flags. Several
+  `Obj_Heart_Piece` actors have anchors with no path (chest/minigame pieces), so the counter currently covers
+  only the map-anchored pieces. The rest would need the chest/scene flag source.
+- `tools/make_collectibles.py` scans the Bancs and writes `build/collectibles_data.h` (43 Banc names,
+  135 Bool indexes) before the core build; `hud.c` includes it and reads the Bool table live. If the dump is
+  missing it writes an empty table and the plate stays hidden.

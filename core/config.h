@@ -29,7 +29,8 @@ typedef struct {
     unsigned char songbook_enabled;  /* play a learned song by selecting it in the native songbook */
     unsigned char quick_boots;       /* beta: hold D-pad down to pick the boots */
     unsigned char quick_mask;        /* beta: hold D-pad up to pick a mask */
-    unsigned char reserved[31];
+    unsigned char hud_collectibles; /* beta: per-area Skulltula / heart-piece counter */
+    unsigned char reserved[30];
 } ShbConfig;
 
 extern volatile ShbConfig g_shbcfg;

@@ -36,6 +36,9 @@ def main():
         shutil.copytree(OUT / "romfs_opts", keep)
     if OUT.exists():
         shutil.rmtree(OUT)
+    r = subprocess.run([sys.executable, str(ROOT / "tools" / "make_collectibles.py")], cwd=ROOT)
+    if r.returncode:
+        print("WARNING: collectible table not built (game dump missing?): the HUD counter stays empty")
     man = {"build_id": BUILD_ID, "variants": {}}
     for name, base in VARIANTS.items():
         subprocess.run([sys.executable, str(ROOT / "tools" / "build_core.py"), "--features", "stamina,songbook,quick_select",

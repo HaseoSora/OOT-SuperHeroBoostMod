@@ -64,6 +64,7 @@ def cli(argv) -> int:
     ap.add_argument("--enemy-speed", action="store_true", help="beta: accelerate enemy animation/movement/cadence (romfs)")
     ap.add_argument("--great-fairy", action="store_true", help="beta: reorder the three Great Fairy magic rewards (romfs)")
     ap.add_argument("--farore-outdoor", action="store_true", help="beta: allow Farore's Wind points outside dungeons (romfs)")
+    ap.add_argument("--hud-collectibles", action="store_true", help="beta: per-area Skulltula / heart-piece counter")
     ap.add_argument("--off", default=None, help="advanced: comma list of jump,attack,sprint,block,shoot,roll to disable")
     ap.add_argument("--combat-only", action="store_true", default=None)
     ap.add_argument("--name", default=I.MOD_NAME)
@@ -117,6 +118,8 @@ def cli(argv) -> int:
         s.great_fairy = True
     if a.farore_outdoor:
         s.farore_outdoor = True
+    if a.hud_collectibles:
+        s.hud_collectibles = True
     if a.combat_only:
         s.combat_only = True
     if a.enemy_hp is not None:
@@ -229,6 +232,7 @@ def gui() -> None:
     songbook = tk.BooleanVar(value=bool(cfg.get("songbook", True)))
     quick_boots = tk.BooleanVar(value=bool(cfg.get("quick_boots", False)))
     quick_mask = tk.BooleanVar(value=bool(cfg.get("quick_mask", False)))
+    hud_collectibles = tk.BooleanVar(value=bool(cfg.get("hud_collectibles", False)))
     enemy_double = tk.BooleanVar(value=bool(cfg.get("enemy_double", False)))
     enemy_speed = tk.BooleanVar(value=bool(cfg.get("enemy_speed", False)))
     great_fairy = tk.BooleanVar(value=bool(cfg.get("great_fairy", False)))
@@ -341,6 +345,7 @@ def gui() -> None:
         songbook.set(v["songbook"])
         quick_boots.set(v["quick_boots"])
         quick_mask.set(v["quick_mask"])
+        hud_collectibles.set(v["hud_collectibles"])
         mode.set(STAMINA_MODES[v["mode"]])
         for k, val in zip(KEYS, v["costs"]):
             costs[k].set(val)
@@ -378,7 +383,8 @@ def gui() -> None:
         refresh()
         autosave()
 
-    for var in (classic, stamina, songbook, quick_boots, quick_mask, enemy_double, enemy_speed,
+    for var in (classic, stamina, songbook, quick_boots, quick_mask, hud_collectibles,
+                enemy_double, enemy_speed,
                 great_fairy, farore_outdoor, mode,
                 combat, hp, dmg, speed, nodrop,
                 rupees, clock_mode, *costs.values()):
@@ -410,6 +416,7 @@ def gui() -> None:
     def settings():
         return I.Settings(classic=classic.get(), stamina=stamina.get(), songbook=songbook.get(),
                           quick_boots=quick_boots.get(), quick_mask=quick_mask.get(),
+                          hud_collectibles=hud_collectibles.get(),
                           enemy_double=enemy_double.get(), enemy_speed=enemy_speed.get(),
                           great_fairy=great_fairy.get(), farore_outdoor=farore_outdoor.get(),
                           preset=STAMINA_MODES.index(mode.get()),
@@ -425,6 +432,7 @@ def gui() -> None:
             "classic": classic.get(), "variant": variant.get(),
             "stamina": stamina.get(), "songbook": songbook.get(),
             "quick_boots": quick_boots.get(), "quick_mask": quick_mask.get(),
+            "hud_collectibles": hud_collectibles.get(),
             "enemy_double": enemy_double.get(), "enemy_speed": enemy_speed.get(),
             "great_fairy": great_fairy.get(), "farore_outdoor": farore_outdoor.get(),
             "stamina_mode": mode.get(),
@@ -616,6 +624,8 @@ def gui() -> None:
         ui["clock"] = cb
         ui["clock_var"] = cvar
         ui["clock_values"] = values
+        check(body, L("hud_collectibles"), hud_collectibles).pack(anchor="w", pady=(8, 0))
+        label(body, L("hud_collectibles_desc"), size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=(20, 0))
         label(body, L("hud_note"), size=9, color=DIM, bg=PANEL).pack(anchor="w", pady=(8, 0))
         build_buttons(parent)
         build_quick_select(parent)
@@ -784,7 +794,8 @@ def gui() -> None:
     elif profile.get() != "custom":
         apply_profile(profile.get(), save=False)
 
-    for v in (emu, classic, variant, stamina, songbook, quick_boots, quick_mask, enemy_double,
+    for v in (emu, classic, variant, stamina, songbook, quick_boots, quick_mask, hud_collectibles,
+              enemy_double,
               enemy_speed, great_fairy, farore_outdoor, mode, combat, hp, dmg, speed,
               nodrop, rupees, clock_mode, *costs.values()):
         v.trace_add("write", autosave)

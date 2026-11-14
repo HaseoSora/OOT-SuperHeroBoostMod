@@ -19,6 +19,9 @@ Módulo de gameplay para el remake de consola (actualización v131072) y su app 
 - **Selector rápido (beta)**: mantener abajo para elegir botas o arriba para máscaras, con izquierda/derecha y
   soltar para equipar, sin abrir el menú. Son experimentales
   y pueden romper puzles, misiones o el rendimiento; se activan en la app y se instalan como romfs extra.
+- **Contador de la zona (beta)**: panel nativo debajo del reloj con las Skulltulas doradas y las piezas de
+  corazón del Banc actual (por ejemplo `SKULL 3/8  COR 1/2`). Las piezas de corazón sin ancla de mapa
+  (algunos cofres/minijuegos) todavía no se cuentan.
 - **Cambios del mundo (beta)**: reordena las magias de las Grandes Hadas (Hyrule niño → Amor de Nayru, cráter →
   ataque circular, coloso del desierto → doble magia) y permite colocar puntos del Viento de Farore fuera de los
   calabozos. El diálogo de la hada de Din sigue describiendo el orden original.

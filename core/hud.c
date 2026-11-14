@@ -1226,21 +1226,48 @@ extern u64 g_menu_panel, g_menu_cell;
 int hud_menu_items(void) {
     return g_menu_panel && !hud_ingame() && *(volatile u8 *)(g_menu_panel + 0x28) == 2;
 }
-int hud_menu_item(void) {
-    if (!hud_menu_items()) return -1;
+/* the highlighted cell's widget (main+0x43E500's: +0x30 Decide, +0x38 Failure, +0x48 State animations) */
+static u64 menu_cell_widget(void) {
+    if (!hud_menu_items()) return 0;
     u64 p = g_menu_panel;
-    int idx = *(volatile int *)(p + 0x90);
     int n = *(volatile int *)(p + 0x70);
     u64 list = *(volatile u64 *)(p + 0x78);
-    if (idx < 0 || idx >= 64 || n <= 0 || n > 256 || !list) return -1;
+    if (n <= 0 || n > 256 || !list) return 0;
     for (int i = 0; i < n; i++) {
         u64 e = *(volatile u64 *)(list + (u64)i * 8);
-        if (!e || *(volatile u64 *)(e + 0xE8) != g_menu_cell) continue;
-        u64 a = *(volatile u64 *)(e + 0x48);
-        a = a ? *(volatile u64 *)(a + 0x20) : 0;
-        return a && *(volatile float *)(a + 0x18) != 0.0f ? idx : -1;
+        if (e && *(volatile u64 *)(e + 0xE8) == g_menu_cell) return e;
     }
-    return -1;
+    return 0;
+}
+int hud_menu_item(void) {
+    u64 e = menu_cell_widget();
+    if (!e) return -1;
+    int idx = *(volatile int *)(g_menu_panel + 0x90);
+    if (idx < 0 || idx >= 64) return -1;
+    u64 a = *(volatile u64 *)(e + 0x48);
+    a = a ? *(volatile u64 *)(a + 0x20) : 0;
+    return a && *(volatile float *)(a + 0x18) != 0.0f ? idx : -1;
+}
+/* The cell's Decide animation: what the game plays when A puts an item in its box. main+0x2D0FE0 plays an
+ * animation from its start; a playing one is linked in its layout's list (idle, its list node points to itself). */
+extern void anim_play(u64 anim);
+void hud_menu_decide(void) {
+    u64 e = menu_cell_widget(), a = e ? ptr(e, 0x30) : 0;
+    if (a) { anim_play(a); *(volatile float *)(a + 0x10) = 1.0f; }   /* play leaves the speed at 0 (the game's sets 1) */
+}
+int hud_menu_decided(void) {
+    u64 e = menu_cell_widget(), a = e ? ptr(e, 0x30) : 0;
+    return a && ptr(a, 0) != a;
+}
+/* the game put an item in its box from the menu (A): show it on ZR now (the HUD box catches up on close) */
+void hud_menu_zr(int item) {
+    const char *nm = item_name(item);
+    if (!nm || g_zr_hold) return;
+    char *dst = g_sb_force[10];
+    u32 i;
+    for (i = 0; i < 30 && nm[i]; i++) dst[i] = nm[i];
+    dst[i] = 0;
+    dst[31] = 0;
 }
 /* Y shows the equipped sword: GameData PlayerStatus.EquipWeapon (String64 table k = 16, record 23, 0x108 bytes
  * each, the live string at +0x74 / pointed to by +0x68). Its value is the icon name itself (Weapon_Sword_Kokiri,
@@ -1324,7 +1351,8 @@ static void slots_draw(SlotBtn *set, const u64 *ctrls, u64 frame, float dx, floa
         if (b->ctrl && !g_sb_busy && g_sb_force[k][0] > 1) {
             char nm[32];
             u32 i;
-            for (i = 0; i < 31 && g_sb_force[k][i]; i++) nm[i] = g_sb_force[k][i];
+            const char *src = !main_set && k == SB_A ? "OotBtnS_Blank" : g_sb_force[k];   /* menu: A unlettered, like X */
+            for (i = 0; i < 31 && src[i]; i++) nm[i] = src[i];
             nm[i] = 0;
             if (nm[0] == 'O' && i > 7 && nm[7] == '_')
                 nm[6] = g_ootcfg.button_style == 1 ? 'X' : g_ootcfg.button_style == 2 ? 'P' : 'S';

@@ -59,7 +59,11 @@ void hud_zr_hold(int hold);
 int hud_ingame(void);   /* core/hud.c: 0 while a menu covers the game (pause ...) */
 int hud_menu_items(void);   /* core/hud.c: the pause menu's Items tab is open */
 int hud_menu_item(void);    /* core/hud.c: item index highlighted there (-1: none / not owned) */
-void hud_menu_tick(void);   /* core/hud.c: draw the slot cluster on the menu page */   /* core/hud.c: keep showing the ZR item while a slot item borrows the item box */
+void hud_menu_tick(void);   /* core/hud.c: draw the slot cluster on the menu page */
+void hud_menu_decide(void); /* core/hud.c: play the highlighted cell's Decide animation (the game's A feedback) */
+int hud_menu_decided(void); /* core/hud.c: that animation is playing */
+void hud_menu_zr(int item); /* core/hud.c: show an item on ZR now */
+static int g_menu_a_item = -1, g_menu_a_wait;   /* A pressed on this item: did the game put it in its box? */   /* core/hud.c: keep showing the ZR item while a slot item borrows the item box */
 /* The game's own "put this item in the item box" call, as the R button makes it (main+0x33C9AB4):
  * main+0x1211C00(item manager, item set, item index, 1, 1); manager = **(main+0x4C7E0D0),
  * set = byte +0x5C0 of **(main+0x4C7E2A8). Calling it directly equips without pressing R (R opens the selector). */
@@ -159,6 +163,13 @@ void classic_slots_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_re
             for (int o = 0; o < SLOT_ZR; o++) if (o != s && g_assign[o] == it) g_assign[o] = g_assign[s];
             g_assign[s] = it;
             g_cl_dbg[3]++;
+            hud_menu_decide();
+        }
+        /* A is the game's own: it puts the item in its box (ZR) and plays the cell's Decide animation */
+        if (pressed & BTN_A) { g_menu_a_item = hud_menu_item(); g_menu_a_wait = 20; }
+        if (g_menu_a_wait > 0) {
+            g_menu_a_wait--;
+            if (g_menu_a_item >= 0 && hud_menu_decided()) { g_zr_item = g_menu_a_item; hud_menu_zr(g_menu_a_item); g_menu_a_wait = 0; }
         }
         for (int s = 0; s < SLOT_ZR; s++) hud_slot_item((u32)s, g_assign[s]);   /* show a swap at once */
         hud_menu_tick();

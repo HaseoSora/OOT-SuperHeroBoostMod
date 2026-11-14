@@ -202,6 +202,7 @@ Consequence: only site 3 sees gameplay input. The four classic slot sites
   produced hundreds of thousands of "Unmapped Read/Write" log lines at load (black screen ~2 min, 30-100 MB log).
 - Tint: pane object (record +8) +0x20 = RGBA floats, works for pictures and text panes.
 - Tuning: g_hudp[] in core/hud.c; tools/hud_tune.py set/get/shot/cfg writes it live (and the HUD options).
+  `g_hudp[20]`/`[21]` are the clock plate x/y, so the clock sits to the right of the rupee counter.
 
 ## Stamina ring as a dot tube (replaces the 128 gauge parts)
 - The ring is now ~230 plain picture panes (P_ShbPic_020..) with the stock Circle64_00 texture: 48 dots on ring 1

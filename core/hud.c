@@ -193,10 +193,12 @@ static void pic_names(void) {
  *  5 icon x (from the plate centre), 6 icon scale, 7 text x (from the plate centre), 8 text y offset,
  *  9 advance of one digit (text units), 10 fill alpha, 11 edge alpha, 12 sun ray radius,
  *  13 text scale, 14 moon shadow offset, 15 edge brightness, 16 icon override (0 by the hour, 1 sun, 2 moon),
- *  17 moon scale, 18 moon shadow scale, 19 moon shadow brightness (matches the plate)
+ *  17 moon scale, 18 moon shadow scale, 19 moon shadow brightness (matches the plate),
+ *  20 clock plate x, 21 clock plate y (the clock sits to the right of the rupee counter)
  * Values tuned live against the look of the game's own rupee counter. */
-float g_hudp[20] = {-1518.0f, -860.0f, -960.0f, 0.46f, 0.62f, -165.0f, 0.85f, 30.0f, 0.0f,
-                    29.0f, 0.9f, 0.6f, 30.0f, 0.7f, 14.0f, 0.45f, 0.0f, 0.75f, 0.75f, 0.09f};
+float g_hudp[22] = {-1518.0f, -860.0f, -960.0f, 0.46f, 0.62f, -165.0f, 0.85f, 30.0f, 0.0f,
+                    29.0f, 0.9f, 0.6f, 30.0f, 0.7f, 14.0f, 0.45f, 0.0f, 0.75f, 0.75f, 0.09f,
+                    -1000.0f, -960.0f};
 static int tbl_add(u8 *root, u32 off, const char *name, void *desc, u64 hash) {
     u32 n = w(root, off + 24);
     for (u32 j = 0; j < 3; j++) {
@@ -802,11 +804,12 @@ static void plates_update(u64 frame) {
     /* plates: fill + edge, each drawn twice (mirrored) so both ends get the chevron */
     for (u32 row = 0; row < 2; row++) {
         u32 on = row ? rup : clk;
-        float y = row ? P[2] : P[1];
+        float x = row ? P[0] : P[20];
+        float y = row ? P[2] : P[21];
         for (u32 j = 0; j < 4; j++) {
             u64 rec = g_pic_rec[row * 4 + j];
             float sx = P[3] * ((j & 1) ? -1.0f : 1.0f);
-            place(rec, P[0], y, on ? sx : 0.0f, on ? P[4] : 0.0f, 0.0f);
+            place(rec, x, y, on ? sx : 0.0f, on ? P[4] : 0.0f, 0.0f);
             if (j < 2) tint_rec(rec, 0.0f, 0.0f, 0.0f, P[10]);
             else tint_rec(rec, P[15], P[15], P[15], P[11]);
         }
@@ -820,7 +823,7 @@ static void plates_update(u64 frame) {
     u32 day = sec >= 6 * 3600 && sec < 18 * 3600;
     if (P[16] > 0.5f) day = P[16] < 1.5f;
     u32 sun = clk && day, moon = clk && !day;
-    float ix = P[0] + P[5], iy = P[1];
+    float ix = P[20] + P[5], iy = P[21];
     static const float SUN[3] = {1.0f, 0.86f, 0.42f};
     place(g_pic_rec[9], ix, iy, sun ? 1.0f : 0.0f, sun ? 1.0f : 0.0f, 0.0f);
     tint_rec(g_pic_rec[9], SUN[0], SUN[1], SUN[2], 1.0f);
@@ -841,7 +844,7 @@ static void plates_update(u64 frame) {
     static const float WHITE[3] = {1.0f, 1.0f, 1.0f};
     static const float GREEN[3] = {0.38f, 0.95f, 0.25f};
     /* text panes are centre-aligned: P[7] is the centre of the text area (right of the icon) */
-    float tx = P[0] + P[7], ty = P[8];
+    float ty = P[8];
     {   /* clock */
         char b[16]; u32 n = 0;
         int h = sec / 3600, m = (sec / 60) % 60, hh = h;
@@ -851,7 +854,7 @@ static void plates_update(u64 frame) {
         b[n++] = ':'; b[n++] = (char)('0' + m / 10); b[n++] = (char)('0' + m % 10);
         if (!g_shbcfg.clock_24h) { b[n++] = ' '; b[n++] = h < 12 ? 'A' : 'P'; b[n++] = 'M'; }
         b[n] = 0;
-        put_text(frame, 0, b, tx, P[1] + ty, clk, WHITE);
+        put_text(frame, 0, b, P[20] + P[7], P[21] + ty, clk, WHITE);
     }
     {   /* rupees: GameData Int table (k = 2), records 0x28 bytes, live value at +0x1C.
          * 962 = PlayerStatus.CurrentRupee, 976 = wallet capacity (member "Rupee" of the ammo/rupee caps). */
@@ -873,6 +876,7 @@ static void plates_update(u64 frame) {
         * ("/" is narrower than a digit: it counts as SLASH_W digits) */
         const float SLASH_W = 0.55f;
         float wa = (float)na, wb = (float)(nb - 1) + SLASH_W;
+        float tx = P[0] + P[7];
         float x0 = tx - P[9] * (wa + wb) * 0.5f;
         put_text(frame, 1, a, x0 + P[9] * wa * 0.5f, P[2] + ty, rup, GREEN);
         put_text(frame, 2, b, x0 + P[9] * (wa + wb * 0.5f), P[2] + ty, rup, WHITE);

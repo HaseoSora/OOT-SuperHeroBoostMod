@@ -54,8 +54,11 @@ def cli(argv) -> int:
     ap.add_argument("--list-profiles", action="store_true", help="print the profile keys and exit")
     ap.add_argument("--preset", type=int, choices=range(4), default=None,
                     help="stamina style: 0 hardcore, 1 combat only, 2 sprint only, 3 advanced")
-    ap.add_argument("--no-classic", action="store_true")
-    ap.add_argument("--classic-variant", default="default", choices=list(I.CLASSIC_VARIANTS))
+    ap.add_argument("--no-button-mapping", action="store_true", help="no extra item buttons (button mapping)")
+    ap.add_argument("--button-style", choices=I.BUTTON_STYLES, default=None, help="button mapping: button pictures")
+    ap.add_argument("--bm-simple", action="store_true", help="button mapping: simple layout (assignable buttons only)")
+    ap.add_argument("--bm-l", choices=I.L_MODES, default=None,
+                    help="button mapping: L is an item button (assign), the shield, or the game's item selector")
     ap.add_argument("--no-stamina", action="store_true")
     ap.add_argument("--no-songbook", action="store_true", help="disable playing songs from the native songbook")
     ap.add_argument("--enemy-double", action="store_true", help="beta: duplicate generic enemies (romfs)")
@@ -88,15 +91,21 @@ def cli(argv) -> int:
         for k in a.off.split(","):
             if k in costs:
                 costs[k] = False
-    s = I.Settings(classic=v["classic"], stamina=v["stamina"], songbook=v["songbook"], preset=v["mode"],
+    s = I.Settings(button_mapping=v["button_mapping"], stamina=v["stamina"], songbook=v["songbook"], preset=v["mode"],
                    combat_only=v["combat_only"], **costs,
                    enemy_hp=v["enemy_hp"], damage=v["damage"],
                    no_heart_drop=v["no_heart_drop"], sprint_speed=v["sprint_speed"],
                    hud_rupees=v["hud_rupees"], hud_clock=v["hud_clock"], clock_24h=v["clock_24h"])
     if a.preset is not None:
         s.preset = a.preset
-    if a.no_classic:
-        s.classic = False
+    if a.no_button_mapping:
+        s.button_mapping = False
+    if a.button_style:
+        s.button_style = a.button_style
+    if a.bm_simple:
+        s.bm_simple = True
+    if a.bm_l:
+        s.bm_l_mode = a.bm_l
     if a.no_stamina:
         s.stamina = False
     if a.no_songbook:
@@ -123,7 +132,7 @@ def cli(argv) -> int:
         s.clock_24h = True
 
     try:
-        r = I.install(Path(a.emu), s, a.classic_variant, a.name)
+        r = I.install(Path(a.emu), s, a.name)
     except I.InstallError as e:
         print("error:", e.key, e.arg)
         return 1
@@ -211,8 +220,11 @@ def gui() -> None:
     lang = tk.StringVar(value=cfg.get("lang") if cfg.get("lang") in LANGS else system_lang())
     emu = tk.StringVar(value=cfg.get("emu", ""))
     profile = tk.StringVar(value=cfg.get("profile") if cfg.get("profile") in PROFILE_KEYS else "custom")
-    classic = tk.BooleanVar(value=bool(cfg.get("classic", True)))
-    variant = tk.StringVar(value=cfg.get("variant") if cfg.get("variant") in I.CLASSIC_VARIANTS else "default")
+    bmap = tk.BooleanVar(value=bool(cfg.get("button_mapping", True)))
+    # button style, layout and L mode: personal choices, not part of a profile
+    bstyle = tk.StringVar(value=cfg.get("button_style") if cfg.get("button_style") in I.BUTTON_STYLES else "switch")
+    bsimple = tk.BooleanVar(value=bool(cfg.get("bm_simple", False)))
+    blmode = tk.StringVar(value=cfg.get("bm_l_mode") if cfg.get("bm_l_mode") in I.L_MODES else "assign")
     stamina = tk.BooleanVar(value=bool(cfg.get("stamina", True)))
     songbook = tk.BooleanVar(value=bool(cfg.get("songbook", True)))
     enemy_double = tk.BooleanVar(value=bool(cfg.get("enemy_double", False)))
@@ -320,7 +332,7 @@ def gui() -> None:
         v = profile_values(key)
         guard["on"] = True
         profile.set(key)
-        classic.set(v["classic"])
+        bmap.set(v["button_mapping"])
         stamina.set(v["stamina"])
         songbook.set(v["songbook"])
         mode.set(STAMINA_MODES[v["mode"]])
@@ -358,7 +370,7 @@ def gui() -> None:
         refresh()
         autosave()
 
-    for var in (classic, stamina, songbook, enemy_double, enemy_speed, mode, combat, hp, dmg, speed, nodrop,
+    for var in (bmap, stamina, songbook, enemy_double, enemy_speed, mode, combat, hp, dmg, speed, nodrop,
                 rupees, clock_mode, *costs.values()):
         var.trace_add("write", on_setting_change)
 
@@ -378,6 +390,13 @@ def gui() -> None:
 
     mode.trace_add("write", on_mode_change)
 
+    def on_pref_change(*_):   # button style / layout / L mode: no profile change
+        refresh()
+        autosave()
+
+    for var in (bstyle, bsimple, blmode):
+        var.trace_add("write", on_pref_change)
+
     pending = {"id": None}
 
     def autosave(*_):
@@ -386,7 +405,8 @@ def gui() -> None:
         pending["id"] = root.after(250, remember)
 
     def settings():
-        return I.Settings(classic=classic.get(), stamina=stamina.get(), songbook=songbook.get(),
+        return I.Settings(button_mapping=bmap.get(), button_style=bstyle.get(), bm_simple=bsimple.get(),
+                          bm_l_mode=blmode.get(), stamina=stamina.get(), songbook=songbook.get(),
                           enemy_double=enemy_double.get(), enemy_speed=enemy_speed.get(),
                           preset=STAMINA_MODES.index(mode.get()),
                           combat_only=combat.get(),
@@ -398,7 +418,8 @@ def gui() -> None:
     def remember():
         return save_cfg({
             "lang": lang.get(), "emu": emu.get(), "profile": profile.get(),
-            "classic": classic.get(), "variant": variant.get(),
+            "button_mapping": bmap.get(), "button_style": bstyle.get(), "bm_simple": bsimple.get(),
+            "bm_l_mode": blmode.get(),
             "stamina": stamina.get(), "songbook": songbook.get(),
             "enemy_double": enemy_double.get(), "enemy_speed": enemy_speed.get(), "stamina_mode": mode.get(),
             "costs": {**{k: costs[k].get() for k in KEYS}, "combat_only": combat.get()},
@@ -421,12 +442,11 @@ def gui() -> None:
 
     def do_install():
         try:
-            status.set(L("download_classic") if classic.get() else L("working"))
+            status.set(L("working"))
             root.update_idletasks()
-            r = I.install(Path(emu.get().strip()).expanduser(), settings(), variant.get())
+            r = I.install(Path(emu.get().strip()).expanduser(), settings())
             remember()
-            msg = L("done_msg", n=r.target.name,
-                    w=L("with_classic") if r.variant == "classic" else L("without_classic"))
+            msg = L("done_msg", n=r.target.name)
             for k, arg in r.notes:
                 msg += "\n\n" + L("n_" + k, a=arg)
             status.set(L("ready"))
@@ -455,7 +475,11 @@ def gui() -> None:
             w = ui.get(key)
             if w is not None:
                 w.config(state="normal" if stam else "disabled")
-        ui["variant"].config(state="readonly" if classic.get() else "disabled")
+        on = bmap.get()
+        if "variant" in ui:
+            ui["variant"].config(state="readonly" if on else "disabled")
+        for w in ui.get("bm", []):
+            w.config(state="normal" if on else "disabled")
         ui["note"].config(text="" if stam else L("stamina_off_note"), fg=AMBER)
         mods = ok_emu()
         ui["install"].config(state="normal" if mods else "disabled")
@@ -481,7 +505,7 @@ def gui() -> None:
             ui["sprint_var"].set(ui["sprint_values"][idx])
             ui["sprint"].current(idx)
         if "variant" in ui:
-            idx = list(I.CLASSIC_VARIANTS).index(variant.get()) if variant.get() in I.CLASSIC_VARIANTS else 0
+            idx = I.BUTTON_STYLES.index(bstyle.get()) if bstyle.get() in I.BUTTON_STYLES else 0
             ui["variant_var"].set(ui["variant_values"][idx])
             ui["variant"].current(idx)
         if "clock" in ui:
@@ -594,20 +618,36 @@ def gui() -> None:
 
     def build_buttons(parent):
         body = card(parent, L("buttons_title"), L("buttons_desc"))
-        check(body, L("classic"), classic).pack(anchor="w")
-        label(body, L("classic_desc", a=I.CLASSIC_VERSION), size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=(20, 0))
+        check(body, L("bm_on"), bmap).pack(anchor="w")
+        label(body, L("bm_on_desc"), size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=(20, 0))
+        ui["bm"] = []
         row = tk.Frame(body, bg=PANEL)
-        row.pack(anchor="w", pady=(8, 0))
+        row.pack(anchor="w", pady=(10, 0))
         label(row, L("variant") + ":", size=10, bg=PANEL).pack(side="left", padx=(0, 8))
-        names = [L("g_" + k) for k in I.CLASSIC_VARIANTS]
-        vvar = tk.StringVar(value=names[list(I.CLASSIC_VARIANTS).index(variant.get())])
+        style_names = {"switch": "g_default", "playstation": "g_playstation", "xbox": "g_xbox"}
+        names = [L(style_names[k]) for k in I.BUTTON_STYLES]
+        vvar = tk.StringVar(value=names[I.BUTTON_STYLES.index(bstyle.get())])
         ui["variant_var"] = vvar
         ui["variant_values"] = names
         cb = combo(row, names, vvar, width=16)
         cb.pack(side="left")
-        cb.bind("<<ComboboxSelected>>", lambda e: variant.set(list(I.CLASSIC_VARIANTS)[cb.current()]))
+        cb.bind("<<ComboboxSelected>>", lambda e: bstyle.set(I.BUTTON_STYLES[cb.current()]))
         ui["variant"] = cb
-        label(body, L("classic_note"), size=9, color=DIM, bg=PANEL).pack(anchor="w", pady=(8, 0))
+
+        label(body, L("bm_layout"), size=10, color=ACCENT, bold=True, bg=PANEL).pack(anchor="w", pady=(10, 0))
+        for value, key in ((False, "bm_ext"), (True, "bm_simple")):
+            r = radio(body, L(key), bsimple, value)
+            r.pack(anchor="w")
+            ui["bm"].append(r)
+            label(body, L(key + "_d"), size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=(20, 0))
+
+        label(body, L("bm_l"), size=10, color=ACCENT, bold=True, bg=PANEL).pack(anchor="w", pady=(10, 0))
+        for value in I.L_MODES:
+            r = radio(body, L("bm_l_" + value), blmode, value)
+            r.pack(anchor="w")
+            ui["bm"].append(r)
+            label(body, L("bm_l_" + value + "_d"), size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=(20, 0))
+        label(body, L("bm_note"), size=9, color=AMBER, bg=PANEL).pack(anchor="w", pady=(8, 0))
 
     def build_misc(parent):
         body = card(parent, L("misc_title"), L("misc_desc"))
@@ -629,7 +669,6 @@ def gui() -> None:
     def build_about(parent):
         body = card(parent, L("about_title"))
         label(body, L("about_body"), size=10, bg=PANEL).pack(anchor="w")
-        label(body, L("credits", a=I.CLASSIC_VERSION), size=9, color=DIM, bg=PANEL).pack(anchor="w", pady=(10, 0))
         label(body, L("audit"), size=9, color=DIM, bg=PANEL).pack(anchor="w", pady=(6, 0))
 
     # ---- shell ----
@@ -737,7 +776,7 @@ def gui() -> None:
     elif profile.get() != "custom":
         apply_profile(profile.get(), save=False)
 
-    for v in (emu, classic, variant, stamina, songbook, enemy_double, enemy_speed, mode, combat, hp, dmg, speed,
+    for v in (emu, bmap, bstyle, bsimple, blmode, stamina, songbook, enemy_double, enemy_speed, mode, combat, hp, dmg, speed,
               nodrop, rupees, clock_mode, *costs.values()):
         v.trace_add("write", autosave)
     emu.trace_add("write", lambda *_: (status.set(""), refresh()))

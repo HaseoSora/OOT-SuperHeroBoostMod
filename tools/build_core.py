@@ -238,8 +238,8 @@ def write_handler_table(features: list[str], path: Path) -> None:
     path.write_text("\n".join(lines) + "\n", encoding="ascii")
 
 
-COMPAT = False   # --compat: coexist with Classic Item Slots (its IPS owns the input/slot sites)
-SLOTS = False    # --slots: also hook the four equip calls (our own buttonMapping, Classic not installed)
+COMPAT = False   # --compat: read input through the shared PLT stub (the five input call sites stay stock)
+SLOTS = False    # --slots: also hook the four equip calls (buttonMapping)
 # PLT stub of the input reader used during gameplay: first instruction `adrp x16, GOT3`.
 COMPAT_STUB = (0x3C42800, "hook_stub3", 0xB00083F0)
 
@@ -284,10 +284,10 @@ def main() -> int:
     ap.add_argument("--features", default="probe",
                     help="comma-separated feature dirs under features/")
     ap.add_argument("--compat", action="store_true",
-                    help="coexist with Classic Item Slots (module placed after it, PLT-stub input hook)")
+                    help="PLT-stub input hook (the release build) and the module placed at --base")
     ap.add_argument("--base", default="0x4F88000", help="module base used with --compat")
     ap.add_argument("--slots", action="store_true",
-                    help="hook the equip calls too (own buttonMapping; only without Classic Item Slots)")
+                    help="hook the equip calls too (buttonMapping)")
     args = ap.parse_args()
     global COMPAT, BASE, LINK_SCRIPT, SLOTS
     SLOTS = args.slots

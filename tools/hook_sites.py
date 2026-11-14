@@ -18,7 +18,7 @@ INPUT_SITES = (
     (0x3469698, "hook_input4", 0x3C42830),
 )
 
-# Classic extra-button sites: each is `bl 0x1211c00` in the stock game. The
+# Equip-call sites (buttonMapping): each is `bl 0x1211c00` in the stock game. The
 # function at 0x1211c00 is a normal function (prologue pacibsp/stp), not a stub.
 SLOT_STOCK = 0x1211C00
 SLOT_SITES = (

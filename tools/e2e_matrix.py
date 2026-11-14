@@ -27,14 +27,14 @@ ACTIONS = {
 }
 
 
-def scenario(name, classic=True, stamina=True, preset=0, off=(), combat_only=False):
-    return dict(name=name, classic=classic, stamina=stamina, preset=preset, off=set(off), combat_only=combat_only)
+def scenario(name, bm=True, stamina=True, preset=0, off=(), combat_only=False):
+    return dict(name=name, bm=bm, stamina=stamina, preset=preset, off=set(off), combat_only=combat_only)
 
 
 ALL = ["jump", "attack", "sprint", "block", "shoot", "roll"]
 SCEN = [
-    scenario("classic_hardcore"),
-    scenario("no_classic_hardcore", classic=False),
+    scenario("bm_hardcore"),
+    scenario("no_bm_hardcore", bm=False),
     scenario("stamina_off", stamina=False),
     scenario("hardcore_combat_only", preset=1),
     scenario("sprint_only", preset=2),
@@ -77,8 +77,8 @@ def one(sc):
     subprocess.run(["powershell", "-NoProfile", "-Command", "Get-Process lichii -ErrorAction SilentlyContinue | Stop-Process -Force"])
     time.sleep(3)
     args = [str(EXE), "--cli", "--emu", EMU, "--preset", str(sc["preset"])]
-    if not sc["classic"]:
-        args.append("--no-classic")
+    if not sc["bm"]:
+        args.append("--no-button-mapping")
     if not sc["stamina"]:
         args.append("--no-stamina")
     if sc["preset"] == 3:
@@ -89,9 +89,10 @@ def one(sc):
     r = run(args, 120)
     time.sleep(4)
     ok = "installed in" in r.stdout
-    base = "0x4F87000" if sc["classic"] else "0x4F80000"          # symbols of the installed variant
-    run([sys.executable, "tools/build_core.py", "--features", "stamina,songbook", "--compat", "--base", base], 300)
-    acts = [a for a in ACTIONS if a != "shoot" or sc["classic"]]
+    # symbols of the installed module (one variant)
+    run([sys.executable, "tools/build_core.py", "--features", "stamina,songbook,button_mapping", "--slots", "--compat",
+         "--base", "0x4F80000"], 300)
+    acts = list(ACTIONS)
     steps, pos = [], {}
     for a in acts:
         st, meas, ev = ACTIONS[a]

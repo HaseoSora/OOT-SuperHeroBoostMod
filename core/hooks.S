@@ -154,7 +154,7 @@ INPUT_HOOK hook_input2, 2, STOCK2, GOT2
 INPUT_HOOK hook_input3, 3, STOCK3, GOT3
 INPUT_HOOK hook_input4, 4, STOCK4, GOT4
 
-/* Compat build: the five call sites belong to another mod (Classic), so patch the shared PLT stub
+/* Compat build (the release one): the five call sites stay stock and the shared PLT stub is patched
  * instead. Its first instruction (adrp x16, GOT3) becomes a branch here; the wrapper redoes the adrp
  * and enters the stub at +4 (STOCK3B). */
 WRAP_HOOK hook_stub3, 3, STOCK3B, mod_on_input, g_wrap_entry, GOT3,, 1
@@ -330,7 +330,7 @@ hook_fs_open:
     b   RES_FSOPEN
     .size hook_fs_open, . - hook_fs_open
 
-/* Classic extra-button sites: four `bl 0x1211c00` calls. 0x1211c00 is a normal
+/* Equip-call sites (buttonMapping): four `bl 0x1211c00` calls. 0x1211c00 is a normal
  * function (not an import stub), so these use the same wrapper, with their own
  * dispatcher (mod_on_slot) and handler table. */
 WRAP_HOOK hook_slot0, 0, SLOTFN, mod_on_slot, g_slot_entry,, mod_pre_slot

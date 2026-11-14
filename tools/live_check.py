@@ -253,7 +253,7 @@ def main() -> int:
                 print(f"   idx {idx:2d} result {res} icon-frame {pat} count-frame {num}")
         if "g_cl_dbg" in syms:
             cd = struct.unpack("<4I", read_sym("g_cl_dbg", 16))
-            print("classic: slot presses %d, item overrides %d, expired %d" %
+            print("buttonMapping: slot presses %d, item overrides %d, expired %d" %
                   (cd[0] - 0x10000000, cd[1] - 0x10000000, cd[2] - 0x10000000))
         if "g_inst_log" in syms:
             n = struct.unpack("<I", read_sym("g_inst_n", 4))[0] - 0x10000000

@@ -1,7 +1,7 @@
 """Game profiles ("presets") of Super Hero Boost.
 
 Every profile is a complete configuration: it always includes the HUD and
-Classic Item Slots, and it fixes the stamina system, difficulty, heart drops
+buttonMapping (our own item buttons), and it fixes the stamina system, difficulty, heart drops
 and sprint speed. Changing any option afterwards switches the profile to
 Custom and keeps the user's own values.
 
@@ -18,7 +18,7 @@ SPRINT_DEFAULT = 125
 @dataclass(frozen=True)
 class Profile:
     key: str
-    classic: bool
+    button_mapping: bool         # buttonMapping (own item buttons); style, layout and L mode are not part of a profile
     stamina: bool
     mode: int                    # index in STAMINA_MODES
     costs: tuple                 # one bool per KEYS entry
@@ -35,11 +35,11 @@ class Profile:
     enemy_speed: bool
 
 
-def _profile(key, *, classic=True, stamina=True, mode=0, costs=(True,) * 6, combat_only=False,
+def _profile(key, *, button_mapping=True, stamina=True, mode=0, costs=(True,) * 6, combat_only=False,
              enemy_hp=100, damage=100, no_heart_drop=False, sprint_speed=SPRINT_DEFAULT,
              hud_rupees=True, hud_clock=True, clock_24h=True, songbook=True,
              enemy_double=False, enemy_speed=False):
-    return Profile(key=key, classic=classic, stamina=stamina, mode=mode, costs=costs,
+    return Profile(key=key, button_mapping=button_mapping, stamina=stamina, mode=mode, costs=costs,
                    combat_only=combat_only, enemy_hp=enemy_hp, damage=damage,
                    no_heart_drop=no_heart_drop, sprint_speed=sprint_speed,
                    hud_rupees=hud_rupees, hud_clock=hud_clock, clock_24h=clock_24h,
@@ -47,7 +47,7 @@ def _profile(key, *, classic=True, stamina=True, mode=0, costs=(True,) * 6, comb
 
 
 PROFILES = {
-    # Everything on: Hero Mode difficulty, hardcore stamina, HUD and Classic.
+    # Everything on: Hero Mode difficulty, hardcore stamina, HUD and buttonMapping.
     "recommended": _profile("recommended", enemy_hp=150, damage=200, no_heart_drop=True),
     # Vanilla difficulty, but with the pack's HUD and extra buttons.
     "base": _profile("base", stamina=False),
@@ -72,7 +72,7 @@ DEFAULT_PROFILE = "recommended"
 
 def defaults() -> dict:
     """Balanced starting values (same shape as a profile, without a fixed key)."""
-    return dict(classic=True, stamina=True, mode=0, costs=(True,) * 6, combat_only=False,
+    return dict(button_mapping=True, stamina=True, mode=0, costs=(True,) * 6, combat_only=False,
                 enemy_hp=100, damage=100, no_heart_drop=False, sprint_speed=SPRINT_DEFAULT,
                 hud_rupees=True, hud_clock=True, clock_24h=True, songbook=True,
                 enemy_double=False, enemy_speed=False)
@@ -83,7 +83,7 @@ def profile_values(key: str) -> dict:
     p = PROFILES.get(key)
     if p is None:
         return defaults()
-    return dict(classic=p.classic, stamina=p.stamina, mode=p.mode, costs=p.costs,
+    return dict(button_mapping=p.button_mapping, stamina=p.stamina, mode=p.mode, costs=p.costs,
                 combat_only=p.combat_only, enemy_hp=p.enemy_hp, damage=p.damage,
                 no_heart_drop=p.no_heart_drop, sprint_speed=p.sprint_speed,
                 hud_rupees=p.hud_rupees, hud_clock=p.hud_clock, clock_24h=p.clock_24h,

@@ -308,8 +308,11 @@ def main():
             dst.parent.mkdir(parents=True, exist_ok=True)
             dst.write_bytes(out)
 
-    # Enemy animation: ASB command default rates.
+    # Enemy animation: ASB frame-controller playback rates. Same exclusions as the packs,
+    # so bosses and scripted fights keep their original timing.
     for p in sorted((ROMFS / "AS").glob("Enemy_*.root.asb.zs")):
+        if any(x in p.stem for x in BLOCK):
+            continue
         out = edit_asb(p, DICTS["zs.zsdic"])
         if out:
             dst = OUT / "enemy_speed" / p.relative_to(ROMFS)

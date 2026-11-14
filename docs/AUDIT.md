@@ -42,6 +42,9 @@ las constantes y operaciones publicadas. Se usa en tiempo de compilación para g
 ## Material del juego
 
 - `build/`, `data/`, `release/` y `app/payload/` están ignorados por git.
+- `tools/check_no_game_data.py` recorre el índice de git y falla si encuentra extensiones de dump (`.byml`,
+  `.bgyml`, `.bntx`, `.sarc`, `.nso`, `.nro`, `.ips`, etc.), carpetas `romfs/`/`exefs/`/`app/payload/` o archivos con
+  magia de formatos del juego. Se puede ejecutar antes de cada commit.
 - El repositorio no contiene texturas, layouts, BYML, romfs, `main` ni ningún archivo extraído del juego.
 - `tools/make_romfs_opts.py` genera el romfs opcional a partir del volcado del usuario; la app copia ese resultado
   solo si el usuario marca la opción.

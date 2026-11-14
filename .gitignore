@@ -15,6 +15,31 @@ dist/
 app/__pycache__/
 app/SuperHeroBoostConfig.json
 
+# Game dump / extracted game data: never commit these
+romfs/
+exefs/
+stock-exefs/
+app/payload/romfs_opts/
+*.byml
+*.bgyml
+*.bntx
+*.sarc
+*.blarc
+*.bfres
+*.bfstm
+*.bfsar
+*.bars
+*.genvb
+*.pack.zs
+*.zs
+*.nso
+*.nro
+*.nsp
+*.xci
+*.nca
+*.ips
+.longshot*
+
 # macOS / Windows / Linux desktop noise
 .DS_Store
 Thumbs.db

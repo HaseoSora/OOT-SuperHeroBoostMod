@@ -128,7 +128,7 @@ los lee en cada fotograma (`g_shbcfg`). **Solo se añaden campos al final** (usa
 | 25 | `classic_slots` (informativo) | Classic |
 | 26 | `enemy_hp_pct` (u16) | Vida de los enemigos |
 | 28 | `damage_taken_pct` (u16) | Daño que recibes |
-| 30-32 | `hud_rupees`, `hud_clock`, `clock_24h` | HUD siempre visible |
+| 30-32 | `hud_rupees`, `hud_clock`, `clock_24h` | HUD siempre visible (en la app el reloj es un selector: sin reloj / 12 h / 24 h) |
 | 33 | `no_heart_drop` (informativo; lo hace el romfs) | Sin drop de corazones |
 | 34 | `sprint_speed_pct` (u16, defecto 125) | Velocidad del sprint |
 
@@ -280,6 +280,7 @@ Los nombres de funciones no están en `main` en texto claro (el motor usa hashes
 | `build_core.py` | compila el módulo y su IPS; genera `hud_names.h` y `dispatch_gen.c` |
 | `make_release.py` / `build_app.py` | payload de la app / ejecutable |
 | `make_romfs_opts.py` | romfs opcionales (sin drop de corazones) |
+| `check_no_game_data.py` | comprueba que git no tenga archivos del dump ni payloads generados |
 | `hook_sites.py` | lista de sitios de gancho |
 | `live_check.py` | arrancar, cargar partida, capturar y leer diagnósticos |
 | `hud_tune.py` | ajustar HUD y opciones en vivo, capturas |

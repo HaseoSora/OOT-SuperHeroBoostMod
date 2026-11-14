@@ -220,8 +220,11 @@ def gui() -> None:
     speed = tk.IntVar(value=cfg.get("sprint_speed", 125) if cfg.get("sprint_speed", 125) in SPEEDS else 125)
     nodrop = tk.BooleanVar(value=bool(cfg.get("no_heart_drop", False)))
     rupees = tk.BooleanVar(value=bool(cfg.get("hud_rupees", False)))
-    clock = tk.BooleanVar(value=bool(cfg.get("hud_clock", False)))
-    clock24 = tk.BooleanVar(value=bool(cfg.get("clock_24h", False)))
+    CLOCK_MODES = ("off", "12", "24")
+    _clock = cfg.get("clock_mode")
+    if _clock not in CLOCK_MODES:
+        _clock = "24" if cfg.get("clock_24h") else "12" if cfg.get("hud_clock") else "off"
+    clock_mode = tk.StringVar(value=_clock)
 
     status = tk.StringVar(value="")
     guard = {"on": False}
@@ -316,8 +319,7 @@ def gui() -> None:
         nodrop.set(v["no_heart_drop"])
         speed.set(v["sprint_speed"])
         rupees.set(v["hud_rupees"])
-        clock.set(v["hud_clock"])
-        clock24.set(v["clock_24h"])
+        clock_mode.set("24" if v["clock_24h"] else "12" if v["hud_clock"] else "off")
         guard["on"] = False
         refresh()
         if save:
@@ -341,7 +343,7 @@ def gui() -> None:
         refresh()
         autosave()
 
-    for var in (classic, stamina, mode, combat, hp, dmg, speed, nodrop, rupees, clock, clock24, *costs.values()):
+    for var in (classic, stamina, mode, combat, hp, dmg, speed, nodrop, rupees, clock_mode, *costs.values()):
         var.trace_add("write", on_setting_change)
 
     def on_mode_change(*_):
@@ -374,7 +376,7 @@ def gui() -> None:
                           **{k: costs[k].get() for k in KEYS},
                           enemy_hp=hp.get(), damage=dmg.get(), no_heart_drop=nodrop.get(),
                           sprint_speed=speed.get(), hud_rupees=rupees.get(),
-                          hud_clock=clock.get(), clock_24h=clock24.get())
+                          hud_clock=clock_mode.get() != "off", clock_24h=clock_mode.get() == "24")
 
     def remember():
         return save_cfg({
@@ -385,7 +387,8 @@ def gui() -> None:
             "combat_only": combat.get(),
             "enemy_hp": hp.get(), "damage": dmg.get(), "no_heart_drop": nodrop.get(),
             "sprint_speed": speed.get(), "hud_rupees": rupees.get(),
-            "hud_clock": clock.get(), "clock_24h": clock24.get(),
+            "clock_mode": clock_mode.get(),
+            "hud_clock": clock_mode.get() != "off", "clock_24h": clock_mode.get() == "24",
         })
 
     def ok_emu():
@@ -463,6 +466,10 @@ def gui() -> None:
             idx = list(I.CLASSIC_VARIANTS).index(variant.get()) if variant.get() in I.CLASSIC_VARIANTS else 0
             ui["variant_var"].set(ui["variant_values"][idx])
             ui["variant"].current(idx)
+        if "clock" in ui:
+            idx = CLOCK_MODES.index(clock_mode.get()) if clock_mode.get() in CLOCK_MODES else 0
+            ui["clock_var"].set(ui["clock_values"][idx])
+            ui["clock"].current(idx)
 
     # ---- sections ----
     def build_install(parent):
@@ -554,9 +561,16 @@ def gui() -> None:
         body = card(parent, L("hud_title"), L("hud_desc"))
         row = tk.Frame(body, bg=PANEL)
         row.pack(fill="x")
-        check(row, L("hud_rupees"), rupees).grid(row=0, column=0, sticky="w", padx=(0, 24))
-        check(row, L("hud_clock"), clock).grid(row=0, column=1, sticky="w", padx=(0, 24))
-        check(row, L("clock24"), clock24).grid(row=0, column=2, sticky="w")
+        check(row, L("hud_rupees"), rupees).grid(row=0, column=0, sticky="w", padx=(0, 30))
+        label(row, L("clock_mode") + ":", size=10, bg=PANEL).grid(row=0, column=1, sticky="w", padx=(0, 6))
+        values = [L("clock_off"), L("clock_12"), L("clock_24")]
+        cvar = tk.StringVar(value=values[CLOCK_MODES.index(clock_mode.get())])
+        cb = combo(row, values, cvar, width=18)
+        cb.grid(row=0, column=2, sticky="w")
+        cb.bind("<<ComboboxSelected>>", lambda e: clock_mode.set(CLOCK_MODES[cb.current()]))
+        ui["clock"] = cb
+        ui["clock_var"] = cvar
+        ui["clock_values"] = values
         label(body, L("hud_note"), size=9, color=DIM, bg=PANEL).pack(anchor="w", pady=(8, 0))
         build_buttons(parent)
 
@@ -688,7 +702,7 @@ def gui() -> None:
     elif profile.get() != "custom":
         apply_profile(profile.get(), save=False)
 
-    for v in (emu, classic, variant, stamina, mode, combat, hp, dmg, speed, nodrop, rupees, clock, clock24, *costs.values()):
+    for v in (emu, classic, variant, stamina, mode, combat, hp, dmg, speed, nodrop, rupees, clock_mode, *costs.values()):
         v.trace_add("write", autosave)
     emu.trace_add("write", lambda *_: (status.set(""), refresh()))
 

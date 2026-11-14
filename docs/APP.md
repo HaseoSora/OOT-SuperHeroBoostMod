@@ -61,7 +61,8 @@ dropped hearts become green rupees (the optional romfs file; see the note below)
 - **Estamina**: on/off, stamina style, what costs stamina (the checkboxes update automatically for each style), sprint
   speed.
 - **Dificultad**: enemy health, damage taken, heart drops.
-- **HUD y botones**: rupee counter, clock, 24-hour clock, Classic Item Slots and button style.
+- **HUD y botones**: rupee counter, clock (**off / 12 h / 24 h**, one selector), Classic Item Slots and button
+  style.
 - **Acerca de**: credits and the material/third-party notice.
 
 The bottom bar always shows the install state and the **Instalar / Desinstalar** buttons. Changes are saved

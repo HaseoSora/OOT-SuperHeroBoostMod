@@ -51,6 +51,8 @@ SECTIONS
     RES_SPEED = 0x9352F4;
     RES_OCARINA_ENTER = 0x2894344;
     RES_OCARINA_LEAVE = 0x28947F4;
+    RES_OCARINA_UPDATE = 0x3296E24;     /* ocarina state machine, after pacibsp */
+    RES_OCARINA_MATCH = 0x32980F0;      /* (ctx) -> 1 if the notes match a learned song */
     /* Songbook store hook: continue right after `str w20,[x19,#0x22c]`. Must be a
      * linker symbol: a numeric literal here assembles as a PC-relative offset. */
     RES_SONGBOOK_RESUME = 0x3294BD0;

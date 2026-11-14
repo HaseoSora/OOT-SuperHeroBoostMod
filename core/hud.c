@@ -1273,10 +1273,50 @@ static void slots_update(u64 frame) {
     }
 }
 char g_sb_jump_label[16] = "Saltar";
+/* The game's control guide (UICtrlGuideScreen, the "A Hablar" prompt next to Link) writes A's context action
+ * ("Hablar", "Abrir", "Revisar" ...) into its text pane T_GuideA_00 (captured in hud_on_settext). While the prompt
+ * is up its N_InOut_00 / N_A_00 alpha (pane record +0x78) is 1; it fades to 0 when there is nothing to do. */
+u64 g_aguide_frame;
+char g_aguide_text[48];
 char g_sb_a_label[16] = "";   /* context action of A (empty: the button shows its letter) */
+extern int player_state_is(const char *name);
+extern int player_state_starts(const char *prefix);
+static int a_guide_up(void) {
+    static u64 fr, r_io, r_a;
+    if (!g_aguide_frame || !g_aguide_text[0]) return 0;
+    if (fr != g_aguide_frame) {
+        fr = g_aguide_frame;
+        r_io = pane_record(fr, "N_InOut_00");
+        r_a = pane_record(fr, "N_A_00");
+    }
+    return r_io && r_a && *(float *)(r_io + 0x78) > 0.5f && *(float *)(r_a + 0x78) > 0.5f;
+}
+static void a_label_update(void) {
+    const char *txt = 0;
+    if (a_guide_up()) txt = g_aguide_text;
+    else if (player_state_starts("LockOn") && !player_state_is("LockOnWait")) txt = "Atacar";   /* ZL + moving: jump attack */
+    else if (player_state_is("Move")) txt = "Rodar";   /* running: A rolls */
+    u32 n = 0;
+    if (txt) {
+        while (txt[n] && n < 15) n++;
+        while (n && n < 15 && txt[n] && ((u8)txt[n] & 0xC0) == 0x80) n--;   /* cut on a UTF-8 character */
+    }
+    int same = 1;
+    for (u32 i = 0; i < n; i++) if (g_sb_a_label[i] != txt[i]) same = 0;
+    if (same && !g_sb_a_label[n]) return;
+    for (u32 i = 0; i < n; i++) g_sb_a_label[i] = txt[i];
+    g_sb_a_label[n] = 0;
+    /* A's button: the plain base under a label, the lettered one without */
+    const char *bg = n ? "OotBtnS_Blank" : "OotBtnS_A";
+    u32 i;
+    for (i = 0; bg[i]; i++) g_sb_force[SB_A][i] = bg[i];
+    g_sb_force[SB_A][i] = 0;
+    g_sb_force[SB_A][31] = 0;
+}
 static void slots_labels(u64 frame) {
     if (!REPLICA) return;
     static const float LABEL[3] = {0.92f, 0.92f, 0.92f};
+    if (hud_ingame()) a_label_update();
     put_text(frame, 3, g_sb_jump_label, g_sb_pos[SB_X][0], g_sb_pos[SB_X][1], 1, LABEL);
     put_text(frame, 4, g_sb_a_label, g_sb_pos[SB_A][0], g_sb_pos[SB_A][1], g_sb_a_label[0] != 0, LABEL);
 }
@@ -1351,6 +1391,37 @@ u64 g_inst_child[32] = {1};
 void player_track(u64 actor);
 void player_guard_event(u32 id);
 __attribute__((weak)) void hero_speed_hook(void *regs);   /* features/hero_core (absent in builds without it) */
+/* diagnostic: the game's own set_text calls (not ours), consecutive repeats skipped: caller, pane, len, text */
+struct { u64 lr, pane; u32 len, n; char s[40]; char nm[24]; u64 lr2; } g_st_log[32];
+u32 g_st_n = 0x10000000u;
+/* The game's control guide (UICtrlGuideScreen) writes the A action ("Hablar", "Abrir", "Rodar"...) into its text
+ * pane T_GuideA_00 through the set-text-by-name call (frame in x22, pane name in x21). */
+static void hud_on_settext(u64 pane, const u64 *ref, u64 lr, const u64 *regs) {
+    extern char __base[];
+    if (!ref || lr >= (u64)__base) return;   /* our own texts */
+    const char *s = (const char *)ref[0];
+    u32 len = (u32)ref[1];
+    if (!s) return;
+    {
+        const char *nm = (const char *)regs[0xF0 / 8];
+        if (nm && (u64)nm > 0x10000 && str_eq(nm, "T_GuideA_00")) {
+            g_aguide_frame = regs[0xF8 / 8];
+            u32 i;
+            for (i = 0; i < len && i < 47 && s[i]; i++) g_aguide_text[i] = s[i];
+            g_aguide_text[i] = 0;
+        }
+    }
+    u32 last = (g_st_n - 1u) % 32;
+    if (g_st_log[last].pane == pane && g_st_log[last].len == len && g_st_log[last].s[0] == s[0] && g_st_log[last].s[2] == s[2]) return;
+    u32 k = (g_st_n++ - 0x10000000u) % 32;
+    g_st_log[k].lr = lr; g_st_log[k].pane = pane; g_st_log[k].len = len; g_st_log[k].n = g_st_n;
+    for (u32 i = 0; i < 40; i++) g_st_log[k].s[i] = s[i];
+    const char *nm = (const char *)regs[0xF0 / 8];
+    u64 fp = regs[0];
+    for (u32 i = 0; i < 24; i++) g_st_log[k].nm[i] = 0;
+    if (nm && (u64)nm > 0x10000) for (u32 i = 0; i < 23 && nm[i]; i++) g_st_log[k].nm[i] = nm[i];
+    g_st_log[k].lr2 = fp ? *(u64 *)(fp + 8) : 0;
+}
 void hud_on_code(u32 id, void *a0, void *a1, void *a2, void *regs) {
     (void)a1; (void)a2;
     if (id == 5) { player_track((u64)a0); return; }
@@ -1358,6 +1429,7 @@ void hud_on_code(u32 id, void *a0, void *a1, void *a2, void *regs) {
     if (id == 10) { if (hero_speed_hook) hero_speed_hook(regs); return; }   /* ground movement: sprint speed */
     if (id == 11) { hud_icon_ctrl_init((u64)a0); return; }                  /* icon controller init */
     if (id == 12) { hud_slots_init((u64)a0, (u64)a1); return; }             /* PlayerStatus HUD init: build icon controllers */
+    if (id == 13) { hud_on_settext((u64)a0, (const u64 *)a1, *(u64 *)((u8 *)regs + 0x08), (const u64 *)regs); return; }
     if (id == 4) {   /* part instance creation: log the pane index being instantiated */
         u64 layout = (u64)a1, pane = (u64)a2;
         u64 arr = layout ? ptr(layout, 0x100) : 0;

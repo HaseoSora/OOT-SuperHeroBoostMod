@@ -181,6 +181,7 @@ WRAP_HOOK hook_stub3, 3, STOCK3B, mod_on_input, g_wrap_entry, GOT3,, 1
     stp d2, d3, [sp, #0xC0]
     stp d4, d5, [sp, #0xD0]
     stp d6, d7, [sp, #0xE0]
+    stp x21, x22, [sp, #0xF0]  /* (read only: x21 = the pane name in the text setter's caller) */
     mov x3, x2
     mov x2, x1
     mov x1, x0
@@ -256,6 +257,8 @@ CODE_HOOK hook_code_speed, 10, RES_SPEED
 CODE_HOOK hook_code_iconctrl, 11, RES_ICONCTRL
 /* PlayerStatus HUD init (x0 HUD object, x1 heap): the heap the HUD allocates its icon controllers from. */
 CODE_HOOK hook_code_hudinit, 12, RES_HUDINIT
+/* Text-pane text setter (x0 pane, x1 {chars, len}): diagnostic log of the game's own texts. */
+CODE_HOOK hook_code_settext, 13, RES_SETTEXT
 
 /* Classic extra-button sites: four `bl 0x1211c00` calls. 0x1211c00 is a normal
  * function (not an import stub), so these use the same wrapper, with their own

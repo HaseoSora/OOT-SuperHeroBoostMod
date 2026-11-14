@@ -157,6 +157,7 @@ static void extend_pools(u8 *root, u32 add) {
 #define FLD_N 5   /* 0 clock, 1 rupees, 2 "/wallet", 3 X button label (Jump), 4 A button label (context) */
 #define TXT_N (FLD_N * 2)
 static const char g_font_normal[] = "Normal";
+static const char g_font_ext[] = "External_00";   /* the button-glyph font */
 static char g_tnames[TXT_N][16] = {"T_OotTxt_00", "T_OotTxt_01", "T_OotTxt_02", "T_OotTxt_03", "T_OotTxt_04",
                                    "T_OotTxt_05", "T_OotTxt_06", "T_OotTxt_07", "T_OotTxt_08", "T_OotTxt_09"};
 static const u64 g_thash[TXT_N] = {HASH_TXT0, HASH_TXT1, HASH_TXT2, HASH_TXT3, HASH_TXT4,
@@ -333,9 +334,12 @@ static u8 *build_menu(const u8 *r) {
 /* The pause menu's root layout (PlusMenu_00) gets LEG_N text panes for the assign legend (hud_menu_legend):
  * clones of its own T_Text_00 (the Items page has no text pane to clone, and a text pane only works with its own
  * layout's fonts and materials). Names T_OotTxt_10.. (the HUD uses _00.._09, in another layout). */
-#define LEG_N 5
-static char g_lnames[LEG_N][16] = {"T_OotTxt_10", "T_OotTxt_11", "T_OotTxt_12", "T_OotTxt_13", "T_OotTxt_14"};   /* arrays, not pointers: no relocations */
-static const u64 g_lhash[LEG_N] = {HASH_TXT10, HASH_TXT11, HASH_TXT12, HASH_TXT13, HASH_TXT14};
+#define LEG_N 13   /* "Asignar:", then per pair: source button icon, arrow, slot icon */
+static char g_lnames[LEG_N][16] = {"T_OotTxt_10", "T_OotTxt_11", "T_OotTxt_12", "T_OotTxt_13", "T_OotTxt_14", "T_OotTxt_15", "T_OotTxt_16", "T_OotTxt_17", "T_OotTxt_18", "T_OotTxt_19", "T_OotTxt_20", "T_OotTxt_21", "T_OotTxt_22"};   /* arrays, not pointers: no relocations */
+static const u64 g_lhash[LEG_N] = {HASH_TXT10, HASH_TXT11, HASH_TXT12, HASH_TXT13, HASH_TXT14, HASH_TXT15, HASH_TXT16, HASH_TXT17, HASH_TXT18, HASH_TXT19, HASH_TXT20, HASH_TXT21, HASH_TXT22};
+/* icon panes use the game's button-glyph font (the guide bar's icons): text 0xE040 A, 0xE041 B, 0xE042 X,
+ * 0xE043 Y, 0xE044 L, 0xE045 R, 0xE046 ZL, 0xE047 ZR (UTF-8) */
+#define LEG_ICON(t) ((t) > 0 && (t) % 3 != 2)
 static char g_legbar_name[16] = "P_OotPic_399";   /* the legend's backing bar */
 #define LEG_BASE "P_MessageBase_01"   /* 2200 x 360: the plate PlusMenu_00 puts its own texts on */
 u32 g_plus_build_dbg[2];   /* copies built, failure step */
@@ -370,6 +374,7 @@ static u8 *build_plus(const u8 *r) {
         u8 *td = pool_clone((const void *)((const u64 *)q(r, 0x88))[ti], 0xA8);
         if (!cd || !bd || !td) { g_plus_build_dbg[1] = 4; return 0; }
         *(u64 *)(td + 0x18) = q(td, 0x10);   /* default text: the empty string */
+        if (LEG_ICON(t)) *(u64 *)(td + 0x00) = (u64)g_font_ext;
         *(float *)(td + 0x98) = 1500.0f;
         *(float *)(cd + 0x2C) = 900.0f; *(float *)(cd + 0x30) = 90.0f;
         *(float *)(cd + 0x10) = 0.0f; *(float *)(cd + 0x14) = 0.0f;   /* hidden until placed */
@@ -1183,14 +1188,14 @@ float g_sb_scale = 0.62f;
 #define SB_CX 1292.6f
 #define SB_CY 680.0f
 float g_sb_lay[4] = {0.75f, 0.85f, 130.0f, 70.0f};     /* compact, top right */
-float g_mb_lay[4] = {0.55f, 0.6f, -880.0f, -230.0f};   /* between the item grid and the item preview */
+float g_mb_lay[4] = {0.55f, 0.6f, -780.0f, -120.0f};   /* between the item grid and the item preview */
 static void sb_xy(const float *lay, u32 k, float *x, float *y) {
     *x = SB_CX + (g_sb_pos[k][0] - SB_CX) * lay[0] + lay[2];
     *y = SB_CY + (g_sb_pos[k][1] - SB_CY) * lay[0] + lay[3];
 }
 u32 g_sb_big_items = 1;
 /* per-part scale: buttons, then items (Classic draws the item bigger than its button) */
-float g_sb_sc[PART_N] = {0.34f, 0.34f, 0.34f, 0.34f, 0.34f, 0.34f, 0.34f, 0.44f, 0.44f, 0.44f, 0.44f, 0.44f};
+float g_sb_sc[PART_N] = {0.34f, 0.34f, 0.34f, 0.34f, 0.34f, 0.34f, 0.34f, 0.38f, 0.38f, 0.38f, 0.38f, 0.38f};
 u32 g_sb_hide_stock = 1;   /* (only while the replica is on) */   /* hide the game's own item box and its page dots: the replica replaces them */
 static u64 g_stock_box_rec, g_stock_dots_rec;
 /* animation frame forced on every button each frame, per animation (-1 = leave it); see slot_anim_name() */
@@ -1559,9 +1564,10 @@ static void slots_draw(SlotBtn *set, const u64 *ctrls, u64 frame, const float *l
 /* Assign legend on the Items tab, bottom right above the game's own guide: which menu button assigns to which
  * slot. g_leg_pos = x of the first text, y, x step, text scale (layout units of PlusMenu_00, y up); g_leg_bar = the
  * dark bar behind it, like the game's own guide bar below. */
-static char g_leg_txt[LEG_N][16] = {"Asignar:", "X: B", "L: L", "R: R", "A: ZR"};
-float g_leg_pos[4] = {900.0f, -905.0f, 208.0f, 1.0f};   /* right above the game's guide bar */
-float g_leg_bar[8] = {1330.0f, -905.0f, 0.56f, 0.27f, 0.85f, 0.07f, 0.06f, 0.05f};   /* backing plate: centre x, y,
+static char g_leg_txt[LEG_N][16] = {"Asignar:", "\xee\x81\x82", "\xe2\x80\xba", "\xee\x81\x81", "\xee\x81\x84", "\xe2\x80\xba", "\xee\x81\x84", "\xee\x81\x85", "\xe2\x80\xba", "\xee\x81\x85", "\xee\x81\x80", "\xe2\x80\xba", "\xee\x81\x87"};   /* Asignar: X > B  L > L  R > R  A > ZR */
+float g_leg_pos[4] = {690.0f, -905.0f, 252.0f, 1.0f};   /* right above the game's guide bar */
+float g_leg_geo[3] = {215.0f, 62.0f, 2.0f};   /* title -> first pair, icon -> arrow -> icon spacing, icon scale */
+float g_leg_bar[8] = {1250.0f, -905.0f, 0.66f, 0.27f, 0.85f, 0.07f, 0.06f, 0.05f};   /* backing plate: centre x, y,
                                                                                * x / y scale, alpha, rgb */
 static u64 g_leg_bar_rec;
 static u64 g_plus_frame, g_leg_rec[LEG_N], g_leg_set;
@@ -1592,7 +1598,13 @@ static void hud_menu_legend(u64 page) {
         }
         const float *c = t ? WHITE : GOLD;
         tint_rec(rec, c[0], c[1], c[2], 1.0f);
-        place(rec, g_leg_pos[0] + g_leg_pos[2] * (float)t, g_leg_pos[1], g_leg_pos[3], g_leg_pos[3], 0.0f);
+        float x = g_leg_pos[0], sc = g_leg_pos[3];
+        if (t) {
+            u32 pr = (t - 1) / 3, k = (t - 1) % 3;
+            x += g_leg_geo[0] + g_leg_pos[2] * (float)pr + g_leg_geo[1] * (float)k;
+            if (k != 1) sc *= g_leg_geo[2];
+        }
+        place(rec, x, g_leg_pos[1], sc, sc, 0.0f);
     }
     g_leg_set = pf;
     g_leg_shown = 1;

@@ -292,7 +292,7 @@ def main() -> int:
     (OUT / "hud_names.h").write_text(
         "".join(f"#define HASH_PART{i} {city_hash64(n.encode())}ull\n" for i, n in enumerate(names))
         # clock/rupee HUD: text panes T_OotTxt_00.. and picture panes P_OotPic_00.. (names in core/hud.c)
-        + "".join(f"#define HASH_TXT{i} {city_hash64(f'T_OotTxt_{i:02d}'.encode())}ull\n" for i in range(16))
+        + "".join(f"#define HASH_TXT{i} {city_hash64(f'T_OotTxt_{i:02d}'.encode())}ull\n" for i in range(32))
         + "#define HASH_PIC_LIST " + ", ".join(f"{city_hash64(f'P_OotPic_{i:03d}'.encode())}ull" for i in range(400))
         + "\n",
         encoding="ascii")

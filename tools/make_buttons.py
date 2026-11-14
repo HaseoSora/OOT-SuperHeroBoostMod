@@ -94,7 +94,7 @@ def button_image(glyph: str) -> Image.Image:
     else:
         d.ellipse((pad, pad, s - pad, s - pad), fill=(16, 16, 18, 255))                      # opaque body
         d.ellipse((pad, pad, s - pad, s - pad), outline=(255, 255, 255, 46), width=int(s * 0.018))   # thin rim
-    faint = (255, 255, 255, 120)
+    faint = (128, 128, 132, 255)   # opaque grey glyph
     if not glyph:
         pass
     elif glyph in ("circle", "cross", "triangle", "square"):

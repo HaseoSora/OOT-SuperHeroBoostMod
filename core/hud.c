@@ -737,7 +737,7 @@ static void place(u64 rec, float x, float y, float sx, float sy, float rot) {
     *(u32 *)rec |= 0x6F;   /* mark the pane dirty */
 }
 /* field f: shown text at (x, y) in colour rgb; on = 0 hides both panes */
-float g_fld_sc[FLD_N] = {0.0f, 0.0f, 0.0f, 0.62f, 0.62f};   /* text scale per field (0 = the HUD text scale) */
+float g_fld_sc[FLD_N] = {0.0f, 0.0f, 0.0f, 0.80f, 0.80f};   /* text scale per field (0 = the HUD text scale) */
 static void put_text(u64 frame, u32 f, const char *ascii, float x, float y, u32 on, const float *rgb) {
     u64 rf = pane_record(frame, g_tnames[f + FLD_N * g_tfront[f]]);
     u64 rb = pane_record(frame, g_tnames[f + FLD_N * (g_tfront[f] ^ 1)]);
@@ -1045,14 +1045,16 @@ static const char *item_name(int item) {
 }
 /* around the stock item box (top right): above, left, below, right-above; layout units, root-relative */
 /* Classic's default arrangement, top right: top row L X R, middle row (Y) (A) ZR, bottom (B) */
-float g_sb_pos[PART_N][2] = {{1096.0f, 837.0f}, {1326.0f, 837.0f}, {1557.0f, 837.0f},     /* L X R */
-                             {1212.0f, 669.0f}, {1442.0f, 669.0f}, {1672.0f, 669.0f},     /* Y A ZR */
-                             {1326.0f, 500.0f},                                            /* B */
-                             {1096.0f, 837.0f}, {1557.0f, 837.0f}, {1212.0f, 669.0f}, {1672.0f, 669.0f}, {1326.0f, 500.0f}};
+/* Gamepad diamond (measured on Classic's default theme): X top, Y left, A right, B bottom around a centre,
+ * L / R at the top corners, ZR to the right. Items sit up-left of their button so the button shows below. */
+float g_sb_pos[PART_N][2] = {{1020.4f, 872.3f}, {1292.6f, 843.0f}, {1545.2f, 872.3f},     /* L X R */
+                             {1129.6f, 680.0f}, {1455.6f, 680.0f}, {1677.2f, 680.0f},     /* Y A ZR */
+                             {1292.6f, 517.0f},                                            /* B */
+                             {995.1f, 897.6f}, {1519.9f, 897.6f}, {1104.3f, 705.3f}, {1651.9f, 705.3f}, {1267.3f, 542.3f}};
 float g_sb_scale = 0.62f;
 u32 g_sb_big_items = 1;
 /* per-part scale: buttons, then items (Classic draws the item bigger than its button) */
-float g_sb_sc[PART_N] = {0.40f, 0.40f, 0.40f, 0.40f, 0.40f, 0.40f, 0.40f, 0.36f, 0.36f, 0.36f, 0.36f, 0.36f};
+float g_sb_sc[PART_N] = {0.34f, 0.34f, 0.34f, 0.34f, 0.34f, 0.34f, 0.34f, 0.44f, 0.44f, 0.44f, 0.44f, 0.44f};
 u32 g_sb_hide_stock = 1;   /* hide the game's own item box and its page dots: the replica replaces them */
 static u64 g_stock_box_rec, g_stock_dots_rec;
 /* animation frame forced on every button each frame, per animation (-1 = leave it); see slot_anim_name() */

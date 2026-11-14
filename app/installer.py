@@ -6,6 +6,7 @@ import re
 import shutil
 import struct
 import sys
+import urllib.request
 import zipfile
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -166,9 +167,16 @@ def patch_config(nso: bytes, s: Settings) -> bytes:
     return bytes(b)
 
 
-# ---------- Classic Item Slots v1.4.3 (bundled inside this app: three button-glyph variants) ----------
+# ---------- Classic Item Slots v1.4.3 (downloaded from its official release, not bundled) ----------
 CLASSIC_VARIANTS = ("default", "playstation", "xbox")
 CLASSIC_VERSION = "1.4.3"
+CLASSIC_TAG = f"v{CLASSIC_VERSION}"
+CLASSIC_ASSETS = {
+    "default": f"Classic-Item-Slots-{CLASSIC_TAG}.zip",
+    "playstation": f"Classic-Item-Slots-{CLASSIC_TAG}-PlayStation.zip",
+    "xbox": f"Classic-Item-Slots-{CLASSIC_TAG}-Xbox.zip",
+}
+CLASSIC_URL = "https://github.com/sonofsilvanus/OoTNS2-Classic-Item-Slots/releases/download/{tag}/{name}"
 CACHE = paths.cache_dir()
 # the 14 main offsets its patch file touches (checked after unpacking, so a wrong archive is never installed)
 CLASSIC_SITES = {0x33A927C, 0x33AAC34, 0x33BD928, 0x33C9AB4, 0x34694F8, 0x3469524, 0x3469550, 0x346966C,
@@ -192,17 +200,37 @@ def _find_classic_in(root: Path) -> Path | None:
     return None
 
 
-def bundled_classic(variant: str) -> Path:
+def fetch_classic(variant: str) -> Path:
+    """Reuse the cached copy or download the chosen official release asset from GitHub."""
     if variant not in CLASSIC_VARIANTS:
         raise InstallError("classic_missing", variant)
-    z = resource_dir() / "classic_src" / f"{variant}.zip"
-    if not z.exists():
-        raise InstallError("classic_missing", variant)
-    dest = CACHE / f"{CLASSIC_VERSION}-{variant}-{z.stat().st_size}"
-    if not dest.exists() or not _find_classic_in(dest):
-        shutil.rmtree(dest, ignore_errors=True)
+    dest = CACHE / f"{CLASSIC_VERSION}-{variant}"
+    found = _find_classic_in(dest) if dest.exists() else None
+    if found:
+        return found
+
+    shutil.rmtree(dest, ignore_errors=True)
+    CACHE.mkdir(parents=True, exist_ok=True)
+    tmp = CACHE / f"{variant}.zip.part"
+    try:
+        url = CLASSIC_URL.format(tag=CLASSIC_TAG, name=CLASSIC_ASSETS[variant])
+        req = urllib.request.Request(url, headers={"User-Agent": "super-hero-boost"})
+        with urllib.request.urlopen(req, timeout=60) as response, open(tmp, "wb") as out:
+            shutil.copyfileobj(response, out)
         dest.mkdir(parents=True)
-        zipfile.ZipFile(z).extractall(dest)
+        with zipfile.ZipFile(tmp) as archive:
+            archive.extractall(dest)
+    except Exception:
+        shutil.rmtree(dest, ignore_errors=True)
+        try:
+            tmp.unlink()
+        except OSError:
+            pass
+        raise InstallError("classic_download", variant)
+    try:
+        tmp.unlink()
+    except OSError:
+        pass
     found = _find_classic_in(dest)
     if not found:
         raise InstallError("classic_invalid", variant)
@@ -225,7 +253,7 @@ def install(emu: Path, s: Settings, classic_variant: str = "default", name: str 
     pay = resource_dir() / variant
     if not (pay / "subsdk9").exists():
         raise InstallError("no_payload", variant)
-    classic_dir = bundled_classic(classic_variant) if s.classic else None
+    classic_dir = fetch_classic(classic_variant) if s.classic else None
     target = mods / name
     mods.mkdir(parents=True, exist_ok=True)
     if target.exists():

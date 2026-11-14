@@ -124,17 +124,17 @@ def cli(argv) -> int:
 
 
 # ---------------------------------------------------------------- window
-BG = "#0f141b"
-SIDEBAR = "#0b1016"
-PANEL = "#171f2a"
-PANEL2 = "#0c1219"
-BORDER = "#263342"
-ACCENT = "#4cc2ff"
-ACCENT_DARK = "#1d5f7d"
-AMBER = "#ffb347"
-TEXT = "#e7eef7"
-DIM = "#94a3b3"
-RED = "#ff7070"
+BG = "#0c1712"
+SIDEBAR = "#08110d"
+PANEL = "#14251b"
+PANEL2 = "#09130e"
+BORDER = "#2f4a36"
+ACCENT = "#d8b24a"
+ACCENT_DARK = "#7a5c1f"
+AMBER = "#e8b04a"
+TEXT = "#f2e8c9"
+DIM = "#a9a184"
+RED = "#c9564a"
 
 
 class ScrollArea:
@@ -195,6 +195,8 @@ def gui() -> None:
 
     fams = set(tkfont.families())
     FAM = next((f for f in ("Segoe UI", "SF Pro Text", "Helvetica Neue", "DejaVu Sans", "Arial") if f in fams), "TkDefaultFont")
+    DISPLAY = next((f for f in ("Palatino Linotype", "Book Antiqua", "Georgia", "Cambria", "DejaVu Serif",
+                                "Times New Roman") if f in fams), FAM)
 
     lang = tk.StringVar(value=cfg.get("lang") if cfg.get("lang") in LANGS else system_lang())
     emu = tk.StringVar(value=cfg.get("emu", ""))
@@ -245,9 +247,9 @@ def gui() -> None:
     # ---- small widget helpers ----
     def button(parent, text, cmd, primary=False, **kw):
         return tk.Button(parent, text=text, command=cmd, font=(FAM, 10, "bold"), relief="flat", bd=0,
-                         cursor="hand2", bg=ACCENT if primary else PANEL2, fg="#06121a" if primary else TEXT,
-                         activebackground="#78d4ff" if primary else BORDER,
-                         activeforeground="#06121a" if primary else TEXT,
+                         cursor="hand2", bg=ACCENT if primary else PANEL2, fg="#1a1408" if primary else TEXT,
+                         activebackground="#f1d27a" if primary else BORDER,
+                         activeforeground="#1a1408" if primary else TEXT,
                          disabledforeground=DIM, highlightthickness=1,
                          highlightbackground=ACCENT if primary else BORDER,
                          padx=16, pady=7, **kw)
@@ -260,7 +262,8 @@ def gui() -> None:
     def card(parent, title, desc=None):
         f = tk.Frame(parent, bg=PANEL, highlightbackground=BORDER, highlightthickness=1)
         f.pack(fill="x", padx=4, pady=(0, 12))
-        label(f, title, size=12, color=ACCENT, bold=True, bg=PANEL).pack(anchor="w", padx=14, pady=(10, 0))
+        tk.Label(f, text=title, bg=PANEL, fg=ACCENT, font=(DISPLAY, 13, "bold"), anchor="w").pack(
+            anchor="w", padx=14, pady=(10, 0))
         if desc:
             label(f, desc, size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=14, pady=(2, 8))
         body = tk.Frame(f, bg=PANEL)
@@ -332,6 +335,22 @@ def gui() -> None:
     for var in (classic, stamina, mode, combat, hp, dmg, speed, nodrop, rupees, clock, clock24, *costs.values()):
         var.trace_add("write", on_setting_change)
 
+    def on_mode_change(*_):
+        """When a named stamina style is chosen, show what it does in the checkbox list."""
+        if guard["on"]:
+            return
+        view = I.PRESET_VIEW.get(STAMINA_MODES.index(mode.get()))
+        if view is not None:
+            guard["on"] = True
+            for k in KEYS:
+                costs[k].set(bool(view[k]))
+            combat.set(bool(view["combat_only"]))
+            guard["on"] = False
+        refresh()
+        autosave()
+
+    mode.trace_add("write", on_mode_change)
+
     pending = {"id": None}
 
     def autosave(*_):
@@ -372,7 +391,7 @@ def gui() -> None:
 
     def do_install():
         try:
-            status.set(L("working"))
+            status.set(L("download_classic") if classic.get() else L("working"))
             root.update_idletasks()
             r = I.install(Path(emu.get().strip()).expanduser(), settings(), variant.get())
             remember()
@@ -419,38 +438,15 @@ def gui() -> None:
         token = profile.get().replace("-", "_")
         ui["profile_desc"].config(text=L("p_" + token + "_d") if profile.get() in PROFILES
                                   else L("p_custom_d"))
-        ui["profile_current"].config(text=L("profile_current", a=profile_name(profile.get())),
-                                     fg=AMBER if profile.get() == "custom" else ACCENT)
-        cb = ui.get("profile_cb")
-        if cb is not None:
-            idx = PROFILE_KEYS.index(profile.get())
-            if cb.current() != idx:
-                cb.current(idx)
-        cb = ui.get("profile_home")
-        if cb is not None:
-            idx = PROFILE_KEYS.index(profile.get())
-            if cb.current() != idx:
-                cb.current(idx)
+        ui["profile_badge"].config(text=L("profile_current", a=profile_name(profile.get())),
+                                   fg=AMBER if profile.get() == "custom" else ACCENT)
         ui["reapply"].config(state="normal" if profile.get() != "custom" else "disabled")
 
     # ---- sections ----
     def build_install(parent):
         body = card(parent, L("home_title"), L("home_desc"))
-        row = tk.Frame(body, bg=PANEL)
-        row.pack(fill="x")
-        label(row, L("profile") + ":", size=10, bg=PANEL).pack(side="left", padx=(0, 8))
-        cb = ttk.Combobox(row, state="readonly", style="SHB.TCombobox", width=24,
-                          values=[profile_name(k) for k in PROFILE_KEYS])
-        cb.current(PROFILE_KEYS.index(profile.get()))
-        cb.pack(side="left")
-        cb.bind("<<ComboboxSelected>>", lambda e: choose_profile(PROFILE_KEYS[cb.current()]))
-        ui["profile_home"] = cb
-        ui["profile_current"] = label(body, "", size=10, color=ACCENT, bold=True, bg=PANEL)
-        ui["profile_current"].pack(anchor="w", pady=(8, 0))
-        ui["profile_desc"] = label(body, "", size=9, color=DIM, bg=PANEL)
-        ui["profile_desc"].pack(anchor="w", pady=(1, 6))
-        ui["reapply"] = button(body, L("reapply"), lambda: apply_profile(profile.get()))
-        ui["reapply"].pack(anchor="w", pady=(0, 8))
+        ui["profile_desc"] = label(body, "", size=10, color=AMBER, bold=True, bg=PANEL)
+        ui["profile_desc"].pack(anchor="w", pady=(0, 5))
         prof = tk.Frame(body, bg=PANEL)
         prof.pack(fill="x")
         for i, key in enumerate(PROFILE_KEYS):
@@ -458,6 +454,8 @@ def gui() -> None:
             r.grid(row=i, column=0, sticky="w", pady=1)
             label(prof, L("p_" + key.replace("-", "_") + "_d"), size=9, color=DIM, bg=PANEL).grid(
                 row=i, column=1, sticky="w", padx=(10, 0), pady=1)
+        ui["reapply"] = button(body, L("reapply"), lambda: apply_profile(profile.get()))
+        ui["reapply"].pack(anchor="w", pady=(8, 0))
 
         body = card(parent, L("install_title"), L("install_desc"))
         row = tk.Frame(body, bg=PANEL)
@@ -536,6 +534,7 @@ def gui() -> None:
         check(row, L("hud_clock"), clock).grid(row=0, column=1, sticky="w", padx=(0, 24))
         check(row, L("clock24"), clock24).grid(row=0, column=2, sticky="w")
         label(body, L("hud_note"), size=9, color=DIM, bg=PANEL).pack(anchor="w", pady=(8, 0))
+        build_buttons(parent)
 
     def build_buttons(parent):
         body = card(parent, L("buttons_title"), L("buttons_desc"))
@@ -545,7 +544,9 @@ def gui() -> None:
         row.pack(anchor="w", pady=(8, 0))
         label(row, L("variant") + ":", size=10, bg=PANEL).pack(side="left", padx=(0, 8))
         names = [L("g_" + k) for k in I.CLASSIC_VARIANTS]
-        cb = combo(row, names, tk.StringVar(value=names[list(I.CLASSIC_VARIANTS).index(variant.get())]), width=16)
+        vvar = tk.StringVar(value=names[list(I.CLASSIC_VARIANTS).index(variant.get())])
+        ui["variant_var"] = vvar
+        cb = combo(row, names, vvar, width=16)
         cb.pack(side="left")
         cb.bind("<<ComboboxSelected>>", lambda e: variant.set(list(I.CLASSIC_VARIANTS)[cb.current()]))
         ui["variant"] = cb
@@ -563,21 +564,16 @@ def gui() -> None:
         hd.pack(fill="x", padx=18, pady=(14, 8))
         left = tk.Frame(hd, bg=BG)
         left.pack(side="left", fill="x", expand=True)
-        tk.Label(left, text="Super Hero Boost", bg=BG, fg=TEXT, font=(FAM, 22, "bold")).pack(anchor="w")
+        tk.Label(left, text="Super Hero Boost", bg=BG, fg=ACCENT, font=(DISPLAY, 24, "bold")).pack(anchor="w")
         tk.Label(left, text=L("subtitle"), bg=BG, fg=DIM, font=(FAM, 10)).pack(anchor="w")
         right = tk.Frame(hd, bg=BG)
         right.pack(side="right")
-        tk.Label(right, text=L("profile"), bg=BG, fg=DIM, font=(FAM, 9)).grid(row=0, column=0, sticky="e", padx=(0, 6))
-        pcb = ttk.Combobox(right, state="readonly", style="SHB.TCombobox", width=20,
-                           values=[profile_name(k) for k in PROFILE_KEYS])
-        pcb.current(PROFILE_KEYS.index(profile.get()))
-        pcb.grid(row=0, column=1, padx=(0, 18))
-        pcb.bind("<<ComboboxSelected>>", lambda e: choose_profile(PROFILE_KEYS[pcb.current()]))
-        ui["profile_cb"] = pcb
-        tk.Label(right, text=L("language"), bg=BG, fg=DIM, font=(FAM, 9)).grid(row=0, column=2, sticky="e", padx=(0, 6))
+        ui["profile_badge"] = tk.Label(right, text="", bg=BG, fg=ACCENT, font=(FAM, 10, "bold"))
+        ui["profile_badge"].grid(row=0, column=0, sticky="e", padx=(0, 18))
+        tk.Label(right, text=L("language"), bg=BG, fg=DIM, font=(FAM, 9)).grid(row=0, column=1, sticky="e", padx=(0, 6))
         lcb = ttk.Combobox(right, state="readonly", style="SHB.TCombobox", width=12, values=list(LANGS.values()))
         lcb.current(list(LANGS).index(lang.get()) if lang.get() in LANGS else 0)
-        lcb.grid(row=0, column=3)
+        lcb.grid(row=0, column=2)
         lcb.bind("<<ComboboxSelected>>", lambda e: change_lang(list(LANGS)[lcb.current()]))
 
     def change_lang(code):
@@ -591,7 +587,7 @@ def gui() -> None:
         side.pack_propagate(False)
         for key, text in (("install", "nav_install"), ("stamina", "nav_stamina"),
                           ("difficulty", "nav_difficulty"), ("hud", "nav_hud"),
-                          ("buttons", "nav_buttons"), ("about", "nav_about")):
+                          ("about", "nav_about")):
             b = tk.Button(side, text=L(text), command=lambda k=key: show_section(k), anchor="w",
                           bg=SIDEBAR, fg=TEXT, activebackground=PANEL, activeforeground=ACCENT,
                           relief="flat", bd=0, cursor="hand2", font=(FAM, 10, "bold"),
@@ -606,7 +602,7 @@ def gui() -> None:
         scroll = ScrollArea(wrap, BG)
         scroll.frame.pack(fill="both", expand=True)
         builders = {"install": build_install, "stamina": build_stamina, "difficulty": build_difficulty,
-                    "hud": build_hud, "buttons": build_buttons, "about": build_about}
+                    "hud": build_hud, "about": build_about}
         for key, fn in builders.items():
             f = tk.Frame(scroll.inner, bg=BG)
             fn(f)

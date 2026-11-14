@@ -11,7 +11,7 @@ producto.
 | `core/`, `features/stamina/`, `features/classic_slots/`, `features/probe/` | Propio | Sí (módulo compilado) | OK |
 | `app/` (ventana, perfiles, instalador, textos) | Propio | Sí | OK |
 | `tools/` (compilación, pruebas, análisis) | Propio, salvo dependencias indicadas | No | OK |
-| Classic Item Slots v1.4.3 | sonofsilvanus (terceros) | Sí, dentro del payload | Permitido por el autor del proyecto; se conserva el crédito |
+| Classic Item Slots v1.4.3 | sonofsilvanus (terceros) | No: la app lo descarga de su release oficial | Se conserva el crédito; no se empaqueta con el proyecto |
 | Algoritmo CityHash64 | Algoritmo público de Google | Solo el código que lo implementa | Implementación propia; sin código de Google copiado |
 | Código y materiales del juego | Juego original | No | Solo se leen del volcado del usuario en tiempo de ejecución |
 | Herramientas de desarrollo (LLVM, PyInstaller, lz4, zbic, devtool, emulador) | Terceros | No | Dependencias de desarrollo, no forman parte del producto |
@@ -29,9 +29,9 @@ No se ha encontrado código fuente de otro mod copiado dentro de `core/`, `featu
 
 ## Classic Item Slots
 
-Es el único componente de terceros que se distribuye con el producto. Se descarga de su release oficial durante
-`tools/make_release.py` y se instala tal cual (tres variantes de botones). El crédito a sonofsilvanus se mantiene en
-la app, el README y la documentación. No se presenta como trabajo propio.
+No se empaqueta con el producto. La app lo descarga de su release oficial de GitHub en el momento de instalar la
+variante elegida (tres variantes de botones) y lo instala tal cual. El crédito a sonofsilvanus se mantiene en la app,
+el README y la documentación. No se presenta como trabajo propio.
 
 ## CityHash64
 
@@ -59,7 +59,7 @@ Se revisaron los archivos versionados y los textos de la app:
   pasaron de `g_link_*` a `g_player_*`.
 - "Hero Mode" se mantiene como nombre genérico de dificultad (es el término que usa el propio producto).
 - La abreviatura `OoT` se eliminó del código y de los nombres de paneles. La URL de descarga de Classic conserva su
-  nombre original porque es la URL real del release de terceros y solo se usa en tiempo de compilación.
+  nombre original porque es la URL real del release de terceros y solo se usa para descargar el mod al instalar.
 
 ## Dependencias de desarrollo
 

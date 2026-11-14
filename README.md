@@ -3,16 +3,17 @@
 Módulo de gameplay para el remake de consola (actualización v131072) y su app de configuración multiplataforma
 `SuperHeroBoostConfig`:
 
-- **Perfiles completos**: Original, Modo héroe, Héroe + estamina, Explorador, Supervivencia y Super boost. Cada uno
-  ajusta de una vez la dificultad, la estamina, el sprint, el HUD y los botones extra; cualquier cambio manual pasa a
-  **Personalizado**.
+- **Perfiles completos**: Base, Modo héroe, Héroe + estamina, Héroe explorador, Superhéroe, Ultra héroe y Supervivencia.
+  Todos incluyen el HUD y Classic Item Slots, y ajustan de una vez la dificultad, la estamina y el sprint; cualquier
+  cambio manual pasa a **Personalizado**.
 - **Estamina** con estilos (hardcore, solo combate, solo sprint, avanzado), agotamiento y recarga; coste al rodar,
   saltar, atacar, disparar, esprintar y bloquear con el escudo.
 - **Anillo de estamina** junto al jugador, dibujado con texturas del juego.
 - **Velocidad del sprint** configurable (por defecto +25 %).
 - **Vida de los enemigos** y **daño recibido** multiplicables; opción **sin drop de corazones**.
 - **Reloj y contador de rupias siempre visibles**, con el aspecto nativo del juego (12 / 24 h).
-- Compatible con **Classic Item Slots** (se instala junto al mod desde la app, con su crédito original).
+- Compatible con **Classic Item Slots** (la app lo descarga de su release oficial en GitHub y lo instala con su crédito
+  original; no va incluido en el código).
 
 ## Uso
 
@@ -47,5 +48,5 @@ El ejecutable se genera en `release/` para el sistema donde se compila (PyInstal
 
 ## Créditos
 
-Classic Item Slots v1.4.3, de sonofsilvanus, se descarga de su release oficial y se instala tal cual. Es el único
-componente de terceros distribuido con la app. El módulo, el HUD, el sistema de estamina y la app son trabajo original.
+Classic Item Slots v1.4.3, de sonofsilvanus, se descarga de su release oficial de GitHub cuando se activa y se instala
+tal cual. No se distribuye con la app. El módulo, el HUD, el sistema de estamina y la app son trabajo original.

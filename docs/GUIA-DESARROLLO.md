@@ -213,7 +213,7 @@ Cuando el aspecto convence, se copian los valores a los inicializadores de `g_hu
 
 ```
 python tools/build_core.py --features stamina --compat --base 0x4F87000   # módulo de prueba en build/native
-python tools/make_release.py     # compila las 2 variantes en app/payload + romfs opcional + Classic empaquetado
+python tools/make_release.py     # compila las 2 variantes en app/payload + romfs opcional (Classic no se empaqueta)
 python tools/build_app.py        # binario nativo de la app (PyInstaller). Cerrar la app antes.
 ```
 
@@ -223,8 +223,8 @@ cada sistema destino. La app usa Tkinter y rutas portables (`app/paths.py`); no 
 La app (`app/main.py` interfaz, `app/presets.py` perfiles, `app/installer.py` lógica, `app/i18n.py` textos):
 1. encuentra la carpeta de mods del emulador (respeta `load_directory`);
 2. copia la variante adecuada y parchea el bloque de configuración;
-3. con Classic Item Slots: copia su módulo como `subsdk8` y su romfs, y fusiona los dos IPS comprobando que no
-   se solapan;
+3. con Classic Item Slots: descarga la variante elegida de su release oficial de GitHub, copia su módulo como
+   `subsdk8` y su romfs, y fusiona los dos IPS comprobando que no se solapan;
 4. avisa de otros mods con exefs que pueden chocar.
 
 También tiene modo línea de comandos (el mismo código de instalación):
@@ -289,8 +289,8 @@ Los nombres de funciones no están en `main` en texto claro (el motor usa hashes
 | `lib/` | `nso.py` (NSO/IPS), `sarc.py`, `cityhash.py` (implementación propia del algoritmo público), `winmove.py` |
 
 ## 10. Licencias y referencias
-- Classic Item Slots (sonofsilvanus): se descarga de su release oficial y se instala tal cual (único componente de
-  terceros distribuido con la app).
+- Classic Item Slots (sonofsilvanus): la app lo descarga de su release oficial y lo instala tal cual. No se distribuye
+  con el proyecto.
 - El cliente del servidor de depuración, `HostMemory` y los lectores de BYML/GameData son herramientas de
   desarrollo y no se distribuyen con el mod.
 - El resto del código (módulo, HUD, estamina, app e instalador) es propio. Ver [AUDIT.md](AUDIT.md).

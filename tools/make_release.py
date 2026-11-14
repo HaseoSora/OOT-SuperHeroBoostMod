@@ -1,37 +1,24 @@
-"""Developer step (NOT done by the app): compile the two prebuilt variants and stage them as the app payload.
+﻿"""Developer step (NOT done by the app): compile the two prebuilt variants and stage them as the app payload.
 
   classic     module linked after Classic Item Slots (base 0x4F87000)
   standalone  module linked right after subsdk0 (base 0x4F80000)
 
 Output: app/payload/<variant>/{subsdk9,ours.ips} + app/payload/manifest.json
+
+Classic Item Slots is NOT bundled: the app downloads the chosen official
+release from GitHub when the user installs it.
 """
-import hashlib, json, shutil, subprocess, sys, urllib.request
+import hashlib
+import json
+import shutil
+import subprocess
+import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "app" / "payload"
 BUILD_ID = "E0F3CCFAF50065AE4EA01EB5AEB13B1A45DA3348"
 VARIANTS = {"classic": "0x4F87000", "standalone": "0x4F80000"}
-
-
-CLASSIC_TAG = "v1.4.3"
-CLASSIC_ASSETS = {"default": f"Classic-Item-Slots-{CLASSIC_TAG}.zip", "xbox": f"Classic-Item-Slots-{CLASSIC_TAG}-Xbox.zip",
-                  "playstation": f"Classic-Item-Slots-{CLASSIC_TAG}-PlayStation.zip"}
-CLASSIC_URL = "https://github.com/sonofsilvanus/OoTNS2-Classic-Item-Slots/releases/download/{tag}/{name}"
-
-
-def stage_classic():
-    """Bundle Classic Item Slots v1.4.3 (the three official zips) next to the variants. Cached in build/."""
-    cache = ROOT / "build" / "classic_cache"
-    cache.mkdir(parents=True, exist_ok=True)
-    dst = OUT / "classic_src"
-    dst.mkdir(parents=True, exist_ok=True)
-    for key, name in CLASSIC_ASSETS.items():
-        f = cache / name
-        if not f.exists():
-            req = urllib.request.Request(CLASSIC_URL.format(tag=CLASSIC_TAG, name=name), headers={"User-Agent": "super-hero-boost"})
-            f.write_bytes(urllib.request.urlopen(req, timeout=120).read())
-        shutil.copy2(f, dst / f"{key}.zip")
 
 
 def stage_rupee_ips():
@@ -42,11 +29,16 @@ def stage_rupee_ips():
 
 
 def main():
+    keep = None
+    if (OUT / "romfs_opts").exists():
+        keep = ROOT / "build" / "payload_keep" / "romfs_opts"
+        shutil.rmtree(keep.parent, ignore_errors=True)
+        shutil.copytree(OUT / "romfs_opts", keep)
     if OUT.exists():
         shutil.rmtree(OUT)
     man = {"build_id": BUILD_ID, "variants": {}}
     for name, base in VARIANTS.items():
-        subprocess.run([sys.executable, str(ROOT / "tools" / "build_core.py"), "--features", "stamina",
+        subprocess.run([sys.executable, str(ROOT / "tools" / "build_core.py"), "--features", "stamina,songbook",
                         "--compat", "--base", base], check=True, cwd=ROOT)
         d = OUT / name
         d.mkdir(parents=True)
@@ -54,8 +46,14 @@ def main():
         shutil.copy2(src / "subsdk9", d / "subsdk9")
         shutil.copy2(src / f"{BUILD_ID}.ips", d / "ours.ips")
         man["variants"][name] = {"base": base, "sha256": hashlib.sha256((d / "subsdk9").read_bytes()).hexdigest()}
-    stage_classic()
-    subprocess.run([sys.executable, str(ROOT / "tools" / "make_romfs_opts.py")], check=True, cwd=ROOT)
+    if keep is not None and keep.exists():
+        shutil.copytree(keep, OUT / "romfs_opts")
+    r = subprocess.run([sys.executable, str(ROOT / "tools" / "make_romfs_opts.py")], cwd=ROOT)
+    if r.returncode:
+        print("WARNING: romfs options not built (game dump missing?): the payload keeps any previous 'romfs_opts'")
+    r = subprocess.run([sys.executable, str(ROOT / "tools" / "make_enemy_opts.py")], cwd=ROOT)
+    if r.returncode:
+        print("WARNING: beta enemy mods not built (game dump missing?): the payload keeps any previous files")
     (OUT / "manifest.json").write_text(json.dumps(man, indent=2))
     print("payload staged in", OUT)
 

@@ -57,7 +57,7 @@ static const char CIRCLE_TEX[] = "Circle64_00";
  * parts 1..4 are the slot circles: the gauge's fill texture is replaced by the
  * stock Circle64_00 and the gauge is kept full, so it draws a tinted circle. The
  * art is a placeholder until the real assets arrive. */
-#define PART_N 8   /* Classic replica: parts 0..3 button backgrounds, 4..7 the item icons on them; clones of the stock item box Pa_SelectItem_00 (asset PaItemBtn_00).
+#define PART_N 12  /* Classic replica: parts 0..6 buttons (L X R Y A ZR B), 7..11 items (L R Y ZR B); clones of the stock item box Pa_SelectItem_00 (asset PaItemBtn_00).
                     * (The old gauge-part ring is retired: the stamina ring is drawn with picture panes, RT1..) */
 #define APPEND_ALL 1   /* 1 = append every part (only the first one gets listed by the
                         * engine); 0 = parts 1.. repurpose filler parts (froze the game) */
@@ -147,11 +147,13 @@ static void extend_pools(u8 *root, u32 add) {
 /* ---- clock / rupee plates, drawn like the game's own number display ----
  * Text fields: 0 = clock, 1 = rupees (green), 2 = "/wallet" (white). Each field has two panes
  * (field f uses panes f and f + FLD_N): the text is written to the hidden one. */
-#define FLD_N 3
+#define FLD_N 5   /* 0 clock, 1 rupees, 2 "/wallet", 3 X button label (Jump), 4 A button label (context) */
 #define TXT_N (FLD_N * 2)
 static const char g_font_normal[] = "Normal";
-static char g_tnames[TXT_N][16] = {"T_OotTxt_00", "T_OotTxt_01", "T_OotTxt_02", "T_OotTxt_03", "T_OotTxt_04", "T_OotTxt_05"};
-static const u64 g_thash[TXT_N] = {HASH_TXT0, HASH_TXT1, HASH_TXT2, HASH_TXT3, HASH_TXT4, HASH_TXT5};
+static char g_tnames[TXT_N][16] = {"T_OotTxt_00", "T_OotTxt_01", "T_OotTxt_02", "T_OotTxt_03", "T_OotTxt_04",
+                                   "T_OotTxt_05", "T_OotTxt_06", "T_OotTxt_07", "T_OotTxt_08", "T_OotTxt_09"};
+static const u64 g_thash[TXT_N] = {HASH_TXT0, HASH_TXT1, HASH_TXT2, HASH_TXT3, HASH_TXT4,
+                                   HASH_TXT5, HASH_TXT6, HASH_TXT7, HASH_TXT8, HASH_TXT9};
 /* Picture panes. Each gets its own copy of the textured material of P_SubItemBg_00 with the game's
  * texture named below (all in the Common texture archive):
  *  0..3  clock plate:  fill, fill mirrored, edge, edge mirrored   (NumBaseSide_00 / _01, the plate of
@@ -735,12 +737,13 @@ static void place(u64 rec, float x, float y, float sx, float sy, float rot) {
     *(u32 *)rec |= 0x6F;   /* mark the pane dirty */
 }
 /* field f: shown text at (x, y) in colour rgb; on = 0 hides both panes */
+float g_fld_sc[FLD_N] = {0.0f, 0.0f, 0.0f, 0.62f, 0.62f};   /* text scale per field (0 = the HUD text scale) */
 static void put_text(u64 frame, u32 f, const char *ascii, float x, float y, u32 on, const float *rgb) {
     u64 rf = pane_record(frame, g_tnames[f + FLD_N * g_tfront[f]]);
     u64 rb = pane_record(frame, g_tnames[f + FLD_N * (g_tfront[f] ^ 1)]);
     g_txt_dbg[f] = MARK | rf;
     if (!rf || !rb) return;
-    float ts = g_hudp[13];
+    float ts = g_fld_sc[f] > 0.0f ? g_fld_sc[f] : g_hudp[13];
     tint_rec(rf, rgb[0], rgb[1], rgb[2], 1.0f);
     tint_rec(rb, rgb[0], rgb[1], rgb[2], 1.0f);
     if (g_tpend[f] && ++g_twait[f] >= 4) {   /* the hidden pane has drawn its new text: swap */
@@ -1013,10 +1016,12 @@ u64 g_sb_rif[PART_N][2];    /* nested Pa_ReplaceIcon_00 frame, its layout (diagn
 /* item per button (the game's item index, as passed to the equip call main+0x1211C00); -1 = empty */
 /* parts 0..3: the buttons (our textures, drawn by the icon pane: full colour), parts 4..7: the items on them.
  * (The icon's shadow pane cannot carry the button: it draws only the texture's shape in a fixed shadow tone.) */
-int g_sb_item[PART_N] = {-1, -1, -1, -1, 3, 1, 2, 30};   /* test: boomerang, nuts, bombs, bow */
+enum { SB_L, SB_X, SB_R, SB_Y, SB_A, SB_ZR, SB_B, SB_NBTN };
+int g_sb_item[PART_N] = {-1, -1, -1, -1, -1, -1, -1, 3, 1, -1, 2, 30};   /* test: L boomerang, R nuts, ZR bombs, B bow */
 char g_sb_name_dbg[PART_N][32];   /* actor name resolved for each button (diagnostic) */
 /* texture name forced on a part (first byte <= 1 = none): the button backgrounds (tools/make_buttons.py) */
-char g_sb_force[PART_N][32] = {"OotBtnS_L", "OotBtnS_X", "OotBtnS_R", "OotBtnS_ZR", {1}, {1}, {1}, {1}};
+char g_sb_force[PART_N][32] = {"OotBtnS_L", "OotBtnS_Blank", "OotBtnS_R", "OotBtnS_Y", "OotBtnS_A", "OotBtnS_ZR",
+                               "OotBtnS_B", {1}, {1}, "Weapon_Sword_Kokiri", {1}, {1}};   /* Y: the sword (TODO: equipped one) */
 /* button texture behind each slot's icon (UI/Tex/IconSh/<name>, tools/make_buttons.py) */
 char g_sb_btn[PART_N][24] = {{0}};
 /* ItemPattern = how the icon of each item is framed in the button (scale / offset); frame 0 draws it oversized.
@@ -1040,12 +1045,14 @@ static const char *item_name(int item) {
 }
 /* around the stock item box (top right): above, left, below, right-above; layout units, root-relative */
 /* Classic's default arrangement, top right: top row L X R, middle row (Y) (A) ZR, bottom (B) */
-float g_sb_pos[PART_N][2] = {{1096.0f, 837.0f}, {1326.0f, 837.0f}, {1557.0f, 837.0f}, {1672.0f, 669.0f},
-                             {1096.0f, 837.0f}, {1326.0f, 837.0f}, {1557.0f, 837.0f}, {1672.0f, 669.0f}};
+float g_sb_pos[PART_N][2] = {{1096.0f, 837.0f}, {1326.0f, 837.0f}, {1557.0f, 837.0f},     /* L X R */
+                             {1212.0f, 669.0f}, {1442.0f, 669.0f}, {1672.0f, 669.0f},     /* Y A ZR */
+                             {1326.0f, 500.0f},                                            /* B */
+                             {1096.0f, 837.0f}, {1557.0f, 837.0f}, {1212.0f, 669.0f}, {1672.0f, 669.0f}, {1326.0f, 500.0f}};
 float g_sb_scale = 0.62f;
 u32 g_sb_big_items = 1;
 /* per-part scale: buttons, then items (Classic draws the item bigger than its button) */
-float g_sb_sc[PART_N] = {0.40f, 0.40f, 0.40f, 0.40f, 0.36f, 0.36f, 0.36f, 0.36f};
+float g_sb_sc[PART_N] = {0.40f, 0.40f, 0.40f, 0.40f, 0.40f, 0.40f, 0.40f, 0.36f, 0.36f, 0.36f, 0.36f, 0.36f};
 u32 g_sb_hide_stock = 1;   /* hide the game's own item box and its page dots: the replica replaces them */
 static u64 g_stock_box_rec, g_stock_dots_rec;
 /* animation frame forced on every button each frame, per animation (-1 = leave it); see slot_anim_name() */
@@ -1183,6 +1190,13 @@ static void slots_update(u64 frame) {
         }
     }
 }
+char g_sb_jump_label[16] = "Saltar";
+char g_sb_a_label[16] = "";   /* context action of A (empty: the button shows its letter) */
+static void slots_labels(u64 frame) {
+    static const float LABEL[3] = {0.92f, 0.92f, 0.92f};
+    put_text(frame, 3, g_sb_jump_label, g_sb_pos[SB_X][0], g_sb_pos[SB_X][1], 1, LABEL);
+    put_text(frame, 4, g_sb_a_label, g_sb_pos[SB_A][0], g_sb_pos[SB_A][1], g_sb_a_label[0] != 0, LABEL);
+}
 static void slots_reset(void) { for (u32 k = 0; k < PART_N; k++) g_sb[k].part = 0; g_stock_box_rec = 0; g_stock_dots_rec = 0; }
 
 u32 hud_frame_count(void) { return g_tick; }
@@ -1207,6 +1221,7 @@ static void hud_frame(void) {
     }
     ring_update();
     slots_update(g_frame_node);
+    slots_labels(g_frame_node);
 }
 /* -------- observation of the stock item box (to learn icon frames) -------- */
 #define FL_N 24

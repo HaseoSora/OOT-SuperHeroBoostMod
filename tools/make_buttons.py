@@ -23,14 +23,14 @@ ROOT = Path(__file__).resolve().parent.parent
 TEMPLATE = ROOT / "build" / "tpl.bntx"
 OUT = ROOT / "build" / "buttons"
 SIZE = 128
-BUTTONS = ("A", "B", "X", "Y", "L", "R", "ZL", "ZR")
+BUTTONS = ("A", "B", "X", "Y", "L", "R", "ZL", "ZR", "Blank")   # Blank: no glyph (a text label goes on it)
 
 # glyph drawn for each logical button (the Switch name is the logical one, as the game uses it)
 GLYPHS = {
-    "switch": {b: b for b in BUTTONS},
-    "xbox": {"A": "B", "B": "A", "X": "Y", "Y": "X", "L": "LB", "R": "RB", "ZL": "LT", "ZR": "RT"},
+    "switch": {b: (b if b != "Blank" else "") for b in BUTTONS},
+    "xbox": {"A": "B", "B": "A", "X": "Y", "Y": "X", "L": "LB", "R": "RB", "ZL": "LT", "ZR": "RT", "Blank": ""},
     "playstation": {"A": "circle", "B": "cross", "X": "triangle", "Y": "square",
-                    "L": "L1", "R": "R1", "ZL": "L2", "ZR": "R2"},
+                    "L": "L1", "R": "R1", "ZL": "L2", "ZR": "R2", "Blank": ""},
 }
 PREFIX = {"switch": "S", "xbox": "X", "playstation": "P"}
 
@@ -95,7 +95,9 @@ def button_image(glyph: str) -> Image.Image:
         d.ellipse((pad, pad, s - pad, s - pad), fill=(16, 16, 18, 255))                      # opaque body
         d.ellipse((pad, pad, s - pad, s - pad), outline=(255, 255, 255, 46), width=int(s * 0.018))   # thin rim
     faint = (255, 255, 255, 120)
-    if glyph in ("circle", "cross", "triangle", "square"):
+    if not glyph:
+        pass
+    elif glyph in ("circle", "cross", "triangle", "square"):
         draw_shape(d, glyph, s / 2, s * 0.17, faint, int(s * 0.04))
     else:
         f = font(int(s * (0.34 if len(glyph) == 1 else 0.26)))

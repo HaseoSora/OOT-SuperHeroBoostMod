@@ -21,7 +21,7 @@ NAME = VANILLA.name
 
 # path -> extra bytes
 GROW = {
-    "UI/Layout2Archive/Common.Product.100.Nin_Ounce_NVN2.blarc": 0x300000,
+    "UI/Layout2Archive/Common.Product.100.Nin_Ounce_NVN2.blarc": 0x600000,   # 12 extra item-button parts
 }
 
 

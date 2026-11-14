@@ -29,7 +29,7 @@ SLOT_SITES = (
 )
 
 # Function-entry sites: the stock instruction at `site` is `pacibsp` (0xD503237F), or the word given as a 4th
-# element for a site inside a function (its wrapper re-runs that instruction, see CODE_HOOK_AT in core/hooks.S).
+# element for a site inside a function (its wrapper re-runs that instruction, like hook_code_menupage in core/hooks.S).
 # The patch is `b <wrapper>`; the wrapper runs our code, then executes pacibsp and
 # branches back to site+4 (see CODE_HOOK in core/hooks.S).
 # (site, wrapper symbol, id)

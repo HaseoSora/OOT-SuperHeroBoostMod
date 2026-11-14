@@ -227,3 +227,18 @@ Consequence: only site 3 sees gameplay input. The four classic slot sites
 - Enemy health: works (g_hp_log). Peahat larvae have MaxLife 1 (x3 = 3), the big Peahat 6 and only takes damage on
   its root (IsHeadshotOnlyDamage, bone Tail_1). Kokiri Sword EquipmentPerformance 1.
 - Stamina refill wait: 0.8 s, 1.8 s in combat, 2.5 s after exhaustion.
+
+## Classic replica: per-save assignments (Nov 2026)
+
+- Save files: mount `save:`, `slot_00`..`slot_11/progress.sav` (+ `caption.sav`), `account.sav`, `option.sav`.
+  The game opens `progress.sav` with mode 1 when it loads that save and mode 6 (write | append) when it saves,
+  and it rotates between slots (loaded slot_02, saved to slot_04). Then it commits the mount.
+- Hook: the `nn::fs::OpenFile` import stub, main+0x3C42590 (`adrp x16` re-run from our wrapper with the
+  `GOT_FSOPEN` page, then main+0x3C42594). Our own file `slot_NN/ootmaster.bin` (16 bytes: "OOTM", version 1,
+  child B/L/R, adult B/L/R) is written right when the game opens that slot's progress.sav to write, and read
+  when it opens it to read. Other nn::fs stubs used: CloseFile 0x3C425B0, CreateFile 0x3C425D0, WriteFile
+  0x3C425E0, SetFileSize 0x3C42940, ReadFile(size_t *out, ...) 0x3C43050 (all main+, game 1.1.1).
+- GameData Bool table (k = 0): 0x18-byte records in GameDataList order, live value at +0x16.
+  `Sequence_IsChildhood` = 1 while Link is a child; `IsGet.<actor name>` = the item is owned.
+  `core/gd_index.h` (tools/gen_gd_index.py) holds their indices for GameDataList.Product.110.
+- `PlayerStatus.AssignableItem.Child` / `.Adult` (Enum) are the game's own item box (ZR) per age.

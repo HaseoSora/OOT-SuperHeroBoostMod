@@ -272,6 +272,14 @@ hook_code_menupage:
     ldr x21, [x19, #0x20]
     b   RES_MENUPAGE
     .size hook_code_menupage, . - hook_code_menupage
+/* nn::fs::OpenFile's import stub (main+0x3C42590): re-runs its adrp x16 (the GOT page) from here. */
+    .global hook_fs_open
+    .type hook_fs_open, %function
+hook_fs_open:
+    CODE_HOOK_BODY 18
+    adrp x16, GOT_FSOPEN
+    b   RES_FSOPEN
+    .size hook_fs_open, . - hook_fs_open
 
 /* Classic extra-button sites: four `bl 0x1211c00` calls. 0x1211c00 is a normal
  * function (not an import stub), so these use the same wrapper, with their own

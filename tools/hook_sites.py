@@ -46,6 +46,7 @@ CODE_SITES = (
     (0xA37320, "hook_code_iconctrl", 11),  # icon controller init (x0 controller, x1 heap): Classic replica icons
     (0x33F5D20, "hook_code_hudinit", 12),  # PlayerStatus HUD init (x0 HUD, x1 heap): heap for our icon controllers
     (0x2CBD20, "hook_code_menusel", 14),
+    (0x3C42590, "hook_fs_open", 18, 0xB00083F0),   # nn::fs::OpenFile import stub (x1 path, x2 mode): save slot files
     (0xF78BA8, "hook_code_menupage", 15, 0xF9401275),  # Items page build, after its cells' icon inits (x19 page, x20 heap): ldr x21, [x19, #0x20]  # pause-menu Items caption update (x0 panel: +0x90 item index): highlighted item
     (0x439520, "hook_code_settext", 13),   # text-pane text setter (x0 pane, x1 {chars, len}): A action label
     (0x152F8F0, "hook_code_inst", 4),   # part instance creation (x1 layout, x2 pane): diagnostics

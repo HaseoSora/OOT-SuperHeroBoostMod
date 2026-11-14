@@ -23,6 +23,7 @@
 #include "dispatch.h"
 #include "hud_names.h"
 #include "config.h"
+#include "gd_index.h"
 
 typedef unsigned long long u64;
 typedef unsigned char u8;
@@ -1288,6 +1289,57 @@ static u64 menu_cell_widget(void) {
     }
     return 0;
 }
+/* ---- GameData Bool flags (table 0: records of 0x18 bytes in GameDataList order, live value at +0x16) ---- */
+static int gd_bool(u32 idx) {
+    u64 mgr = *(u64 *)GAMEDATA_MGR;
+    if (!mgr) return -1;
+    u32 cnt = *(volatile u32 *)(mgr + 8 + 8);
+    u64 rec = *(volatile u64 *)(mgr + 8 + 0x10);
+    if (!rec || idx >= cnt) return -1;
+    return *(volatile u8 *)(rec + (u64)idx * 0x18 + 0x16) != 0;
+}
+static u32 mmh3(const char *a, const char *b) {   /* murmur3_32(a + b, seed 0): GameData name hashes */
+    u8 buf[96]; u32 n = 0;
+    for (u32 i = 0; a[i] && n < 95; i++) buf[n++] = (u8)a[i];
+    for (u32 i = 0; b[i] && n < 95; i++) buf[n++] = (u8)b[i];
+    u32 h = 0, k;
+    const u32 c1 = 0xcc9e2d51u, c2 = 0x1b873593u;
+    u32 r = n & ~3u;
+    for (u32 i = 0; i < r; i += 4) {
+        k = buf[i] | (buf[i + 1] << 8) | (buf[i + 2] << 16) | ((u32)buf[i + 3] << 24);
+        k *= c1; k = (k << 15) | (k >> 17); k *= c2;
+        h ^= k; h = (h << 13) | (h >> 19); h = h * 5 + 0xe6546b64u;
+    }
+    k = 0;
+    switch (n & 3) {
+    case 3: k ^= (u32)buf[r + 2] << 16; /* fallthrough */
+    case 2: k ^= (u32)buf[r + 1] << 8;  /* fallthrough */
+    case 1: k ^= buf[r]; k *= c1; k = (k << 15) | (k >> 17); k *= c2; h ^= k;
+    }
+    h ^= n; h ^= h >> 16; h *= 0x85ebca6bu; h ^= h >> 13; h *= 0xc2b2ae35u; h ^= h >> 16;
+    return h;
+}
+/* Link is a child (Sequence_IsChildhood): 1 / 0, -1 = GameData not there */
+int hud_is_child(void) { return gd_bool(GD_IS_CHILDHOOD); }
+/* the player has the item (IsGet.<item's actor name>): 1 / 0; 1 also when the item has no IsGet flag */
+static u32 g_own_idx[64];   /* cached Bool index + 1; 0xFFFFFFFF = no flag */
+int hud_item_owned(int item) {
+    if (item < 0 || item >= 64) return 0;
+    if (!g_own_idx[item]) {
+        const char *nm = item_name(item);
+        if (!nm) return 1;
+        u32 h = mmh3("IsGet.", nm), lo = 0, hi = GD_ISGET_N;
+        g_own_idx[item] = 0xFFFFFFFFu;
+        while (lo < hi) {
+            u32 mid = (lo + hi) / 2;
+            if (GD_ISGET[mid][0] < h) lo = mid + 1; else hi = mid;
+        }
+        if (lo < GD_ISGET_N && GD_ISGET[lo][0] == h) g_own_idx[item] = GD_ISGET[lo][1] + 1;
+    }
+    if (g_own_idx[item] == 0xFFFFFFFFu) return 1;
+    int v = gd_bool(g_own_idx[item] - 1);
+    return v != 0;   /* -1 (no GameData): not owned */
+}
 int hud_menu_item(void) {
     u64 e = menu_cell_widget();
     if (!e) return -1;
@@ -1680,6 +1732,7 @@ static void hud_menu_ctrl_init(u64 fr, u64 heap) {
 /* pause menu: the caption panel of the highlighted item (its name string at +0x68, written by the call) */
 u64 g_menu_panel, g_menu_cell;
 u32 g_menu_sel_n;
+extern void classic_slots_on_open(const char *path, int mode) __attribute__((weak));
 void hud_on_code(u32 id, void *a0, void *a1, void *a2, void *regs) {
     (void)a1; (void)a2;
     if (id == 5) { player_track((u64)a0); return; }
@@ -1690,6 +1743,11 @@ void hud_on_code(u32 id, void *a0, void *a1, void *a2, void *regs) {
         return;
     }                  /* icon controller init */
     if (id == 12) { hud_slots_init((u64)a0, (u64)a1); return; }             /* PlayerStatus HUD init: build icon controllers */
+    if (id == 18) {   /* nn::fs::OpenFile(handle, path, mode) */
+        const char *path = (const char *)a1;
+        if (classic_slots_on_open && path) classic_slots_on_open(path, (int)(u64)a2);
+        return;
+    }
     if (id == 15) { hud_menu_ctrl_init(ptr(*(u64 *)((u8 *)regs + 0xA0), 0x20), *(u64 *)((u8 *)regs + 0xA8)); return; }
     if (id == 14) { g_menu_panel = (u64)a0; g_menu_cell = (u64)a1; g_menu_sel_n++; return; }
     if (id == 13) { hud_on_settext((u64)a0, (const u64 *)a1, *(u64 *)((u8 *)regs + 0x08), (const u64 *)regs); return; }

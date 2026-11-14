@@ -54,6 +54,14 @@ SECTIONS
     RES_SETTEXT = 0x439524;
     RES_MENUSEL = 0x2CBD24;
     RES_MENUPAGE = 0xF78BAC;
+    RES_FSOPEN = 0x3C42594;
+    GOT_FSOPEN = 0x4CBF490;    /* nn::fs::OpenFile's GOT slot */
+    fs_open_file = 0x3C42590;  /* nn::fs import stubs */
+    fs_close_file = 0x3C425B0;
+    fs_create_file = 0x3C425D0;
+    fs_write_file = 0x3C425E0;
+    fs_set_file_size = 0x3C42940;
+    fs_read_file = 0x3C43050;  /* ReadFile(size_t *out, handle, offset, buf, size) */
     icon_widget_init = 0x33B7DA0;  /* (widget, heap): widget+0x20 = part holding Pa_ReplaceIcon_00; builds its icon controller (initial icon Item_AgonyStone) */
     tex_replace = 0xA73920;     /* (replacer, const char **name, flag): load UI/Tex/Icon/<name> into a replaceable pane texture */
     item_actor_name = 0x592B20; /* (manager, const char **out, item index): actor name of an item (Item_Boomerang ...) */

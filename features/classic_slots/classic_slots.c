@@ -29,9 +29,15 @@ enum { SLOT_B = 0, SLOT_L = 1, SLOT_R = 2, SLOT_ZR = 3, SLOT_N = 4 };
 #define BTN_RSTICK 0x0020ull   /* right stick click (R3) */
 static const u64 SLOT_MASK[SLOT_N] = {BTN_B, BTN_L, BTN_R, BTN_ZR};
 
-/* Item index per slot, -1 = empty (button stays normal). Test defaults; assigned in the pause menu's Items tab
- * with X / L / R. (.data) */
-int g_assign[SLOT_N] = {3, 1, 2, -1};
+/* Item index per slot, -1 = empty (button stays normal): the set of Link's current age. Assigned in the pause
+ * menu's Items tab with X / L / R; empty at first. (.data) */
+int g_assign[SLOT_N] = {-1, -1, -1, -1};
+/* Both sets (0 child, 1 adult) for B / L / R, kept per save file (save_write / save_read). g_cur_age: the set
+ * g_assign holds (-1: none yet, taken from g_set on the next gameplay frame). */
+int g_set[2][SLOT_ZR] = {{-1, -1, -1}, {-1, -1, -1}};
+int g_cur_age = -1;
+int hud_is_child(void);          /* core/hud.c: Sequence_IsChildhood (-1: no GameData) */
+int hud_item_owned(int item);    /* core/hud.c: IsGet.<item> */
 
 enum { PH_IDLE = 0, PH_EQUIP, PH_HOLD, PH_GAP, PH_RESTORE, PH_ZRBACK };
 #define EQUIP_TICKS 4
@@ -144,6 +150,20 @@ void classic_slots_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_re
     if (count == 0 || count > 64) count = stock_result;
     if (count == 0 || count > 64) return;
     HidView view = {a0, count, 0};
+
+    /* Link's age picks the set; an item the player does not have (a new game, an older save) leaves its slot */
+    if (g_ootcfg.classic_replica && player_active()) {
+        int ch = hud_is_child();
+        if (ch >= 0) {
+            int age = ch ? 0 : 1;
+            if (age != g_cur_age) {
+                if (g_cur_age >= 0) for (int s = 0; s < SLOT_ZR; s++) g_set[g_cur_age][s] = g_assign[s];
+                for (int s = 0; s < SLOT_ZR; s++) g_assign[s] = g_set[age][s];
+                g_cur_age = age;
+            }
+            for (int s = 0; s < SLOT_ZR; s++) if (g_assign[s] >= 0 && !hud_item_owned(g_assign[s])) g_assign[s] = -1;
+        }
+    }
 
     /* Publish the slots to the HUD replica (core/hud.c): B, L, R as assigned (ZR mirrors the game's own box). */
     for (int s = 0; s < SLOT_N; s++)
@@ -288,3 +308,74 @@ void classic_slots_on_call(u32 site, void *a0, void *a1, void *a2, u32 stock_res
     e->a2 = (unsigned long long)a2;
 }
 
+
+/* ---- per save file: save:/slot_NN/ootmaster.bin next to the game's slot_NN/progress.sav ----
+ * The game opens progress.sav to read (mode 1) when it loads that save, and to write (mode 6) when it saves into
+ * that slot (it rotates between slots), then commits the "save" mount. Our file is written right then, so the
+ * same commit takes it, and read when that progress.sav is loaded. Format: "OOTM", version, child B/L/R,
+ * adult B/L/R (signed bytes, -1 empty). */
+typedef struct { void *h; } FsFile;
+typedef struct { int flags; } FsWriteOpt;
+extern u32 fs_create_file(const char *path, long long size);
+extern u32 fs_open_file(FsFile *out, const char *path, int mode);
+extern u32 fs_read_file(unsigned long long *out, FsFile f, long long off, void *buf, unsigned long long size);
+extern u32 fs_write_file(FsFile f, long long off, const void *buf, unsigned long long size, const FsWriteOpt *opt);
+extern u32 fs_set_file_size(FsFile f, long long size);
+extern void fs_close_file(FsFile f);
+u32 g_save_dbg[6];   /* writes, write failures, reads, read misses, last open result, last slot */
+static int our_path(const char *path, char *out) {   /* save:/slot_NN/progress.sav -> save:/slot_NN/ootmaster.bin */
+    static const char PRE[] = "save:/slot_", SAV[] = "/progress.sav", OURS[] = "/ootmaster.bin";
+    u32 i = 0;
+    for (; PRE[i]; i++) if (path[i] != PRE[i]) return 0;
+    if (path[i] < '0' || path[i] > '9' || path[i + 1] < '0' || path[i + 1] > '9') return 0;
+    u32 slash = i + 2;
+    for (u32 j = 0; SAV[j]; j++) if (path[slash + j] != SAV[j]) return 0;
+    if (path[slash + 13]) return 0;
+    for (u32 j = 0; j < slash; j++) out[j] = path[j];
+    for (u32 j = 0; ; j++) { out[slash + j] = OURS[j]; if (!OURS[j]) break; }
+    g_save_dbg[5] = (u32)((path[i] - '0') * 10 + (path[i + 1] - '0'));
+    return 1;
+}
+static void save_write(const char *ours) {
+    signed char buf[16] = {'O', 'O', 'T', 'M', 1};
+    if (g_cur_age >= 0) for (int s = 0; s < SLOT_ZR; s++) g_set[g_cur_age][s] = g_assign[s];
+    for (int a = 0; a < 2; a++) for (int s = 0; s < SLOT_ZR; s++) buf[8 + a * 4 + s] = (signed char)g_set[a][s];
+    FsFile f = {0};
+    fs_create_file(ours, sizeof buf);   /* fails when it is already there */
+    u32 r = fs_open_file(&f, ours, 2 | 4);
+    g_save_dbg[4] = r;
+    if (r) { g_save_dbg[1]++; return; }
+    FsWriteOpt opt = {1};   /* flush */
+    fs_set_file_size(f, sizeof buf);
+    r = fs_write_file(f, 0, buf, sizeof buf, &opt);
+    fs_close_file(f);
+    g_save_dbg[r ? 1 : 0]++;
+}
+static void save_read(const char *ours) {
+    signed char buf[16];
+    for (int a = 0; a < 2; a++) for (int s = 0; s < SLOT_ZR; s++) g_set[a][s] = -1;
+    for (int s = 0; s < SLOT_ZR; s++) g_assign[s] = -1;
+    g_cur_age = -1;   /* the set is taken on the first gameplay frame (the age is not loaded yet) */
+    FsFile f = {0};
+    u32 r = fs_open_file(&f, ours, 1);
+    g_save_dbg[4] = r;
+    if (r) { g_save_dbg[3]++; return; }   /* none: empty sets */
+    unsigned long long got = 0;
+    r = fs_read_file(&got, f, 0, buf, sizeof buf);
+    fs_close_file(f);
+    if (r || got < 14 || buf[0] != 'O' || buf[1] != 'O' || buf[2] != 'T' || buf[3] != 'M' || buf[4] != 1) { g_save_dbg[3]++; return; }
+    for (int a = 0; a < 2; a++)
+        for (int s = 0; s < SLOT_ZR; s++) {
+            int v = buf[8 + a * 4 + s];
+            g_set[a][s] = v >= 0 && v < 64 ? v : -1;
+        }
+    g_save_dbg[2]++;
+}
+/* core/hud.c, hook on nn::fs::OpenFile (main+0x3C42590): any file the game opens */
+void classic_slots_on_open(const char *path, int mode) {
+    if (path[0] != 's' || !g_ootcfg.classic_replica) return;   /* not save: (content: is the romfs) */
+    char ours[48];
+    if (!our_path(path, ours)) return;
+    if (mode & 2) save_write(ours);
+    else save_read(ours);
+}

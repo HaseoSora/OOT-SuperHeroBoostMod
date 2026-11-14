@@ -49,14 +49,12 @@ u32 g_songbook_active;
 u32 g_songbook_sel = 0xFFFFFFFFu;
 u32 g_songbook_pending = NO_SONG;
 u32 g_songbook_start;
+u32 g_songbook_preview;      /* +0x220 when the ocarina opened (13 = none) */
 u32 g_songbook_page;
 u32 g_songbook_dbg[8] = {0x10000000u, 0x10000000u, 0x10000000u, 0x10000000u,
                          0x10000000u, 0x10000000u, 0x10000000u, 0x10000000u};
 
 u32 hud_frame_count(void);
-
-/* core/link.ld: the game's own melody matcher, (ctx) -> 1 on a match. */
-extern int RES_OCARINA_MATCH(void *ctx);
 
 static int valid_ptr(u64 p) { return p > 0x10000ull && p < 0x1000000000000ull; }
 
@@ -78,11 +76,17 @@ static void arm(u64 ctx, u32 sel) {
     g_songbook_dbg[4]++;
 }
 
+static u32 read_preview(u64 ctx) {
+    if (!valid_ptr(ctx)) return 13u;
+    return *(volatile u32 *)(ctx + 0x220);
+}
+
 /* Ocarina enter/leave (code hook ids 13/14). */
 void songbook_on_ocarina(u32 active, void *ctx) {
     g_songbook_ctx = (u64)ctx;
     g_songbook_active = active;
     g_songbook_sel = read_sel(g_songbook_ctx);
+    g_songbook_preview = read_preview(g_songbook_ctx);
     g_songbook_pending = NO_SONG;
     g_songbook_dbg[0] = 0x10000000u + active;
     g_songbook_dbg[1] = (u32)(g_songbook_ctx & 0xFFFFFFFFu);
@@ -114,40 +118,48 @@ void songbook_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_result)
 /* Ocarina update entry (code hook id 15): runs right before the state machine. */
 void songbook_on_update(void *ctx_) {
     u64 ctx = (u64)ctx_;
-    if (!g_shbcfg.songbook_enabled || g_songbook_pending >= 12u) return;
+    if (!g_shbcfg.songbook_enabled) return;
     if (!valid_ptr(ctx)) return;
+
+    u32 song_id = g_songbook_pending;
+    if (song_id >= 12u) {
+        /* No store hook: use the song the preview stored at +0x220, but only if
+         * it changed during this ocarina session (so a normal open stays quiet). */
+        u32 preview = read_preview(ctx);
+        if (preview == g_songbook_preview || preview >= 12u || !learned(ctx, preview)) return;
+        song_id = preview;
+        g_songbook_sel = preview;
+        g_songbook_start = hud_frame_count();
+    }
     if (hud_frame_count() < g_songbook_start) return;
 
     u32 busy = *(volatile u32 *)(ctx + 0x114);
     if (busy != 0) return;
     u32 page = *(volatile u32 *)(ctx + 0x278);
     g_songbook_page = page;
-    /* 0 = free play, 2 = song preview/play page. 1 is the list itself. */
-    if (page != 0u && page != 2u) return;
+    /* The game calls this state machine only on page 0 (free play). */
+    if (page != 0u) return;
 
-    const Song *song = &g_songs[g_songbook_pending];
+    const Song *song = &g_songs[song_id];
     volatile u32 *shown = (volatile u32 *)(ctx + 0x158);
     volatile u32 *played = (volatile u32 *)(ctx + 0x478);
     for (u32 i = 0; i < 8u; i++) {
         shown[i] = song->notes[i];
         played[i] = song->notes[i];
     }
-    *(volatile u32 *)(ctx + 0x250) = song->len;
-    *(volatile u32 *)(ctx + 0x25C) = song->len & 7u;
+    *(volatile u32 *)(ctx + 0x250) = song->len;       /* notes played */
+    *(volatile u32 *)(ctx + 0x25C) = song->len & 7u;  /* ring write index */
+
+    /* Leave the context exactly as the ocarina does after the last note:
+     * state 0x0A ("note added") and the "finished playing" flag. The game's own
+     * update (which runs right after this hook) then matches the melody and
+     * starts the performance. */
+    *(volatile u32 *)(ctx + 0x230) = 0x0Au;
+    *(volatile unsigned char *)(ctx + 0x26602) |= 1u;
 
     g_songbook_dbg[5]++;
-    g_songbook_dbg[7] = 0x10000000u + g_songbook_pending;
-
-    if (RES_OCARINA_MATCH((void *)ctx)) {
-        /* Same post-match work the ocarina does at 0x3296F40. */
-        *(volatile u32 *)(ctx + 0x244) = 0;
-        *(volatile u32 *)(ctx + 0x265FC) = 0;
-        *(volatile unsigned char *)(ctx + 0x26602) = 0;
-        *(volatile u32 *)(ctx + 0x11C) = 0;
-        *(volatile u32 *)(ctx + 0x114) = 2;      /* play the song */
-        g_songbook_dbg[6] = 0x10001000u + page;
-    } else {
-        g_songbook_dbg[6] = 0x10002000u + page;
-    }
+    g_songbook_dbg[6] = 0x10001000u + page;
+    g_songbook_dbg[7] = 0x10000000u + song_id;
     g_songbook_pending = NO_SONG;
+    g_songbook_preview = song_id;   /* do not replay the same preview */
 }

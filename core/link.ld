@@ -52,7 +52,8 @@ SECTIONS
     RES_OCARINA_ENTER = 0x2894344;
     RES_OCARINA_LEAVE = 0x28947F4;
     RES_OCARINA_UI = 0x3292074;         /* ocarina UI update, after pacibsp */
-    RES_OCARINA_IS_OPEN = 0x3294990;    /* (ctx) -> 1 while the ocarina UI is up */
+    RES_OCARINA_IS_OPEN = 0x3294990;
+    RES_OCARINA_UPDATE = 0x3296E20;    /* (ctx) -> 1 while the ocarina UI is up */
     RES_OCARINA_UPDATE = 0x3296E20;     /* (ctx) ocarina state machine entry */
     /* Songbook store hook: continue right after `str w20,[x19,#0x22c]`. Must be a
      * linker symbol: a numeric literal here assembles as a PC-relative offset. */

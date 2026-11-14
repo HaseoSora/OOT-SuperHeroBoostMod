@@ -63,7 +63,8 @@ dropped hearts become green rupees (the optional romfs file; see the note below)
 - **Dificultad**: enemy health, damage taken, heart drops.
 - **HUD y botones**: rupee counter, clock (**off / 12 h / 24 h**, one selector), Classic Item Slots and button
   style.
-- **Modificaciones varias**: Songbook playback (select a learned song in the game's native songbook, ZL) and two
+- **Modificaciones varias**: Songbook autoplay (select a learned song in the game's native songbook with ZL and it plays
+  automatically, effect included; not the Scarecrow's Song) and two
   **beta** toggles:
   - **Duplicate enemies (Option A)**: clones generic enemy placements in `Banc` and doubles field auto-spawn counts.
     Bosses, minibosses and scripted enemies are excluded.

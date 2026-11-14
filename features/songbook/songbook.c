@@ -49,7 +49,12 @@ u32 g_songbook_active;
 u32 g_songbook_sel = 0xFFFFFFFFu;
 u32 g_songbook_pending = NO_SONG;
 u32 g_songbook_start;
+u32 g_songbook_armed;        /* frame when the song was selected */
 u32 g_songbook_preview;      /* +0x220 when the ocarina opened (13 = none) */
+u32 g_songbook_seen_page, g_songbook_seen_state, g_songbook_seen_busy;
+u32 g_songbook_seen_arm, g_songbook_seen_at;
+u32 g_songbook_enters;
+u32 g_songbook_in_book;      /* the songbook page was shown since the last ocarina page */
 u32 g_songbook_page;
 u32 g_songbook_dbg[8] = {0x10000000u, 0x10000000u, 0x10000000u, 0x10000000u,
                          0x10000000u, 0x10000000u, 0x10000000u, 0x10000000u};
@@ -73,10 +78,12 @@ static int learned(u64 ctx, u32 sel) {
 }
 
 static void arm(u64 ctx, u32 sel) {
+    u32 now = hud_frame_count();
     g_songbook_ctx = ctx;
     g_songbook_sel = sel;
     g_songbook_pending = sel;
-    g_songbook_start = hud_frame_count() + SONGBOOK_DELAY;
+    g_songbook_start = now + SONGBOOK_DELAY;
+    g_songbook_armed = now;
     g_songbook_dbg[4]++;
 }
 
@@ -85,15 +92,52 @@ static u32 read_preview(u64 ctx) {
     return *(volatile u32 *)(ctx + 0x220);
 }
 
-/* Ocarina enter/leave (code hook ids 13/14). */
+static u32 put_u32(char *b, u32 v) {
+    char t[12];
+    u32 n = 0;
+    do {
+        t[n++] = (char)('0' + v % 10u);
+        v /= 10u;
+    } while (v);
+    for (u32 i = 0; i < n; i++) b[i] = t[n - 1 - i];
+    return n;
+}
+
+/* Temporary diagnostic shown on the clock plate: "A<arm> P<page>S<state>B<busy>". */
+int songbook_debug_text(char *b, u32 cap) {
+    (void)cap;
+    u32 n = 0;
+    /* runtime config bytes as the module sees them: clock24, songbook, hud_clock */
+    b[n++] = 'C';
+    n += put_u32(b + n, g_shbcfg.clock_24h);
+    b[n++] = 'S';
+    n += put_u32(b + n, g_shbcfg.songbook_enabled);
+    b[n++] = 'H';
+    n += put_u32(b + n, g_shbcfg.hud_clock);
+    b[n] = 0;
+    return 1;
+}
+
+/* Ocarina / songbook enter and leave (code hook ids 13/14). Leaving the
+ * songbook must NOT drop the selection: the user releases ZL and the song is
+ * played right after, on the ocarina page. */
 void songbook_on_ocarina(u32 active, void *ctx) {
-    g_songbook_ctx = (u64)ctx;
+    u64 c = (u64)ctx;
+    if (active) g_songbook_enters++;
+    if (!valid_ptr(c)) return;
+    g_songbook_ctx = c;
     g_songbook_active = active;
-    g_songbook_sel = read_sel(g_songbook_ctx);
-    g_songbook_preview = read_preview(g_songbook_ctx);
-    g_songbook_pending = NO_SONG;
+    g_songbook_sel = read_sel(c);
+
+    u32 preview = read_preview(c);
+    if (active) {
+        g_songbook_preview = preview;          /* snapshot on ocarina open */
+    } else if (preview != g_songbook_preview && preview < 12u && learned(c, preview)) {
+        g_songbook_preview = preview;          /* song picked in the songbook */
+        arm(c, preview);
+    }
     g_songbook_dbg[0] = 0x10000000u + active;
-    g_songbook_dbg[1] = (u32)(g_songbook_ctx & 0xFFFFFFFFu);
+    g_songbook_dbg[1] = (u32)(c & 0xFFFFFFFFu);
 }
 
 /* Store hook in the song list: the stock `str w20,[x19,#0x22c]`. */
@@ -122,28 +166,44 @@ void songbook_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_result)
 /* Per-frame hook (runs from the scheduler): the ocarina state machine is only
  * called when the "finished playing" flag is set, so we must set it from here. */
 void songbook_on_frame(void) {
-    if (!g_shbcfg.songbook_enabled || !g_songbook_active) return;
+    if (!g_shbcfg.songbook_enabled) return;
     u64 ctx = g_songbook_ctx;
     if (!valid_ptr(ctx)) return;
 
-    u32 song_id = g_songbook_pending;
-    if (song_id >= 12u) {
-        /* No store hook: use the song the preview stored at +0x220, but only if
-         * it changed during this ocarina session (so a normal open stays quiet). */
-        u32 preview = read_preview(ctx);
-        if (preview == g_songbook_preview || preview >= 12u || !learned(ctx, preview)) return;
-        song_id = preview;
-        g_songbook_sel = preview;
-        g_songbook_start = hud_frame_count();
+    u32 now = hud_frame_count();
+    if (g_songbook_active) {   /* snapshot for the debug plate while the HUD is hidden */
+        g_songbook_seen_page = *(volatile u32 *)(ctx + 0x278);
+        g_songbook_seen_state = *(volatile u32 *)(ctx + 0x230);
+        g_songbook_seen_busy = *(volatile u32 *)(ctx + 0x114);
+        g_songbook_seen_arm = g_songbook_dbg[4] - 0x10000000u;
+        g_songbook_seen_at = now;
     }
-    if (hud_frame_count() < g_songbook_start) return;
+    u32 page = *(volatile u32 *)(ctx + 0x278);
+    g_songbook_page = page;
+
+    if (page != 0u) {
+        /* The songbook is being shown (ZL held). Remember it; when the ocarina
+         * page comes back, play the song it left highlighted at +0x220. */
+        g_songbook_in_book = 1;
+        return;
+    }
+    if (g_songbook_in_book) {
+        g_songbook_in_book = 0;
+        u32 preview = read_preview(ctx);
+        if (preview < 12u && learned(ctx, preview)) arm(ctx, preview);
+    }
+
+    u32 song_id = g_songbook_pending;
+    if (song_id >= 12u) return;
+    /* Do not wait forever: a selection only counts for a few seconds. */
+    if (now - g_songbook_armed > 900u) {
+        g_songbook_pending = NO_SONG;
+        return;
+    }
+    if (now < g_songbook_start) return;
 
     u32 busy = *(volatile u32 *)(ctx + 0x114);
     if (busy != 0) return;
-    u32 page = *(volatile u32 *)(ctx + 0x278);
-    g_songbook_page = page;
-    /* 0 = free play (the game runs the state machine itself), 2 = preview page. */
-    if (page != 0u && page != 2u) return;
 
     const Song *song = &g_songs[song_id];
     volatile u32 *shown = (volatile u32 *)(ctx + 0x158);
@@ -167,8 +227,4 @@ void songbook_on_frame(void) {
     g_songbook_dbg[7] = 0x10000000u + song_id;
     g_songbook_pending = NO_SONG;
     g_songbook_preview = song_id;   /* do not replay the same preview */
-
-    /* On the preview page the game does not call the state machine, so run it
-     * once here with the melody already loaded. */
-    if (page == 2u) RES_OCARINA_UPDATE((void *)ctx);
 }

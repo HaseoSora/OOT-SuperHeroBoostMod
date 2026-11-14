@@ -233,6 +233,24 @@ Consequence: only site 3 sees gameplay input. The four classic slot sites
   game recognises the melody with its normal logic (sound, animation, effects).
 - Scarecrow's Song (index 12) is player-composed and is intentionally not injected.
 
+## Ocarina UI and songbook flow (Nov 14, live)
+
+- D-pad **Left** opens the ocarina. The footer shows `Ver partituras ZL`, `Tocar una nota L R Y X A`
+  and `Cancelar B`. ZL is **held** to show the songbook; releasing it returns to the ocarina page.
+- Ocarina context fields: page `+0x278` (0 = ocarina page, 1 = song list, 2 = preview), state `+0x230`,
+  busy `+0x114`, selected song `+0x22C`, preview/highlighted song `+0x220` (13 = none), learned flags
+  `+0x264 + index`.
+- Melody buffers: display notes `+0x158` (8 x u32 hash), matcher sequence `+0x478`, ring index `+0x25C`,
+  total count `+0x250`. Hashes: A 1423767502, X 825411668, Y 3433458314, L 1673550086, R 2552959238.
+- The ocarina state machine (`main+0x3296E20`) is called from `main+0x32923D4` **only when page 0 and the
+  "finished playing" flag `+0x26602` bit 0 is set** (or `+0x273` bit 0 with another flag). Hooking that
+  function is therefore useless for starting a melody: the flag has to be written from a per-frame hook.
+- The matcher is `main+0x32980F0(ctx)`: compares `+0x478` with MelodyScoreBook starting at the last note
+  (`+0x25C - 1`, or 7 when 0) and walks backwards. It returns 1 on a match; the caller then sets
+  `busy = 2` and clears `+0x244`, `+0x265FC` and `+0x26602`.
+- On the preview page the game stores the highlighted song at `+0x220`; pressing A/R/X there plays a
+  preview only. The song effect needs the melody on page 0.
+
 ## Beta enemy mods (Nov 14)
 
 Both mods are generated from the user's own dump by `tools/make_enemy_opts.py`; nothing is redistributed.

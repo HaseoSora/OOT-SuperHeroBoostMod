@@ -117,8 +117,8 @@ int songbook_debug_text(char *b, u32 cap) {
         arms = g_songbook_dbg[4] - 0x10000000u;
     }
     u32 n = 0;
-    b[n++] = 'E';                       /* enter/leave hook calls */
-    n += put_u32(b + n, g_songbook_enters & 0xFFu);
+    b[n++] = 'N';                       /* ocarina active */
+    n += put_u32(b + n, g_songbook_active);
     b[n++] = 'C';                       /* context valid */
     n += put_u32(b + n, valid_ptr(g_songbook_ctx) ? 1u : 0u);
     b[n++] = 'A';                       /* selections armed */
@@ -140,7 +140,9 @@ void songbook_on_ocarina(u32 active, void *ctx) {
     u64 c = (u64)ctx;
     if (active) g_songbook_enters++;
     if (!valid_ptr(c)) return;
-    g_songbook_ctx = c;
+    /* On leave the pointer may already be the (stale) UI owner: keep the last
+     * context so the frame hook can still use it, but only while active. */
+    if (active) g_songbook_ctx = c;
     g_songbook_active = active;
     g_songbook_sel = read_sel(c);
 
@@ -186,13 +188,15 @@ void songbook_on_frame(void) {
     if (!valid_ptr(ctx)) return;
 
     u32 now = hud_frame_count();
-    /* Snapshot every frame: the HUD is hidden while the ocarina is open, so the
-     * last values are shown on the clock plate when it closes. */
-    g_songbook_seen_page = *(volatile u32 *)(ctx + 0x278);
-    g_songbook_seen_state = *(volatile u32 *)(ctx + 0x230);
-    g_songbook_seen_busy = *(volatile u32 *)(ctx + 0x114);
-    g_songbook_seen_arm = g_songbook_dbg[4] - 0x10000000u;
-    g_songbook_seen_at = now;
+    /* Snapshot only while the ocarina is open: after closing, the context may be
+     * recycled and its fields are meaningless. The HUD shows the last snapshot. */
+    if (g_songbook_active) {
+        g_songbook_seen_page = *(volatile u32 *)(ctx + 0x278);
+        g_songbook_seen_state = *(volatile u32 *)(ctx + 0x230);
+        g_songbook_seen_busy = *(volatile u32 *)(ctx + 0x114);
+        g_songbook_seen_arm = g_songbook_dbg[4] - 0x10000000u;
+        g_songbook_seen_at = now;
+    }
     u32 page = *(volatile u32 *)(ctx + 0x278);
     g_songbook_page = page;
 

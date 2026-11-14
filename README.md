@@ -1,115 +1,118 @@
 # Super Hero Boost
 
-Módulo de gameplay para el remake de consola (actualización **v131072**) y su aplicación de configuración
-multiplataforma **SuperHeroBoostConfig**.
+Gameplay module for the console remake (update **v131072**) and its cross-platform configuration app
+**SuperHeroBoostConfig**.
 
-El mod añade estamina, escalado de dificultad, un HUD ampliado y botones de objeto extra, todo configurable sin
-recompilar nada. La app parchea el módulo precompilado y copia los archivos que necesita el juego. El módulo, el HUD,
-las texturas y la app son trabajo original: no se incluye ni se descarga ningún mod de terceros.
+The mod adds stamina, difficulty scaling, an expanded HUD and extra item buttons, all configurable without
+recompiling anything. The app patches the prebuilt module and copies the files the game needs. The module, the HUD,
+the textures and the app are original work: no third-party mod is bundled or downloaded.
 
-## Características
+## Features
 
-### Jugabilidad
+### Gameplay
 
-- **Perfiles completos**: Recomendado (todo activado), Base, Modo héroe, Héroe + estamina, Héroe explorador,
-  Superhéroe, Ultra héroe y Supervivencia. Ajustan de una vez dificultad, estamina y sprint; cualquier cambio manual
-  pasa a **Personalizado**.
-- **Estamina** con cuatro estilos: hardcore (todo cuesta), solo combate, solo sprint y avanzado (elige qué acciones
-  cuestan). Incluye agotamiento y recarga, y coste al rodar, saltar, atacar, disparar, esprintar y bloquear.
-- **Anillo de estamina** junto al jugador, dibujado con texturas del juego.
-- **Velocidad del sprint** configurable (por defecto +25 %).
-- **Vida de los enemigos** y **daño recibido** multiplicables (×1 a ×3).
-- **Sin drop de corazones**: los corazones que sueltan los enemigos pasan a ser rupias verdes.
-- **Reloj y contador de rupias siempre visibles**, con el aspecto nativo del juego y formato de 12 / 24 h.
-- **Autoreproducción del songbook**: al elegir una canción aprendida en el songbook nativo (ZL), el héroe la toca y
-  activa su efecto. Solo con canciones aprendidas; no con la canción del espantapájaros.
-- **Mapeo de botones propio** (`buttonMapping`):
-  - Botones de objeto **B, L, R y ZR** en el HUD, asignables desde la pestaña **Objetos** del menú de pausa.
-  - Estilos de botón **Switch / PlayStation / Xbox**.
-  - Diseño **extendido** (B, L, R, ZR, X, Y, A y espada) o **simple** (solo los botones asignables, con B centrado y
-    L / R / ZR recolocados para que no queden huecos).
-  - Modos del botón **L**: objeto, escudo o selector de objetos del juego.
+- **Complete profiles**: Recommended (everything on), Base, Hero Mode, Hero + Stamina, Hero Explorer, Super Hero,
+  Ultra Hero and Survival. They set difficulty, stamina and sprint in one step; changing any option afterwards
+  switches the profile to **Custom**.
+- **Stamina** with four styles: hardcore (everything costs), combat only, sprint only and advanced (choose which
+  actions cost). Includes exhaustion and regeneration, and costs for rolling, jumping, attacking, shooting,
+  sprinting and blocking with the shield.
+- **Stamina ring** next to the player, drawn with the game's own textures.
+- **Sprint speed** configurable (default +25%).
+- **Enemy health** and **damage taken** multipliers (×1 to ×3).
+- **No heart drops**: hearts dropped by enemies become green rupees instead.
+- **Always-visible clock and rupee counter**, with the game's native look and 12/24-hour format.
+- **Songbook autoplay**: selecting a learned song in the native songbook (ZL) makes the hero play it and trigger
+  its effect. Learned songs only; not the Scarecrow's Song.
+- **Own button mapping** (`buttonMapping`):
+  - **B, L, R and ZR** item buttons on the HUD, assignable from the **Items** tab of the pause menu.
+  - **Switch / PlayStation / Xbox** button styles.
+  - **Extended** layout (B, L, R, ZR, X, Y, A and the sword) or **simple** layout (only the assignable buttons, with
+    B centred and L / R / ZR repositioned so there are no gaps).
+  - **L button modes**: item, shield or the game's item selector.
 
-### App de configuración
+### Configuration app
 
-- Interfaz para Windows, macOS y Linux (Python 3.10+ con Tkinter).
-- Perfiles, ajustes por sección, instalación y desinstalación en la carpeta de mods del emulador.
-- Traducciones en español, inglés, portugués, francés, alemán e italiano.
-- Modo línea de comandos para instalar la misma configuración sin abrir la ventana.
+- GUI for Windows, macOS and Linux (Python 3.10+ with Tkinter).
+- Profiles, per-section settings, install and uninstall into the emulator's mod folder.
+- Translations in Spanish, English, Portuguese, French, German and Italian.
+- Command-line mode to install the same configuration without opening the window.
 
 ### Beta
 
-Estas opciones son **experimentales**. Se generan a partir del volcado del juego y se instalan como romfs extra; pueden
-romper puzles, misiones o el rendimiento. Haz una copia de tu partida y prueba una cada vez.
+These options are **experimental**. They are generated from the game dump and installed as extra romfs files; they
+can break puzzles, quests or performance. Back up your save and test one at a time.
 
-- **Duplicado de enemigos (Opción A)**: clona enemigos genéricos del mapa y duplica los apariciones automáticas del
-  campo. Jefes, minijefes y enemigos de script quedan fuera.
-- **Velocidad de enemigos ×2**: acelera movimiento, animación y cadencia de ataque. Algunos enemigos o ataques pueden
-  no cambiar o desincronizarse.
+- **Enemy duplication (Option A)**: clones generic enemy placements in the map data and doubles field auto-spawn
+  counts. Bosses, minibosses and scripted enemies are excluded.
+- **Enemy speed ×2**: speeds up movement, animation and attack cadence. Some enemies or attacks may not change or
+  may desync.
 
-El resto de ideas en desarrollo se mantienen fuera de esta rama y no forman parte de esta versión.
+Other work in progress stays outside this branch and is not part of this release.
 
-## Uso
+## Usage
 
-1. **Requisitos**: el juego en la actualización **v131072** y un emulador que cargue mods desde su carpeta
-   `user/load/0400486024DEC000` (o la que tengas configurada). Guarda una copia de tu partida antes de instalar.
-2. Abre **SuperHeroBoostConfig** (o ejecuta `python app/main.py` desde el código).
-3. Elige un perfil o ajusta las secciones una a una.
-4. Selecciona la carpeta del emulador. La app detecta la carpeta de mods, incluida una ruta `load_directory`
-   personalizada de `qt-config.ini`.
-5. Pulsa **Instalar**. La app crea la carpeta `00-Super-Hero-Boost` con el módulo, las texturas de botones y los
-   romfs opcionales, y parchea la configuración elegida.
-6. Cierra el juego antes de instalar o desinstalar.
+1. **Requirements**: the game on update **v131072** and an emulator that loads mods from its
+   `user/load/0400486024DEC000` folder (or the path you have configured). Back up your save before installing.
+2. Open **SuperHeroBoostConfig** (or run `python app/main.py` from source).
+3. Pick a profile or adjust the sections one by one.
+4. Select the emulator folder. The app finds the mods folder, including a custom `load_directory` from
+   `qt-config.ini`.
+5. Press **Install**. The app creates the `00-Super-Hero-Boost` folder with the module, the button textures and the
+   optional romfs files, and patches the selected configuration.
+6. Close the game before installing or uninstalling.
 
-Para quitar el mod, pulsa **Desinstalar** en la app o borra la carpeta `00-Super-Hero-Boost`.
+To remove the mod, press **Uninstall** in the app or delete the `00-Super-Hero-Boost` folder.
 
-### Controles del mapeo de botones
+Prebuilt binaries are not published in this repository yet; build the app from source with the steps below.
 
-- En la pestaña **Objetos** del menú de pausa, con un objeto resaltado:
-  **X** lo asigna a **B**, **L** a **L**, **R** a **R** y **A** al **ZR** del juego.
-- Pulsar el mismo botón otra vez desasigna; si el objeto ya estaba en otra ranura, se intercambian.
-- Si L está en modo **escudo** o **selector**, L no se puede asignar y su botón se oculta del HUD y de la leyenda.
-- En modo **selector**, L abre el selector de objetos del juego.
+### Button mapping controls
 
-### Línea de comandos
+- In the pause menu's **Items** tab, with an item highlighted: **X** assigns it to **B**, **L** to **L**, **R** to
+  **R** and **A** to the game's **ZR** box.
+- Pressing the same button again unassigns it; if the item was already in another slot, they are swapped.
+- If L is in **shield** or **selector** mode, L cannot be assigned and its button is hidden from the HUD and from the
+  legend.
+- In **selector** mode, L opens the game's item selector.
+
+### Command line
 
 ```bash
-python app/main.py --cli --emu "RUTA_DEL_EMULADOR" --profile recommended
-python app/main.py --cli --emu "RUTA_DEL_EMULADOR" --profile hero-explorer --button-style switch --bm-simple
-python app/main.py --cli --emu "RUTA_DEL_EMULADOR" --profile recommended --bm-l selector
+python app/main.py --cli --emu "EMULATOR_PATH" --profile recommended
+python app/main.py --cli --emu "EMULATOR_PATH" --profile hero-explorer --button-style switch --bm-simple
+python app/main.py --cli --emu "EMULATOR_PATH" --profile recommended --bm-l selector
 ```
 
-`--profile` aplica un perfil completo; las opciones individuales lo sobrescriben. `--list-profiles` muestra la lista.
+`--profile` applies a complete profile; individual flags override it. `--list-profiles` shows the list.
 
-## Compilar
+## Building
 
-La app no compila el mod: usa el payload ya generado en `app/payload`. Para regenerarlo hace falta el volcado del
-juego, LLVM (`clang`, `lld`, `llvm-objcopy`, `llvm-size`, `llvm-nm`) y las dependencias de desarrollo que se indican en
+The app does not compile the mod: it uses the payload already staged in `app/payload`. Regenerating it requires the
+game dump, LLVM (`clang`, `lld`, `llvm-objcopy`, `llvm-size`, `llvm-nm`) and the development dependencies listed in
 [docs/GUIA-DESARROLLO.md](docs/GUIA-DESARROLLO.md).
 
 ```bash
 python tools/build_core.py --features stamina,songbook,button_mapping --slots --compat --base 0x4F80000
-python tools/make_release.py     # módulo + texturas de botones + romfs opcionales
+python tools/make_release.py     # module + button textures + optional romfs files
 python tools/build_app.py        # release/SuperHeroBoostConfig[.exe|.app]
 ```
 
-`build_app.py` usa PyInstaller y no compila de forma cruzada: hay que ejecutarlo en cada sistema destino. El
-ejecutable se genera en `release/`. Para más detalle, consulta la guía de desarrollo.
+`build_app.py` uses PyInstaller and does not cross-compile: run it on each target OS. The executable is written to
+`release/`. See the development guide for details.
 
-## Documentación
+## Documentation
 
-- [docs/GUIA-DESARROLLO.md](docs/GUIA-DESARROLLO.md): arquitectura, ganchos, HUD, configuración y compilación.
-- [docs/APP.md](docs/APP.md): app, perfiles y opciones.
-- [docs/BUTTON-MAPPING.md](docs/BUTTON-MAPPING.md): diseño del mapeo de botones.
-- [docs/RE-NOTES.md](docs/RE-NOTES.md): notas de ingeniería inversa.
-- [docs/AUDIT.md](docs/AUDIT.md): auditoría de código y materiales de terceros.
+- [docs/GUIA-DESARROLLO.md](docs/GUIA-DESARROLLO.md): architecture, hooks, HUD, configuration and compilation.
+- [docs/APP.md](docs/APP.md): app, profiles and options.
+- [docs/BUTTON-MAPPING.md](docs/BUTTON-MAPPING.md): button mapping design.
+- [docs/RE-NOTES.md](docs/RE-NOTES.md): reverse-engineering notes.
+- [docs/AUDIT.md](docs/AUDIT.md): code and third-party material audit.
 
-## Aviso
+## Notice
 
-No se redistribuye código, texto, texturas ni ningún otro material del juego. El mod lee los archivos del volcado del
-usuario en tiempo de ejecución y solo incluye su propio módulo y su propio arte. Necesitas tu propia copia legal del
-juego para usarlo.
+No game code, text, textures or any other game material is redistributed. The mod reads the user's own dump at
+runtime and only bundles its own module and its own art. You need your own legal copy of the game to use it.
 
-## Créditos
+## Credits
 
-Módulo, HUD, sistema de estamina, mapeo de botones (con sus texturas) y app: trabajo original de Kuribox.
+Module, HUD, stamina system, button mapping (with its textures) and app: original work by Kuribox.

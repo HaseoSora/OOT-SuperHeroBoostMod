@@ -44,6 +44,7 @@ CODE_SITES = (
     (0x9352F0, "hook_code_speed", 10),   # ground movement (x0 player, x1 direction, s0 speed): sprint multiplier
     (0xA37320, "hook_code_iconctrl", 11),  # icon controller init (x0 controller, x1 heap): Classic replica icons
     (0x33F5D20, "hook_code_hudinit", 12),  # PlayerStatus HUD init (x0 HUD, x1 heap): heap for our icon controllers
+    (0x2CBD20, "hook_code_menusel", 14),  # pause-menu Items caption update (x0 panel: +0x90 item index): highlighted item
     (0x439520, "hook_code_settext", 13),   # text-pane text setter (x0 pane, x1 {chars, len}): A action label
     (0x152F8F0, "hook_code_inst", 4),   # part instance creation (x1 layout, x2 pane): diagnostics
     (0x43A6F8, "hook_ui", 2),            # UI resource build (x0 = handle, x1 = config)

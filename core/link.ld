@@ -52,6 +52,7 @@ SECTIONS
     RES_ICONCTRL = 0xA37324;
     RES_HUDINIT = 0x33F5D24;
     RES_SETTEXT = 0x439524;
+    RES_MENUSEL = 0x2CBD24;
     icon_widget_init = 0x33B7DA0;  /* (widget, heap): widget+0x20 = part holding Pa_ReplaceIcon_00; builds its icon controller (initial icon Item_AgonyStone) */
     tex_replace = 0xA73920;     /* (replacer, const char **name, flag): load UI/Tex/Icon/<name> into a replaceable pane texture */
     item_actor_name = 0x592B20; /* (manager, const char **out, item index): actor name of an item (Item_Boomerang ...) */

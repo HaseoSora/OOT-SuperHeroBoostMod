@@ -259,6 +259,8 @@ CODE_HOOK hook_code_iconctrl, 11, RES_ICONCTRL
 CODE_HOOK hook_code_hudinit, 12, RES_HUDINIT
 /* Text-pane text setter (x0 pane, x1 {chars, len}): diagnostic log of the game's own texts. */
 CODE_HOOK hook_code_settext, 13, RES_SETTEXT
+/* Pause-menu Items caption update (x0 caption panel, x1 highlighted cell): panel+0x90 = item index, +0x88 name. */
+CODE_HOOK hook_code_menusel, 14, RES_MENUSEL
 
 /* Classic extra-button sites: four `bl 0x1211c00` calls. 0x1211c00 is a normal
  * function (not an import stub), so these use the same wrapper, with their own

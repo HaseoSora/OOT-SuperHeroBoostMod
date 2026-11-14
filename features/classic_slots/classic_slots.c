@@ -29,8 +29,8 @@ enum { SLOT_B = 0, SLOT_L = 1, SLOT_R = 2, SLOT_ZR = 3, SLOT_N = 4 };
 #define BTN_RSTICK 0x0020ull   /* right stick click (R3) */
 static const u64 SLOT_MASK[SLOT_N] = {BTN_B, BTN_L, BTN_R, BTN_ZR};
 
-/* Item index per slot, -1 = empty (button stays normal). Test defaults; assignment
- * is done in game with ZL + slot button (cycles the item). (.data) */
+/* Item index per slot, -1 = empty (button stays normal). Test defaults; assigned in the pause menu's Items tab
+ * with X / L / R. (.data) */
 int g_assign[SLOT_N] = {3, 1, 2, -1};
 
 enum { PH_IDLE = 0, PH_EQUIP, PH_HOLD, PH_GAP, PH_RESTORE, PH_ZRBACK };
@@ -56,7 +56,9 @@ const char *player_state_name(void);
 char g_cl_refused[24];   /* diagnostic: Link's state when a slot press was ignored (not free) */
 int hud_zr_item(void);
 void hud_zr_hold(int hold);
-int hud_ingame(void);   /* core/hud.c: 0 while a menu covers the game (pause ...) */   /* core/hud.c: keep showing the ZR item while a slot item borrows the item box */
+int hud_ingame(void);   /* core/hud.c: 0 while a menu covers the game (pause ...) */
+int hud_menu_items(void);   /* core/hud.c: the pause menu's Items tab is open */
+int hud_menu_item(void);    /* core/hud.c: item index highlighted there (-1: none / not owned) */   /* core/hud.c: keep showing the ZR item while a slot item borrows the item box */
 /* The game's own "put this item in the item box" call, as the R button makes it (main+0x33C9AB4):
  * main+0x1211C00(item manager, item set, item index, 1, 1); manager = **(main+0x4C7E0D0),
  * set = byte +0x5C0 of **(main+0x4C7E2A8). Calling it directly equips without pressing R (R opens the selector). */
@@ -85,7 +87,7 @@ __attribute__((unused)) static int icon_of(int item) {
     }
 }
 static u64 g_swallow;
-static void cycle_slot(int s) {
+__attribute__((unused)) static void cycle_slot(int s) {
     int pos = 0;
     for (int i = 0; i < ITEM_CYCLE_N; i++) if (ITEM_CYCLE[i] == g_assign[s]) pos = i;
     g_assign[s] = ITEM_CYCLE[(pos + 1) % ITEM_CYCLE_N];
@@ -145,6 +147,23 @@ void classic_slots_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_re
     u64 pressed = buttons & ~g_cl_prev;
     g_cl_prev = buttons;
 
+    /* Pause menu, Items tab: X, L and R assign the highlighted item to the B, L and R slots (like Classic's X / L / R;
+     * B stays "back"). An item already on another slot swaps with it. The game's ZL / ZR still change tabs. */
+    if (g_ootcfg.classic_replica && hud_menu_items()) {
+        static const u64 MENU_BTN[SLOT_ZR] = {BTN_X, BTN_L, BTN_R};   /* -> SLOT_B, SLOT_L, SLOT_R */
+        for (int s = 0; s < SLOT_ZR; s++) {
+            if (!(pressed & MENU_BTN[s])) continue;
+            int it = hud_menu_item();
+            if (it < 0) continue;
+            for (int o = 0; o < SLOT_ZR; o++) if (o != s && g_assign[o] == it) g_assign[o] = g_assign[s];
+            g_assign[s] = it;
+            g_cl_dbg[3]++;
+        }
+        set_all(&view, BTN_X | BTN_L | BTN_R, 0);
+        g_phase = PH_IDLE; g_swallow = 0;
+        return;
+    }
+
     /* Link must be free to act: standing or moving. Menus, the ocarina, dialogues, the item selector, climbing,
      * swimming ... keep every button as the game means it (B = back / cancel there). A use in progress goes on. */
     int ingame = player_active() && hud_ingame();
@@ -172,14 +191,6 @@ void classic_slots_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_re
         g_borrowed = 0; g_zr_item = box; hud_zr_hold(0);
     }
 
-    /* Assignment (temporary, until the pause-menu assignment): hold R3 (right stick click) and press B / L / R to
-     * cycle that slot's item. (ZL is targeting: the slots must work while it is held.) */
-    for (int s = 0; s < SLOT_ZR; s++) {
-        if ((buttons & BTN_RSTICK) && (pressed & SLOT_MASK[s]) && g_phase == PH_IDLE) {
-            cycle_slot(s);
-            g_swallow |= SLOT_MASK[s];
-        }
-    }
     g_swallow &= buttons;
     if (g_swallow) set_all(&view, g_swallow, 0);
     buttons &= ~g_swallow;

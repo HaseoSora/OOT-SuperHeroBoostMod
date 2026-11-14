@@ -1172,6 +1172,30 @@ static void zr_mirror(void) {
  * and the replica does not act. */
 static u64 g_ps_frame;
 int hud_ingame(void) { return !g_ps_frame || (*(volatile u32 *)(g_ps_frame + 0x1A4) & 0x20000u) != 0; }
+/* Pause menu, Items tab: its caption panel (hooked at main+0x2CBD20) has byte +0x28 == 2 only while that tab is
+ * open, and the highlighted cell's item index at +0x90 (our item numbering). The cell is owned when its
+ * pattern frame ([[entry+0x48]+0x20]+0x18, entry = the panel's list +0x78 / count +0x70 whose +0xE8 is the
+ * cell) is not 0: the game's own test before it shows the caption. */
+extern u64 g_menu_panel, g_menu_cell;
+int hud_menu_items(void) {
+    return g_menu_panel && !hud_ingame() && *(volatile u8 *)(g_menu_panel + 0x28) == 2;
+}
+int hud_menu_item(void) {
+    if (!hud_menu_items()) return -1;
+    u64 p = g_menu_panel;
+    int idx = *(volatile int *)(p + 0x90);
+    int n = *(volatile int *)(p + 0x70);
+    u64 list = *(volatile u64 *)(p + 0x78);
+    if (idx < 0 || idx >= 64 || n <= 0 || n > 256 || !list) return -1;
+    for (int i = 0; i < n; i++) {
+        u64 e = *(volatile u64 *)(list + (u64)i * 8);
+        if (!e || *(volatile u64 *)(e + 0xE8) != g_menu_cell) continue;
+        u64 a = *(volatile u64 *)(e + 0x48);
+        a = a ? *(volatile u64 *)(a + 0x20) : 0;
+        return a && *(volatile float *)(a + 0x18) != 0.0f ? idx : -1;
+    }
+    return -1;
+}
 /* Y shows the equipped sword: GameData PlayerStatus.EquipWeapon (String64 table k = 16, record 23, 0x108 bytes
  * each, the live string at +0x74 / pointed to by +0x68). Its value is the icon name itself (Weapon_Sword_Kokiri,
  * _Master, _Giant, _Biggoron, _BrokenGiant); empty = no sword, the Y icon is hidden. */
@@ -1192,11 +1216,15 @@ static void sword_mirror(void) {
     dst[i] = 0;
     dst[31] = 0;   /* apply again */
 }
+float g_sb_menu_dy = -150.0f;   /* cluster offset in the pause menu (layout units, y up) */
 static void slots_update(u64 frame) {
     if (g_sb_busy) return;
     if (!g_ps_frame && g_sb[0].part) g_ps_frame = ptr(g_sb[0].part, 0x28);
-    if (!hud_ingame()) return;
-    if (REPLICA) { zr_mirror(); sword_mirror(); }   /* (the ZR icon is frozen while a slot borrows the box) */
+    /* in the pause menu's Items tab the cluster is drawn under the rupee counter, to see what goes where */
+    int menu = REPLICA && hud_menu_items();
+    if (!hud_ingame() && !menu) return;
+    float dy = menu ? g_sb_menu_dy : 0.0f;
+    if (REPLICA && !menu) { zr_mirror(); sword_mirror(); }   /* (the ZR icon is frozen while a slot borrows the box) */
     if (!g_stock_box_rec) g_stock_box_rec = pane_record(frame, "Pa_SelectItem_00");
     if (!g_stock_dots_rec) g_stock_dots_rec = pane_record(frame, "N_Shortcut_00");
     for (u32 i = 0; i < 2 && g_sb_hide_stock && REPLICA; i++) {
@@ -1237,7 +1265,7 @@ static void slots_update(u64 frame) {
         /* an item part with no item (and no fixed texture, like the sword) is hidden */
         u32 empty = k >= SB_NBTN && g_sb_item[k] < 0 && g_sb_force[k][0] <= 1;
         float sc = empty || !REPLICA ? 0.0f : g_sb_sc[k];
-        if (b->rec) place(b->rec, g_sb_pos[k][0], g_sb_pos[k][1], sc, sc, 0.0f);
+        if (b->rec) place(b->rec, g_sb_pos[k][0], g_sb_pos[k][1] + dy, sc, sc, 0.0f);
         /* ItemPattern = icon framing. Frame 0 shows the full picture: buttons, and items drawn big and even
          * like Classic (item_pattern() keeps the stock box's per-item framing for a smaller style) */
         if (b->anim[0]) set_frame((void *)b->anim[0], g_sb_item[k] < 0 || g_sb_big_items ? 0.0f : item_pattern(g_sb_item[k]));
@@ -1316,9 +1344,12 @@ static void a_label_update(void) {
 static void slots_labels(u64 frame) {
     if (!REPLICA) return;
     static const float LABEL[3] = {0.92f, 0.92f, 0.92f};
-    if (hud_ingame()) a_label_update();
-    put_text(frame, 3, g_sb_jump_label, g_sb_pos[SB_X][0], g_sb_pos[SB_X][1], 1, LABEL);
-    put_text(frame, 4, g_sb_a_label, g_sb_pos[SB_A][0], g_sb_pos[SB_A][1], g_sb_a_label[0] != 0, LABEL);
+    int menu = hud_menu_items();
+    if (!hud_ingame() && !menu) return;
+    if (!menu) a_label_update();
+    float dy = menu ? g_sb_menu_dy : 0.0f;
+    put_text(frame, 3, g_sb_jump_label, g_sb_pos[SB_X][0], g_sb_pos[SB_X][1] + dy, 1, LABEL);
+    put_text(frame, 4, g_sb_a_label, g_sb_pos[SB_A][0], g_sb_pos[SB_A][1] + dy, g_sb_a_label[0] != 0 && !menu, LABEL);
 }
 static void slots_reset(void) {
     g_ps_frame = 0; for (u32 k = 0; k < PART_N; k++) g_sb[k].part = 0; g_stock_box_rec = 0; g_stock_dots_rec = 0; }
@@ -1422,6 +1453,9 @@ static void hud_on_settext(u64 pane, const u64 *ref, u64 lr, const u64 *regs) {
     if (nm && (u64)nm > 0x10000) for (u32 i = 0; i < 23 && nm[i]; i++) g_st_log[k].nm[i] = nm[i];
     g_st_log[k].lr2 = fp ? *(u64 *)(fp + 8) : 0;
 }
+/* pause menu: the caption panel of the highlighted item (its name string at +0x68, written by the call) */
+u64 g_menu_panel, g_menu_cell;
+u32 g_menu_sel_n;
 void hud_on_code(u32 id, void *a0, void *a1, void *a2, void *regs) {
     (void)a1; (void)a2;
     if (id == 5) { player_track((u64)a0); return; }
@@ -1429,6 +1463,7 @@ void hud_on_code(u32 id, void *a0, void *a1, void *a2, void *regs) {
     if (id == 10) { if (hero_speed_hook) hero_speed_hook(regs); return; }   /* ground movement: sprint speed */
     if (id == 11) { hud_icon_ctrl_init((u64)a0); return; }                  /* icon controller init */
     if (id == 12) { hud_slots_init((u64)a0, (u64)a1); return; }             /* PlayerStatus HUD init: build icon controllers */
+    if (id == 14) { g_menu_panel = (u64)a0; g_menu_cell = (u64)a1; g_menu_sel_n++; return; }
     if (id == 13) { hud_on_settext((u64)a0, (const u64 *)a1, *(u64 *)((u8 *)regs + 0x08), (const u64 *)regs); return; }
     if (id == 4) {   /* part instance creation: log the pane index being instantiated */
         u64 layout = (u64)a1, pane = (u64)a2;

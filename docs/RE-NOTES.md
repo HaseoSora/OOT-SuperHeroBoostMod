@@ -22,7 +22,7 @@ its configured `LoadDir` (see the `load_directory` entry in `qt-config.ini`).
 
 ## Input hook sites
 
-Five stock sites read input (see `docs/CLASSIC-HOOKS.md`). Each calls one of five
+Five stock sites read input (`INPUT_SITES` in tools/hook_sites.py). Each calls one of five
 import stubs in main:
 
 | site | stub | status |
@@ -47,8 +47,8 @@ relocation is PC-relative. The first call through a still-lazy slot is
 tail-called with the game's own LR (hooks.S) in case the dynamic linker finds the
 caller module from LR; this part is a precaution and has not been shown to be needed.
 
-Consequence: only site 3 sees gameplay input. The four classic slot sites
-(`bl 0x1211C00`) also never ran in the live check, so F3 needs its own RE.
+Consequence: only site 3 sees gameplay input. The four item-button slot sites
+(`bl 0x1211C00`) also never ran in the live check, so F3 needed its own RE.
 ## stamina (F2) status
 
 - Stamina state machine in `features/stamina/stamina.c` (moved from `core/`).
@@ -69,7 +69,7 @@ Consequence: only site 3 sees gameplay input. The four classic slot sites
   They are emulator service stubs, not from our hooks; the game keeps running.
 
 
-## HUD and Classic slots (F3/F4) findings
+## HUD and item buttons (F3/F4) findings
 
 - HUD part registration: hook main+0x43A6F8 (UI resource build, x0 handle, x1 config).
   We give PlayerStatus_00 a private metadata copy with one extra part
@@ -83,21 +83,21 @@ Consequence: only site 3 sees gameplay input. The four classic slot sites
 - In this game R equips an item into the HUD item box and ZR uses it. R (and L) end
   up in slot site 3 (0x33C9AB4 -> 0x1211C00); x2 is the item index (inventory order,
   1 = deku nut, 3 = boomerang). Overriding x2 before the stock call equips that item.
-  classic_slots: X/L/R -> press R (equip with override) -> hold ZR while held ->
+  button_mapping: X/L/R -> press R (equip with override) -> hold ZR while held ->
   restore ZR's previous item. Verified: nut use pose, boomerang tutorial.
 - Not done: pause-menu assignment, slot icons in the HUD, context A/ZR prompts,
   edit mode, adult/child separate sets, stamina on roll/jump action hooks.
 
-## Classic update (controls, item icons, HUD limit)
+## Controls and item icons
 
-- Real controls on this game: X jump, A dodge/roll, Y sword, B/L/R/ZR free. Classic
-  slots are B, L, R, ZR (an empty slot keeps its normal behaviour). stamina costs:
+- Real controls on this game: X jump, A dodge/roll, Y sword, B/L/R/ZR free. The
+  item buttons are B, L, R, ZR (an empty slot keeps its normal behaviour). stamina costs:
   Y = slash, A = roll; with stamina 0 in combat both are removed from the input.
 - Assignment (replaces the pause-menu assignment, whose hooks 9-13 turned out to be
   UI constructors): hold ZL and press B / L / R to cycle that slot's item (ZR is not
   assignable that way: ZL+ZR is target-and-use). Assignments are not saved yet and
   there is one set (no child/adult split yet).
-- Item index -> ItemPattern icon frame (measured with `CLASSIC_PROBE=1 python
+- Item index -> ItemPattern icon frame (measured with `BUTTON_PROBE=1 python
   tools/build_core.py ...` + `tools/live_check.py --linger 110`): 0:0 1:6 2:4 3:3 4:1
   5:33 6:34 7:32 9:5 10:8 13:2 14:23 18:36 30:24 31:9. Indices that keep the previous
   frame are not owned in that save.
@@ -210,7 +210,7 @@ Consequence: only site 3 sees gameplay input. The four classic slot sites
   behind each one is the empty track and the border. The fill's last dot sits at the exact fill angle (small-angle
   sin/cos rotation of the precomputed dot table), so the end moves smoothly. Yellow when exhausted.
 - No gauge file copies or part instances any more (PART_N = 0): lighter to build and to draw.
-- Looked at and dropped: SaveGradation_00 (128x128) is an angular (conic) gradient, the classic base for a
+- Looked at and dropped: SaveGradation_00 (128x128) is an angular (conic) gradient, the usual base for a
   threshold-filled ring, but the game only uses it for the save icon's rotating glow (PaSaveLoadIcon_00, 3
   samplers in one material); using it as a fill would need the ui shader's combiner/threshold settings.
 - Live tuning: tools/hud_tune.py set <i>=<v> --sym g_ringp (radii, thickness, border, track alpha/brightness).

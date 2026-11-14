@@ -1,17 +1,16 @@
 # Companion app (SuperHeroBoostConfig)
 
-The app does **not** compile anything. The mod ships precompiled in two variants (`app/payload/classic`,
-`app/payload/standalone`) and reads a small config block (`core/config.h`, magic `SHBCFG01`) when the game loads.
+The app does **not** compile anything. The mod ships precompiled as the standalone variant (`app/payload/standalone`)
+and reads a small config block (`core/config.h`, magic `SHBCFG01`) when the game loads.
 The app only:
 
 1. finds the emulator's mod folder (`user/load/0400486024DEC000`, also accepting the load folder, the title folder or
    a custom `load_directory` from `qt-config.ini`),
 2. patches the config bytes inside the prebuilt `subsdk9`: stamina on/off, stamina style, per-action costs,
-   combat only, enemy health, damage taken, rupee counter / clock / 24 h, sprint speed
+   combat only, enemy health, damage taken, rupee counter / clock / 24 h, sprint speed, button mapping style,
+   layout and L mode
    (field table in [GUIA-DESARROLLO.md](GUIA-DESARROLLO.md#33-configuración-en-tiempo-de-ejecución-coreconfigh)),
-3. with Classic Item Slots enabled, downloads the chosen variant (Switch / PlayStation / Xbox) from its official GitHub
-   release (v1.4.3), caches it per user, copies its module as `subsdk8` and its romfs, and merges the two IPS patch
-   files (they are checked for overlaps). Classic is **not** bundled with the app,
+3. copies the button textures for the chosen style (Switch / PlayStation / Xbox) into the mod's romfs,
 4. with "no heart drops", copies the generated romfs option (if that optional file was not built from the user's game
    dump, the app installs everything else and shows a note instead of failing),
 5. writes everything as the mod folder `00-Super-Hero-Boost` and warns about other exefs mods that may conflict.
@@ -31,15 +30,15 @@ per-user configuration folder (see the README). The app never needs administrato
 
 ## Game profiles
 
-A profile sets **every** gameplay option. Every fixed profile includes the HUD, Classic Item Slots and the Songbook.
+A profile sets **every** gameplay option. Every fixed profile includes the HUD, the button mapping and the Songbook.
 Changing any option afterwards switches the profile to **Custom** and keeps your value. The button style (Switch /
-PlayStation / Xbox), the language and the emulator folder are not part of a profile. **Recommended** is the default
-and enables everything.
+PlayStation / Xbox), layout, L mode, the language and the emulator folder are not part of a profile. **Recommended**
+is the default and enables everything.
 
 Sprint is always **×1.25** in the profiles. It is only a starting point and can be changed by hand in the Stamina
 section; the profiles never use ×1.75, ×2 or ×3.
 
-| Profile | Stamina | Stamina style | Enemy HP | Damage | No hearts | Sprint | HUD | Classic |
+| Profile | Stamina | Stamina style | Enemy HP | Damage | No hearts | Sprint | HUD | Buttons |
 |---|---|---|---|---|---|---|---|---|
 | **Recommended** | on | Hardcore | ×1.5 | ×2 | on | ×1.25 | on | on |
 | Base | off | — | ×1 | ×1 | off | ×1.25 | on | on |
@@ -61,8 +60,8 @@ dropped hearts become green rupees (the optional romfs file; see the note below)
 - **Estamina**: on/off, stamina style, what costs stamina (the checkboxes update automatically for each style), sprint
   speed.
 - **Dificultad**: enemy health, damage taken, heart drops.
-- **HUD y botones**: rupee counter, clock (**off / 12 h / 24 h**, one selector), Classic Item Slots and button
-  style.
+- **HUD y botones**: rupee counter, clock (**off / 12 h / 24 h**, one selector), button mapping (on/off), button
+  style (Switch / PlayStation / Xbox), layout (extended / simple) and L mode (item / shield / selector).
 - **Modificaciones varias**: Songbook autoplay (select a learned song in the game's native songbook with ZL and it plays
   automatically, effect included; not the Scarecrow's Song) and two
   **beta** toggles:
@@ -97,15 +96,16 @@ style used by older scripts (0 hardcore, 1 combat only, 2 sprint only, 3 advance
 Run this on each target OS:
 
 ```
-python tools/make_release.py     # module variants + optional romfs options (no Classic)
+python tools/make_release.py     # module + button textures + optional romfs options
 python tools/build_app.py        # release/SuperHeroBoostConfig[.exe|.app]
 ```
 
 `build_app.py` uses the platform's separator for `--add-data` and writes the platform's native output. macOS needs
 PyInstaller from the same Python installation used to build; Linux produces a plain executable.
 
-Classic Item Slots is downloaded by the app at install time and cached in the per-user folder. If the machine is
-offline the install stops with a clear error before touching the mod folder.
+The whole payload is bundled with the app: the module, the repository romfs and the button textures for the three
+styles. The `romfs` options generated from the game are only installed when their option is enabled, and a missing one
+stops nothing else.
 
 ## Linux
 

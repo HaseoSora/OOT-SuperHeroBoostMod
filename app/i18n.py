@@ -627,7 +627,7 @@ T = {
 
 
 
-# buttonMapping: our own item buttons (replaces the third-party Classic Item Slots)
+# buttonMapping: our own item buttons
 _BM = {
     "en": dict(
         buttons_title="Button mapping",

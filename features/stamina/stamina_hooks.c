@@ -42,6 +42,7 @@ void stamina_speed_hook(void *regs) {
 }
 int player_state_is(const char *name);
 int player_active(void);
+int player_dead(void);
 int player_max_life(void);
 int player_in_combat(void);
 void player_mark_combat(void);
@@ -168,6 +169,13 @@ void stamina_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_result) 
     HidView view = {a0, count, 0};
 
     if (site != 3) return;   /* only site 3 runs during gameplay */
+    if (player_dead()) {     /* death ragdoll / game over: never filter the menu's buttons */
+        g_sprint_a = 0;
+        player_take_events();
+        hud_set_tired(0);
+        hud_set_stamina(g_stamina.stamina, g_stamina.cap, 0.0f);
+        return;
+    }
     if (!g_shbcfg.stamina_enabled) {   /* stamina system switched off in the config */
         g_sprint_a = (hid_merge_buttons(&view) & BTN_A) != 0;
         player_take_events();

@@ -1,8 +1,8 @@
-"""Draw the Classic-style HUD buttons (our own art, drawn here with plain shapes and text) and pack them as game
+"""Draw the buttonMapping HUD buttons (our own art, drawn here with plain shapes and text) and pack them as game
 textures for the icon loader: romfs/UI/Tex/Icon/<name>.bntx.zs plus an empty romfs/UI/Tex/IconSh/<name>_Sh.
 
 Look: a dark opaque circle with a thin rim and the button's glyph in a faint tone in the middle, the item icon
-drawn on top of it by the HUD (like Classic Item Slots' default theme).
+drawn on top of it by the HUD (like the game's item buttons).
 
     python tools/make_buttons.py            # -> build/buttons/<platform>/romfs/...  (switch, xbox, playstation)
 

@@ -17,7 +17,7 @@ typedef struct {
     unsigned char cost_shoot;
     unsigned char cost_roll;
     unsigned char combat_only;     /* advanced: costs only while in combat */
-    unsigned char unused_09;       /* (was: the third-party Classic Item Slots flag; always 0) */
+    unsigned char unused_09;       /* reserved legacy flag; always 0 */
     /* v1 additions (append-only; older apps leave the defaults) */
     unsigned short enemy_hp_pct;   /* enemy health, percent of vanilla (100 = vanilla, 150 = Hero Mode) */
     unsigned short damage_taken_pct; /* damage the player receives, percent of vanilla (200 = Hero Mode) */

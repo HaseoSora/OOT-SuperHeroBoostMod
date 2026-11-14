@@ -41,6 +41,8 @@ extern long set_text(void *pane, const void *ref, int zero);   /* stock text-pan
 extern char GAMEDATA_MGR[];                                      /* main+0x4E842A8: GameData manager pointer slot */
 extern char WORLD_MGR[];                                         /* main+0x4E7EAB0: world manager pointer slot */
 int player_active(void);
+/* button_mapping overrides this while the L-shield option is active (see core/hooks.S). */
+__attribute__((weak)) int camera_lock_should_skip(void) { return 0; }
 
 #define MARK 0x1000000000000000ull
 /* Diagnostics (in .data, read by tools/live_check.py):
@@ -1180,8 +1182,8 @@ static const char *item_name(int item) {
     return nm && nm[0] ? nm : 0;
 }
 /* around the stock item box (top right): above, left, below, right-above; layout units, root-relative */
-/* Classic's default arrangement, top right: top row L X R, middle row (Y) (A) ZR, bottom (B) */
-/* Gamepad diamond (measured on Classic's default theme): X top, Y left, A right, B bottom around a centre,
+/* buttonMapping default arrangement, top right: top row L X R, middle row (Y) (A) ZR, bottom (B) */
+/* Gamepad diamond (measured on the default theme): X top, Y left, A right, B bottom around a centre,
  * L / R at the top corners, ZR to the right. Items sit up-left of their button so the button shows below. */
 float g_sb_pos[PART_N][2] = {{1020.4f, 872.3f}, {1292.6f, 843.0f}, {1545.2f, 872.3f},     /* L X R */
                              {1129.6f, 680.0f}, {1455.6f, 680.0f}, {1677.2f, 680.0f},     /* Y A ZR */
@@ -1194,14 +1196,25 @@ float g_sb_scale = 0.62f;
 #define SB_CY 680.0f
 float g_sb_lay[4] = {0.75f, 0.85f, 130.0f, 70.0f};     /* compact, top right */
 float g_mb_lay[4] = {0.55f, 0.6f, -780.0f, -120.0f};   /* between the item grid and the item preview */
-static void sb_xy(const float *lay, u32 k, float *x, float *y) {
-    *x = SB_CX + (g_sb_pos[k][0] - SB_CX) * lay[0] + lay[2];
-    *y = SB_CY + (g_sb_pos[k][1] - SB_CY) * lay[0] + lay[3];
+/* Simple layout: only B / L / R / ZR. L, R and ZR keep their usual places and B moves to the centre of the
+ * group, closer to them (no holes where X / Y / A were). Same coordinate space as g_sb_pos; the item of each
+ * button keeps its up-left offset. */
+static const float g_sb_simple[PART_N][2] = {
+    {1120.4f, 872.3f}, {0.0f, 0.0f}, {1445.2f, 872.3f}, {0.0f, 0.0f}, {0.0f, 0.0f},
+    {1677.2f, 680.0f}, {1292.6f, 680.0f},
+    {1095.1f, 897.6f}, {1419.9f, 897.6f}, {0.0f, 0.0f}, {1651.9f, 705.3f}, {1267.3f, 705.3f}};
+static void sb_xy(const float *lay, u32 k, int simple, float *x, float *y) {
+    float bx = g_sb_pos[k][0], by = g_sb_pos[k][1];
+    if (simple) {
+        bx = g_sb_simple[k][0]; by = g_sb_simple[k][1];
+    }
+    *x = SB_CX + (bx - SB_CX) * lay[0] + lay[2];
+    *y = SB_CY + (by - SB_CY) * lay[0] + lay[3];
 }
 u32 g_sb_big_items = 1;
-/* per-part scale: buttons, then items (Classic draws the item bigger than its button) */
+/* per-part scale: buttons, then items (the item is drawn bigger than its button) */
 float g_sb_sc[PART_N] = {0.34f, 0.34f, 0.34f, 0.34f, 0.34f, 0.34f, 0.34f, 0.38f, 0.38f, 0.38f, 0.38f, 0.38f};
-u32 g_sb_hide_stock = 1;   /* (only while the replica is on) */   /* hide the game's own item box and its page dots: the replica replaces them */
+u32 g_sb_hide_stock = 1;   /* (only while the item buttons are on) */   /* hide the game's own item box and its page dots: our buttons replace them */
 static u64 g_stock_box_rec, g_stock_dots_rec;
 /* animation frame forced on every button each frame, per animation (-1 = leave it); see slot_anim_name() */
 float g_sb_animf[SA_N] = {-1.0f, -1.0f, -1.0f, -1.0f, -1.0f, -1.0f, -1.0f, -1.0f, -1.0f, -1.0f, -1.0f};
@@ -1313,7 +1326,7 @@ static void zr_mirror(void) {
 }
 /* PlayerStatus frame our parts live in. Its u32 at +0x1A4 has bit 0x20000 set while the game is played and
  * clear while a menu covers it (pause ...), measured stable across pause / resume: then nothing of ours is touched
- * and the replica does not act. */
+ * and our buttons do not act. */
 static u64 g_ps_frame;
 int hud_ingame(void) { return !g_ps_frame || (*(volatile u32 *)(g_ps_frame + 0x1A4) & 0x20000u) != 0; }
 /* Pause menu, Items tab: its caption panel (hooked at main+0x2CBD20) has byte +0x28 == 2 only while that tab is
@@ -1530,10 +1543,10 @@ static void slots_draw(SlotBtn *set, const u64 *ctrls, u64 frame, const float *l
         u32 empty = (k >= SB_NBTN && g_sb_item[k] < 0 && g_sb_force[k][0] <= 1) || bm_part_hidden(k);
         float sc = empty || !BTNMAP ? 0.0f : g_sb_sc[k] * lay[1];
         float px, py;
-        sb_xy(lay, k, &px, &py);
+        sb_xy(lay, k, g_shbcfg.bm_simple, &px, &py);
         if (b->rec) place(b->rec, px, py, sc, sc, 0.0f);
         /* ItemPattern = icon framing. Frame 0 shows the full picture: buttons, and items drawn big and even
-         * like Classic (item_pattern() keeps the stock box's per-item framing for a smaller style) */
+         * like the item buttons (item_pattern() keeps the stock box's per-item framing for a smaller style) */
         if (b->anim[0]) set_frame((void *)b->anim[0], g_sb_item[k] < 0 || g_sb_big_items ? 0.0f : item_pattern(g_sb_item[k]));
         if (b->sh) {   /* the button behind the icon: full colour, opaque, centred on the icon (no shadow offset) */
             tint_rec(b->sh, 1.0f, 1.0f, 1.0f, 1.0f);
@@ -1710,8 +1723,8 @@ static void slots_labels(u64 frame) {
     if (!hud_ingame()) return;
     a_label_update();
     float xx, xy, ax, ay;
-    sb_xy(g_sb_lay, SB_X, &xx, &xy);
-    sb_xy(g_sb_lay, SB_A, &ax, &ay);
+    sb_xy(g_sb_lay, SB_X, 0, &xx, &xy);
+    sb_xy(g_sb_lay, SB_A, 0, &ax, &ay);
     g_fld_sc[3] = g_fld_sc[4] = 0.80f * g_sb_lay[1];   /* the labels follow the buttons' size */
     u32 lbl = !g_shbcfg.bm_simple;   /* simple layout: no X / A buttons, so no labels */
     put_text(frame, 3, g_sb_jump_label, xx, xy, lbl, LABEL);

@@ -2,8 +2,7 @@
 #include "../../core/hid.h"
 #include "../../core/config.h"
 
-/* button_mapping (F3, "buttonMapping"): our own extra item buttons, in the spirit of the "legacy" Classic
- * Item Slots mod (not its code).
+/* button_mapping (F3, "buttonMapping"): our own extra item buttons on the HUD.
  *
  * Controls on this game: X jump, A dodge, Y sword, B / L / R / ZR are the free
  * buttons. In-game R equips an item into the HUD item box and ZR uses it
@@ -11,7 +10,7 @@
  * calling; its third argument is the item index (inventory slot order:
  * 0 stick, 1 nut, 3 boomerang ...).
  *
- * Classic slots: B, L, R and ZR can each hold an item; an empty slot keeps its
+ * buttonMapping: B, L, R and ZR can each hold an item; an empty slot keeps its
  * normal behaviour. Pressing an assigned one:
  *   1. EQUIP   - R is pressed for a few frames and at the stock call (slot site 3,
  *                pre-hook) the item index is replaced by the slot's item;
@@ -45,6 +44,10 @@ enum { PH_IDLE = 0, PH_EQUIP, PH_HOLD, PH_GAP, PH_RESTORE, PH_ZRBACK };
 #define GAP_TICKS 20
 
 int g_pending = -1;        /* item index to force on the next stock call (old R-press method, unused) */
+int g_l_shield_hold;       /* L is held as the shield (no physical ZL): skip the camera lock action */
+int camera_lock_should_skip(void) {
+    return g_shbcfg.button_mapping && g_shbcfg.bm_l_mode == 1 && g_l_shield_hold;
+}
 int g_saved = -1;          /* item box content before a slot use (the ZR item) */
 int g_borrowed;            /* a slot item is in the box; the ZR item goes back when ZR is pressed */
 int g_borrow_item = -1;    /* the slot item in the box */
@@ -57,6 +60,7 @@ u32 g_cl_dbg[4] = {SLOT_BASE, SLOT_BASE, SLOT_BASE, SLOT_BASE};  /* presses, ove
 
 void hud_slot_item(u32 slot, int item);
 int player_active(void);
+int player_dead(void);                   /* core/player.c: death ragdoll / game over */
 int player_state_is(const char *name);   /* core/player.c: Link's current action state */
 int player_state_starts(const char *prefix);
 const char *player_state_name(void);
@@ -94,7 +98,7 @@ static void equip_now(int item) {
 }   /* core/hud.c: item index of the game's own (hidden) item box, -1 = unknown */
 
 /* Items a slot can cycle through (inventory slot order) and their ItemPattern icon
- * frame, measured in game with the CLASSIC_PROBE build (docs/RE-NOTES.md). */
+ * frame, measured in game with the BUTTON_PROBE build (docs/RE-NOTES.md). */
 static const int ITEM_CYCLE[] = {-1, 1, 2, 3, 4, 5, 6, 7, 9, 10, 13, 14, 18, 30, 31};
 #define ITEM_CYCLE_N ((int)(sizeof(ITEM_CYCLE) / sizeof(ITEM_CYCLE[0])))
 __attribute__((unused)) static int icon_of(int item) {
@@ -113,7 +117,7 @@ __attribute__((unused)) static void cycle_slot(int s) {
     g_assign[s] = ITEM_CYCLE[(pos + 1) % ITEM_CYCLE_N];
 }
 
-/* ---- temporary probe: learn item index -> icon frame (CLASSIC_PROBE) ---- */
+/* ---- temporary probe: learn item index -> icon frame (BUTTON_PROBE) ---- */
 extern float g_last_pat_frame, g_last_num_frame;
 extern u32 g_pat_changes;
 typedef struct { u32 idx; u32 result; float pat; float num; } MapEntry;
@@ -121,7 +125,7 @@ MapEntry g_map[40] = {{0x7FFFFFFFu, 0, 0, 0}};
 u32 g_map_n = SLOT_BASE;
 static u32 g_probe_t, g_probe_idx;
 static int g_probe_wait;
-#ifdef CLASSIC_PROBE
+#ifdef BUTTON_PROBE
 static void probe_step(void) {
     g_probe_t++;
     if (g_probe_t < 3600) return;              /* let the game settle first (~30 s) */
@@ -159,6 +163,14 @@ void button_mapping_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_r
     if (count == 0 || count > 64) return;
     HidView view = {a0, count, 0};
 
+    /* Death ragdoll / game over: do not remap or swallow anything, the game's screen needs every button. */
+    if (player_dead()) {
+        g_l_shield_hold = 0;
+        g_phase = PH_IDLE; g_swallow = 0;
+        g_cl_prev = hid_merge_buttons(&view);
+        return;
+    }
+
     /* Link's age picks the set; an item the player does not have (a new game, an older save) leaves its slot */
     if (g_shbcfg.button_mapping && player_active()) {
         int ch = hud_is_child();
@@ -181,10 +193,12 @@ void button_mapping_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_r
         hud_slot_item((u32)s, s == SLOT_ZR && g_assign[s] < 0 ? g_zr_item : g_assign[s]);
 
     u64 buttons = hid_merge_buttons(&view);
+    g_l_shield_hold = g_shbcfg.button_mapping && g_shbcfg.bm_l_mode == 1 &&
+                      (buttons & BTN_L) && !(buttons & BTN_ZL);
     u64 pressed = buttons & ~g_cl_prev;
     g_cl_prev = buttons;
 
-    /* Pause menu, Items tab: X, L and R assign the highlighted item to the B, L and R slots (like Classic's X / L / R;
+    /* Pause menu, Items tab: X, L and R assign the highlighted item to the B, L and R slots (like the item buttons;
      * B stays "back"). An item already on another slot swaps with it. The game's ZL / ZR still change tabs. */
     /* The pause menu is open only after + was pressed in gameplay, until gameplay runs again (the Items panel exists
      * from boot and looks "open" on the title screen and while loading, where its cells are not ready). */
@@ -239,6 +253,19 @@ void button_mapping_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_r
         pressed &= ~BTN_L;
     }
 
+    /* L as the game's item selector: outside menus, L does what R does (opens the selector for ZR).
+     * The R slot is suppressed for this frame so an item assigned to R is not used as well. */
+    u32 l_selector = 0;
+    if (g_shbcfg.button_mapping && g_shbcfg.bm_l_mode == 2 && hud_ingame() &&
+        (buttons & BTN_L) && !(buttons & BTN_R)) {
+        u32 was_pressed = (pressed & BTN_L) != 0;
+        set_all(&view, BTN_L, BTN_R);
+        buttons = (buttons & ~BTN_L) | BTN_R;
+        pressed &= ~BTN_L;
+        if (was_pressed) pressed |= BTN_R;
+        l_selector = 1;
+    }
+
     /* Link must be free to act: standing or moving. Menus, the ocarina, dialogues, the item selector, climbing,
      * swimming ... keep every button as the game means it (B = back / cancel there). A use in progress goes on. */
     int ingame = player_active() && hud_ingame();
@@ -287,10 +314,12 @@ void button_mapping_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_r
     pressed &= ~g_swallow;
 
     u64 all_slot = 0;
-    for (int s = 0; s < SLOT_N; s++) if (g_assign[s] >= 0) all_slot |= SLOT_MASK[s];
+    for (int s = 0; s < SLOT_N; s++)
+        if (g_assign[s] >= 0 && !(s == SLOT_R && l_selector)) all_slot |= SLOT_MASK[s];
 
     if (g_phase == PH_IDLE) {
         for (int s = 0; s < SLOT_N; s++) {
+            if (s == SLOT_R && l_selector) continue;   /* this R came from L (item selector) */
             if ((pressed & SLOT_MASK[s]) && g_assign[s] >= 0) {
                 if (!g_borrowed) { g_saved = g_zr_item; g_borrowed = 1; hud_zr_hold(1); }
                 g_active = s;

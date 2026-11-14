@@ -249,6 +249,34 @@ CODE_HOOK hook_code_mp, 1, RES_MP
 CODE_HOOK hook_code_setframe, 3, RES_SETFRAME
 CODE_HOOK hook_code_inst, 4, RES_INST
 CODE_HOOK hook_code_move, 5, RES_MOVE
+
+/* ExecutePlayerCameraLockOn entry (0x27E3A60, pacibsp). The L-shield option keeps ZL for the
+ * player (the shield) but skips this camera action, so the camera never acquires a target.
+ * x0..x2 are the action's arguments; the C check only needs them preserved across the call. */
+    .global hook_code_camera_lock
+    .type hook_code_camera_lock, %function
+hook_code_camera_lock:
+    sub sp, sp, #0x60
+    stp x29, x30, [sp, #0x00]
+    stp x0, x1, [sp, #0x10]
+    stp x2, x3, [sp, #0x20]
+    stp x4, x5, [sp, #0x30]
+    stp x6, x7, [sp, #0x40]
+    bl  camera_lock_should_skip
+    mov w8, w0
+    ldp x29, x30, [sp, #0x00]
+    ldp x0, x1, [sp, #0x10]
+    ldp x2, x3, [sp, #0x20]
+    ldp x4, x5, [sp, #0x30]
+    ldp x6, x7, [sp, #0x40]
+    add sp, sp, #0x60
+    cbnz w8, 1f
+    pacibsp
+    b   RES_CAMERA_LOCK
+1:
+    pacibsp
+    ret
+    .size hook_code_camera_lock, . - hook_code_camera_lock
 /* the player's shield-hit reaction nodes (ExecutePlayerReactionGuard enter/update, GuardJustRepelled, GuardBreak). */
 CODE_HOOK hook_guard0, 6, RES_GUARD0
 CODE_HOOK hook_guard1, 7, RES_GUARD1

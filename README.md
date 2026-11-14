@@ -4,8 +4,8 @@ Módulo de gameplay para el remake de consola (actualización v131072) y su app 
 `SuperHeroBoostConfig`:
 
 - **Perfiles completos**: **Recomendado** (todo activado), Base, Modo héroe, Héroe + estamina, Héroe explorador,
-  Superhéroe, Ultra héroe y Supervivencia. Todos incluyen el HUD y Classic Item Slots, y ajustan de una vez la
-  dificultad, la estamina y el sprint; cualquier cambio manual pasa a **Personalizado**.
+  Superhéroe, Ultra héroe y Supervivencia. Todos incluyen el HUD y el mapeo de botones (nuestros botones de objeto),
+  y ajustan de una vez la dificultad, la estamina y el sprint; cualquier cambio manual pasa a **Personalizado**.
 - **Estamina** con estilos (hardcore, solo combate, solo sprint, avanzado), agotamiento y recarga; coste al rodar,
   saltar, atacar, disparar, esprintar y bloquear con el escudo.
 - **Anillo de estamina** junto al jugador, dibujado con texturas del juego.
@@ -17,8 +17,9 @@ Módulo de gameplay para el remake de consola (actualización v131072) y su app 
   espantapájaros.
 - **Opciones beta**: duplicar enemigos genéricos (Opción A) y acelerar su movimiento, animación y cadencia ×2. Son experimentales
   y pueden romper puzles, misiones o el rendimiento; se activan en la app y se instalan como romfs extra.
-- Compatible con **Classic Item Slots** (la app lo descarga de su release oficial en GitHub y lo instala con su crédito
-  original; no va incluido en el código).
+- **Mapeo de botones propio**: botones de objeto B, L, R y ZR en el HUD, asignables desde el menú de pausa. Incluye
+  estilo de botones **Switch / PlayStation / Xbox**, diseño **extendido o simple** y modos del botón L (objeto,
+  escudo o selector). No usa ningún mod de terceros.
 
 ## Uso
 
@@ -43,7 +44,7 @@ Otras notas: [docs/APP.md](docs/APP.md) (app y perfiles), [docs/RE-NOTES.md](doc
 Pasos rápidos:
 
 ```
-python tools/build_core.py --features stamina,songbook --compat --base 0x4F87000
+python tools/build_core.py --features stamina,songbook,button_mapping --slots --compat --base 0x4F80000
 python tools/make_release.py
 python tools/build_app.py
 ```
@@ -52,5 +53,5 @@ El ejecutable se genera en `release/` para el sistema donde se compila (PyInstal
 
 ## Créditos
 
-Classic Item Slots v1.4.3, de sonofsilvanus, se descarga de su release oficial de GitHub cuando se activa y se instala
-tal cual. No se distribuye con la app. El módulo, el HUD, el sistema de estamina y la app son trabajo original.
+El módulo, el HUD, el sistema de estamina, el mapeo de botones (con sus texturas de botones) y la app son trabajo
+original. No se incluye ni se descarga ningún mod de terceros.

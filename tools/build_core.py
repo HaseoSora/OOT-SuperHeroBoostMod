@@ -325,7 +325,7 @@ def main() -> int:
     objs: list[str] = []
     for src in sources + [gen]:
         obj = OUT / (src.stem + ".o")
-        extra = ["-DCLASSIC_PROBE"] if os.environ.get("CLASSIC_PROBE") else []
+        extra = ["-DBUTTON_PROBE"] if os.environ.get("BUTTON_PROBE") else []
         if "button_mapping" in features:
             extra.append("-DBUTTON_MAPPING")   # core/hud.c draws the buttonMapping buttons
         run([str(CLANG), *CFLAGS, *extra, "-I", str(OUT), "-I", str(CORE_SRC),

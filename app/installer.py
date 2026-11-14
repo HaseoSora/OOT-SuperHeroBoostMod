@@ -164,7 +164,7 @@ def patch_config(nso: bytes, s: Settings) -> bytes:
     b[f + 2], b[f + 3], b[f + 4] = int(s.jump), int(s.attack), int(s.sprint)
     b[f + 5], b[f + 6], b[f + 7] = int(s.block), int(s.shoot), int(s.roll)
     b[f + 8] = int(s.combat_only)
-    b[f + 9] = 0                      # (was: the third-party Classic Item Slots; not supported any more)
+    b[f + 9] = 0                      # reserved legacy flag (always 0)
     struct.pack_into("<HH", b, f + 10, int(s.enemy_hp), int(s.damage))
     b[f + 14], b[f + 15], b[f + 16], b[f + 17] = int(s.hud_rupees), int(s.hud_clock), int(s.clock_24h), int(s.no_heart_drop)
     struct.pack_into("<H", b, f + 18, int(s.sprint_speed))
@@ -208,7 +208,7 @@ def install(emu: Path, s: Settings, name: str = MOD_NAME) -> Result:
     (target / "exefs" / f"{BUILD_ID}.ips").write_bytes((pay / "ours.ips").read_bytes())
 
     if s.button_mapping:   # buttonMapping: the button textures of the chosen style + a bigger UI budget
-        rep = pay.parent / "replica_romfs"
+        rep = pay.parent / "button_romfs"
         plat = s.button_style if s.button_style in BUTTON_STYLES else "switch"
         if not (rep / plat).exists():
             raise InstallError("no_payload", "buttonMapping")

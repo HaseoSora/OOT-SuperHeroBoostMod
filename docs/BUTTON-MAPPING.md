@@ -1,107 +1,72 @@
-# Own replica of Classic Item Slots: analysis and plan
+# Mapeo de botones (buttonMapping): diseño y notas
 
-Goal: our own version of "Classic Item Slots & Smart HUD" (sonofsilvanus, v1.4.3) inside Super Hero Boost, so the
-way it is used can be our own. The upstream repository only has the README (no code); what follows comes from that
-README, from the hook map of its IPS (docs/CLASSIC-HOOKS.md) and from what our own module already does.
+Módulo propio de Super Hero Boost. Añade botones de objeto **B, L, R y ZR** al HUD y permite asignarles objetos
+desde el menú de pausa. No usa ningún mod de terceros: el módulo, el arte de los botones y las texturas se generan
+en este proyecto.
 
-## What Classic does (from its README and IPS)
+## Funciones
 
-| Feature | How Classic does it | Hook sites (main) |
-|---|---|---|
-| Extra item slots X/L/R (+ ZR), separate for child and adult | intercepts the stock "equip item into slot" call | 4 calls of `0x1211C00` (0x33A927C, 0x33AAC34, 0x33BD928, 0x33C9AB4) |
-| Buttons pressed in game use the slot's item | rewrites the controller state it reads | 5 controller reads (0x34694F8 .. 0x3469698) |
-| Assignment in the pause menu (Items tab: X / L / R on a highlighted item) | pause menu's own assignment code | the same `0x1211C00` calls + pause overlay setup |
-| Put Away moves to A when standing still | input remap + "hand state" setup | 0x33D7124, 0x33D8CC4 (function entries) |
-| No control guides at the bottom; A / ZR context prompts that flip N64 style | guide table edits (romfs) + control-guide setup hook | 0x0D57CE4 |
-| New HUD buttons with item icons, ammo / magic counts | romfs: new panes in the HUD layout + button art as BNTX textures | HUD and pause overlay setups 0x33F6894, 0x33E64E0 |
-| Assignments shown in the pause menu under the rupee counter | pause layout panes | pause overlay setup |
-| Themes (diamond, slots only, N64) and an in-game layout editor (both sticks) | its own state + saved layout | input reads |
+| Función | Cómo funciona |
+|---|---|
+| Botones de objeto extra B / L / R / ZR | se equipa el objeto de la ranura en la caja de objeto del juego (índice forzado en la llamada `main+0x1211C00`) y se mantiene ZR mientras se mantiene el botón |
+| Estilos de botón | tres juegos de texturas: Switch (`OotBtnS_*`), Xbox (`OotBtnX_*`) y PlayStation (`OotBtnP_*`); byte de estilo 0 / 1 / 2 |
+| Diseño extendido | botones B, L, R, ZR, X, Y, A y espada |
+| Diseño simple | solo los botones asignables B, L, R y ZR; oculta X, Y, A y la espada, y reubica L / R / ZR en su sitio con B centrado y más cerca, en zigzag, tanto en el HUD como en la pestaña Objetos del menú |
+| Modo de L: objeto | L es una ranura de objeto más |
+| Modo de L: escudo | L hace de ZL (escudo) sin bloquear cámara; en diseño extendido muestra el escudo equipado y no se puede asignar; en simple se oculta |
+| Modo de L: selector | L abre el selector de objetos del juego; misma lógica de diseño, sin icono de escudo |
+| Asignación en pausa | pestaña Objetos: B / L / R sobre el objeto resaltado; un objeto que ya está en otra ranura se intercambia |
+| Iconos | partes `PaItemBtn_00` con el icono del objeto y su sombra, igual que la caja de objeto nativa |
 
-Classic ships a romfs (UI archive repacked at its exact size, BNTX button art, text edits) plus an IPS and a
-`subsdk9`. Our mod coexists with it today through `--compat` (Classic owns the 5 input sites, we read input
-through a PLT-stub hook).
+El módulo se activa con el byte `button_mapping` de la configuración (`core/config.h`): estilo en `+22`, diseño simple
+en `+23` y modo de L en `+24`.
 
-## What we already have
+## Partes del HUD
 
-- `features/button_mapping/button_mapping.c` (shipped as buttonMapping): B / L / R / ZR slots that
-  work by equipping the slot's item into the game's item box (forced item index on the stock `0x1211C00` call),
-  holding ZR while the slot button is held, and restoring the previous item on release. Assignment is a test
-  method (ZL + button cycles the item). Measured item index -> ItemPattern icon frame table.
-- HUD know-how from the clock / rupee / ring work: our own picture and text panes in PlayerStatus_00, any texture of
-  the Common archive through private material copies, tint, live tuning.
-- Appended layout parts work again (128 gauge parts were instantiated before the dot-tube ring). The old blocker
-  "item-button clones are never registered" predates the descriptor fixes (+0x40 / +0x42) and has not been retried.
+- Cuatro clones de la caja de objeto nativa (`Pa_SelectItem_00`, asset `PaItemBtn_00`) se añaden a
+  `PlayerStatus_00` con el descriptor común corregido (`+0x40 = 0xFFFF`, `+0x42` = índice de parte). Se crean, los
+  encuentra `find_part`, tienen las 11 animaciones (ItemPattern, StockNum, NumMax, NumMin, IsInvalid, Type,
+  ItemChange, Select, UnSelect, Decide, Assign) y dibujan. `PART_N = 4`, `slots_update()` en `core/hud.c`.
+- Los iconos son texturas cargadas por nombre en tiempo de ejecución. `PaItemBtn_00` contiene la parte
+  `Pa_ReplaceIcon_00`, cuyos dos paneles (icono + sombra) usan la textura de relleno `FBLayout_00_ASTC4x4`. El HUD la
+  sustituye por `UI/Tex/Icon/<Item_Name>.bntx.zs` y `UI/Tex/IconSh/<name>_Sh`.
+- **Cómo pone el juego un icono** (HUD nativo en `main+0x33B7E80`):
+  1. reserva un controlador de icono de 0x40 bytes, fija su vtable (`[main+0x4C973B0] + 0x10`) y sus campos, lo enlaza
+     en la lista de la parte y pone a cero `+0x30` / `+0x38`;
+  2. `main+0xA37320(controller, part)` crea los reemplazadores de textura del icono y de la sombra en
+     `controller+0x30` / `+0x38` (0x58 bytes cada uno, del heap del motor);
+  3. `main+0xA73920(controller->+0x30, &"Item_X", 0)` y `main+0xA73920(controller->+0x38, &"Item_X_Sh", 0)`.
+- Llamar a `main+0xA73920` sobre el objeto de `nested ReplaceIcon frame + 0x6A8` desbordaba la pila (juego
+  congelado): ese objeto no es un reemplazador listo. La llamada directa queda tras `SLOT_ICON_DIRECT 0`.
+- **Solución (commit f5ad284 y posteriores):** los controladores los construye la rutina del juego
+  `main+0x33B7DA0(widget, heap)` (la del icono de la Agony Stone: busca `Pa_ReplaceIcon_00` en `widget+0x20`, crea el
+  controlador y pone `Item_AgonyStone`). Se llama con un widget de relleno por botón **durante la inicialización del
+  HUD PlayerStatus** (hook 12 en `main+0x33F5D20`, x0 HUD, x1 heap): ese heap solo acepta reservas durante la
+  inicialización (más tarde devolvía un controlador nulo y el juego caía). El hook 11 en `main+0xA37320` captura el
+  controlador creado. Después los iconos se cambian en cualquier momento con `main+0xA73920` sobre `controller+0x30`
+  (nombre) y `+0x38` (`nombre_Sh`).
 
-## The hard part: item icons in our own buttons
+## Índice de objeto -> icono
 
-Item icons are not static textures: PaReplaceIcon_00 / PaItemBtn_00 draw the runtime texture `FBLayout_00_ASTC4x4`
-and pick the item with the `ItemPattern` animation. So the slot buttons need engine item-button parts, not plain
-pictures. Plan: append `PaItemBtn_00` (or `PaReplaceIcon_00`) parts with the corrected descriptor fields and drive
-`ItemPattern` / `StockNum` like the stock item box. Plain picture panes (our material copies) are enough for the
-button frames, letters and backgrounds.
-
-## Plan (phases, each testable on its own)
-
-1. **Item-button parts in the HUD (de-risk first).** Append 1, then 4, `PaItemBtn_00` parts to PlayerStatus_00 with
-   the stock descriptor layout; check find_part, drive ItemPattern (icon) and StockNum (count). If they still do not
-   register, fall back to PaReplaceIcon_00 or to cloning the stock item box's whole subtree.
-2. **Slot HUD.** Frames / button letters (picture panes, native textures or a small own texture), positions near
-   the stock item box, child / adult sets, hide during menus (same gating as the clock).
-3. **Controls without the third-party IPS.** Own the 5 input reads (our non-compat build already hooks them) and
-   reuse the equip-and-hold method of classic_slots.c; keep the stamina filters in the same input pass.
-4. **Pause-menu assignment.** Hook the Items tab: X / L / R on the highlighted item assigns it (find the cursor's
-   item index through the stock `0x1211C00` calls made by the menu).
-5. **Persistence.** Keep assignments in GameData (an unused flag/int range, or our own save-independent file) and
-   per child / adult.
-6. **Extras, optional:** Put Away on A, removing the bottom control guides, N64-style A / ZR prompts, layout editor.
-7. **App.** "Classic (own)" vs "Classic (sonofsilvanus)" choice, button style, layout options.
-
-Open questions to settle in phase 1: the item index -> ItemPattern table for every item (ours covers 15), how the
-game shows ammo for bombs / arrows / seeds on an item button (StockNum vs a separate pane), and magic cost display.
-
-## Phase 1 results (Nov 14)
-
-- **Appended item-button parts work.** Four clones of the stock item box (`Pa_SelectItem_00`, asset `PaItemBtn_00`)
-  appended to PlayerStatus_00 (common desc `+0x40 = 0xFFFF`, `+0x42` = part index, like the old gauge parts) are
-  created, found by `find_part`, have all 11 animations (ItemPattern, StockNum, NumMax, NumMin, IsInvalid, Type,
-  ItemChange, Select, UnSelect, Decide, Assign) and draw, with a clean log. `PART_N = 4`, `slots_update()` in hud.c.
-- **Item icons are textures loaded by name at runtime.** `PaItemBtn_00` contains the part `Pa_ReplaceIcon_00`,
-  whose two panes (icon + shadow) use the placeholder texture `FBLayout_00_ASTC4x4`. The HUD replaces it with
-  `UI/Tex/Icon/<Item_Name>.bntx.zs` (129 icons in the dump: `Item_Boomerang`, `Item_Bomb`, `Item_DekuNut`, ...) and
-  `UI/Tex/IconSh/<name>_Sh`. ItemPattern alone shows a placeholder (a button-glyph "L").
-- **How the game sets an icon** (stock HUD at main+0x33B7E80, same pattern used by Classic's module):
-  1. allocate a 0x40-byte icon controller, set its vtable (`[main+0x4C973B0] + 0x10`) and fields, link it into
-     the part's list, zero `+0x30` / `+0x38`;
-  2. `main+0xA37320(controller, part)` creates the texture replacers for the part's icon and shadow panes at
-     `controller+0x30` / `+0x38` (it allocates through the engine heap, 0x58 bytes each);
-  3. `main+0xA73920(controller->+0x30, &"Item_X", 0)` and `main+0xA73920(controller->+0x38, &"Item_X_Sh", 0)`.
-- Calling `main+0xA73920` on the object found at `nested ReplaceIcon frame + 0x6A8` recursed until the stack
-  overflowed (game frozen): that object is not a ready replacer. The direct call is kept behind
-  `SLOT_ICON_DIRECT 0`.
-- **Solved (commit f5ad284 and later):** the controllers are built by the game's own routine
-  `main+0x33B7DA0(widget, heap)` (the Agony Stone icon setup: finds `Pa_ReplaceIcon_00` in `widget+0x20`, builds the
-  controller, initial icon `Item_AgonyStone`). We call it with a stand-in widget per button **during the PlayerStatus
-  HUD init** (hook 12 on `main+0x33F5D20`, x0 HUD, x1 heap): that heap only accepts allocations during the init
-  (later calls got a null controller and crashed). Hook 11 on `main+0xA37320` captures the controller it creates.
-  Icons are then set any time with `main+0xA73920` on `controller+0x30` (name) and `+0x38` (`name_Sh`).
-
-## Item index -> icon (Nov 14)
-
-- `main+0x592B20(manager, &name, item)` returns the item's actor name, which is also its icon texture name.
-  `manager = **(main+0x4C7E0D0)`, default name `*(main+0x4C7DAD0)` (the HUD does the same before setting its icon).
-- Item index = the index of the equip call `main+0x1211C00`. Read live:
+- `main+0x592B20(manager, &name, item)` devuelve el nombre de actor del objeto, que también es el nombre de su textura
+  de icono. `manager = **(main+0x4C7E0D0)`, nombre por defecto `*(main+0x4C7DAD0)` (el HUD hace lo mismo antes de
+  poner su icono).
+- Índice de objeto = índice de la llamada de equipar `main+0x1211C00`. Leído en vivo:
   0 Item_DekuStick, 1 Item_DekuNut, 2 Item_Bomb, 3 Item_Boomerang, 4 Weapon_Range_SlingShot, 5 Item_Hookshot,
   6 Item_Longshot, 7 Item_Hammer, 9 Item_Bombchu, 10 Item_DinFire, 11 Item_FaroreWind, 12 Item_NayruLove,
   13 Item_MagicBean, 14 Item_Bottle_<content>, 18 Item_FishingRod, 30 Weapon_Range_Bow, 31 Item_WeirdEgg ..
-  44 Item_ClaimCheck (trade items), 46 Item_Arrow_Fire, 47 Item_Arrow_Ice, 48 Item_Arrow_Light
-  (8, 15-17, 19-29, 45: empty in this save).
-- `ItemPattern` is the per-item **framing** of the icon in the button (frame 0 draws it oversized), not the item
-  choice; the measured item -> frame table is applied per item (`item_pattern()` in hud.c). `ItemChange` is the
-  icon's pop-in animation (frame 0 = hidden). `Type` changes nothing visible.
+  44 Item_ClaimCheck (objetos de intercambio), 46 Item_Arrow_Fire, 47 Item_Arrow_Ice, 48 Item_Arrow_Light
+  (8, 15-17, 19-29, 45: vacíos en esta partida).
+- `ItemPattern` es el **encuadre** del icono dentro del botón (el frame 0 lo dibuja más grande), no la elección del
+  objeto; la tabla medida objeto -> frame se aplica por objeto (`item_pattern()` en `core/hud.c`). `ItemChange` es la
+  animación de aparición del icono (frame 0 = oculto). `Type` no cambia nada visible.
 
-## Next (requested): button backgrounds, Jump and context A
-- Each slot icon must sit on the **button it is assigned to** (B / L / R / X look, like Classic), plus a **Jump**
-  button and the **context A** (attack / talk / open ...). Candidates: the game's own `PaABtn_00` part and the
-  `DoCommand*` textures (A action command UI), button glyphs of the External_00 font (`T_Assign_00` in the item
-  button), or our own textures loaded through the same icon mechanism (Classic ships `UI/Tex/Icon/Mod_HudButton*`).
+## Texturas
 
+`tools/make_buttons.py` dibuja los tres juegos de botones con formas y texto, sin material del juego. Cada estilo
+produce sus propias texturas `OotBtn*_*` y el instalador copia solo el juego del estilo elegido.
+
+## Pendiente
+
+- Puerto del botón L como escudo: hoy L se traduce a ZL y un hook en la entrada de `ExecutePlayerCameraLockOn`
+  (`main+0x27E3A60`) evita que la cámara fije objetivo. Falta verificarlo en partida.

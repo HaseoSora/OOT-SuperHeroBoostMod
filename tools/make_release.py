@@ -1,9 +1,9 @@
 ﻿"""Developer step (NOT done by the app): compile the prebuilt module and stage it as the app payload.
 
   standalone  module linked right after subsdk0 (base 0x4F80000): stamina, songbook and buttonMapping (our own
-              item buttons; the third-party Classic Item Slots is not supported any more)
+              item buttons.)
 
-Output: app/payload/<variant>/{subsdk9,ours.ips} + app/payload/manifest.json + app/payload/replica_romfs
+Output: app/payload/<variant>/{subsdk9,ours.ips} + app/payload/manifest.json + app/payload/button_romfs
 """
 import hashlib
 import json
@@ -27,17 +27,17 @@ def stage_rupee_ips():
     (OUT / "rupee.ips").write_bytes(b"IPS32" + rec + b"EEOF")
 
 
-def stage_replica():
+def stage_buttons():
     """Romfs of our buttonMapping: the button textures per platform (tools/make_buttons.py) and a resource size
     table with a bigger UI budget (the 12 extra HUD parts do not fit the stock one; the game hangs at boot)."""
     subprocess.run([sys.executable, str(ROOT / "tools" / "make_buttons.py")], check=True, cwd=ROOT)
     for plat in ("switch", "xbox", "playstation"):
-        shutil.copytree(ROOT / "build" / "buttons" / plat / "romfs", OUT / "replica_romfs" / plat)
+        shutil.copytree(ROOT / "build" / "buttons" / plat / "romfs", OUT / "button_romfs" / plat)
     raw = ROOT / "build" / "rsizetable.bin"   # decompressed vanilla table (the dump may not be available)
-    r = subprocess.run([sys.executable, str(ROOT / "tools" / "make_restbl.py"), str(OUT / "replica_romfs" / "common")]
+    r = subprocess.run([sys.executable, str(ROOT / "tools" / "make_restbl.py"), str(OUT / "button_romfs" / "common")]
                        + (["--vanilla-raw", str(raw)] if raw.exists() else []), cwd=ROOT)
     if r.returncode:
-        print("WARNING: no resource size table: the replica's HUD will not fit the stock UI budget")
+        print("WARNING: no resource size table: our HUD will not fit the stock UI budget")
 
 
 def main():
@@ -60,7 +60,7 @@ def main():
         man["variants"][name] = {"base": base, "sha256": hashlib.sha256((d / "subsdk9").read_bytes()).hexdigest()}
     if keep is not None and keep.exists():
         shutil.copytree(keep, OUT / "romfs_opts")
-    stage_replica()
+    stage_buttons()
     r = subprocess.run([sys.executable, str(ROOT / "tools" / "make_romfs_opts.py")], cwd=ROOT)
     if r.returncode:
         print("WARNING: romfs options not built (game dump missing?): the payload keeps any previous 'romfs_opts'")

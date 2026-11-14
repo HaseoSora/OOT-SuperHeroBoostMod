@@ -112,7 +112,7 @@ float g_enemy_min2 = 1.0e8f;               /* squared distance of the nearest al
 #define ENEMY_CHASE_FRAMES 120u
 #define ENEMY_WINDOW 6u
 typedef struct { u64 actor; float d2; u32 stamp; u32 chase; } EnemyMem;
-static EnemyMem g_em[24];
+EnemyMem g_em[24];
 u32 g_enemy_chasing;       /* diagnostic: enemies currently counted as aware (last evaluation) */
 
 /* Enemy health multiplier: scaled once when an enemy is first seen (its Life records: current at +0x1C10, max at +0x1C18,
@@ -274,6 +274,9 @@ const char *player_state_name(void) { return g_cur; }
 int player_active(void) {
     return g_alive && (hud_frame_count() - g_active_frame) <= 2;
 }
+
+/* Dead (death ragdoll / game over): all input must reach the game untouched. */
+int player_dead(void) { return !g_alive; }
 
 int player_max_life(void) { return g_player_maxlife; }
 

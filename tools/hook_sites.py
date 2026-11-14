@@ -1,7 +1,7 @@
 """Hook sites in the stock `main` module (build E0F3CCFAF50065AE4EA01EB5AEB13B1A45DA3348).
 
 Each site is a `bl` in the stock game that reads controller input. The shared
-input path (see docs/CLASSIC-HOOKS.md, sites 4..8) calls one of five stock
+input path (sites 4..8 of the input table in docs/GUIA-DESARROLLO.md) calls one of five stock
 readers. Our module replaces each `bl` with a `bl` into its own wrapper, which
 calls the stock reader exactly once and then runs our handlers.
 
@@ -38,6 +38,7 @@ CODE_SITES = (
     (0x33BDCE0, "hook_code_mp", 1),      # magic-gauge controller init (x0 = controller)
     (0x2D2D90, "hook_code_setframe", 3), # set_frame(anim, frame): observe UI animation frames
     (0x2C215E0, "hook_code_move", 5),    # physics-actor movement update (x0 = actor), every frame
+    (0x27E3A60, "hook_code_camera_lock", 22),  # ExecutePlayerCameraLockOn: skip the camera lock while L is the shield
     (0x27F7D00, "hook_guard0", 6),       # ExecutePlayerReactionGuard slot 10 (shield took a hit)
     (0x27F7F90, "hook_guard1", 7),       # ExecutePlayerReactionGuard slot 11
     (0x27FB0C0, "hook_guard2", 8),       # ExecutePlayerReactionGuardJustRepelled slot 10

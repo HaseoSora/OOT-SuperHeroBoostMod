@@ -8,10 +8,10 @@ producto.
 
 | Elemento | Origen | ¿Se distribuye? | Estado |
 |---|---|---|---|
-| `core/`, `features/stamina/`, `features/classic_slots/`, `features/probe/` | Propio | Sí (módulo compilado) | OK |
+| `core/`, `features/stamina/`, `features/songbook/`, `features/button_mapping/`, `features/probe/` | Propio | Sí (módulo compilado) | OK |
 | `app/` (ventana, perfiles, instalador, textos) | Propio | Sí | OK |
 | `tools/` (compilación, pruebas, análisis) | Propio, salvo dependencias indicadas | No | OK |
-| Classic Item Slots v1.4.3 | sonofsilvanus (terceros) | No: la app lo descarga de su release oficial | Se conserva el crédito; no se empaqueta con el proyecto |
+| Texturas de botones Switch / PlayStation / Xbox | Propias | Sí | Dibujadas por código en `tools/make_buttons.py` |
 | Algoritmo CityHash64 | Algoritmo público de Google | Solo el código que lo implementa | Implementación propia; sin código de Google copiado |
 | Código y materiales del juego | Juego original | No | Solo se leen del volcado del usuario en tiempo de ejecución |
 | Herramientas de desarrollo (LLVM, PyInstaller, lz4, zbic, devtool, emulador) | Terceros | No | Dependencias de desarrollo, no forman parte del producto |
@@ -29,11 +29,11 @@ producto.
 
 No se ha encontrado código fuente de otro mod copiado dentro de `core/`, `features/` ni `app/`.
 
-## Classic Item Slots
+## Mapeo de botones
 
-No se empaqueta con el producto. La app lo descarga de su release oficial de GitHub en el momento de instalar la
-variante elegida (tres variantes de botones) y lo instala tal cual. El crédito a sonofsilvanus se mantiene en la app,
-el README y la documentación. No se presenta como trabajo propio.
+El mapeo de botones (B, L, R y ZR asignables) es trabajo propio. Las texturas de los botones se generan con
+`tools/make_buttons.py` a partir de formas y texto (tres estilos: Switch, PlayStation y Xbox) y se instalan como romfs.
+No se descarga ni se empaqueta ningún mod de terceros.
 
 ## CityHash64
 
@@ -66,8 +66,7 @@ Se revisaron los archivos versionados y los textos de la app:
 - El nombre del protagonista se sustituyó por "el jugador"/"the player" en comentarios y documentación; los identificadores internos
   pasaron de `g_link_*` a `g_player_*`.
 - "Hero Mode" se mantiene como nombre genérico de dificultad (es el término que usa el propio producto).
-- La abreviatura `OoT` se eliminó del código y de los nombres de paneles. La URL de descarga de Classic conserva su
-  nombre original porque es la URL real del release de terceros y solo se usa para descargar el mod al instalar.
+- La abreviatura `OoT` se eliminó del código y de los nombres de paneles.
 
 ## Dependencias de desarrollo
 
@@ -81,5 +80,4 @@ No se distribuyen, pero conviene tenerlas documentadas:
 ## Pendiente de decisión
 
 El proyecto no tiene un archivo `LICENSE`. Si se va a publicar, conviene elegir una licencia para el código propio
-(por ejemplo MIT) y mantener el crédito y la licencia de Classic Item Slots por separado. Esta auditoría no decide la
-licencia; solo deja constancia de qué es propio y qué es de terceros.
+(por ejemplo MIT). Esta auditoría no decide la licencia; solo deja constancia de qué es propio y qué es de terceros.

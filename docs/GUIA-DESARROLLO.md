@@ -8,8 +8,7 @@ El emulador de pruebas carga los mods desde su `LoadDir` (la ruta se configura c
 Documentos relacionados:
 - [RE-NOTES.md](RE-NOTES.md): hallazgos de ingeniería inversa (direcciones, formatos, qué funcionó y qué no).
 - [APP.md](APP.md): la app de configuración.
-- [CLASSIC-HOOKS.md](CLASSIC-HOOKS.md): mapa de ganchos de Classic Item Slots.
-- [BUTTON-MAPPING.md](BUTTON-MAPPING.md): análisis y plan de nuestra réplica de Classic.
+- [BUTTON-MAPPING.md](BUTTON-MAPPING.md): diseño del mapeo de botones (buttonMapping).
 
 ---
 
@@ -81,15 +80,13 @@ Rutas externas que usan las herramientas (en este PC, todas configurables por va
   `switch` en tablas de punteros absolutos.
 - Las funciones y datos del juego se referencian como símbolos en `core/link.ld` (offsets dentro de `main`). Con la
   base del módulo (`__base`) el enlazador produce saltos PC-relativos correctos.
-- Base del módulo: `0x4F87000` (variante "classic", tras el `subsdk8` de Classic) o `0x4F80000` ("standalone").
-  `make_release.py` compila las dos.
+- Base del módulo: `0x4F80000` (variante "standalone"). `make_release.py` la compila.
 
 ### 3.2 Tipos de gancho (todos en `core/hooks.S`, sitios en `tools/hook_sites.py`)
 | Tipo | Cómo se parchea | Uso |
 |---|---|---|
-| `INPUT_HOOK` | el `bl` del juego a un lector de mando pasa a ser `bl` a nuestro envoltorio, que llama al lector original y luego a `mod_on_input` | build no-compat |
-| `hook_stub3` (compat) | la primera instrucción del stub PLT del lector de mando pasa a `b` a nuestro envoltorio | build `--compat` (convive con Classic, que es dueño de los 5 `bl`) |
-| `WRAP_HOOK` (ranuras) | `bl 0x1211C00` (equipar objeto) → nuestro envoltorio con pre-gancho que puede cambiar el objeto | réplica de Classic |
+| `INPUT_HOOK` | el `bl` del juego a un lector de mando pasa a ser `bl` a nuestro envoltorio, que llama al lector original y luego a `mod_on_input` | lectura de mando (botones de objeto, estamina) |
+| `WRAP_HOOK` (ranuras) | `bl 0x1211C00` (equipar objeto) → nuestro envoltorio con pre-gancho que puede cambiar el objeto | buttonMapping |
 | `CODE_HOOK` | la instrucción `pacibsp` de la entrada de una función pasa a `b` a nuestro envoltorio; este guarda registros, llama `mod_on_code(id, x0, x1, x2, regs)`, los restaura (los cambios en `regs` se aplican), ejecuta `pacibsp` y vuelve a `sitio+4` | la mayoría de ganchos |
 
 Ganchos de código actuales (`CODE_SITES`):
@@ -128,13 +125,17 @@ los lee en cada fotograma (`g_shbcfg`). **Solo se añaden campos al final** (usa
 | 17 | `preset` (0 hardcore, 1 solo combate, 2 solo sprint, 3 avanzado) | Preset |
 | 18-23 | `cost_jump/attack/sprint/block/shoot/roll` | Qué gasta estamina |
 | 24 | `combat_only` | Solo en combate |
-| 25 | `classic_slots` (informativo) | Classic |
+| 25 | reservado (legado) | — |
 | 26 | `enemy_hp_pct` (u16) | Vida de los enemigos |
 | 28 | `damage_taken_pct` (u16) | Daño que recibes |
 | 30-32 | `hud_rupees`, `hud_clock`, `clock_24h` | HUD siempre visible (en la app el reloj es un selector: sin reloj / 12 h / 24 h) |
 | 33 | `no_heart_drop` (informativo; lo hace el romfs) | Sin drop de corazones |
 | 34 | `sprint_speed_pct` (u16, defecto 125) | Velocidad del sprint |
 | 36 | `songbook_enabled` | Canción elegida en el songbook -> la toca el héroe |
+| 37 | `button_mapping` | Botones de objeto (mapeo de botones) |
+| 38 | `button_style` (0 Switch, 1 Xbox, 2 PlayStation) | Estilo de los botones |
+| 39 | `bm_simple` | Diseño simple (solo botones asignables) |
+| 40 | `bm_l_mode` (0 objeto, 1 escudo, 2 selector) | Qué hace el botón L |
 
 **Añadir una opción nueva:** campo en `config.h` (quitando bytes de `reserved`), valor por defecto en `config.c`,
 escritura en `installer.patch_config` (`f = magia + 16`), campo en `installer.Settings`, flag en `main.cli`,
@@ -228,8 +229,8 @@ Cuando el aspecto convence, se copian los valores a los inicializadores de `g_hu
 ## 6. Compilar, publicar y la app
 
 ```
-python tools/build_core.py --features stamina,songbook --compat --base 0x4F87000   # módulo de prueba en build/native
-python tools/make_release.py     # compila las 2 variantes en app/payload + romfs opcional (Classic no se empaqueta)
+python tools/build_core.py --features stamina,songbook,button_mapping --slots --base 0x4F80000   # módulo de prueba en build/native
+python tools/make_release.py     # compila el módulo en app/payload + texturas de botones + romfs opcional
 python tools/build_app.py        # binario nativo de la app (PyInstaller). Cerrar la app antes.
 ```
 
@@ -238,10 +239,8 @@ cada sistema destino. La app usa Tkinter y rutas portables (`app/paths.py`); no 
 
 La app (`app/main.py` interfaz, `app/presets.py` perfiles, `app/installer.py` lógica, `app/i18n.py` textos):
 1. encuentra la carpeta de mods del emulador (respeta `load_directory`);
-2. copia la variante adecuada y parchea el bloque de configuración;
-3. con Classic Item Slots: descarga la variante elegida de su release oficial de GitHub, copia su módulo como
-   `subsdk8` y su romfs, y fusiona los dos IPS comprobando que no se solapan;
-4. avisa de otros mods con exefs que pueden chocar.
+2. copia la variante standalone, las texturas del estilo de botones elegido y parchea el bloque de configuración;
+3. avisa de otros mods con exefs que pueden chocar.
 
 También tiene modo línea de comandos (el mismo código de instalación):
 ```
@@ -267,7 +266,7 @@ Puntos clave:
 - Escribir memoria en vivo: `HostMemory(pid).calibrate(cliente, [base_main])` y luego `write(dir, bytes)`.
 - El log del emulador (`user/log/eden_log.txt`) debe quedar limpio: muchas líneas `Unmapped Read/Write` indican
   un fallo de descriptores o punteros y ralentizan muchísimo el juego.
-- Mods de terceros que chocan (contadores de HUD, otras versiones del sistema de estamina, Classic suelto...)
+- Mods de terceros que chocan (contadores de HUD, otras versiones del sistema de estamina, otros mapeos de botones...)
   deben estar desactivados en el emulador.
 
 ## 8. Investigar el juego (receta)
@@ -304,12 +303,10 @@ Los nombres de funciones no están en `main` en texto claro (el motor usa hashes
 | `pane_dump.py`, `gauge_dump.py`, `text_probe.py`, `clock_probe.py` | volcados del HUD en vivo |
 | `enemy_probe.py`, `find_player.py`, `player_strings.py`, `action_names.py` | actores y estados del jugador |
 | `e2e_matrix.py` | prueba completa: instala cada configuración con el binario (sin ventana), arranca, hace acciones y comprueba que la estamina se comporta como promete esa configuración (`build/e2e/results.txt`) |
-| `compat_pack.py`, `make_restbl.py` | paquete de prueba Classic + nuestro módulo; tabla de tamaños de recursos (presupuesto de memoria de la UI) |
+| `make_restbl.py` | tabla de tamaños de recursos (presupuesto de memoria de la UI) |
 | `lib/` | `nso.py` (NSO/IPS), `sarc.py`, `cityhash.py` (implementación propia del algoritmo público), `winmove.py` |
 
 ## 10. Licencias y referencias
-- Classic Item Slots (sonofsilvanus): la app lo descarga de su release oficial y lo instala tal cual. No se distribuye
-  con el proyecto.
 - El cliente del servidor de depuración, `HostMemory` y los lectores de BYML/GameData son herramientas de
   desarrollo y no se distribuyen con el mod.
-- El resto del código (módulo, HUD, estamina, app e instalador) es propio. Ver [AUDIT.md](AUDIT.md).
+- El resto del código (módulo, HUD, estamina, mapeo de botones, app e instalador) es propio. Ver [AUDIT.md](AUDIT.md).

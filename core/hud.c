@@ -983,6 +983,7 @@ u64 g_sb_rif[PART_N][2];    /* nested Pa_ReplaceIcon_00 frame, its layout (diagn
 /* item per button (the game's item index, as passed to the equip call main+0x1211C00); -1 = empty */
 int g_sb_item[PART_N] = {3, 1, 2, 30};   /* test: boomerang, nuts, bombs, bow */
 char g_sb_name_dbg[PART_N][32];   /* actor name resolved for each button (diagnostic) */
+char g_sb_force[PART_N][32] = {{1}};   /* test: texture name forced on a button (first byte 1 = none) */
 /* ItemPattern = how the icon of each item is framed in the button (scale / offset); frame 0 draws it oversized.
  * Measured on the stock item box (docs/RE-NOTES.md, "Item index -> ItemPattern icon frame"); others use 6. */
 static float item_pattern(int item) {
@@ -1082,6 +1083,10 @@ static void slots_update(u64 frame) {
         for (u32 i = 0; i < SA_N; i++)
             if (g_sb_animf[i] >= 0.0f && b->anim[i]) set_frame((void *)b->anim[i], g_sb_animf[i]);
         /* icon of the button's item (only when it changes) */
+        if (b->ctrl && !g_sb_busy && g_sb_force[k][0] > 1 && g_sb_force[k][31] != 1) {   /* test override */
+            g_sb_force[k][31] = 1;
+            set_icon(b, g_sb_force[k]);
+        }
         if (b->ctrl && !g_sb_busy && (!b->icon_set || b->shown_item != g_sb_item[k])) {
             const char *nm = item_name(g_sb_item[k]);
             b->icon_set = 1;

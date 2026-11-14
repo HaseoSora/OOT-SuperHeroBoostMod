@@ -85,6 +85,44 @@ def main():
             d.cases[1] = d.cases[0]
             print(f"switch {i}: canUse case 1 {old} -> {d.cases[0]._idx}")
 
+    # The talk the flow opens before placing the point never takes input when the item is used
+    # outside a dungeon (the message window is drawn but its choices are dead: no cursor, no A).
+    # Skip it: the switch that leads to it goes straight to its "place here" branch.
+    def qn(d):
+        try:
+            v = d.actor_query.v
+            return getattr(v, "v", v)
+        except Exception:
+            return None
+
+    def act(d):
+        try:
+            return d.actor_action.v.v
+        except Exception:
+            return None
+
+    accept = None
+    for i, ev in enumerate(fc.events):
+        d = ev.data
+        if isinstance(d, evfl.SwitchEvent) and qn(d) == "EventQueryTalkChoice2" and len(d.cases) == 2:
+            t = fc.events[d.cases[0]._idx].data
+            if isinstance(t, evfl.SwitchEvent) and qn(t) == "EventQueryCameraCheckOcclusionToTarget":
+                accept = d.cases[0]._idx
+    if accept is None:
+        raise RuntimeError("place-here branch not found")
+    print("place-here branch:", accept)
+
+    for i, ev in enumerate(fc.events):
+        d = ev.data
+        if isinstance(d, evfl.SwitchEvent) and qn(d) == "EventQueryIsGameDataBool" and \
+           d.params and str(d.params.data.get("GameDataName", "")).startswith("WarpPoint_FaoreWind"):
+            for k in list(d.cases):
+                t = fc.events[d.cases[k]._idx].data
+                if isinstance(t, evfl.ActionEvent) and act(t) == "EventTalk":
+                    old = d.cases[k]._idx
+                    d.cases[k] = evfl.util.make_rindex(fc.events[accept])
+                    print(f"switch {i}: skip talk case {k} {old} -> {accept}")
+
     buf = io.BytesIO()
     if not flow.write(buf):
         raise RuntimeError("evfl write failed")

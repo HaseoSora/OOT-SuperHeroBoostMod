@@ -106,14 +106,29 @@ static u32 put_u32(char *b, u32 v) {
 /* Temporary diagnostic shown on the clock plate: "A<arm> P<page>S<state>B<busy>". */
 int songbook_debug_text(char *b, u32 cap) {
     (void)cap;
+    u32 page, state, busy, arms;
+    if (valid_ptr(g_songbook_ctx)) {
+        page = g_songbook_seen_page;
+        state = g_songbook_seen_state;
+        busy = g_songbook_seen_busy;
+        arms = g_songbook_seen_arm;
+    } else {
+        page = state = busy = 0;
+        arms = g_songbook_dbg[4] - 0x10000000u;
+    }
     u32 n = 0;
-    /* runtime config bytes as the module sees them: clock24, songbook, hud_clock */
-    b[n++] = 'C';
-    n += put_u32(b + n, g_shbcfg.clock_24h);
+    b[n++] = 'E';                       /* enter/leave hook calls */
+    n += put_u32(b + n, g_songbook_enters & 0xFFu);
+    b[n++] = 'C';                       /* context valid */
+    n += put_u32(b + n, valid_ptr(g_songbook_ctx) ? 1u : 0u);
+    b[n++] = 'A';                       /* selections armed */
+    n += put_u32(b + n, arms);
+    b[n++] = 'P';
+    n += put_u32(b + n, page);
     b[n++] = 'S';
-    n += put_u32(b + n, g_shbcfg.songbook_enabled);
-    b[n++] = 'H';
-    n += put_u32(b + n, g_shbcfg.hud_clock);
+    n += put_u32(b + n, state);
+    b[n++] = 'B';
+    n += put_u32(b + n, busy);
     b[n] = 0;
     return 1;
 }
@@ -171,13 +186,13 @@ void songbook_on_frame(void) {
     if (!valid_ptr(ctx)) return;
 
     u32 now = hud_frame_count();
-    if (g_songbook_active) {   /* snapshot for the debug plate while the HUD is hidden */
-        g_songbook_seen_page = *(volatile u32 *)(ctx + 0x278);
-        g_songbook_seen_state = *(volatile u32 *)(ctx + 0x230);
-        g_songbook_seen_busy = *(volatile u32 *)(ctx + 0x114);
-        g_songbook_seen_arm = g_songbook_dbg[4] - 0x10000000u;
-        g_songbook_seen_at = now;
-    }
+    /* Snapshot every frame: the HUD is hidden while the ocarina is open, so the
+     * last values are shown on the clock plate when it closes. */
+    g_songbook_seen_page = *(volatile u32 *)(ctx + 0x278);
+    g_songbook_seen_state = *(volatile u32 *)(ctx + 0x230);
+    g_songbook_seen_busy = *(volatile u32 *)(ctx + 0x114);
+    g_songbook_seen_arm = g_songbook_dbg[4] - 0x10000000u;
+    g_songbook_seen_at = now;
     u32 page = *(volatile u32 *)(ctx + 0x278);
     g_songbook_page = page;
 

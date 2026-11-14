@@ -70,9 +70,10 @@ def main():
     if isinstance(target(2), evfl.SubFlowEvent) and target(2).entry_point_name.startswith("Disable"):
         raise RuntimeError("case 2 is not the allowed branch")
 
-    old = switch.cases[DUNGEON_CASE]._idx
-    switch.cases[DUNGEON_CASE] = switch.cases[2]
-    print(f"switch {switch_idx}: case {DUNGEON_CASE} {old} -> {switch.cases[2]._idx}")
+    for case in (0, 1):
+        old = switch.cases[case]._idx
+        switch.cases[case] = switch.cases[2]
+        print(f"switch {switch_idx}: case {case} {old} -> {switch.cases[2]._idx}")
 
     buf = io.BytesIO()
     if not flow.write(buf):

@@ -165,15 +165,16 @@ static void extend_pools(u8 *root, u32 add) {
  * Text fields: 0 = clock, 1 = rupees (green), 2 = "/wallet" (white), 3 = area collectibles,
  * 4 = X button label (Jump), 5 = A button label (context).
  * Each field has two panes (field f uses panes f and f + FLD_N): the text is written to the hidden one. */
-#define FLD_N 6
+#define FLD_N 7
 #define TXT_N (FLD_N * 2)
 static const char g_font_normal[] = "Normal";
 static const char g_font_ext[] = "External_00";   /* the button-glyph font */
 static char g_tnames[TXT_N][16] = {"T_ShbTxt_00", "T_ShbTxt_01", "T_ShbTxt_02", "T_ShbTxt_03",
                                    "T_ShbTxt_04", "T_ShbTxt_05", "T_ShbTxt_06", "T_ShbTxt_07",
-                                   "T_ShbTxt_08", "T_ShbTxt_09", "T_ShbTxt_10", "T_ShbTxt_11"};
-static const u64 g_thash[TXT_N] = {HASH_TXT0, HASH_TXT1, HASH_TXT2, HASH_TXT3, HASH_TXT4, HASH_TXT5,
-                                   HASH_TXT6, HASH_TXT7, HASH_TXT8, HASH_TXT9, HASH_TXT10, HASH_TXT11};
+                                   "T_ShbTxt_08", "T_ShbTxt_09", "T_ShbTxt_10", "T_ShbTxt_11",
+                                   "T_ShbTxt_12", "T_ShbTxt_13"};
+static const u64 g_thash[TXT_N] = {HASH_TXT0, HASH_TXT1, HASH_TXT2, HASH_TXT3, HASH_TXT4, HASH_TXT5, HASH_TXT6,
+                                   HASH_TXT7, HASH_TXT8, HASH_TXT9, HASH_TXT10, HASH_TXT11, HASH_TXT12, HASH_TXT13};
 /* Picture panes. Each gets its own copy of the textured material of P_SubItemBg_00 with the game's
  * texture named below (all in the Common texture archive):
  *  0..3  clock plate:  fill, fill mirrored, edge, edge mirrored   (NumBaseSide_00 / _01, the plate of
@@ -190,23 +191,34 @@ static const u64 g_thash[TXT_N] = {HASH_TXT0, HASH_TXT1, HASH_TXT2, HASH_TXT3, H
 #define RT2 (RT1 + RING1_DOTS)              /* ring 2 track */
 #define RF1 (RT2 + RING2_DOTS)              /* ring 1 fill (+1 end dot) */
 #define RF2 (RF1 + RING1_DOTS + 1)          /* ring 2 fill (+1 end dot) */
-#define PIC_PLATE3 (RF2 + RING2_DOTS + 1)   /* first pane of the collectible plate */
-#define PIC_N (PIC_PLATE3 + 4)              /* + fill, fill mirrored, edge, edge mirrored */
+#define PIC_COLL (RF2 + RING2_DOTS + 1)     /* first pane of the collectible plates */
+#define PIC_N (PIC_COLL + 10)               /* skull plate (4), heart plate (4), skull icon, heart icon */
 static char g_pinames[PIC_N][16];           /* "P_ShbPic_000".. filled by pic_names() */
 static const u64 g_pihash[400] = {HASH_PIC_LIST};   /* CityHash64 of "P_ShbPic_000".. (tools/build_core.py) */
 _Static_assert(PIC_N <= 400, "more picture panes than generated hashes");
-#define TEX_N 5
-static char g_texn[TEX_N][24] = {"NumBaseSide_00", "NumBaseSide_01", "Nt_RupeeIconNew_00", "Circle64_00", "White8_00_BC4L"};
+#define TEX_N 7
+static char g_texn[TEX_N][32] = {"NumBaseSide_00", "NumBaseSide_01", "Nt_RupeeIconNew_00", "Circle64_00",
+                                 "White8_00_BC4L", "MapIconCollectSkullSign_00", "MapIconCollectHeartPiece_00"};
 static const u8 g_pitex0[20] = {0, 0, 1, 1, 0, 0, 1, 1, 2, 3, 4, 4, 4, 4, 4, 4, 4, 4, 3, 3};
 /* pane sizes in layout units (scaled at runtime); ring dots are 100 x 100 */
 static const float g_pic_w0[20] = {1014, 1014, 1014, 1014, 1014, 1014, 1014, 1014, 120, 60, 9, 9, 9, 9, 9, 9, 9, 9, 76, 70};
 static const float g_pic_h0[20] = {160, 160, 160, 160, 160, 160, 160, 160, 120, 60, 26, 26, 26, 26, 26, 26, 26, 26, 76, 70};
 static u32 pic_tex(u32 k) {
-    if (k >= PIC_PLATE3) return (k - PIC_PLATE3) < 2 ? 0 : 1;
+    if (k >= PIC_COLL) {
+        u32 j = k - PIC_COLL;
+        if (j < 8) return ((j & 3u) < 2u) ? 0 : 1;   /* two plates: fill, fill mirrored, edge, edge mirrored */
+        return j == 8 ? 5 : 6;                       /* skull icon, heart icon */
+    }
     return k < 20 ? g_pitex0[k] : 3;
 }
-static float pic_w(u32 k) { return k >= PIC_PLATE3 ? 1014.0f : k < 20 ? g_pic_w0[k] : 100.0f; }
-static float pic_h(u32 k) { return k >= PIC_PLATE3 ? 160.0f : k < 20 ? g_pic_h0[k] : 100.0f; }
+static float pic_w(u32 k) {
+    if (k >= PIC_COLL) return (k - PIC_COLL) < 8 ? 1014.0f : 128.0f;
+    return k < 20 ? g_pic_w0[k] : 100.0f;
+}
+static float pic_h(u32 k) {
+    if (k >= PIC_COLL) return (k - PIC_COLL) < 8 ? 160.0f : 128.0f;
+    return k < 20 ? g_pic_h0[k] : 100.0f;
+}
 static void pic_names(void) {
     for (u32 k = 0; k < PIC_N; k++) {
         static const char P[] = "P_ShbPic_";
@@ -219,7 +231,7 @@ static void pic_names(void) {
 #define HUD_X (-1450.0f)
 #define HUD_Y_CLOCK (-880.0f)
 #define HUD_Y_RUPEE (-990.0f)
-#define HUD_Y_COLLECT (-1100.0f)
+#define HUD_Y_COLLECT (-960.0f)
 /* Look parameters (in .data so they can be tuned live with tools/hud_tune.py):
  *  0 plate centre x, 1 clock row y, 2 rupee row y, 3 plate scale x, 4 plate scale y,
  *  5 icon x (from the plate centre), 6 icon scale, 7 text x (from the plate centre), 8 text y offset,
@@ -227,11 +239,11 @@ static void pic_names(void) {
  *  13 text scale, 14 moon shadow offset, 15 edge brightness, 16 icon override (0 by the hour, 1 sun, 2 moon),
  *  17 moon scale, 18 moon shadow scale, 19 moon shadow brightness (matches the plate),
  *  20 clock plate x, 21 clock plate y (the clock sits to the right of the rupee counter),
- *  22 collectible plate x, 23 collectible plate y (below the rupee counter)
+ *  22 skull plate x, 23 skull plate y, 24 heart plate x, 25 heart plate y (to the right of the clock)
  * Values tuned live against the look of the game's own rupee counter. */
-float g_hudp[24] = {-1518.0f, -860.0f, -960.0f, 0.46f, 0.62f, -165.0f, 0.85f, 30.0f, 0.0f,
+float g_hudp[26] = {-1518.0f, -860.0f, -960.0f, 0.46f, 0.62f, -165.0f, 0.85f, 30.0f, 0.0f,
                     29.0f, 0.9f, 0.6f, 30.0f, 0.7f, 14.0f, 0.45f, 0.0f, 0.75f, 0.75f, 0.09f,
-                    -1000.0f, -960.0f, -1518.0f, -1100.0f};
+                    -1000.0f, -960.0f, -660.0f, -960.0f, -190.0f, -960.0f};
 static int tbl_add(u8 *root, u32 off, const char *name, void *desc, u64 hash) {
     u32 n = w(root, off + 24);
     for (u32 j = 0; j < 3; j++) {
@@ -353,10 +365,10 @@ static u8 *build_menu(const u8 *r) {
 }
 /* The pause menu's root layout (PlusMenu_00) gets LEG_N text panes for the assign legend (hud_menu_legend):
  * clones of its own T_Text_00 (the Items page has no text pane to clone, and a text pane only works with its own
- * layout's fonts and materials). Names T_ShbTxt_12.. (the HUD uses _00.._11, in another layout). */
+ * layout's fonts and materials). Names T_ShbTxt_14.. (the HUD uses _00.._13, in another layout). */
 #define LEG_N 13   /* "Asignar:", then per pair: source button icon, arrow, slot icon */
-static char g_lnames[LEG_N][16] = {"T_ShbTxt_12", "T_ShbTxt_13", "T_ShbTxt_14", "T_ShbTxt_15", "T_ShbTxt_16", "T_ShbTxt_17", "T_ShbTxt_18", "T_ShbTxt_19", "T_ShbTxt_20", "T_ShbTxt_21", "T_ShbTxt_22", "T_ShbTxt_23", "T_ShbTxt_24"};   /* arrays, not pointers: no relocations */
-static const u64 g_lhash[LEG_N] = {HASH_TXT12, HASH_TXT13, HASH_TXT14, HASH_TXT15, HASH_TXT16, HASH_TXT17, HASH_TXT18, HASH_TXT19, HASH_TXT20, HASH_TXT21, HASH_TXT22, HASH_TXT23, HASH_TXT24};
+static char g_lnames[LEG_N][16] = {"T_ShbTxt_14", "T_ShbTxt_15", "T_ShbTxt_16", "T_ShbTxt_17", "T_ShbTxt_18", "T_ShbTxt_19", "T_ShbTxt_20", "T_ShbTxt_21", "T_ShbTxt_22", "T_ShbTxt_23", "T_ShbTxt_24", "T_ShbTxt_25", "T_ShbTxt_26"};   /* arrays, not pointers: no relocations */
+static const u64 g_lhash[LEG_N] = {HASH_TXT14, HASH_TXT15, HASH_TXT16, HASH_TXT17, HASH_TXT18, HASH_TXT19, HASH_TXT20, HASH_TXT21, HASH_TXT22, HASH_TXT23, HASH_TXT24, HASH_TXT25, HASH_TXT26};
 /* icon panes use the game's button-glyph font (the guide bar's icons): text 0xE040 A, 0xE041 B, 0xE042 X,
  * 0xE043 Y, 0xE044 L, 0xE045 R, 0xE046 ZL, 0xE047 ZR (UTF-8) */
 #define LEG_ICON(t) ((t) > 0 && (t) % 3 != 2)
@@ -522,7 +534,7 @@ static u8 *build_root(const u8 *r) {
             *(u32 *)(cd + 52) = npane + t + 1;
             *(float *)(cd + 28) = HUD_X + 40.0f;
             u32 fld = t % FLD_N;
-            *(float *)(cd + 32) = fld == 0 ? HUD_Y_CLOCK : fld == 3 ? HUD_Y_COLLECT : HUD_Y_RUPEE;
+            *(float *)(cd + 32) = fld == 0 ? HUD_Y_CLOCK : (fld == 3 || fld == 6) ? HUD_Y_COLLECT : HUD_Y_RUPEE;
             *(unsigned short *)(cd + 0x3c) = (unsigned short)(nb + t);
             *(unsigned short *)(cd + 0x42) = (unsigned short)(nt + t);
             if (!tbl_add(root, 0x20, g_tnames[t], cd, g_thash[t]) || !tbl_add(root, 0x40, g_tnames[t], bd, g_thash[t]) ||
@@ -885,7 +897,7 @@ static void place(u64 rec, float x, float y, float sx, float sy, float rot) {
     *(u32 *)rec |= 0x6F;   /* mark the pane dirty */
 }
 /* field f: shown text at (x, y) in colour rgb; on = 0 hides both panes */
-float g_fld_sc[FLD_N] = {0.0f, 0.0f, 0.0f, 0.80f, 0.80f, 0.80f};   /* text scale per field (0 = the HUD text scale) */
+float g_fld_sc[FLD_N] = {0.0f, 0.0f, 0.0f, 0.70f, 0.80f, 0.80f, 0.70f};   /* text scale per field (0 = the HUD text scale) */
 static void put_text(u64 frame, u32 f, const char *ascii, float x, float y, u32 on, const float *rgb) {
     u64 rf = pane_record(frame, g_tnames[f + FLD_N * g_tfront[f]]);
     u64 rb = pane_record(frame, g_tnames[f + FLD_N * (g_tfront[f] ^ 1)]);
@@ -1047,13 +1059,21 @@ static void plates_update(u64 frame) {
             else tint_rec(rec, P[15], P[15], P[15], P[11]);
         }
     }
-    /* collectible plate (below the rupee counter) */
-    for (u32 j = 0; j < 4; j++) {
-        u64 rec = g_pic_rec[PIC_PLATE3 + j];
-        float sx = P[3] * ((j & 1) ? -1.0f : 1.0f);
-        place(rec, P[22], P[23], col ? sx : 0.0f, col ? P[4] : 0.0f, 0.0f);
-        if (j < 2) tint_rec(rec, 0.0f, 0.0f, 0.0f, P[10]);
-        else tint_rec(rec, P[15], P[15], P[15], P[11]);
+    /* two collectible sections (Skulltulas / heart pieces), each with its own plate and icon */
+    u32 skull_on = col && st, heart_on = col && ht;
+    for (u32 sec = 0; sec < 2; sec++) {
+        u32 on = sec ? heart_on : skull_on;
+        float x = sec ? P[24] : P[22], y = sec ? P[25] : P[23];
+        for (u32 j = 0; j < 4; j++) {
+            u64 rec = g_pic_rec[PIC_COLL + sec * 4 + j];
+            float sx = 0.42f * ((j & 1) ? -1.0f : 1.0f);
+            place(rec, x, y, on ? sx : 0.0f, on ? P[4] : 0.0f, 0.0f);
+            if (j < 2) tint_rec(rec, 0.0f, 0.0f, 0.0f, P[10]);
+            else tint_rec(rec, P[15], P[15], P[15], P[11]);
+        }
+        u64 ic = g_pic_rec[PIC_COLL + 8 + sec];
+        place(ic, x - 140.0f, y, on ? 0.52f : 0.0f, on ? 0.52f : 0.0f, 0.0f);
+        tint_rec(ic, 1.0f, 1.0f, 1.0f, 1.0f);
     }
     /* rupee icon */
     place(g_pic_rec[8], P[0] + P[5], P[2], rup ? P[6] : 0.0f, rup ? P[6] : 0.0f, 0.0f);
@@ -1126,14 +1146,12 @@ static void plates_update(u64 frame) {
         put_text(frame, 1, a, x0 + P[9] * wa * 0.5f, P[2] + ty, rup, GREEN);
         put_text(frame, 2, b, x0 + P[9] * (wa + wb * 0.5f), P[2] + ty, rup, WHITE);
     }
-    {   /* per-area Skulltulas / heart pieces */
-        char b[40]; u32 n = 0;
-        b[n++] = 'S'; b[n++] = 'K'; b[n++] = 'U'; b[n++] = 'L'; b[n++] = 'L'; b[n++] = ' ';
-        n += put_int(b + n, (int)sd); b[n++] = '/'; n += put_int(b + n, (int)st);
-        b[n++] = ' '; b[n++] = ' '; b[n++] = 'C'; b[n++] = 'O'; b[n++] = 'R'; b[n++] = ' ';
-        n += put_int(b + n, (int)hd); b[n++] = '/'; n += put_int(b + n, (int)ht);
-        b[n] = 0;
-        put_text(frame, 3, b, P[22] + P[7], P[23] + ty, col, WHITE);
+    {   /* per-area Skulltulas / heart pieces: collected / total, one section each */
+        char b[16]; u32 n;
+        n = put_int(b, (int)sd); b[n++] = '/'; n += put_int(b + n, (int)st); b[n] = 0;
+        put_text(frame, 3, b, P[22] - 45.0f, P[23] + ty, skull_on, WHITE);
+        n = put_int(b, (int)hd); b[n++] = '/'; n += put_int(b + n, (int)ht); b[n] = 0;
+        put_text(frame, 6, b, P[24] - 45.0f, P[25] + ty, heart_on, WHITE);
     }
 }
 static void txt_update(u64 frame) {

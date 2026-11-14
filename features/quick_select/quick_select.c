@@ -1,10 +1,14 @@
-/* Quick select (beta): hold D-pad Down/Up to pick boots / mask without the pause menu.
+/* Quick select (beta): hold D-pad Down/Up to switch the boots / mask without the pause menu.
  *
  * The equipment slots are GameData strings, the same ones the pause menu writes:
  *   PlayerStatus.EquipBoot      (String64 index 18 of the type)
  *   PlayerStatus.EquipHeadArmor (String64 index 20)
  * Record layout (gdlive): table = mgr + 8 + 0x60*16, +0x08 count, +0x10 records;
  * record stride 0x108, live string at +0x74 (64 bytes). Writing it applies at once.
+ *
+ * An empty boot string is the Kokiri Boots (the default, no HUD icon); an empty mask is "none".
+ * Holding the D-pad button for HOLD_FRAMES switches to the next option once; release and hold
+ * again for the next one.
  */
 #include "../../core/dispatch.h"
 #include "../../core/config.h"
@@ -14,7 +18,6 @@
 #define DPAD_UP    0x2000ull
 #define DPAD_RIGHT 0x4000ull
 #define DPAD_DOWN  0x8000ull
-#define DPAD_ALL   (DPAD_LEFT | DPAD_UP | DPAD_RIGHT | DPAD_DOWN)
 
 #define HOLD_FRAMES 18u
 
@@ -24,8 +27,7 @@ typedef struct {
 } Pick;
 
 static const Pick g_boots[] = {
-    {"NINGUNA", ""},
-    {"KOKIRI", "Item_NormalBoot"},
+    {"KOKIRI", ""},
     {"HIERRO", "Armor_Adult_HeavyBoot"},
     {"HOVER", "Armor_Adult_HoverBoot"},
 };
@@ -44,12 +46,13 @@ static const Pick g_masks[] = {
 extern char GAMEDATA_MGR[];   /* link.ld: main+0x4E842A8 */
 u32 hud_frame_count(void);
 
-static u32 g_kind;        /* 0 closed, 1 boots, 2 mask */
-static u32 g_sel;
 static u32 g_hold;
+static u32 g_latch;        /* a switch was made: wait for the button release */
+static u32 g_release;      /* consecutive calls without the button (the same frame may call us several times) */
 static u64 g_hold_btn;
-static u64 g_prev;
 static u32 g_last_frame;
+u32 g_qs_dbg[8] = {0x10000000u, 0, 0, 0, 0, 0, 0, 0};   /* calls, max hold, switches, cur, ok, next, kind, buttons */
+char g_qs_cur[64];
 
 static u32 option_count(u32 kind) {
     return kind == 1u ? (u32)(sizeof(g_boots) / sizeof(g_boots[0]))
@@ -63,11 +66,49 @@ static void gd_set_string(u32 index, const char *name) {
     u32 count = *(volatile u32 *)(table + 8);
     u64 recs = *(volatile u64 *)(table + 0x10);
     if (!recs || index >= count) return;
-    unsigned char *val = (unsigned char *)(recs + (u64)index * 0x108ull + 0x74ull);
+    unsigned char *rec = (unsigned char *)(recs + (u64)index * 0x108ull);
+    u64 ptr = *(volatile u64 *)(rec + 0x68);
+    unsigned char *val = ptr ? (unsigned char *)ptr : rec + 0x74;
     u32 n = 0;
     while (name[n] && n < 63u) { val[n] = (unsigned char)name[n]; n++; }
     val[n] = 0;
     for (u32 i = n + 1u; i < 64u; i++) val[i] = 0;
+    if (ptr) {   /* keep the record's inline buffer in step as well */
+        for (u32 i = 0; i <= n; i++) rec[0x74 + i] = val[i];
+        for (u32 i = n + 1u; i < 64u; i++) rec[0x74 + i] = 0;
+    }
+}
+
+static void gd_get_string(u32 index, char *out, u32 cap) {
+    u64 mgr = *(volatile u64 *)GAMEDATA_MGR;
+    out[0] = 0;
+    if (!mgr) return;
+    u64 table = mgr + 8ull + 0x60ull * 16ull;
+    u32 count = *(volatile u32 *)(table + 8);
+    u64 recs = *(volatile u64 *)(table + 0x10);
+    if (!recs || index >= count) return;
+    const unsigned char *rec = (const unsigned char *)(recs + (u64)index * 0x108ull);
+    u64 ptr = *(volatile u64 *)(rec + 0x68);
+    const char *val = ptr ? (const char *)ptr : (const char *)(rec + 0x74);
+    u32 i = 0;
+    while (val[i] && i + 1u < cap) { out[i] = val[i]; i++; }
+    out[i] = 0;
+}
+
+static u32 current_option(u32 kind) {
+    const Pick *list = kind == 1u ? g_boots : g_masks;
+    u32 n = option_count(kind);
+    char cur[64];
+    gd_get_string(kind == 1u ? 18u : 20u, cur, sizeof cur);
+    for (u32 i = 0; i < 63; i++) { g_qs_cur[i] = cur[i]; if (!cur[i]) break; }
+    g_qs_cur[63] = 0;
+    for (u32 i = 0; i < n; i++) {
+        const char *v = list[i].value;
+        u32 k = 0;
+        while (v[k] && v[k] == cur[k]) k++;
+        if (!v[k] && !cur[k]) return i;
+    }
+    return 0;
 }
 
 static void equip(u32 kind, u32 sel) {
@@ -75,25 +116,10 @@ static void equip(u32 kind, u32 sel) {
     else if (kind == 2u) gd_set_string(20u, g_masks[sel].value);
 }
 
-static void suppress_dpad(const HidView *v) {
-    for (u32 i = 0; i < v->count; i++) {
-        u64 b = hid_get_buttons(v, i);
-        hid_set_buttons(v, i, b & ~DPAD_ALL);
-    }
-}
-
-/* HUD clock plate text while the selector is open. */
+/* No selector text: the HUD clock keeps showing the time. */
 int quick_select_text(char *b, u32 cap) {
-    (void)cap;
-    if (g_kind == 0) return 0;
-    const Pick *p = (g_kind == 1u ? g_boots : g_masks) + g_sel;
-    u32 n = 0;
-    const char *pre = g_kind == 1u ? "BOTAS " : "MASC ";
-    while (*pre && n < 14u) b[n++] = *pre++;
-    const char *lab = p->label;
-    while (*lab && n < 14u) b[n++] = *lab++;
-    b[n] = 0;
-    return 1;
+    (void)b; (void)cap;
+    return 0;
 }
 
 void quick_select_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_result) {
@@ -105,45 +131,38 @@ void quick_select_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_res
     if (count == 0 || count > 64) return;
     HidView view = {a0, count, 0};
     u64 buttons = hid_merge_buttons(&view);
+    g_qs_dbg[0]++;
+    g_qs_dbg[7] = (u32)buttons;
 
     u32 now = hud_frame_count();
-    u64 pressed = 0;
     u32 new_frame = (now != g_last_frame);
-    if (new_frame) {
-        pressed = buttons & ~g_prev;
-        g_prev = buttons;
-        g_last_frame = now;
-    }
+    if (new_frame) g_last_frame = now;
 
-    if (g_kind == 0) {
-        if ((buttons & DPAD_DOWN) && g_shbcfg.quick_boots && !(buttons & DPAD_UP)) {
-            if (g_hold_btn != DPAD_DOWN) g_hold = 0;
-            g_hold_btn = DPAD_DOWN;
-            if (new_frame) g_hold++;
-        } else if ((buttons & DPAD_UP) && g_shbcfg.quick_mask) {
-            if (g_hold_btn != DPAD_UP) g_hold = 0;
-            g_hold_btn = DPAD_UP;
-            if (new_frame) g_hold++;
-        } else {
-            g_hold = 0;
-            g_hold_btn = 0;
-        }
-        if (g_hold >= HOLD_FRAMES) {
-            g_kind = g_hold_btn == DPAD_DOWN ? 1u : 2u;
-            g_sel = 0;
-            suppress_dpad(&view);
-        }
-        return;
-    }
+    u64 held = 0;
+    if (g_shbcfg.quick_boots && (buttons & DPAD_DOWN) && !(buttons & DPAD_UP)) held = DPAD_DOWN;
+    else if (g_shbcfg.quick_mask && (buttons & DPAD_UP)) held = DPAD_UP;
 
-    /* open: navigate with Left/Right, equip when the held button is released */
-    if (pressed & DPAD_LEFT) g_sel = (g_sel + option_count(g_kind) - 1u) % option_count(g_kind);
-    if (pressed & DPAD_RIGHT) g_sel = (g_sel + 1u) % option_count(g_kind);
-    if (!(buttons & g_hold_btn)) {
-        equip(g_kind, g_sel);
-        g_kind = 0;
+    if (!held) {
         g_hold = 0;
+        g_hold_btn = 0;
+        if (g_latch && ++g_release >= 5u) { g_latch = 0; g_release = 0; }
         return;
     }
-    suppress_dpad(&view);
+    g_release = 0;
+    if (g_hold_btn != held) {
+        g_hold = 0;
+        g_hold_btn = held;
+        g_latch = 0;
+    }
+    if (new_frame && !g_latch) g_hold++;
+    if (g_hold > g_qs_dbg[1]) g_qs_dbg[1] = g_hold;
+    if (g_hold >= HOLD_FRAMES && !g_latch) {
+        u32 kind = held == DPAD_DOWN ? 1u : 2u;
+        u32 cur = current_option(kind);
+        u32 next = (cur + 1u) % option_count(kind);
+        equip(kind, next);
+        g_qs_dbg[2]++; g_qs_dbg[3] = cur; g_qs_dbg[4] = 1; g_qs_dbg[5] = next; g_qs_dbg[6] = kind;
+        g_latch = 1;
+        g_hold = 0;
+    }
 }

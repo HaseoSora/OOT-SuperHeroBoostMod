@@ -9,7 +9,7 @@ Documentos relacionados:
 - [RE-NOTES.md](RE-NOTES.md): hallazgos de ingeniería inversa (direcciones, formatos, qué funcionó y qué no).
 - [APP.md](APP.md): la app de configuración.
 - [CLASSIC-HOOKS.md](CLASSIC-HOOKS.md): mapa de ganchos de Classic Item Slots.
-- [CLASSIC-REPLICA.md](CLASSIC-REPLICA.md): análisis y plan de nuestra réplica de Classic.
+- [BUTTON-MAPPING.md](BUTTON-MAPPING.md): análisis y plan de nuestra réplica de Classic.
 
 ---
 
@@ -49,7 +49,7 @@ core/                código común del módulo
 features/
   stamina/           estamina (costes, agotamiento, recarga), multiplicador de sprint
   songbook/          canción elegida en el songbook nativo -> notas nativas
-  classic_slots/     réplica antigua de ranuras extra (no se publica; ver CLASSIC-REPLICA.md)
+  button_mapping/    buttonMapping: botones de objetos propios B/L/R/ZR (ver BUTTON-MAPPING.md)
   probe/             feature de diagnóstico
 tools/               compilación, publicación, pruebas en vivo y análisis (ver sección 9)
 app/                 app de configuración (Tkinter) + payload precompilado

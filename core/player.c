@@ -267,6 +267,8 @@ u32 player_take_events(void) {
 }
 /* current action-state name equals / starts with */
 int player_state_is(const char *name) { return eq(g_cur, name); }
+int player_state_starts(const char *prefix) { return starts(g_cur, prefix); }
+const char *player_state_name(void) { return g_cur; }
 
 /* 1 while the player exists, is alive and his update ran within the last frames (not in menus/pause) */
 int player_active(void) {

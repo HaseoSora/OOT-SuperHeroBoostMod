@@ -23,6 +23,7 @@
 #include "dispatch.h"
 #include "hud_names.h"
 #include "config.h"
+#include "gd_index.h"
 
 typedef unsigned long long u64;
 typedef unsigned char u8;
@@ -31,6 +32,10 @@ extern char MAIN_SCHED_VT[];
 extern void *find_part(void *node, const char *name);
 extern void *find_anim(void *part, const char *name);
 extern void set_frame(void *anim, float frame);
+extern void tex_replace(void *replacer, const char **name, int flag);   /* main+0xA73920 */
+extern void icon_widget_init(void *widget, void *heap);                 /* main+0x33B7DA0 */
+extern void item_actor_name(void *mgr, const char **out, u64 item);     /* main+0x592B20 */
+extern char ITEM_MGR_SLOT[], ITEM_NAME_DEFAULT[];
 extern void *memcpy(void *d, const void *s, unsigned long n);
 extern long set_text(void *pane, const void *ref, int zero);   /* stock text-pane setter (main+0x439520) */
 extern char GAMEDATA_MGR[];                                      /* main+0x4E842A8: GameData manager pointer slot */
@@ -53,7 +58,8 @@ static const char CIRCLE_TEX[] = "Circle64_00";
  * parts 1..4 are the slot circles: the gauge's fill texture is replaced by the
  * stock Circle64_00 and the gauge is kept full, so it draws a tinted circle. The
  * art is a placeholder until the real assets arrive. */
-#define PART_N 0   /* gauge-part ring retired: the stamina ring is now drawn with picture panes (RT1..) */
+#define PART_N 12  /* buttonMapping: parts 0..6 buttons (L X R Y A ZR B), 7..11 items (L R Y ZR B); clones of the stock item box Pa_SelectItem_00 (asset PaItemBtn_00).
+                    * (The old gauge-part ring is retired: the stamina ring is drawn with picture panes, RT1..) */
 #define APPEND_ALL 1   /* 1 = append every part (only the first one gets listed by the
                         * engine); 0 = parts 1.. repurpose filler parts (froze the game) */
 #define SLOT_N 4
@@ -68,7 +74,13 @@ static const char *part_replaces(u32 i);
 static char g_pnames[SEG_N][16] = {"Pa_ShbSeg_000", "Pa_ShbSeg_001", "Pa_ShbSeg_002", "Pa_ShbSeg_003", "Pa_ShbSeg_004", "Pa_ShbSeg_005", "Pa_ShbSeg_006", "Pa_ShbSeg_007", "Pa_ShbSeg_008", "Pa_ShbSeg_009", "Pa_ShbSeg_010", "Pa_ShbSeg_011", "Pa_ShbSeg_012", "Pa_ShbSeg_013", "Pa_ShbSeg_014", "Pa_ShbSeg_015", "Pa_ShbSeg_016", "Pa_ShbSeg_017", "Pa_ShbSeg_018", "Pa_ShbSeg_019", "Pa_ShbSeg_020", "Pa_ShbSeg_021", "Pa_ShbSeg_022", "Pa_ShbSeg_023", "Pa_ShbSeg_024", "Pa_ShbSeg_025", "Pa_ShbSeg_026", "Pa_ShbSeg_027", "Pa_ShbSeg_028", "Pa_ShbSeg_029", "Pa_ShbSeg_030", "Pa_ShbSeg_031", "Pa_ShbSeg_032", "Pa_ShbSeg_033", "Pa_ShbSeg_034", "Pa_ShbSeg_035", "Pa_ShbSeg_036", "Pa_ShbSeg_037", "Pa_ShbSeg_038", "Pa_ShbSeg_039", "Pa_ShbSeg_040", "Pa_ShbSeg_041", "Pa_ShbSeg_042", "Pa_ShbSeg_043", "Pa_ShbSeg_044", "Pa_ShbSeg_045", "Pa_ShbSeg_046", "Pa_ShbSeg_047", "Pa_ShbSeg_048", "Pa_ShbSeg_049", "Pa_ShbSeg_050", "Pa_ShbSeg_051", "Pa_ShbSeg_052", "Pa_ShbSeg_053", "Pa_ShbSeg_054", "Pa_ShbSeg_055", "Pa_ShbSeg_056", "Pa_ShbSeg_057", "Pa_ShbSeg_058", "Pa_ShbSeg_059", "Pa_ShbSeg_060", "Pa_ShbSeg_061", "Pa_ShbSeg_062", "Pa_ShbSeg_063", "Pa_ShbSeg_064", "Pa_ShbSeg_065", "Pa_ShbSeg_066", "Pa_ShbSeg_067", "Pa_ShbSeg_068", "Pa_ShbSeg_069", "Pa_ShbSeg_070", "Pa_ShbSeg_071", "Pa_ShbSeg_072", "Pa_ShbSeg_073", "Pa_ShbSeg_074", "Pa_ShbSeg_075", "Pa_ShbSeg_076", "Pa_ShbSeg_077", "Pa_ShbSeg_078", "Pa_ShbSeg_079", "Pa_ShbSeg_080", "Pa_ShbSeg_081", "Pa_ShbSeg_082", "Pa_ShbSeg_083", "Pa_ShbSeg_084", "Pa_ShbSeg_085", "Pa_ShbSeg_086", "Pa_ShbSeg_087", "Pa_ShbSeg_088", "Pa_ShbSeg_089", "Pa_ShbSeg_090", "Pa_ShbSeg_091", "Pa_ShbSeg_092", "Pa_ShbSeg_093", "Pa_ShbSeg_094", "Pa_ShbSeg_095", "Pa_ShbSeg_096", "Pa_ShbSeg_097", "Pa_ShbSeg_098", "Pa_ShbSeg_099", "Pa_ShbSeg_100", "Pa_ShbSeg_101", "Pa_ShbSeg_102", "Pa_ShbSeg_103", "Pa_ShbSeg_104", "Pa_ShbSeg_105", "Pa_ShbSeg_106", "Pa_ShbSeg_107", "Pa_ShbSeg_108", "Pa_ShbSeg_109", "Pa_ShbSeg_110", "Pa_ShbSeg_111", "Pa_ShbSeg_112", "Pa_ShbSeg_113", "Pa_ShbSeg_114", "Pa_ShbSeg_115", "Pa_ShbSeg_116", "Pa_ShbSeg_117", "Pa_ShbSeg_118", "Pa_ShbSeg_119", "Pa_ShbSeg_120", "Pa_ShbSeg_121", "Pa_ShbSeg_122", "Pa_ShbSeg_123", "Pa_ShbSeg_124", "Pa_ShbSeg_125", "Pa_ShbSeg_126", "Pa_ShbSeg_127"};
 static char g_anames[SEG_N][16] = {"PaShbSeg_000", "PaShbSeg_001", "PaShbSeg_002", "PaShbSeg_003", "PaShbSeg_004", "PaShbSeg_005", "PaShbSeg_006", "PaShbSeg_007", "PaShbSeg_008", "PaShbSeg_009", "PaShbSeg_010", "PaShbSeg_011", "PaShbSeg_012", "PaShbSeg_013", "PaShbSeg_014", "PaShbSeg_015", "PaShbSeg_016", "PaShbSeg_017", "PaShbSeg_018", "PaShbSeg_019", "PaShbSeg_020", "PaShbSeg_021", "PaShbSeg_022", "PaShbSeg_023", "PaShbSeg_024", "PaShbSeg_025", "PaShbSeg_026", "PaShbSeg_027", "PaShbSeg_028", "PaShbSeg_029", "PaShbSeg_030", "PaShbSeg_031", "PaShbSeg_032", "PaShbSeg_033", "PaShbSeg_034", "PaShbSeg_035", "PaShbSeg_036", "PaShbSeg_037", "PaShbSeg_038", "PaShbSeg_039", "PaShbSeg_040", "PaShbSeg_041", "PaShbSeg_042", "PaShbSeg_043", "PaShbSeg_044", "PaShbSeg_045", "PaShbSeg_046", "PaShbSeg_047", "PaShbSeg_048", "PaShbSeg_049", "PaShbSeg_050", "PaShbSeg_051", "PaShbSeg_052", "PaShbSeg_053", "PaShbSeg_054", "PaShbSeg_055", "PaShbSeg_056", "PaShbSeg_057", "PaShbSeg_058", "PaShbSeg_059", "PaShbSeg_060", "PaShbSeg_061", "PaShbSeg_062", "PaShbSeg_063", "PaShbSeg_064", "PaShbSeg_065", "PaShbSeg_066", "PaShbSeg_067", "PaShbSeg_068", "PaShbSeg_069", "PaShbSeg_070", "PaShbSeg_071", "PaShbSeg_072", "PaShbSeg_073", "PaShbSeg_074", "PaShbSeg_075", "PaShbSeg_076", "PaShbSeg_077", "PaShbSeg_078", "PaShbSeg_079", "PaShbSeg_080", "PaShbSeg_081", "PaShbSeg_082", "PaShbSeg_083", "PaShbSeg_084", "PaShbSeg_085", "PaShbSeg_086", "PaShbSeg_087", "PaShbSeg_088", "PaShbSeg_089", "PaShbSeg_090", "PaShbSeg_091", "PaShbSeg_092", "PaShbSeg_093", "PaShbSeg_094", "PaShbSeg_095", "PaShbSeg_096", "PaShbSeg_097", "PaShbSeg_098", "PaShbSeg_099", "PaShbSeg_100", "PaShbSeg_101", "PaShbSeg_102", "PaShbSeg_103", "PaShbSeg_104", "PaShbSeg_105", "PaShbSeg_106", "PaShbSeg_107", "PaShbSeg_108", "PaShbSeg_109", "PaShbSeg_110", "PaShbSeg_111", "PaShbSeg_112", "PaShbSeg_113", "PaShbSeg_114", "PaShbSeg_115", "PaShbSeg_116", "PaShbSeg_117", "PaShbSeg_118", "PaShbSeg_119", "PaShbSeg_120", "PaShbSeg_121", "PaShbSeg_122", "PaShbSeg_123", "PaShbSeg_124", "PaShbSeg_125", "PaShbSeg_126", "PaShbSeg_127"};
 static const u64 g_phash[SEG_N] = {HASH_PART0, HASH_PART1, HASH_PART2, HASH_PART3, HASH_PART4, HASH_PART5, HASH_PART6, HASH_PART7, HASH_PART8, HASH_PART9, HASH_PART10, HASH_PART11, HASH_PART12, HASH_PART13, HASH_PART14, HASH_PART15, HASH_PART16, HASH_PART17, HASH_PART18, HASH_PART19, HASH_PART20, HASH_PART21, HASH_PART22, HASH_PART23, HASH_PART24, HASH_PART25, HASH_PART26, HASH_PART27, HASH_PART28, HASH_PART29, HASH_PART30, HASH_PART31, HASH_PART32, HASH_PART33, HASH_PART34, HASH_PART35, HASH_PART36, HASH_PART37, HASH_PART38, HASH_PART39, HASH_PART40, HASH_PART41, HASH_PART42, HASH_PART43, HASH_PART44, HASH_PART45, HASH_PART46, HASH_PART47, HASH_PART48, HASH_PART49, HASH_PART50, HASH_PART51, HASH_PART52, HASH_PART53, HASH_PART54, HASH_PART55, HASH_PART56, HASH_PART57, HASH_PART58, HASH_PART59, HASH_PART60, HASH_PART61, HASH_PART62, HASH_PART63, HASH_PART64, HASH_PART65, HASH_PART66, HASH_PART67, HASH_PART68, HASH_PART69, HASH_PART70, HASH_PART71, HASH_PART72, HASH_PART73, HASH_PART74, HASH_PART75, HASH_PART76, HASH_PART77, HASH_PART78, HASH_PART79, HASH_PART80, HASH_PART81, HASH_PART82, HASH_PART83, HASH_PART84, HASH_PART85, HASH_PART86, HASH_PART87, HASH_PART88, HASH_PART89, HASH_PART90, HASH_PART91, HASH_PART92, HASH_PART93, HASH_PART94, HASH_PART95, HASH_PART96, HASH_PART97, HASH_PART98, HASH_PART99, HASH_PART100, HASH_PART101, HASH_PART102, HASH_PART103, HASH_PART104, HASH_PART105, HASH_PART106, HASH_PART107, HASH_PART108, HASH_PART109, HASH_PART110, HASH_PART111, HASH_PART112, HASH_PART113, HASH_PART114, HASH_PART115, HASH_PART116, HASH_PART117, HASH_PART118, HASH_PART119, HASH_PART120, HASH_PART121, HASH_PART122, HASH_PART123, HASH_PART124, HASH_PART125, HASH_PART126, HASH_PART127};
-#define PART_TOT PART_N
+#ifdef BUTTON_MAPPING      /* built with features/button_mapping (variant without the third-party Classic) */
+#define PART_TOT (g_shbcfg.button_mapping ? PART_N : 0)   /* parts appended to PlayerStatus_00 */
+#define BTNMAP (g_shbcfg.button_mapping != 0)
+#else
+#define PART_TOT 0         /* the third-party Classic draws its own buttons: no replica parts at all */
+#define BTNMAP 0
+#endif
 static const char *part_name(u32 i) { return g_pnames[i % SEG_N]; }
 static u64 part_hash(u32 i) { return g_phash[i % SEG_N]; }
 __attribute__((unused, noinline)) static const char *part_replaces(u32 i) { (void)i; return 0; }
@@ -142,11 +154,14 @@ static void extend_pools(u8 *root, u32 add) {
 /* ---- clock / rupee plates, drawn like the game's own number display ----
  * Text fields: 0 = clock, 1 = rupees (green), 2 = "/wallet" (white). Each field has two panes
  * (field f uses panes f and f + FLD_N): the text is written to the hidden one. */
-#define FLD_N 3
+#define FLD_N 5   /* 0 clock, 1 rupees, 2 "/wallet", 3 X button label (Jump), 4 A button label (context) */
 #define TXT_N (FLD_N * 2)
 static const char g_font_normal[] = "Normal";
-static char g_tnames[TXT_N][16] = {"T_ShbTxt_00", "T_ShbTxt_01", "T_ShbTxt_02", "T_ShbTxt_03", "T_ShbTxt_04", "T_ShbTxt_05"};
-static const u64 g_thash[TXT_N] = {HASH_TXT0, HASH_TXT1, HASH_TXT2, HASH_TXT3, HASH_TXT4, HASH_TXT5};
+static const char g_font_ext[] = "External_00";   /* the button-glyph font */
+static char g_tnames[TXT_N][16] = {"T_ShbTxt_00", "T_ShbTxt_01", "T_ShbTxt_02", "T_ShbTxt_03", "T_ShbTxt_04",
+                                   "T_ShbTxt_05", "T_ShbTxt_06", "T_ShbTxt_07", "T_ShbTxt_08", "T_ShbTxt_09"};
+static const u64 g_thash[TXT_N] = {HASH_TXT0, HASH_TXT1, HASH_TXT2, HASH_TXT3, HASH_TXT4,
+                                   HASH_TXT5, HASH_TXT6, HASH_TXT7, HASH_TXT8, HASH_TXT9};
 /* Picture panes. Each gets its own copy of the textured material of P_SubItemBg_00 with the game's
  * texture named below (all in the Common texture archive):
  *  0..3  clock plate:  fill, fill mirrored, edge, edge mirrored   (NumBaseSide_00 / _01, the plate of
@@ -217,11 +232,14 @@ static int tbl_add(u8 *root, u32 off, const char *name, void *desc, u64 hash) {
  * each sampler is {u32 flags, u32 pad, u64 texture name}. The texture is looked up by name in the layout
  * archive's texture file when the layout is built. This adds a deep copy of material `src` (its bytes up to the
  * next material, internal pointers rebased) whose first sampler names `tex`; returns its index or -1. */
-static int add_material(u8 *root, const u8 *r, u32 src, const char *tex) {
+static int add_material_sz(u8 *root, const u8 *r, u32 src, const char *tex, u32 last_size);
+static int add_material(u8 *root, const u8 *r, u32 src, const char *tex) { return add_material_sz(root, r, src, tex, 0); }
+/* tex = 0 keeps the texture; last_size = byte size of `src` when it is the last material (no next one to measure) */
+static int add_material_sz(u8 *root, const u8 *r, u32 src, const char *tex, u32 last_size) {
     u32 n = w(root, 0x138), on = w(r, 0x138);
     const u64 *arr = (const u64 *)q(root, 0x130), *oarr = (const u64 *)q(r, 0x130);
-    if (!arr || !oarr || src + 1 >= on || n > 256) return -1;
-    u64 a = oarr[src], e = oarr[src + 1];
+    if (!arr || !oarr || src >= on || (src + 1 >= on && !last_size) || n > 256) return -1;
+    u64 a = oarr[src], e = src + 1 < on ? oarr[src + 1] : a + last_size;
     if (e <= a || e - a > 0x400) return -1;
     u32 sz = (u32)(e - a);
     u8 *m = pool_clone((const void *)a, sz);
@@ -235,7 +253,7 @@ static int add_material(u8 *root, const u8 *r, u32 src, const char *tex) {
     if (sl < (u64)m || sl >= (u64)m + sz) return -1;
     u64 sp = *(u64 *)sl;
     if (sp < (u64)m || sp + 16 > (u64)m + sz) return -1;
-    *(u64 *)(sp + 8) = (u64)tex;
+    if (tex) *(u64 *)(sp + 8) = (u64)tex;
     memcpy(na, arr, n * 8);
     na[n] = (u64)m;
     *(u64 *)(root + 0x130) = (u64)na;
@@ -243,20 +261,161 @@ static int add_material(u8 *root, const u8 *r, u32 src, const char *tex) {
     return (int)n;
 }
 
+/* Our buttons' nested Pa_ReplaceIcon_00: the shadow pane (where the button is drawn) gets a copy of the ICON
+ * pane's material (material 1, 0xF0 bytes, a different shader variant) instead of the shadow material, which
+ * draws its texture washed out and translucent. Stock item boxes keep the stock asset. */
+u32 g_repicon_dbg[2];   /* private copies handed out, prepares seen while armed */
+static u8 *build_repicon(const u8 *r) {
+    int si = name_index(r, 0x40, "P_ReplaceIconSh_00");
+    u32 nb = w(r, 0x58);
+    if (si < 0 || nb > 64 || w(r, 0x138) != 2) return 0;
+    u8 *root = pool_clone(r, 0x228);
+    if (!root) return 0;
+    int mi = add_material_sz(root, r, 1, 0, 0xF0);
+    if (mi < 0) return 0;
+    u64 *descs = pool_alloc(nb * 8);
+    u8 *d = pool_clone((const void *)((const u64 *)q(r, 0x48))[si], 0x88);
+    if (!descs || !d) return 0;
+    memcpy(descs, (const void *)q(r, 0x48), nb * 8);
+    *(u32 *)(d + 0x14) = (u32)mi;
+    descs[si] = (u64)d;
+    *(u64 *)(root + 0x48) = (u64)descs;
+    g_repicon_dbg[0]++;
+    return root;
+}
+static u32 g_repicon_armed;
+
 /* Current design: ONE appended part (stamina gauge, the layout takes exactly one) and
  * the slot parts are four stock filler parts turned into item buttons in place: same
  * pane slot, same name, same parent; only the part descriptor changes to the item
  * button's. They are driven by their original names. */
+static const u8 *g_proto_c, *g_proto_p;   /* PlayerStatus' Pa_SelectItem_00 descriptors (set by build_root) */
+u32 g_menu_build_dbg[4];   /* menu copies built, failures (step), panes, parts */
+/* The pause menu's Items page (PaItemMenu_00) gets the same PART_N item-button parts appended (clones of the
+ * PlayerStatus item box, asset PaItemBtn_00), so the cluster shows over the menu: the HUD layer is not drawn
+ * while the menu is open. */
+static u8 *build_menu(const u8 *r) {
+    if (!g_proto_c || !g_proto_p) { g_menu_build_dbg[1] = 1; return 0; }
+    if (name_index(r, 0x20, part_name(0)) >= 0) { g_menu_build_dbg[1] = 2; return 0; }
+    u32 nc = w(r, 0x38), np = w(r, 0xD8);
+    g_menu_build_dbg[2] = nc; g_menu_build_dbg[3] = np;
+    if (nc > 256 || np > 128 || !q(r, 0xC8)) { g_menu_build_dbg[1] = 3; return 0; }
+    u8 *root = pool_clone(r, 0x228);
+    u8 *first = pool_clone((const void *)((const u64 *)q(r, 0x28))[0], 68);
+    if (!root || !first) { g_menu_build_dbg[1] = 4; return 0; }
+    u8 *cdk[PART_N], *pdk[PART_N];
+    for (u32 k = 0; k < PART_N; k++) {
+        cdk[k] = pool_clone(g_proto_c, 68);
+        pdk[k] = pool_clone(g_proto_p, 88);
+        if (!cdk[k] || !pdk[k]) { g_menu_build_dbg[1] = 4; return 0; }
+        *(u32 *)(cdk[k] + 40) = 0;                    /* parent: root pane */
+        *(u32 *)(cdk[k] + 52) = nc + k + 1;           /* subtree end = own index + 1 */
+        *(u32 *)(cdk[k] + 64) = 0x7FFFF;
+        cdk[k][56] |= 1;
+        *(unsigned short *)(cdk[k] + 0x42) = (unsigned short)(np + k);
+        *(float *)(cdk[k] + 0x10) = 0.0f; *(float *)(cdk[k] + 0x14) = 0.0f;   /* hidden until placed */
+        *(u32 *)(pdk[k] + 64) = nc + k;               /* part -> index of its pane */
+    }
+    *(u32 *)(first + 52) = nc + PART_N;
+    for (u32 t = 0; t < 2; t++) {
+        u32 off = t ? 0xC0 : 0x20, n = t ? np : nc;
+        for (u32 j = 0; j < 3; j++) {
+            u64 *a = pool_alloc((n + PART_N) * 8);
+            if (!a) { g_menu_build_dbg[1] = 5; return 0; }
+            memcpy(a, (const void *)q(r, off + j * 8), n * 8);
+            for (u32 k = 0; k < PART_N; k++)
+                a[n + k] = j == 0 ? (u64)part_name(k) : j == 1 ? (u64)(t ? pdk[k] : cdk[k]) : part_hash(k);
+            if (!t && j == 1) a[0] = (u64)first;
+            *(u64 *)(root + off + j * 8) = (u64)a;
+        }
+        *(u32 *)(root + off + 24) = n + PART_N;
+    }
+    g_menu_build_dbg[0]++;
+    return root;
+}
+/* The pause menu's root layout (PlusMenu_00) gets LEG_N text panes for the assign legend (hud_menu_legend):
+ * clones of its own T_Text_00 (the Items page has no text pane to clone, and a text pane only works with its own
+ * layout's fonts and materials). Names T_ShbTxt_10.. (the HUD uses _00.._09, in another layout). */
+#define LEG_N 13   /* "Asignar:", then per pair: source button icon, arrow, slot icon */
+static char g_lnames[LEG_N][16] = {"T_ShbTxt_10", "T_ShbTxt_11", "T_ShbTxt_12", "T_ShbTxt_13", "T_ShbTxt_14", "T_ShbTxt_15", "T_ShbTxt_16", "T_ShbTxt_17", "T_ShbTxt_18", "T_ShbTxt_19", "T_ShbTxt_20", "T_ShbTxt_21", "T_ShbTxt_22"};   /* arrays, not pointers: no relocations */
+static const u64 g_lhash[LEG_N] = {HASH_TXT10, HASH_TXT11, HASH_TXT12, HASH_TXT13, HASH_TXT14, HASH_TXT15, HASH_TXT16, HASH_TXT17, HASH_TXT18, HASH_TXT19, HASH_TXT20, HASH_TXT21, HASH_TXT22};
+/* icon panes use the game's button-glyph font (the guide bar's icons): text 0xE040 A, 0xE041 B, 0xE042 X,
+ * 0xE043 Y, 0xE044 L, 0xE045 R, 0xE046 ZL, 0xE047 ZR (UTF-8) */
+#define LEG_ICON(t) ((t) > 0 && (t) % 3 != 2)
+static char g_legbar_name[16] = "P_ShbPic_399";   /* the legend's backing bar */
+#define LEG_BASE "P_MessageBase_01"   /* 2200 x 360: the plate PlusMenu_00 puts its own texts on */
+u32 g_plus_build_dbg[2];   /* copies built, failure step */
+static u8 *build_plus(const u8 *r) {
+    if (name_index(r, 0x20, g_lnames[0]) >= 0) { g_plus_build_dbg[1] = 2; return 0; }
+    int ci = name_index(r, 0x20, "T_Text_00"), bi = name_index(r, 0x40, "T_Text_00"), ti = name_index(r, 0x80, "T_Text_00");
+    int pci = name_index(r, 0x20, LEG_BASE), pbi = name_index(r, 0x40, LEG_BASE), ppi = name_index(r, 0x60, LEG_BASE);
+    u32 nc = w(r, 0x38), nb = w(r, 0x58), nt = w(r, 0x98), np = w(r, 0x78);
+    if (ci < 0 || bi < 0 || ti < 0 || pci < 0 || pbi < 0 || ppi < 0 || nc > 512) { g_plus_build_dbg[1] = 3; return 0; }
+    u8 *root = pool_clone(r, 0x228);
+    u8 *first = pool_clone((const void *)((const u64 *)q(r, 0x28))[0], 68);
+    if (!root || !first) { g_plus_build_dbg[1] = 4; return 0; }
+    {   /* the legend's backing plate first (drawn under the texts): a clone of the menu's own message plate */
+        u8 *cd = pool_clone((const void *)((const u64 *)q(r, 0x28))[pci], 68);
+        u8 *bd = pool_clone((const void *)((const u64 *)q(r, 0x48))[pbi], 0x88);
+        u8 *pd = pool_clone((const void *)((const u64 *)q(r, 0x68))[ppi], 0x88);
+        if (!cd || !bd || !pd) { g_plus_build_dbg[1] = 4; return 0; }
+        *(u32 *)(pd + 0x10) = nb;
+        *(u32 *)(cd + 40) = 0;
+        *(u32 *)(cd + 52) = nc + 1;
+        *(float *)(cd + 0x10) = 0.0f; *(float *)(cd + 0x14) = 0.0f;   /* hidden until placed */
+        *(unsigned short *)(cd + 0x3c) = (unsigned short)nb;
+        *(unsigned short *)(cd + 0x40) = 0xFFFF;
+        *(unsigned short *)(cd + 0x42) = (unsigned short)np;
+        if (!tbl_add(root, 0x20, g_legbar_name, cd, g_pihash[399]) || !tbl_add(root, 0x40, g_legbar_name, bd, g_pihash[399]) ||
+            !tbl_add(root, 0x60, g_legbar_name, pd, g_pihash[399])) { g_plus_build_dbg[1] = 5; return 0; }
+        nc++; nb++;   /* the texts follow it */
+    }
+    for (u32 t = 0; t < LEG_N; t++) {
+        u8 *cd = pool_clone((const void *)((const u64 *)q(r, 0x28))[ci], 68);
+        u8 *bd = pool_clone((const void *)((const u64 *)q(r, 0x48))[bi], 0x88);
+        u8 *td = pool_clone((const void *)((const u64 *)q(r, 0x88))[ti], 0xA8);
+        if (!cd || !bd || !td) { g_plus_build_dbg[1] = 4; return 0; }
+        *(u64 *)(td + 0x18) = q(td, 0x10);   /* default text: the empty string */
+        if (LEG_ICON(t)) *(u64 *)(td + 0x00) = (u64)g_font_ext;
+        *(float *)(td + 0x98) = 1500.0f;
+        *(float *)(cd + 0x2C) = 900.0f; *(float *)(cd + 0x30) = 90.0f;
+        *(float *)(cd + 0x10) = 0.0f; *(float *)(cd + 0x14) = 0.0f;   /* hidden until placed */
+        *(u32 *)(cd + 40) = 0;
+        *(u32 *)(cd + 52) = nc + t + 1;
+        *(unsigned short *)(cd + 0x3c) = (unsigned short)(nb + t);
+        *(unsigned short *)(cd + 0x42) = (unsigned short)(nt + t);
+        if (!tbl_add(root, 0x20, g_lnames[t], cd, g_lhash[t]) || !tbl_add(root, 0x40, g_lnames[t], bd, g_lhash[t]) ||
+            !tbl_add(root, 0x80, g_lnames[t], td, g_lhash[t])) { g_plus_build_dbg[1] = 5; return 0; }
+    }
+    *(u32 *)(first + 52) = nc + LEG_N;   /* (nc counts the plate already) */
+    ((u64 *)q(root, 0x28))[0] = (u64)first;
+    {   /* per picture/text-list entry table: grow it */
+        u32 oc = w(r, 0x210);
+        const u8 *op = (const u8 *)q(r, 0x208);
+        if (op && oc == nb - 1) {   /* (nb counts the plate already) */
+            int *na = pool_alloc((oc + 1 + LEG_N) * 4);
+            if (!na) { g_plus_build_dbg[1] = 5; return 0; }
+            memcpy(na, op, oc * 4);
+            for (u32 k = 0; k < 1 + LEG_N; k++) na[oc + k] = -1;
+            *(u64 *)(root + 0x208) = (u64)na;
+            *(u32 *)(root + 0x210) = oc + 1 + LEG_N;
+        } else { g_plus_build_dbg[1] = 6; return 0; }
+    }
+    g_plus_build_dbg[0]++;
+    return root;
+}
 static u8 *build_root(const u8 *r) {
     pic_names();
     if (name_index(r, 0x20, g_pinames[0]) >= 0) { g_hud_dbg[9] = MARK | 1; return 0; }
     u32 nc = w(r, 0x38), np = w(r, 0xD8);
     if (nc > 128 || np > 128) { g_hud_dbg[9] = MARK | 2; return 0; }
-    int mci = name_index(r, 0x20, "Pa_MpGauge_00"), mpi = name_index(r, 0xC0, "Pa_MpGauge_00");
+    int mci = name_index(r, 0x20, "Pa_SelectItem_00"), mpi = name_index(r, 0xC0, "Pa_SelectItem_00");
     if (mci < 0 || mpi < 0) { g_hud_dbg[9] = MARK | 3; return 0; }
     u8 *root = pool_clone(r, 0x228);
     u8 *first = pool_clone((const void *)((const u64 *)q(r, 0x28))[0], 68);
     if (!root || !first) { g_hud_dbg[9] = MARK | 4; return 0; }
+    g_proto_c = (const u8 *)((const u64 *)q(r, 0x28))[mci];   /* stock item box: pane + part descriptors */
+    g_proto_p = (const u8 *)((const u64 *)q(r, 0xC8))[mpi];
     /* PART_N appended gauge parts (the ring segments): pane nc+k, part descriptor np+k.
      * The engine finds each part's descriptor through cdesc+0x42, so it must name np+k. */
     u8 *cdk[PART_TOT], *pdk[PART_TOT];
@@ -269,10 +428,9 @@ static u8 *build_root(const u8 *r) {
         *(u32 *)(cdk[k] + 64) = 0x7FFFF;
         cdk[k][56] |= 1;
         *(unsigned short *)(cdk[k] + 0x42) = (unsigned short)(np + k);
-        *(float *)(cdk[k] + 16) = RING_SIZE;
-        *(float *)(cdk[k] + 20) = RING_SIZE;
-        *(float *)(cdk[k] + 28) = g_part_x[0];
-        *(float *)(cdk[k] + 32) = g_part_y[0];
+        /* keeps the stock item box's scale; placed at runtime (slots_update) */
+        *(float *)(cdk[k] + 28) = -600.0f + 300.0f * (float)k;
+        *(float *)(cdk[k] + 32) = 0.0f;
         *(u32 *)(pdk[k] + 64) = nc + k;               /* part -> index of its pane */
     }
     *(u32 *)(first + 52) = nc + PART_TOT + PIC_N + TXT_N;
@@ -429,10 +587,12 @@ void *hud_prepare(void *handle, u8 *config) {
         char *d = g_pl[g_pl_n++];
         for (int i = 0; i < 15; i++) { d[i] = inst[i]; d[16 + i] = asset[i]; }
     }
-    u32 kind = str_eq(asset, "PlayerStatus_00") ? 1 : 0;
-    if (!kind)
-        for (u32 k = 0; k < PART_N; k++)
-            if (str_eq(inst, part_name(k))) { kind = 2 + k; break; }   /* gauge copy for part k */
+    u32 kind = str_eq(asset, "PlayerStatus_00") ? 1 : BTNMAP && str_eq(asset, "PaItemMenu_00") ? 3 :
+               BTNMAP && str_eq(asset, "PlusMenu_00") ? 4 : 0;
+    /* one of our slot buttons: its nested Pa_ReplaceIcon_00 is built next and gets the private copy */
+    for (u32 k = 0; !kind && k < PART_N; k++)
+        if (str_eq(inst, part_name(k))) { g_repicon_armed = 1; return config; }
+    if (!kind && g_repicon_armed && str_eq(asset, "PaReplaceIcon_00")) { g_repicon_armed = 0; g_repicon_dbg[1]++; kind = 2; }
     if (!kind) return config;
     u8 *rep = 0;
     u32 i;
@@ -440,12 +600,12 @@ void *hud_prepare(void *handle, u8 *config) {
         if (g_res[i].src == r && g_res[i].kind == kind) { rep = g_res[i].copy; break; }
     if (i == g_res_n) {
         if (g_res_n == 140) return config;
-        rep = kind == 1 ? build_root(r) : build_gauge(r, kind - 2);
+        rep = kind == 1 ? build_root(r) : kind == 3 ? build_menu(r) : kind == 4 ? build_plus(r) : build_repicon(r);
         if (!rep) return config;
         g_res[i].src = r; g_res[i].copy = rep; g_res[i].kind = kind;
         g_res_n++;
     }
-    if (kind >= 2 && kind < 7) {
+    if (kind == 2) {
         u32 s = (kind - 2) * 4;
         g_prep_dbg[s] = (u64)handle; g_prep_dbg[s + 1] = (u64)config;
         g_prep_dbg[s + 2] = q(handle, 0x28); g_prep_dbg[s + 3] = q(handle, 0x38);
@@ -705,12 +865,13 @@ static void place(u64 rec, float x, float y, float sx, float sy, float rot) {
     *(u32 *)rec |= 0x6F;   /* mark the pane dirty */
 }
 /* field f: shown text at (x, y) in colour rgb; on = 0 hides both panes */
+float g_fld_sc[FLD_N] = {0.0f, 0.0f, 0.0f, 0.80f, 0.80f};   /* text scale per field (0 = the HUD text scale) */
 static void put_text(u64 frame, u32 f, const char *ascii, float x, float y, u32 on, const float *rgb) {
     u64 rf = pane_record(frame, g_tnames[f + FLD_N * g_tfront[f]]);
     u64 rb = pane_record(frame, g_tnames[f + FLD_N * (g_tfront[f] ^ 1)]);
     g_txt_dbg[f] = MARK | rf;
     if (!rf || !rb) return;
-    float ts = g_hudp[13];
+    float ts = g_fld_sc[f] > 0.0f ? g_fld_sc[f] : g_hudp[13];
     tint_rec(rf, rgb[0], rgb[1], rgb[2], 1.0f);
     tint_rec(rb, rgb[0], rgb[1], rgb[2], 1.0f);
     if (g_tpend[f] && ++g_twait[f] >= 4) {   /* the hidden pane has drawn its new text: swap */
@@ -967,6 +1128,577 @@ static void ring_update(void) {
     ring_draw(RT2, RF2, RING2_DOTS, g_rs2, g_rc2, G[1], G[3], u2, f2, on, rgb);
 }
 
+/* ---- buttonMapping: slot item buttons (appended PaItemBtn_00 parts) ----
+ * Phase 1 test: bind the parts, place them, show a fixed icon per button through the stock ItemPattern animation. */
+#define SA_N 11
+static const char *slot_anim_name(u32 i) {
+    switch (i) {
+    case 0: return "ItemPattern"; case 1: return "StockNum"; case 2: return "NumMax"; case 3: return "NumMin";
+    case 4: return "IsInvalid"; case 5: return "Type"; case 6: return "ItemChange"; case 7: return "Select";
+    case 8: return "UnSelect"; case 9: return "Decide"; default: return "Assign";
+    }
+}
+typedef struct { u64 part, anim[SA_N], rec, rep, ctrl, hide[9], ic, sh; u32 icon_set; int shown_item; char forced[32]; } SlotBtn;
+static SlotBtn g_sb[PART_N];
+u64 g_sb_dbg[PART_N];       /* part object per button (diagnostic) */
+u32 g_sb_anim[PART_N];      /* bit i = anim i found */
+u64 g_sb_rif[PART_N][2];    /* nested Pa_ReplaceIcon_00 frame, its layout (diagnostic) */
+/* item per button (the game's item index, as passed to the equip call main+0x1211C00); -1 = empty */
+/* parts 0..3: the buttons (our textures, drawn by the icon pane: full colour), parts 4..7: the items on them.
+ * (The icon's shadow pane cannot carry the button: it draws only the texture's shape in a fixed shadow tone.) */
+enum { SB_L, SB_X, SB_R, SB_Y, SB_A, SB_ZR, SB_B, SB_NBTN };
+int g_sb_item[PART_N] = {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1};   /* set by hud_slot_item() */
+/* features/button_mapping publishes its slots here: slot 0 B, 1 L, 2 R, 3 ZR (the item the game has equipped) */
+void hud_slot_item(u32 slot, int item) {
+    static const u8 PART_OF[3] = {11, 7, 8};
+    if (slot < 3) g_sb_item[PART_OF[slot]] = item;   /* ZR (slot 3) mirrors the game's own item box: zr_mirror() */
+}
+char g_sb_name_dbg[PART_N][32];   /* actor name resolved for each button (diagnostic) */
+/* texture name forced on a part (first byte <= 1 = none): the button backgrounds (tools/make_buttons.py) */
+char g_sb_force[PART_N][32] = {"OotBtnS_L", "OotBtnS_Blank", "OotBtnS_R", "OotBtnS_Y", "OotBtnS_A", "OotBtnS_ZR",
+                               "OotBtnS_B", {1}, {1}, "Weapon_Sword_Kokiri", {1}, {1}};   /* Y: the sword (TODO: equipped one) */
+/* button texture behind each slot's icon (UI/Tex/IconSh/<name>, tools/make_buttons.py) */
+char g_sb_btn[PART_N][24] = {{0}};
+/* ItemPattern = how the icon of each item is framed in the button (scale / offset); frame 0 draws it oversized.
+ * Measured on the stock item box (docs/RE-NOTES.md, "Item index -> ItemPattern icon frame"); others use 6. */
+static float item_pattern(int item) {
+    switch (item) {
+    case 0: return 0.0f;  case 1: return 6.0f;  case 2: return 4.0f;  case 3: return 3.0f;  case 4: return 1.0f;
+    case 5: return 33.0f; case 6: return 34.0f; case 7: return 32.0f; case 9: return 5.0f;  case 10: return 8.0f;
+    case 13: return 2.0f; case 14: return 23.0f; case 18: return 36.0f; case 30: return 24.0f; case 31: return 9.0f;
+    default: return 6.0f;
+    }
+}
+/* the game's own item index -> actor name (also the icon texture name in UI/Tex/Icon) */
+static const char *item_name(int item) {
+    u64 slot = *(u64 *)ITEM_MGR_SLOT;
+    u64 mgr = slot ? *(u64 *)slot : 0;
+    const char *nm = *(const char **)ITEM_NAME_DEFAULT;
+    if (!mgr || item < 0) return 0;
+    item_actor_name((void *)mgr, &nm, (u64)item);
+    return nm && nm[0] ? nm : 0;
+}
+/* around the stock item box (top right): above, left, below, right-above; layout units, root-relative */
+/* Classic's default arrangement, top right: top row L X R, middle row (Y) (A) ZR, bottom (B) */
+/* Gamepad diamond (measured on Classic's default theme): X top, Y left, A right, B bottom around a centre,
+ * L / R at the top corners, ZR to the right. Items sit up-left of their button so the button shows below. */
+float g_sb_pos[PART_N][2] = {{1020.4f, 872.3f}, {1292.6f, 843.0f}, {1545.2f, 872.3f},     /* L X R */
+                             {1129.6f, 680.0f}, {1455.6f, 680.0f}, {1677.2f, 680.0f},     /* Y A ZR */
+                             {1292.6f, 517.0f},                                            /* B */
+                             {995.1f, 897.6f}, {1519.9f, 897.6f}, {1104.3f, 705.3f}, {1651.9f, 705.3f}, {1267.3f, 542.3f}};
+float g_sb_scale = 0.62f;
+/* Placement of a whole set around the centre of the X / Y / A / B diamond: {spread (distance from the centre),
+ * size (icons and labels), dx, dy} in layout units. g_sb_lay: the HUD; g_mb_lay: the pause menu's Items page. */
+#define SB_CX 1292.6f
+#define SB_CY 680.0f
+float g_sb_lay[4] = {0.75f, 0.85f, 130.0f, 70.0f};     /* compact, top right */
+float g_mb_lay[4] = {0.55f, 0.6f, -780.0f, -120.0f};   /* between the item grid and the item preview */
+static void sb_xy(const float *lay, u32 k, float *x, float *y) {
+    *x = SB_CX + (g_sb_pos[k][0] - SB_CX) * lay[0] + lay[2];
+    *y = SB_CY + (g_sb_pos[k][1] - SB_CY) * lay[0] + lay[3];
+}
+u32 g_sb_big_items = 1;
+/* per-part scale: buttons, then items (Classic draws the item bigger than its button) */
+float g_sb_sc[PART_N] = {0.34f, 0.34f, 0.34f, 0.34f, 0.34f, 0.34f, 0.34f, 0.38f, 0.38f, 0.38f, 0.38f, 0.38f};
+u32 g_sb_hide_stock = 1;   /* (only while the replica is on) */   /* hide the game's own item box and its page dots: the replica replaces them */
+static u64 g_stock_box_rec, g_stock_dots_rec;
+/* animation frame forced on every button each frame, per animation (-1 = leave it); see slot_anim_name() */
+float g_sb_animf[SA_N] = {-1.0f, -1.0f, -1.0f, -1.0f, -1.0f, -1.0f, -1.0f, -1.0f, -1.0f, -1.0f, -1.0f};
+static volatile u32 g_sb_busy;
+/* pane record of a pane inside a part's own layout */
+static u64 part_child(u64 part, const char *name) {
+    u64 cl = ptr(part, 0x80);
+    const u8 *r = cl ? (const u8 *)ptr(cl, 0xF8) : 0;
+    if (!r) return 0;
+    int i = name_index(r, 0x20, name);
+    return i < 0 ? 0 : ptr(cl, 0x100) + (u64)i * 0xB0;
+}
+static const char *hide_name(u32 i) {   /* the item box's own frame, glyph and count: not used by our buttons */
+    switch (i) {
+    case 0: return "P_HUDBg_00"; case 1: return "P_HUDDeco_01"; case 2: return "P_HUDBgSh_00";
+    case 3: return "T_Assign_00"; case 4: return "P_ShortcutBg_01"; case 5: return "P_ShortcutDeco_02";
+    case 6: return "P_ShortcutBgSh_01"; case 7: return "P_CursorGlowDecide_00"; default: return "N_Num_00";
+    }
+}
+/* Item icons: the game's own icon setup (main+0x33B7DA0, used for the Agony Stone icon) is called with a small
+ * stand-in "widget" whose +0x20 is our button part. It finds the part's Pa_ReplaceIcon_00, allocates and inits an
+ * icon controller (main+0xA37320, hook 11 captures it) whose +0x30 / +0x38 are the icon / shadow texture
+ * replacers; main+0xA73920 then loads UI/Tex/Icon/<name> and UI/Tex/IconSh/<name>_Sh into them. */
+static u64 g_sb_widget[PART_N][12], g_mb_widget[PART_N][12];   /* stand-in widgets (the init writes +0x30..+0x48) */
+static volatile u32 g_ctrl_capture;
+static volatile u64 g_ctrl_captured;
+u64 g_sb_ctrl_dbg[PART_N];
+void hud_icon_ctrl_init(u64 ctrl) { if (g_ctrl_capture) g_ctrl_captured = ctrl; }
+u64 g_hud_heap;   /* heap passed to the PlayerStatus HUD init (main+0x33F5D20, hook 12) */
+static u64 g_sb_ctrl[PART_N];
+u32 g_sb_ctrl_max = PART_N;
+/* Hook 12 (entry of the PlayerStatus HUD init, x0 HUD object, x1 heap): the layout and our parts exist, and the
+ * heap still accepts allocations (it does not afterwards), so the icon controllers are built here. */
+u64 g_hud_obj;     /* the PlayerStatus HUD object (hook 12) */
+static void hud_slots_init(u64 hud, u64 heap) {
+    g_hud_heap = heap;
+    g_hud_obj = hud;
+    u64 frame = hud ? ptr(hud, 0x28) : 0;
+    for (u32 k = 0; k < PART_N; k++) {
+        g_sb_ctrl[k] = 0;
+        if (k >= g_sb_ctrl_max) continue;   /* bisect: how many controllers the HUD init accepts */
+        u64 p = frame ? (u64)find_part((void *)frame, part_name(k)) : 0;
+        if (!p || !heap) continue;
+        for (u32 i = 0; i < 12; i++) g_sb_widget[k][i] = 0;
+        g_sb_widget[k][4] = p;                       /* widget+0x20 = our button part */
+        g_ctrl_captured = 0; g_ctrl_capture = 1; g_sb_busy = 1;
+        icon_widget_init(g_sb_widget[k], (void *)heap);
+        g_sb_busy = 0; g_ctrl_capture = 0;
+        g_sb_ctrl[k] = g_ctrl_captured;
+        g_sb_ctrl_dbg[k] = MARK | g_sb_ctrl[k];
+    }
+}
+static void set_icon_btn(SlotBtn *b, const char *name, const char *btn);
+static void set_icon(SlotBtn *b, const char *name) { set_icon_btn(b, name, 0); }
+static void set_icon_btn(SlotBtn *b, const char *name, const char *btn) {
+    if (!b->ctrl) return;
+    u64 r1 = ptr(b->ctrl, 0x30), r2 = ptr(b->ctrl, 0x38);
+    char sh[40]; u32 n = 0;
+    while (name[n] && n < 32) { sh[n] = name[n]; n++; }
+    sh[n] = '_'; sh[n + 1] = 'S'; sh[n + 2] = 'h'; sh[n + 3] = 0;
+    const char *a = name, *c = btn ? btn : sh;
+    g_sb_busy = 1;
+    if (r1) tex_replace((void *)r1, &a, 0);
+    if (r2) tex_replace((void *)r2, &c, 0);
+    g_sb_busy = 0;
+}
+/* ZR shows what the game has in its own (hidden) item box: the name its icon replacer last loaded
+ * ([[[[our part + 0x28] + 0x150] + 0x1F0] + 0x38], e.g. "Item_DekuNut"), copied into the ZR item part's
+ * fixed texture. hud_zr_item() turns it back into the item index (features/button_mapping re-equips it). */
+char g_zr_name[32];
+static int g_zr_index = -1;
+int hud_zr_item(void) { return g_zr_index; }
+static int g_zr_hold;
+void hud_zr_hold(int hold) { g_zr_hold = hold; }   /* features/button_mapping: a slot item borrows the item box */
+static int box_item(void);
+static void zr_mirror(void) {
+    u64 part = g_sb[0].part;   /* any of our bound parts: [part + 0x28] is the PlayerStatus frame it lives in */
+    u64 fr = part ? ptr(part, 0x28) : 0;
+    u64 ctl = fr ? ptr(fr, 0x150) : 0;
+    u64 rp = ctl ? ptr(ctl, 0x1F0) : 0;
+    const char *nm = rp ? (const char *)ptr(rp, 0x38) : 0;
+    /* the box from GameData (PlayerStatus.AssignableItem.<age>); the HUD's own icon name is the fallback */
+    int bi = box_item();
+    if (bi == -1) {   /* empty */
+        g_zr_name[0] = 0; g_zr_index = -1;
+        if (!g_zr_hold) g_sb_force[10][0] = 1;   /* hidden */
+        return;
+    }
+    if (bi >= 0) nm = item_name(bi);
+    if (!nm || (u64)nm < 0x10000 || (nm[0] != 'I' && nm[0] != 'W' && nm[0] != 'A')) return;   /* Item_/Weapon_/Armor_ */
+    /* 1. always track the box: name and item index */
+    if (!str_eq(g_zr_name, nm)) {
+        u32 i;
+        for (i = 0; i < 30 && nm[i]; i++) g_zr_name[i] = nm[i];
+        g_zr_name[i] = 0;
+        g_zr_index = -1;
+        for (int it = 0; it < 64; it++) {
+            const char *n2 = item_name(it);
+            if (n2 && str_eq(n2, g_zr_name)) { g_zr_index = it; break; }
+        }
+    }
+    /* 2. show it on ZR, unless a slot item is borrowing the box right now */
+    char *dst = g_sb_force[10];
+    if (g_zr_hold || str_eq(dst, g_zr_name)) return;
+    u32 i;
+    for (i = 0; i < 30 && g_zr_name[i]; i++) dst[i] = g_zr_name[i];
+    dst[i] = 0;
+    dst[31] = 0;   /* apply again */
+}
+/* PlayerStatus frame our parts live in. Its u32 at +0x1A4 has bit 0x20000 set while the game is played and
+ * clear while a menu covers it (pause ...), measured stable across pause / resume: then nothing of ours is touched
+ * and the replica does not act. */
+static u64 g_ps_frame;
+int hud_ingame(void) { return !g_ps_frame || (*(volatile u32 *)(g_ps_frame + 0x1A4) & 0x20000u) != 0; }
+/* Pause menu, Items tab: its caption panel (hooked at main+0x2CBD20) has byte +0x28 == 2 only while that tab is
+ * open, and the highlighted cell's item index at +0x90 (our item numbering). The cell is owned when its
+ * pattern frame ([[entry+0x48]+0x20]+0x18, entry = the panel's list +0x78 / count +0x70 whose +0xE8 is the
+ * cell) is not 0: the game's own test before it shows the caption. */
+extern u64 g_menu_panel, g_menu_cell;
+u64 player_get(void);
+int hud_menu_items(void) {   /* (the panel is built at boot: before a game is loaded it says nothing) */
+    return g_menu_panel && player_get() && !hud_ingame() && *(volatile u8 *)(g_menu_panel + 0x28) == 2;
+}
+/* the highlighted cell's widget (main+0x43E500's: +0x30 Decide, +0x38 Failure, +0x48 State animations) */
+static u64 menu_cell_widget(void) {
+    if (!hud_menu_items()) return 0;
+    u64 p = g_menu_panel;
+    int n = *(volatile int *)(p + 0x70);
+    u64 list = *(volatile u64 *)(p + 0x78);
+    if (n <= 0 || n > 256 || !list) return 0;
+    for (int i = 0; i < n; i++) {
+        u64 e = *(volatile u64 *)(list + (u64)i * 8);
+        if (e && *(volatile u64 *)(e + 0xE8) == g_menu_cell) return e;
+    }
+    return 0;
+}
+/* ---- GameData Bool flags (table 0: records of 0x18 bytes in GameDataList order, live value at +0x16) ---- */
+static int gd_bool(u32 idx) {
+    u64 mgr = *(u64 *)GAMEDATA_MGR;
+    if (!mgr) return -1;
+    u32 cnt = *(volatile u32 *)(mgr + 8 + 8);
+    u64 rec = *(volatile u64 *)(mgr + 8 + 0x10);
+    if (!rec || idx >= cnt) return -1;
+    return *(volatile u8 *)(rec + (u64)idx * 0x18 + 0x16) != 0;
+}
+static u32 mmh3(const char *a, const char *b) {   /* murmur3_32(a + b, seed 0): GameData name hashes */
+    u8 buf[96]; u32 n = 0;
+    for (u32 i = 0; a[i] && n < 95; i++) buf[n++] = (u8)a[i];
+    for (u32 i = 0; b[i] && n < 95; i++) buf[n++] = (u8)b[i];
+    u32 h = 0, k;
+    const u32 c1 = 0xcc9e2d51u, c2 = 0x1b873593u;
+    u32 r = n & ~3u;
+    for (u32 i = 0; i < r; i += 4) {
+        k = buf[i] | (buf[i + 1] << 8) | (buf[i + 2] << 16) | ((u32)buf[i + 3] << 24);
+        k *= c1; k = (k << 15) | (k >> 17); k *= c2;
+        h ^= k; h = (h << 13) | (h >> 19); h = h * 5 + 0xe6546b64u;
+    }
+    k = 0;
+    switch (n & 3) {
+    case 3: k ^= (u32)buf[r + 2] << 16; /* fallthrough */
+    case 2: k ^= (u32)buf[r + 1] << 8;  /* fallthrough */
+    case 1: k ^= buf[r]; k *= c1; k = (k << 15) | (k >> 17); k *= c2; h ^= k;
+    }
+    h ^= n; h ^= h >> 16; h *= 0x85ebca6bu; h ^= h >> 13; h *= 0xc2b2ae35u; h ^= h >> 16;
+    return h;
+}
+/* Link is a child (Sequence_IsChildhood): 1 / 0, -1 = GameData not there */
+int hud_is_child(void) { return gd_bool(GD_IS_CHILDHOOD); }
+/* The game's item box (ZR) for Link's age, from GameData: the item index, -1 empty, -2 unknown (no GameData, or a
+ * value no item maps to, like the 2nd..5th bottle). Value hash -> actor name hash via GD_ACTOR_BOX. */
+static u32 box_value(void) {
+    int ch = gd_bool(GD_IS_CHILDHOOD);
+    u64 mgr = *(u64 *)GAMEDATA_MGR;
+    if (ch < 0 || !mgr) return 0;
+    u32 cnt = *(volatile u32 *)(mgr + 8 + 0x60 * 6 + 8);
+    u64 rec = *(volatile u64 *)(mgr + 8 + 0x60 * 6 + 0x10);
+    u32 i = ch ? GD_BOX_CHILD : GD_BOX_ADULT;
+    return rec && i < cnt ? *(volatile u32 *)(rec + (u64)i * 0x38 + 0x1C) : 0;
+}
+static u32 g_item_box[64];   /* cached box value of each item index + 1 bit: 0 = not looked up, 1 = none */
+static u32 item_box_value(int it) {
+    if (!g_item_box[it]) {
+        const char *nm = item_name(it);
+        u32 h = nm ? mmh3("", nm) : 0, lo = 0, hi = GD_ACTOR_BOX_N;
+        while (lo < hi) { u32 mid = (lo + hi) / 2; if (GD_ACTOR_BOX[mid][0] < h) lo = mid + 1; else hi = mid; }
+        g_item_box[it] = nm && lo < GD_ACTOR_BOX_N && GD_ACTOR_BOX[lo][0] == h ? GD_ACTOR_BOX[lo][1] : 1;
+    }
+    return g_item_box[it];
+}
+static int box_item(void) {
+    u32 v = box_value();
+    if (!v) return -2;
+    if (v == GD_EMPTY_HASH) return -1;
+    for (int it = 0; it < 64; it++) if (item_box_value(it) == v) return it;
+    return -2;
+}
+/* Empty the game's item box (ZR): PlayerStatus.AssignableItem.Child / .Adult (Enum table k = 6, 0x38-byte records,
+ * live value at +0x1C = the hash of the value name) = "Empty". The HUD box follows. */
+void hud_box_empty(int child) {
+    u64 mgr = *(u64 *)GAMEDATA_MGR;
+    if (!mgr) return;
+    u32 cnt = *(volatile u32 *)(mgr + 8 + 0x60 * 6 + 8);
+    u64 rec = *(volatile u64 *)(mgr + 8 + 0x60 * 6 + 0x10);
+    u32 i = child ? GD_BOX_CHILD : GD_BOX_ADULT;
+    if (rec && i < cnt) *(volatile u32 *)(rec + (u64)i * 0x38 + 0x1C) = GD_EMPTY_HASH;
+}
+/* the player has the item (IsGet.<item's actor name>): 1 / 0; 1 also when the item has no IsGet flag */
+static u32 g_own_idx[64];   /* cached Bool index + 1; 0xFFFFFFFF = no flag */
+int hud_item_owned(int item) {
+    if (item < 0 || item >= 64) return 0;
+    if (!g_own_idx[item]) {
+        const char *nm = item_name(item);
+        if (!nm) return 1;
+        u32 h = mmh3("IsGet.", nm), lo = 0, hi = GD_ISGET_N;
+        g_own_idx[item] = 0xFFFFFFFFu;
+        while (lo < hi) {
+            u32 mid = (lo + hi) / 2;
+            if (GD_ISGET[mid][0] < h) lo = mid + 1; else hi = mid;
+        }
+        if (lo < GD_ISGET_N && GD_ISGET[lo][0] == h) g_own_idx[item] = GD_ISGET[lo][1] + 1;
+    }
+    if (g_own_idx[item] == 0xFFFFFFFFu) return 1;
+    int v = gd_bool(g_own_idx[item] - 1);
+    return v != 0;   /* -1 (no GameData): not owned */
+}
+int hud_menu_item(void) {
+    u64 e = menu_cell_widget();
+    if (!e) return -1;
+    int idx = *(volatile int *)(g_menu_panel + 0x90);
+    if (idx < 0 || idx >= 64) return -1;
+    u64 a = *(volatile u64 *)(e + 0x48);
+    a = a ? *(volatile u64 *)(a + 0x20) : 0;
+    return a && *(volatile float *)(a + 0x18) != 0.0f ? idx : -1;
+}
+/* The cell's Decide animation: what the game plays when A puts an item in its box. main+0x2D0FE0 plays an
+ * animation from its start (no sound); main+0x3772100 is what A does on a cell: the cell's button object
+ * (widget +0xE8) plays Decide through its own animation list, at speed 1, with the menu's sound. A playing animation is linked in its
+ * layout's list (idle, its list node points to itself). */
+extern void ui_btn_decide(u64 button);
+extern u64 ui_btn_anim(u64 button, u32 index);   /* main+0x3772000: the button's animation (4 = Decide), 0 if none */
+void hud_menu_decide(void) {   /* the game's own Decide play for the cell (what A does: its sound comes with it) */
+    u64 e = menu_cell_widget(), btn = e ? ptr(e, 0xE8) : 0;   /* the cell's button object (= g_menu_cell) */
+    if (btn && ui_btn_anim(btn, 4)) ui_btn_decide(btn);
+}
+int hud_menu_decided(void) {
+    u64 e = menu_cell_widget(), a = e ? ptr(e, 0x30) : 0;
+    return a && ptr(a, 0) != a;
+}
+/* the game put an item in its box from the menu (A): show it on ZR now (the HUD box catches up on close) */
+void hud_menu_zr(int item) {   /* -1: empty */
+    if (g_zr_hold) return;
+    char *dst = g_sb_force[10];
+    const char *nm = item >= 0 ? item_name(item) : 0;
+    if (!nm) { dst[0] = 1; dst[1] = 0; return; }
+    u32 i;
+    for (i = 0; i < 30 && nm[i]; i++) dst[i] = nm[i];
+    dst[i] = 0;
+    dst[31] = 0;
+}
+/* Y shows the equipped sword: GameData PlayerStatus.EquipWeapon (String64 table k = 16, record 23, 0x108 bytes
+ * each, the live string at +0x74 / pointed to by +0x68). Its value is the icon name itself (Weapon_Sword_Kokiri,
+ * _Master, _Giant, _Biggoron, _BrokenGiant); empty = no sword, the Y icon is hidden. */
+static void sword_mirror(void) {
+    u64 mgr = *(u64 *)GAMEDATA_MGR;
+    if (!mgr) return;
+    u32 cnt = *(u32 *)(mgr + 8 + 0x60 * 16 + 8);
+    u64 rec = *(u64 *)(mgr + 8 + 0x60 * 16 + 0x10);
+    if (!rec || cnt < 24) return;
+    u64 r = rec + 23 * 0x108;
+    const char *s = *(const char **)(r + 0x68);
+    if (!s) s = (const char *)(r + 0x74);
+    char *dst = g_sb_force[9];
+    if (!s[0] || s[0] != 'W') { dst[0] = 1; return; }   /* none: hidden (a later sword sets it again) */
+    if (str_eq(dst, s)) return;
+    u32 i;
+    for (i = 0; i < 30 && s[i]; i++) dst[i] = s[i];
+    dst[i] = 0;
+    dst[31] = 0;   /* apply again */
+}
+/* The pause menu's Items page (PaItemMenu_00) carries the same PART_N parts (build_menu): g_mb, with their own
+ * icon controllers (hud_menu_ctrl_init). Placement there: g_mb_lay (see g_sb_lay). */
+static SlotBtn g_mb[PART_N];
+static u64 g_mb_ctrl[PART_N];
+static u64 g_mb_frame;
+u64 g_mb_dbg[PART_N];
+static void slots_draw(SlotBtn *set, const u64 *ctrls, u64 frame, const float *lay, int main_set) {
+    for (u32 k = 0; k < PART_N; k++) {
+        SlotBtn *b = &set[k];
+        if (!b->part) {
+            u64 p = (u64)find_part((void *)frame, part_name(k));
+            if (main_set) g_sb_dbg[k] = MARK | p; else g_mb_dbg[k] = MARK | p;
+            if (!p) continue;
+            u64 none = (u64)find_anim((void *)p, "__no_such_anim__");
+            u32 mask = 0;
+            for (u32 i = 0; i < SA_N; i++) {
+                u64 a = (u64)find_anim((void *)p, slot_anim_name(i));
+                b->anim[i] = (a && a != none) ? a : 0;
+                if (b->anim[i]) mask |= 1u << i;
+            }
+            if (main_set) g_sb_anim[k] = 0x10000000u | mask;
+            {   /* the nested icon part: its icon pane and its shadow pane (where our button is drawn) */
+                u64 rif = (u64)find_part((void *)p, "Pa_ReplaceIcon_00");
+                if (main_set) { g_sb_rif[k][0] = MARK | rif; g_sb_rif[k][1] = MARK | (rif ? ptr(rif, 0x80) : 0); }
+                b->rep = rif ? ptr(rif, 0x6A8) : 0;
+                b->ic = rif ? part_child(rif, "P_ReplaceIcon_00") : 0;
+                b->sh = rif ? part_child(rif, "P_ReplaceIconSh_00") : 0;
+                b->icon_set = 0;
+                b->forced[0] = 0;
+                b->ctrl = ctrls[k];   /* built during the HUD / menu init (hud_slots_init, hud_menu_ctrl_init) */
+            }
+            b->rec = pane_record(frame, part_name(k));
+            for (u32 i = 0; i < 9; i++) b->hide[i] = part_child(p, hide_name(i));
+            b->part = p;
+        }
+        /* an item part with no item (and no fixed texture, like the sword) is hidden */
+        u32 empty = k >= SB_NBTN && g_sb_item[k] < 0 && g_sb_force[k][0] <= 1;
+        float sc = empty || !BTNMAP ? 0.0f : g_sb_sc[k] * lay[1];
+        float px, py;
+        sb_xy(lay, k, &px, &py);
+        if (b->rec) place(b->rec, px, py, sc, sc, 0.0f);
+        /* ItemPattern = icon framing. Frame 0 shows the full picture: buttons, and items drawn big and even
+         * like Classic (item_pattern() keeps the stock box's per-item framing for a smaller style) */
+        if (b->anim[0]) set_frame((void *)b->anim[0], g_sb_item[k] < 0 || g_sb_big_items ? 0.0f : item_pattern(g_sb_item[k]));
+        if (b->sh) {   /* the button behind the icon: full colour, opaque, centred on the icon (no shadow offset) */
+            tint_rec(b->sh, 1.0f, 1.0f, 1.0f, 1.0f);
+            if (b->ic) {
+                *(float *)(b->sh + 0x6C) = *(float *)(b->ic + 0x6C);
+                *(float *)(b->sh + 0x70) = *(float *)(b->ic + 0x70);
+            }
+            *(u32 *)b->sh |= 0x6F;
+        }
+        for (u32 i = 0; i < 9; i++)
+            if (b->hide[i] && (i < 8 || g_sb_item[k] < 0)) {   /* the count stays on the icon parts */
+                *(float *)(b->hide[i] + 0x60) = 0.0f; *(float *)(b->hide[i] + 0x64) = 0.0f;
+                *(u32 *)b->hide[i] |= 0x6F;
+            }
+        for (u32 i = 0; i < SA_N; i++)
+            if (g_sb_animf[i] >= 0.0f && b->anim[i]) set_frame((void *)b->anim[i], g_sb_animf[i]);
+        /* fixed texture (buttons, sword, ZR mirror), only when it changes; OotBtn<style>_..: the pad style */
+        if (b->ctrl && !g_sb_busy && g_sb_force[k][0] > 1) {
+            char nm[32];
+            u32 i;
+            const char *src = !main_set && k == SB_A ? "OotBtnS_Blank" : g_sb_force[k];   /* menu: A unlettered, like X */
+            for (i = 0; i < 31 && src[i]; i++) nm[i] = src[i];
+            nm[i] = 0;
+            if (nm[0] == 'O' && i > 7 && nm[7] == '_')
+                nm[6] = g_shbcfg.button_style == 1 ? 'X' : g_shbcfg.button_style == 2 ? 'P' : 'S';
+            if (!str_eq(b->forced, nm)) {
+                for (u32 j = 0; j <= i; j++) b->forced[j] = nm[j];
+                set_icon(b, nm);
+            }
+        }
+        /* icon of the button's item (only when it changes) */
+        if (b->ctrl && !g_sb_busy && (!b->icon_set || b->shown_item != g_sb_item[k])) {
+            const char *nm = item_name(g_sb_item[k]);
+            b->icon_set = 1;
+            b->shown_item = g_sb_item[k];
+            if (main_set) for (u32 i = 0; i < 31; i++) { g_sb_name_dbg[k][i] = nm ? nm[i] : 0; if (nm && !nm[i]) break; }
+            if (nm) set_icon_btn(b, nm, g_sb_btn[k][0] ? g_sb_btn[k] : 0);
+        }
+    }
+}
+/* Pause menu, Items tab: the cluster drawn on the menu page itself. Neither the HUD layer nor its frame update
+ * run under the menu, so this is driven by the input hook (features/button_mapping), every frame. */
+/* Assign legend on the Items tab, bottom right above the game's own guide: which menu button assigns to which
+ * slot. g_leg_pos = x of the first text, y, x step, text scale (layout units of PlusMenu_00, y up); g_leg_bar = the
+ * dark bar behind it, like the game's own guide bar below. */
+static char g_leg_txt[LEG_N][16] = {"Asignar:", "\xee\x81\x82", "\xe2\x80\xba", "\xee\x81\x81", "\xee\x81\x84", "\xe2\x80\xba", "\xee\x81\x84", "\xee\x81\x85", "\xe2\x80\xba", "\xee\x81\x85", "\xee\x81\x80", "\xe2\x80\xba", "\xee\x81\x87"};   /* Asignar: X > B  L > L  R > R  A > ZR */
+float g_leg_pos[4] = {690.0f, -905.0f, 252.0f, 1.0f};   /* right above the game's guide bar */
+float g_leg_geo[3] = {215.0f, 62.0f, 2.0f};   /* title -> first pair, icon -> arrow -> icon spacing, icon scale */
+float g_leg_bar[8] = {1250.0f, -905.0f, 0.66f, 0.27f, 0.85f, 0.07f, 0.06f, 0.05f};   /* backing plate: centre x, y,
+                                                                               * x / y scale, alpha, rgb */
+static u64 g_leg_bar_rec;
+static u64 g_plus_frame, g_leg_rec[LEG_N], g_leg_set;
+static u32 g_leg_shown;
+u64 g_leg_dbg[2];
+static void hud_menu_legend(u64 page) {
+    u64 pf = page ? ptr(page, 0x30) : 0;   /* the page frame +0x30: the PlusMenu_00 frame */
+    if (pf != g_plus_frame) { g_plus_frame = pf; g_leg_set = 0; g_leg_bar_rec = 0; for (u32 t = 0; t < LEG_N; t++) g_leg_rec[t] = 0; }
+    g_leg_dbg[0] = pf;
+    if (!pf) return;
+    static const float WHITE[3] = {1.0f, 1.0f, 1.0f}, GOLD[3] = {0.95f, 0.82f, 0.45f};
+    if (!g_leg_bar_rec) g_leg_bar_rec = pane_record(pf, g_legbar_name);
+    if (g_leg_bar_rec) {
+        tint_rec(g_leg_bar_rec, g_leg_bar[5], g_leg_bar[6], g_leg_bar[7], g_leg_bar[4]);
+        *(float *)(g_leg_bar_rec + 0x74) = 1.0f; *(float *)(g_leg_bar_rec + 0x78) = 1.0f;   /* (the source plate starts hidden) */
+        place(g_leg_bar_rec, g_leg_bar[0], g_leg_bar[1], g_leg_bar[2], g_leg_bar[3], 0.0f);
+    }
+    for (u32 t = 0; t < LEG_N; t++) {
+        if (!g_leg_rec[t]) g_leg_rec[t] = pane_record(pf, g_lnames[t]);
+        u64 rec = g_leg_rec[t];
+        if (!rec) continue;
+        if (g_leg_set != pf) {
+            u32 n = 0;
+            while (g_leg_txt[t][n]) n++;
+            struct { const void *s; u32 len, z; long long m1; } ref = {g_leg_txt[t], n, 0, -1};
+            set_text((void *)rec, &ref, 0);
+            g_leg_dbg[1]++;
+        }
+        const float *c = t ? WHITE : GOLD;
+        tint_rec(rec, c[0], c[1], c[2], 1.0f);
+        float x = g_leg_pos[0], sc = g_leg_pos[3];
+        if (t) {
+            u32 pr = (t - 1) / 3, k = (t - 1) % 3;
+            x += g_leg_geo[0] + g_leg_pos[2] * (float)pr + g_leg_geo[1] * (float)k;
+            if (k != 1) sc *= g_leg_geo[2];
+        }
+        place(rec, x, g_leg_pos[1], sc, sc, 0.0f);
+    }
+    g_leg_set = pf;
+    g_leg_shown = 1;
+}
+/* the menu shows another tab (or closes): hide the legend once */
+void hud_menu_off(void) {
+    if (!g_leg_shown || !g_plus_frame) return;
+    g_leg_shown = 0;
+    for (u32 t = 0; t < LEG_N; t++) if (g_leg_rec[t]) place(g_leg_rec[t], 0.0f, 0.0f, 0.0f, 0.0f, 0.0f);
+    if (g_leg_bar_rec) place(g_leg_bar_rec, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f);
+}
+void hud_menu_tick(void) {
+    if (!BTNMAP || g_sb_busy || !hud_menu_items()) return;
+    u64 mf = ptr(g_menu_panel, 0x20);
+    if (!mf) return;
+    if (mf != g_mb_frame) { g_mb_frame = mf; for (u32 k = 0; k < PART_N; k++) g_mb[k].part = 0; }
+    hud_menu_legend(mf);
+    slots_draw(g_mb, g_mb_ctrl, mf, g_mb_lay, 0);
+}
+static void slots_update(u64 frame) {
+    if (g_sb_busy) return;
+    if (!g_ps_frame && g_sb[0].part) g_ps_frame = ptr(g_sb[0].part, 0x28);
+    if (!hud_ingame()) return;
+    if (BTNMAP) { zr_mirror(); sword_mirror(); }   /* (the ZR icon is frozen while a slot borrows the box) */
+    if (!g_stock_box_rec) g_stock_box_rec = pane_record(frame, "Pa_SelectItem_00");
+    if (!g_stock_dots_rec) g_stock_dots_rec = pane_record(frame, "N_Shortcut_00");
+    for (u32 i = 0; i < 2 && g_sb_hide_stock && BTNMAP; i++) {
+        u64 r = i ? g_stock_dots_rec : g_stock_box_rec;
+        if (!r) continue;
+        *(float *)(r + 0x60) = 0.0f; *(float *)(r + 0x64) = 0.0f;
+        *(u32 *)r |= 0x6F;
+    }
+    slots_draw(g_sb, g_sb_ctrl, frame, g_sb_lay, 1);
+}
+char g_sb_jump_label[16] = "Saltar";
+/* The game's control guide (UICtrlGuideScreen, the "A Hablar" prompt next to Link) writes A's context action
+ * ("Hablar", "Abrir", "Revisar" ...) into its text pane T_GuideA_00 (captured in hud_on_settext). While the prompt
+ * is up its N_InOut_00 / N_A_00 alpha (pane record +0x78) is 1; it fades to 0 when there is nothing to do. */
+u64 g_aguide_frame;
+char g_aguide_text[48];
+char g_sb_a_label[16] = "";   /* context action of A (empty: the button shows its letter) */
+extern int player_state_is(const char *name);
+extern int player_state_starts(const char *prefix);
+static int a_guide_up(void) {
+    static u64 fr, r_io, r_a;
+    if (!g_aguide_frame || !g_aguide_text[0]) return 0;
+    if (fr != g_aguide_frame) {
+        fr = g_aguide_frame;
+        r_io = pane_record(fr, "N_InOut_00");
+        r_a = pane_record(fr, "N_A_00");
+    }
+    return r_io && r_a && *(float *)(r_io + 0x78) > 0.5f && *(float *)(r_a + 0x78) > 0.5f;
+}
+static void a_label_update(void) {
+    const char *txt = 0;
+    if (a_guide_up()) txt = g_aguide_text;
+    else if (player_state_starts("LockOn") && !player_state_is("LockOnWait")) txt = "Atacar";   /* ZL + moving: jump attack */
+    else if (player_state_is("Move")) txt = "Rodar";   /* running: A rolls */
+    u32 n = 0;
+    if (txt) {
+        while (txt[n] && n < 15) n++;
+        while (n && n < 15 && txt[n] && ((u8)txt[n] & 0xC0) == 0x80) n--;   /* cut on a UTF-8 character */
+    }
+    int same = 1;
+    for (u32 i = 0; i < n; i++) if (g_sb_a_label[i] != txt[i]) same = 0;
+    if (same && !g_sb_a_label[n]) return;
+    for (u32 i = 0; i < n; i++) g_sb_a_label[i] = txt[i];
+    g_sb_a_label[n] = 0;
+    /* A's button: the plain base under a label, the lettered one without */
+    const char *bg = n ? "OotBtnS_Blank" : "OotBtnS_A";
+    u32 i;
+    for (i = 0; bg[i]; i++) g_sb_force[SB_A][i] = bg[i];
+    g_sb_force[SB_A][i] = 0;
+    g_sb_force[SB_A][31] = 0;
+}
+static void slots_labels(u64 frame) {
+    if (!BTNMAP) return;
+    static const float LABEL[3] = {0.92f, 0.92f, 0.92f};
+    if (!hud_ingame()) return;
+    a_label_update();
+    float xx, xy, ax, ay;
+    sb_xy(g_sb_lay, SB_X, &xx, &xy);
+    sb_xy(g_sb_lay, SB_A, &ax, &ay);
+    g_fld_sc[3] = g_fld_sc[4] = 0.80f * g_sb_lay[1];   /* the labels follow the buttons' size */
+    put_text(frame, 3, g_sb_jump_label, xx, xy, 1, LABEL);
+    put_text(frame, 4, g_sb_a_label, ax, ay, g_sb_a_label[0] != 0, LABEL);
+}
+static void slots_reset(void) {
+    g_ps_frame = 0; for (u32 k = 0; k < PART_N; k++) g_sb[k].part = 0; g_stock_box_rec = 0; g_stock_dots_rec = 0; }
+
 u32 hud_frame_count(void) { return g_tick; }
 static void hud_frame(void) {
     g_hud_dbg[1] = MARK | ++g_tick;
@@ -988,6 +1720,8 @@ static void hud_frame(void) {
         g_tired = (g_tick / 480) & 1;   /* demo: alternate green / yellow */
     }
     ring_update();
+    slots_update(g_frame_node);
+    slots_labels(g_frame_node);
 }
 /* -------- observation of the stock item box (to learn icon frames) -------- */
 #define FL_N 24
@@ -1038,6 +1772,85 @@ __attribute__((weak)) void songbook_on_select(void *ctx, u32 sel) { (void)ctx; (
 __attribute__((weak)) void songbook_on_frame(void);                      /* features/songbook */
 __attribute__((weak)) void songbook_on_ui(void *ctx);                    /* features/songbook */
 __attribute__((weak)) int songbook_debug_text(char *b, u32 cap);         /* features/songbook */
+/* diagnostic: the game's own set_text calls (not ours), consecutive repeats skipped: caller, pane, len, text */
+struct { u64 lr, pane; u32 len, n; char s[40]; char nm[24]; u64 lr2; } g_st_log[32];
+u32 g_st_n = 0x10000000u;
+/* The game's control guide (UICtrlGuideScreen) writes the A action ("Hablar", "Abrir", "Rodar"...) into its text
+ * pane T_GuideA_00 through the set-text-by-name call (frame in x22, pane name in x21). */
+static void hud_on_settext(u64 pane, const u64 *ref, u64 lr, const u64 *regs) {
+    extern char __base[];
+    if (!ref || lr >= (u64)__base) return;   /* our own texts */
+    const char *s = (const char *)ref[0];
+    u32 len = (u32)ref[1];
+    if (!s) return;
+    {
+        const char *nm = (const char *)regs[0xF0 / 8];
+        if (nm && (u64)nm > 0x10000 && str_eq(nm, "T_GuideA_00")) {
+            g_aguide_frame = regs[0xF8 / 8];
+            u32 i;
+            for (i = 0; i < len && i < 47 && s[i]; i++) g_aguide_text[i] = s[i];
+            g_aguide_text[i] = 0;
+        }
+    }
+    u32 last = (g_st_n - 1u) % 32;
+    if (g_st_log[last].pane == pane && g_st_log[last].len == len && g_st_log[last].s[0] == s[0] && g_st_log[last].s[2] == s[2]) return;
+    u32 k = (g_st_n++ - 0x10000000u) % 32;
+    g_st_log[k].lr = lr; g_st_log[k].pane = pane; g_st_log[k].len = len; g_st_log[k].n = g_st_n;
+    for (u32 i = 0; i < 40; i++) g_st_log[k].s[i] = s[i];
+    const char *nm = (const char *)regs[0xF0 / 8];
+    u64 fp = regs[0];
+    for (u32 i = 0; i < 24; i++) g_st_log[k].nm[i] = 0;
+    if (nm && (u64)nm > 0x10000) for (u32 i = 0; i < 23 && nm[i]; i++) g_st_log[k].nm[i] = nm[i];
+    g_st_log[k].lr2 = fp ? *(u64 *)(fp + 8) : 0;
+}
+/* Our parts on the Items page get their icon controllers at the end of the page build (main+0xF78BA8, hook 15:
+ * x19 = the page panel, its +0x20 the page frame; x20 = the build heap), right after the game's own cells got
+ * theirs from that heap (main+0x43E500). Not later: the build heap is spent by then (the HUD's too), the default
+ * heap (0) crashes and a heap of ours won't do (it holds textures). Not earlier: during the cells' inits our
+ * parts' pane lists are not linked yet, and icon_widget_init walks one (it loops on null), so the same walk is
+ * checked here first. */
+extern u64 ui_find_sub(const char *name, u64 part, u64 *out);
+extern u64 ui_owner_layout(u64 pane);
+static int icon_list_ok(u64 part) {
+    u64 sub = 0;
+    if (!ui_find_sub("Pa_ReplaceIcon_00", part, &sub) || !sub) return 0;
+    u64 lay = ui_owner_layout(sub + 0x40);
+    if (!lay) return 0;
+    u64 n = ptr(lay, 0x130);
+    for (u32 i = 0; i < 64; i++) {
+        if (!n) return 0;
+        if (n == lay + 0x128) return 0;   /* end: not found (the init would give up anyway) */
+        u64 nm = ptr(n, 0x148);
+        if (nm && str_eq((const char *)nm, "Pa_ReplaceIcon_00")) return 1;
+        n = ptr(n, 8);
+    }
+    return 0;
+}
+static u64 g_mb_ctrl_frame;
+u32 g_mb_ctrl_dbg[3];   /* controllers built, failed, parts whose list was not ready */
+static void hud_menu_ctrl_init(u64 fr, u64 heap) {
+    if (!BTNMAP || !fr || !heap || fr == g_mb_ctrl_frame) return;
+    if (!find_part((void *)fr, part_name(0))) return;   /* not the page that carries our parts (build_menu) */
+    g_mb_ctrl_frame = fr;
+    for (u32 k = 0; k < PART_N; k++) {
+        g_mb_ctrl[k] = 0;
+        u64 p = (u64)find_part((void *)fr, part_name(k));
+        if (!p) continue;
+        if (!icon_list_ok(p)) { g_mb_ctrl_dbg[2]++; continue; }
+        for (u32 i = 0; i < 12; i++) g_mb_widget[k][i] = 0;
+        g_mb_widget[k][4] = p;
+        g_ctrl_captured = 0; g_ctrl_capture = 1; g_sb_busy = 1;
+        icon_widget_init(g_mb_widget[k], (void *)heap);
+        g_sb_busy = 0; g_ctrl_capture = 0;
+        g_mb_ctrl[k] = g_ctrl_captured;
+        g_mb_ctrl_dbg[g_mb_ctrl[k] ? 0 : 1]++;
+    }
+    for (u32 k = 0; k < PART_N; k++) g_mb[k].part = 0;   /* rebind with the controllers */
+}
+/* pause menu: the caption panel of the highlighted item (its name string at +0x68, written by the call) */
+u64 g_menu_panel, g_menu_cell;
+u32 g_menu_sel_n;
+extern void button_mapping_on_open(const char *path, int mode) __attribute__((weak));
 void hud_on_code(u32 id, void *a0, void *a1, void *a2, void *regs) {
     (void)a1; (void)a2;
     if (id == 5) { player_track((u64)a0); return; }
@@ -1046,6 +1859,19 @@ void hud_on_code(u32 id, void *a0, void *a1, void *a2, void *regs) {
     if (id == 13) { if (songbook_on_ocarina) songbook_on_ocarina(1, a0); return; }   /* ocarina enter */
     if (id == 14) { if (songbook_on_ocarina) songbook_on_ocarina(0, a0); return; }   /* ocarina leave */
     if (id == 16) { if (songbook_on_ui) songbook_on_ui(a0); return; }                /* ocarina UI update */
+    if (id == 11) {
+        hud_icon_ctrl_init((u64)a0);
+        return;
+    }                  /* icon controller init */
+    if (id == 12) { hud_slots_init((u64)a0, (u64)a1); return; }             /* PlayerStatus HUD init: build icon controllers */
+    if (id == 18) {   /* nn::fs::OpenFile(handle, path, mode) */
+        const char *path = (const char *)a1;
+        if (button_mapping_on_open && path) button_mapping_on_open(path, (int)(u64)a2);
+        return;
+    }
+    if (id == 15) { hud_menu_ctrl_init(ptr(*(u64 *)((u8 *)regs + 0xA0), 0x20), *(u64 *)((u8 *)regs + 0xA8)); return; }
+    if (id == 21) { g_menu_panel = (u64)a0; g_menu_cell = (u64)a1; g_menu_sel_n++; return; }
+    if (id == 20) { hud_on_settext((u64)a0, (const u64 *)a1, *(u64 *)((u8 *)regs + 0x08), (const u64 *)regs); return; }
     if (id == 4) {   /* part instance creation: log the pane index being instantiated */
         u64 layout = (u64)a1, pane = (u64)a2;
         u64 arr = layout ? ptr(layout, 0x100) : 0;
@@ -1069,6 +1895,7 @@ void hud_on_code(u32 id, void *a0, void *a1, void *a2, void *regs) {
         g_frame_node = 0;
         for (u32 i = 0; i < SEG_N; i++) { g_seg[i].bar = 0; g_seg[i].init = 0; }
         plates_reset();
+        slots_reset();
         g_hud_dbg[0] = MARK | g_mp;
     } else if (id == 0) {
         if (a0 && *(u64 *)a0 == (u64)MAIN_SCHED_VT) {

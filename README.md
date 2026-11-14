@@ -38,8 +38,7 @@ Todo el proceso (arquitectura, ganchos, HUD, configuración, compilación, prueb
 **[docs/GUIA-DESARROLLO.md](docs/GUIA-DESARROLLO.md)**.
 
 Otras notas: [docs/APP.md](docs/APP.md) (app y perfiles), [docs/RE-NOTES.md](docs/RE-NOTES.md) (ingeniería inversa),
-[docs/CLASSIC-HOOKS.md](docs/CLASSIC-HOOKS.md), [docs/CLASSIC-REPLICA.md](docs/CLASSIC-REPLICA.md) (Classic Item
-Slots) y [docs/AUDIT.md](docs/AUDIT.md) (auditoría de código y materiales de terceros).
+[docs/BUTTON-MAPPING.md](docs/BUTTON-MAPPING.md) (buttonMapping, nuestros botones de objetos) y [docs/AUDIT.md](docs/AUDIT.md) (auditoría de código y materiales de terceros).
 
 Pasos rápidos:
 

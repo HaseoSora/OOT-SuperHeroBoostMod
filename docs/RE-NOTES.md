@@ -285,3 +285,24 @@ Both mods are generated from the user's own dump by `tools/make_enemy_opts.py`; 
 - Enemy health: works (g_hp_log). Small enemies with MaxLife 1 scale to 3; the large enemy with MaxLife 6 only takes
   damage on its root (IsHeadshotOnlyDamage, bone Tail_1). The starting sword has EquipmentPerformance 1.
 - Stamina refill wait: 0.8 s, 1.8 s in combat, 2.5 s after exhaustion.
+
+## buttonMapping: per-save assignments (Nov 2026)
+
+- Save files: mount `save:`, `slot_00`..`slot_11/progress.sav` (+ `caption.sav`), `account.sav`, `option.sav`.
+  The game opens `progress.sav` with mode 1 when it loads that save and mode 6 (write | append) when it saves,
+  and it rotates between slots (loaded slot_02, saved to slot_04). Then it commits the mount.
+- Hook: the `nn::fs::OpenFile` import stub, main+0x3C42590 (`adrp x16` re-run from our wrapper with the
+  `GOT_FSOPEN` page, then main+0x3C42594). Our own file `slot_NN/ootmaster.bin` (16 bytes: "OOTM", version 1,
+  child B/L/R, adult B/L/R) is written right when the game opens that slot's progress.sav to write, and read
+  when it opens it to read. Other nn::fs stubs used: CloseFile 0x3C425B0, CreateFile 0x3C425D0, WriteFile
+  0x3C425E0, SetFileSize 0x3C42940, ReadFile(size_t *out, ...) 0x3C43050 (all main+, game 1.1.1).
+- GameData Bool table (k = 0): 0x18-byte records in GameDataList order, live value at +0x16.
+  `Sequence_IsChildhood` = 1 while Link is a child; `IsGet.<actor name>` = the item is owned.
+  `core/gd_index.h` (tools/gen_gd_index.py) holds their indices for GameDataList.Product.110.
+- `PlayerStatus.AssignableItem.Child` / `.Adult` (Enum) are the game's own item box (ZR) per age.
+- The item box (ZR) per age is `PlayerStatus.AssignableItem.Child` / `.Adult` (Enum table k = 6, 0x38-byte
+  records, live value at +0x1C = murmur3 of the value name). Writing "Empty" there empties the box and the HUD
+  follows. The value -> item actor comes from RSDB `PouchActorInfo` (`AssignableItem` column), in
+  `core/gd_index.h` (`GD_ACTOR_BOX`). The HUD controller path (+0x150 -> +0x1F0 -> +0x38) is not reliable
+  for the box name (garbage in some saves); it is only the fallback now.
+- In the pause menu, A sets the box only when the menu closes (GameData unchanged until then).

@@ -27,7 +27,11 @@ typedef struct {
     unsigned char no_heart_drop;   /* informational (done through a romfs file) */
     unsigned short sprint_speed_pct; /* sprint (A held while moving) speed, percent of vanilla (100 = vanilla, default 125) */
     unsigned char songbook_enabled;  /* play a learned song by selecting it in the native songbook */
-    unsigned char reserved[33];
+    unsigned char button_mapping;    /* buttonMapping: our own item buttons B / L / R / ZR on the HUD */
+    unsigned char button_style;      /* buttonMapping buttons: 0 Switch, 1 Xbox, 2 PlayStation */
+    unsigned char bm_simple;         /* buttonMapping simple layout: only the assignable buttons (no B / A / X / Y) */
+    unsigned char bm_l_mode;         /* buttonMapping L: 0 assignable, 1 shield, 2 the game's item selector */
+    unsigned char reserved[29];
 } ShbConfig;
 
 extern volatile ShbConfig g_shbcfg;

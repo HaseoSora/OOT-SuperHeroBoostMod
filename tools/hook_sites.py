@@ -28,7 +28,8 @@ SLOT_SITES = (
     (0x33C9AB4, "hook_slot3", SLOT_STOCK),
 )
 
-# Function-entry sites: the stock instruction at `site` is `pacibsp` (0xD503237F).
+# Function-entry sites: the stock instruction at `site` is `pacibsp` (0xD503237F), or the word given as a 4th
+# element for a site inside a function (its wrapper re-runs that instruction, like hook_code_menupage in core/hooks.S).
 # The patch is `b <wrapper>`; the wrapper runs our code, then executes pacibsp and
 # branches back to site+4 (see CODE_HOOK in core/hooks.S).
 # (site, wrapper symbol, id)
@@ -45,6 +46,12 @@ CODE_SITES = (
     (0x2894340, "hook_code_ocarina_enter", 13),  # ocarina enter (x0 = ocarina/songbook context)
     (0x28947F0, "hook_code_ocarina_leave", 14),  # ocarina leave
     (0x3292070, "hook_code_ocarina_ui", 16),     # ocarina UI update (x0 = context, every frame)
+    (0xA37320, "hook_code_iconctrl", 11),  # icon controller init (x0 controller, x1 heap): buttonMapping icons
+    (0x33F5D20, "hook_code_hudinit", 12),  # PlayerStatus HUD init (x0 HUD, x1 heap): heap for our icon controllers
+    (0x2CBD20, "hook_code_menusel", 21),   # pause-menu Items caption update (x0 panel: +0x90 item index)
+    (0x3C42590, "hook_fs_open", 18, 0xB00083F0),   # nn::fs::OpenFile import stub (x1 path, x2 mode): save slot files
+    (0xF78BA8, "hook_code_menupage", 15, 0xF9401275),  # Items page build, after its cells' icon inits (x19 page, x20 heap): ldr x21, [x19, #0x20]
+    (0x439520, "hook_code_settext", 20),   # text-pane text setter (x0 pane, x1 {chars, len}): A action label
     (0x152F8F0, "hook_code_inst", 4),   # part instance creation (x1 layout, x2 pane): diagnostics
     (0x43A6F8, "hook_ui", 2),            # UI resource build (x0 = handle, x1 = config)
 )

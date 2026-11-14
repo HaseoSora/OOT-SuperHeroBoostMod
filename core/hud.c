@@ -41,8 +41,6 @@ extern long set_text(void *pane, const void *ref, int zero);   /* stock text-pan
 extern char GAMEDATA_MGR[];                                      /* main+0x4E842A8: GameData manager pointer slot */
 extern char WORLD_MGR[];                                         /* main+0x4E7EAB0: world manager pointer slot */
 int player_active(void);
-/* button_mapping overrides this while the L-shield option is active (see core/hooks.S). */
-__attribute__((weak)) int camera_lock_should_skip(void) { return 0; }
 
 #define MARK 0x1000000000000000ull
 /* Diagnostics (in .data, read by tools/live_check.py):
@@ -1477,8 +1475,8 @@ void hud_menu_zr(int item) {   /* -1: empty */
 /* Y shows the equipped sword: GameData PlayerStatus.EquipWeapon (String64 table k = 16, record 23, 0x108 bytes
  * each, the live string at +0x74 / pointed to by +0x68). Its value is the icon name itself (Weapon_Sword_Kokiri,
  * _Master, _Giant, _Biggoron, _BrokenGiant); empty = no sword, the Y icon is hidden. */
-/* An equipped weapon / shield (GameData String64 PlayerStatus.EquipWeapon / .EquipShield = its icon name) as the
- * fixed texture of an item part: the Y button shows the sword; with the L shield mode, L shows the shield. */
+/* An equipped weapon (GameData String64 PlayerStatus.EquipWeapon = its icon name) as the fixed texture of an item
+ * part: the Y button shows the sword. */
 static void equip_mirror(u32 idx, u32 part) {
     u64 mgr = *(u64 *)GAMEDATA_MGR;
     if (!mgr) return;
@@ -1502,12 +1500,11 @@ static SlotBtn g_mb[PART_N];
 static u64 g_mb_ctrl[PART_N];
 static u64 g_mb_frame;
 u64 g_mb_dbg[PART_N];
-/* Layout options (app): simple = only the assignable buttons (no A / X / Y and the sword); L as shield or item
- * selector = L can't hold an item (simple: no L at all; extended: the L button, with the shield in shield mode). */
+/* Layout options (app): simple = only the assignable buttons (no A / X / Y and the sword); L as item selector = L
+ * can't hold an item and its button is hidden in both layouts. */
 static int bm_part_hidden(u32 k) {
     if (g_shbcfg.bm_simple && (k == SB_X || k == SB_Y || k == SB_A || k == 9)) return 1;
-    if (g_shbcfg.bm_l_mode && g_shbcfg.bm_simple && (k == SB_L || k == 7)) return 1;
-    if (g_shbcfg.bm_l_mode == 2 && (k == SB_L || k == 7)) return 1;   /* L opens the item selector: no L button in either layout */
+    if (g_shbcfg.bm_l_mode && (k == SB_L || k == 7)) return 1;   /* L opens the item selector: no L button */
     return 0;
 }
 static void slots_draw(SlotBtn *set, const u64 *ctrls, u64 frame, const float *lay, int main_set) {
@@ -1607,7 +1604,7 @@ static void hud_menu_legend(u64 page) {
     g_leg_dbg[0] = pf;
     if (!pf) return;
     static const float WHITE[3] = {1.0f, 1.0f, 1.0f}, GOLD[3] = {0.95f, 0.82f, 0.45f};
-    u32 no_l = g_shbcfg.bm_l_mode != 0;   /* L is the shield or the item selector: nothing to assign there */
+    u32 no_l = g_shbcfg.bm_l_mode != 0;   /* L is the item selector: nothing to assign there */
     if (!g_leg_bar_rec) g_leg_bar_rec = pane_record(pf, g_legbar_name);
     if (g_leg_bar_rec) {
         tint_rec(g_leg_bar_rec, g_leg_bar[5], g_leg_bar[6], g_leg_bar[7], g_leg_bar[4]);
@@ -1664,7 +1661,6 @@ static void slots_update(u64 frame) {
     if (BTNMAP) {
         zr_mirror();
         equip_mirror(GD_S64_EQUIP_WEAPON, 9);                              /* Y: the sword */
-        if (g_shbcfg.bm_l_mode == 1) equip_mirror(GD_S64_EQUIP_SHIELD, 7);  /* L: the shield */
     }   /* (the ZR icon is frozen while a slot borrows the box) */
     if (!g_stock_box_rec) g_stock_box_rec = pane_record(frame, "Pa_SelectItem_00");
     if (!g_stock_dots_rec) g_stock_dots_rec = pane_record(frame, "N_Shortcut_00");

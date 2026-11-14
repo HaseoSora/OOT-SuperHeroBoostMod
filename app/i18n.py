@@ -641,8 +641,6 @@ _BM = {
         bm_simple="Simple", bm_simple_d="Only the assignable buttons.",
         bm_l="L button",
         bm_l_assign="Item button", bm_l_assign_d="L holds an item, like B and R.",
-        bm_l_shield="Shield", bm_l_shield_d="L raises the shield without ZL's targeting. Nothing can be assigned to L; "
-                                             "the extended layout shows the equipped shield on it.",
         bm_l_selector="Item selector", bm_l_selector_d="L always opens the game's item selector for ZR. Nothing can be "
                                                        "assigned to L.",
         bm_note="Close the game before installing. The button style only changes the button pictures.",
@@ -661,8 +659,6 @@ _BM = {
         bm_simple="Simple", bm_simple_d="Solo los botones asignables.",
         bm_l="Botón L",
         bm_l_assign="Botón de objeto", bm_l_assign_d="L lleva un objeto, como B y R.",
-        bm_l_shield="Escudo", bm_l_shield_d="L levanta el escudo sin la mira de ZL. No se puede asignar nada a L; "
-                                             "en el diseño extendido muestra el escudo equipado.",
         bm_l_selector="Selector de objetos", bm_l_selector_d="L abre siempre el selector de objetos del juego para ZR. "
                                                              "No se puede asignar nada a L.",
         bm_note="Cierra el juego antes de instalar. El estilo solo cambia el dibujo de los botones.",
@@ -682,8 +678,6 @@ _BM = {
         bm_simple="Simples", bm_simple_d="Só os botões atribuíveis.",
         bm_l="Botão L",
         bm_l_assign="Botão de item", bm_l_assign_d="L guarda um item, como B e R.",
-        bm_l_shield="Escudo", bm_l_shield_d="L levanta o escudo sem a mira do ZL. Nada pode ser atribuído ao L; "
-                                             "o layout estendido mostra o escudo equipado nele.",
         bm_l_selector="Seletor de itens", bm_l_selector_d="L sempre abre o seletor de itens do jogo para o ZR. Nada "
                                                           "pode ser atribuído ao L.",
         bm_note="Feche o jogo antes de instalar. O estilo só muda o desenho dos botões.",
@@ -703,8 +697,6 @@ _BM = {
         bm_simple="Simple", bm_simple_d="Seulement les boutons attribuables.",
         bm_l="Bouton L",
         bm_l_assign="Bouton d'objet", bm_l_assign_d="L porte un objet, comme B et R.",
-        bm_l_shield="Bouclier", bm_l_shield_d="L lève le bouclier sans la visée de ZL. Rien ne peut être attribué à L ; "
-                                               "la disposition étendue y affiche le bouclier équipé.",
         bm_l_selector="Sélecteur d'objets", bm_l_selector_d="L ouvre toujours le sélecteur d'objets du jeu pour ZR. "
                                                             "Rien ne peut être attribué à L.",
         bm_note="Fermez le jeu avant d'installer. Le style ne change que le dessin des boutons.",
@@ -724,8 +716,6 @@ _BM = {
         bm_simple="Einfach", bm_simple_d="Nur die belegbaren Tasten.",
         bm_l="Taste L",
         bm_l_assign="Item-Taste", bm_l_assign_d="L trägt ein Item, wie B und R.",
-        bm_l_shield="Schild", bm_l_shield_d="L hebt den Schild ohne das Zielen von ZL. L kann nicht belegt werden; "
-                                             "das erweiterte Layout zeigt darauf den ausgerüsteten Schild.",
         bm_l_selector="Item-Auswahl", bm_l_selector_d="L öffnet immer die Item-Auswahl des Spiels für ZR. L kann "
                                                       "nicht belegt werden.",
         bm_note="Schließe das Spiel vor der Installation. Der Stil ändert nur das Aussehen der Tasten.",
@@ -745,8 +735,6 @@ _BM = {
         bm_simple="Semplice", bm_simple_d="Solo i tasti assegnabili.",
         bm_l="Tasto L",
         bm_l_assign="Tasto oggetto", bm_l_assign_d="L tiene un oggetto, come B e R.",
-        bm_l_shield="Scudo", bm_l_shield_d="L alza lo scudo senza la mira di ZL. Non si può assegnare nulla a L; "
-                                            "la disposizione estesa mostra lo scudo equipaggiato.",
         bm_l_selector="Selettore oggetti", bm_l_selector_d="L apre sempre il selettore oggetti del gioco per ZR. Non "
                                                            "si può assegnare nulla a L.",
         bm_note="Chiudi il gioco prima di installare. Lo stile cambia solo il disegno dei tasti.",

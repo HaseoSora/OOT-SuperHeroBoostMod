@@ -30,7 +30,7 @@ typedef struct {
     unsigned char button_mapping;    /* buttonMapping: our own item buttons B / L / R / ZR on the HUD */
     unsigned char button_style;      /* buttonMapping buttons: 0 Switch, 1 Xbox, 2 PlayStation */
     unsigned char bm_simple;         /* buttonMapping simple layout: only the assignable buttons (no B / A / X / Y) */
-    unsigned char bm_l_mode;         /* buttonMapping L: 0 assignable, 1 shield, 2 the game's item selector */
+    unsigned char bm_l_mode;         /* buttonMapping L: 0 assignable, 2 the game's item selector */
     unsigned char reserved[29];
 } ShbConfig;
 

@@ -135,7 +135,7 @@ reads them every frame (`g_shbcfg`). **Fields are only appended at the end** (us
 | 37 | `button_mapping` | Item buttons (button mapping) |
 | 38 | `button_style` (0 Switch, 1 Xbox, 2 PlayStation) | Button style |
 | 39 | `bm_simple` | Simple layout (assignable buttons only) |
-| 40 | `bm_l_mode` (0 item, 1 shield, 2 selector) | What the L button does |
+| 40 | `bm_l_mode` (0 item, 2 the game's item selector) | What the L button does |
 
 **Adding a new option:** field in `config.h` (taking bytes from `reserved`), default value in `config.c`, write in
 `installer.patch_config` (`f = magic + 16`), field in `installer.Settings`, flag in `main.cli`, control in `main.py`

@@ -61,7 +61,7 @@ dropped hearts become green rupees (the optional romfs file; see the note below)
   speed.
 - **Difficulty**: enemy health, damage taken, heart drops.
 - **HUD & buttons**: rupee counter, clock (**off / 12 h / 24 h**, one selector), button mapping (on/off), button
-  style (Switch / PlayStation / Xbox), layout (extended / simple) and L mode (item / shield / selector).
+  style (Switch / PlayStation / Xbox), layout (extended / simple) and L mode (item / selector).
 - **Miscellaneous**: Songbook autoplay (select a learned song in the game's native songbook with ZL and it plays
   automatically, effect included; not the Scarecrow's Song) and two
   **beta** toggles:

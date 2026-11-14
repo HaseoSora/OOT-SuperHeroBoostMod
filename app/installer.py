@@ -15,7 +15,8 @@ MOD_NAME = "00-Super-Hero-Boost"
 MARKER = ".super-hero-boost"
 BUTTON_STYLES = ("switch", "playstation", "xbox")   # buttonMapping button art (the config byte: 0 Switch, 1 Xbox, 2 PS)
 STYLE_BYTE = {"switch": 0, "xbox": 1, "playstation": 2}
-L_MODES = ("assign", "shield", "selector")         # buttonMapping L: an item slot, the shield, the game's item selector
+L_MODES = ("assign", "selector")           # buttonMapping L: an item slot or the game's item selector
+L_MODE_VALUES = {"assign": 0, "selector": 2}
 
 
 class InstallError(Exception):
@@ -172,7 +173,7 @@ def patch_config(nso: bytes, s: Settings) -> bytes:
     b[f + 21] = int(s.button_mapping)
     b[f + 22] = STYLE_BYTE.get(s.button_style, 0)
     b[f + 23] = int(s.bm_simple)
-    b[f + 24] = L_MODES.index(s.bm_l_mode) if s.bm_l_mode in L_MODES else 0
+    b[f + 24] = L_MODE_VALUES.get(s.bm_l_mode, 0)
     return bytes(b)
 
 

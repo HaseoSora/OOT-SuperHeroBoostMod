@@ -29,7 +29,7 @@ the textures and the app are original work: no third-party mod is bundled or dow
   - **Switch / PlayStation / Xbox** button styles.
   - **Extended** layout (B, L, R, ZR, X, Y, A and the sword) or **simple** layout (only the assignable buttons, with
     B centred and L / R / ZR repositioned so there are no gaps).
-  - **L button modes**: item, shield or the game's item selector.
+  - **L button modes**: item or the game's item selector.
 
 ### Configuration app
 
@@ -71,8 +71,7 @@ Prebuilt binaries are not published in this repository yet; build the app from s
 - In the pause menu's **Items** tab, with an item highlighted: **X** assigns it to **B**, **L** to **L**, **R** to
   **R** and **A** to the game's **ZR** box.
 - Pressing the same button again unassigns it; if the item was already in another slot, they are swapped.
-- If L is in **shield** or **selector** mode, L cannot be assigned and its button is hidden from the HUD and from the
-  legend.
+- If L is in **selector** mode, L cannot be assigned and its button is hidden from the HUD and from the legend.
 - In **selector** mode, L opens the game's item selector.
 
 ### Command line

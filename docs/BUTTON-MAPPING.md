@@ -13,7 +13,6 @@ project.
 | Extended layout | B, L, R, ZR, X, Y, A and the sword |
 | Simple layout | only the assignable B, L, R and ZR buttons; hides X, Y, A and the sword and repositions L / R / ZR in place with B centred and closer, in a zigzag, both on the HUD and on the pause menu's Items tab |
 | L mode: item | L is one more item slot |
-| L mode: shield | L acts as ZL (shield) without locking the camera; in the extended layout it shows the equipped shield and cannot be assigned; in the simple layout it is hidden |
 | L mode: selector | L opens the game's item selector; the L button is hidden in both layouts and the menu legend removes L |
 | Pause assignment | Items tab: B / L / R on the highlighted item; an item already in another slot is swapped |
 | Icons | `PaItemBtn_00` parts with the item icon and its shadow, like the native item box |
@@ -63,7 +62,3 @@ layout at 39 and L mode at 40.
 
 `tools/make_buttons.py` draws the three button sets with shapes and text, without game material. Each style produces
 its own `OotBtn*_*` textures and the installer copies only the set for the chosen style.
-
-## Pending
-
-- In-game verification of the L-shield mode.

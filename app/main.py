@@ -58,7 +58,7 @@ def cli(argv) -> int:
     ap.add_argument("--button-style", choices=I.BUTTON_STYLES, default=None, help="button mapping: button pictures")
     ap.add_argument("--bm-simple", action="store_true", help="button mapping: simple layout (assignable buttons only)")
     ap.add_argument("--bm-l", choices=I.L_MODES, default=None,
-                    help="button mapping: L is an item button (assign), the shield, or the game's item selector")
+                    help="button mapping: L is an item button (assign) or the game's item selector")
     ap.add_argument("--no-stamina", action="store_true")
     ap.add_argument("--no-songbook", action="store_true", help="disable playing songs from the native songbook")
     ap.add_argument("--enemy-double", action="store_true", help="beta: duplicate generic enemies (romfs)")

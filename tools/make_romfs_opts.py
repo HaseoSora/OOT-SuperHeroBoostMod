@@ -12,7 +12,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 DEVTOOL = Path(os.environ.get("SHB_DEVTOOL", r"F:\project\oot\vendor\devtool\oot-remake-devtool-main"))
-ROMFS = Path(os.environ.get("SHB_ROMFS", r"F:\switch2\hookshott\romfs"))
+ROMFS = Path(os.environ.get("SHB_ROMFS", r"F:\switch2\Longshot\romfs"))
 OUT = ROOT / "app" / "payload" / "romfs_opts"
 DROP = "GameParameter/DropGlobalParam/Default.game__drop__DropGlobalParam.bgyml"
 RUPEE = "Work/Actor/Obj_Rupee_Green.engine__actor__ActorParam.gyml"

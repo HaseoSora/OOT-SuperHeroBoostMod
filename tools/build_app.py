@@ -17,6 +17,8 @@ ROOT = Path(__file__).resolve().parent.parent
 NAME = "SuperHeroBoostConfig"
 DIST = ROOT / "release"
 WORK = ROOT / "build" / "pyi"
+if not (ROOT / "app" / "payload").exists():
+    raise SystemExit("app/payload is missing: run tools/make_release.py on a machine with the game dump first")
 WORK.mkdir(parents=True, exist_ok=True)
 
 subprocess.run([

@@ -54,7 +54,8 @@ las constantes y operaciones publicadas. Se usa en tiempo de compilación para g
 
 Se revisaron los archivos versionados y los textos de la app:
 
-- No quedan referencias a Zelda, Link, Nintendo, Ocarina of Time, Hyrule ni la Trifuerza en el producto.
+- No quedan referencias textuales a Zelda, Link, Nintendo, Ocarina of Time ni Hyrule en el producto. El emblema de tres
+  triángulos de la cabecera se dibuja por código (tres polígonos) y no usa ningún asset ni logotipo oficial.
 - "Link" se sustituyó por "el jugador"/"the player" en comentarios y documentación; los identificadores internos
   pasaron de `g_link_*` a `g_player_*`.
 - "Hero Mode" se mantiene como nombre genérico de dificultad (es el término que usa el propio producto).

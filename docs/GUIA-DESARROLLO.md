@@ -65,7 +65,7 @@ release/             binario de la app (ignorado por git)
 Rutas externas que usan las herramientas (en este PC):
 - Toolchain LLVM: `F:\project\oot\tools\llvm-mingw\llvm-mingw-20261104-ucrt-x86_64\bin`
 - `main` original (solo lectura, para verificar ganchos y desensamblar): `F:\project\oot\data\stock-exefs\main`
-- Volcado del romfs: `F:\switch2\hookshott\romfs`
+- Volcado del romfs: `F:\switch2\Longshot\romfs` (configurable con `SHB_ROMFS`)
 - Cliente del servidor de depuración y lectores de BYML/GameData (solo desarrollo): ruta configurable con `SHB_DEVTOOL`.
 - Diccionario zstd del archivo de UI: `F:\project\oot\data\zsdic1.bin`
 
@@ -162,10 +162,11 @@ multiplica el argumento de velocidad.
 - Valores de vida de cada enemigo: `Pack/Actor/<Enemigo>.pack.zs` → `Life/LifeParameters/*.bgyml` (`MaxLife`).
 
 ### 4.4 Sin drop de corazones (romfs)
-`tools/make_romfs_opts.py` genera, a partir del volcado del propio juego, `GameParameter/DropGlobalParam/...` con
-`DropGlobalParam.HpActor` (el actor que cae como "corazón") apuntando a la rupia verde. La app copia ese romfs si la
-opción está marcada. Si el payload no lo incluye (no se ejecutó el generador con el volcado), la app instala el resto
-y avisa con una nota; no bloquea la instalación.
+`tools/make_romfs_opts.py` genera, a partir del volcado del propio juego (`F:\switch2\Longshot\romfs` o `SHB_ROMFS`),
+`GameParameter/DropGlobalParam/...` con `DropGlobalParam.HpActor` (el actor que cae como "corazón") apuntando a la
+rupia verde. Solo se necesita al compilar: el payload/release ya incluye el archivo generado, así que el usuario final
+no necesita el volcado. La app copia ese romfs si la opción está marcada; si falta, instala el resto y avisa con una
+nota sin bloquear.
 
 ## 5. HUD propio (`core/hud.c`)
 

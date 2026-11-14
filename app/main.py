@@ -73,7 +73,8 @@ def cli(argv) -> int:
         from i18n import T
         for key in PROFILE_KEYS:
             token = "profile_custom" if key == "custom" else "p_" + key.replace("-", "_")
-            print(f"{key:13s} {T['en'].get(token, '')}")
+            name = T["en"].get(token, "").replace("★", "*")
+            print(f"{key:13s} {name}")
         return 0
     if not a.emu:
         ap.error("--emu is required")
@@ -285,6 +286,14 @@ def gui() -> None:
         cb.current(values.index(var.get()) if var.get() in values else 0)
         return cb
 
+    def emblem(canvas, cx, cy, size):
+        """Three golden triangles: the pack's emblem (no game assets or text)."""
+        h = size * 0.866
+        for dx, dy in ((0, -h / 2), (-size / 2, h / 2), (size / 2, h / 2)):
+            x, y = cx + dx, cy + dy
+            canvas.create_polygon(x, y - h / 2, x - size / 2, y + h / 2, x + size / 2, y + h / 2,
+                                  fill=ACCENT, outline="#f1d27a", width=1)
+
     # ---- profile handling ----
     def profile_name(key):
         return L("profile_custom") if key == "custom" else L("p_" + key.replace("-", "_"))
@@ -441,6 +450,19 @@ def gui() -> None:
         ui["profile_badge"].config(text=L("profile_current", a=profile_name(profile.get())),
                                    fg=AMBER if profile.get() == "custom" else ACCENT)
         ui["reapply"].config(state="normal" if profile.get() != "custom" else "disabled")
+        # Keep the comboboxes in sync with the model, so a profile changes every visible control.
+        for cb, var, svar, names, choices in ui.get("mult", []):
+            idx = choices.index(var.get()) if var.get() in choices else 0
+            svar.set(names[idx])
+            cb.current(idx)
+        if "sprint" in ui:
+            idx = SPEEDS.index(speed.get()) if speed.get() in SPEEDS else 0
+            ui["sprint_var"].set(ui["sprint_values"][idx])
+            ui["sprint"].current(idx)
+        if "variant" in ui:
+            idx = list(I.CLASSIC_VARIANTS).index(variant.get()) if variant.get() in I.CLASSIC_VARIANTS else 0
+            ui["variant_var"].set(ui["variant_values"][idx])
+            ui["variant"].current(idx)
 
     # ---- sections ----
     def build_install(parent):
@@ -504,6 +526,7 @@ def gui() -> None:
         values = [L("speed_van")] + ["×%g" % (v / 100) for v in SPEEDS[1:]]
         svar = tk.StringVar(value=values[SPEEDS.index(speed.get())])
         ui["sprint_var"] = svar
+        ui["sprint_values"] = values
         cb = combo(row, values, svar, width=14)
         cb.pack(side="left")
         cb.bind("<<ComboboxSelected>>", lambda e: speed.set(SPEEDS[cb.current()]))
@@ -514,13 +537,14 @@ def gui() -> None:
         row = tk.Frame(body, bg=PANEL)
         row.pack(fill="x")
         names = [L("mult_van"), L("mult_15"), L("mult_2"), L("mult_3")]
+        ui["mult"] = []
         for n, (lab, var) in enumerate(((L("enemy_hp"), hp), (L("damage"), dmg))):
             label(row, lab + ":", size=10, bg=PANEL).grid(row=0, column=n * 2, sticky="w", padx=(0, 6))
             svar = tk.StringVar(value=names[MULT.index(var.get())])
-            ui[f"mult_var_{n}"] = svar
             cb = combo(row, names, svar, width=14)
             cb.grid(row=0, column=n * 2 + 1, padx=(0, 24))
             cb.bind("<<ComboboxSelected>>", lambda e, c=cb, v=var: v.set(MULT[c.current()]))
+            ui["mult"].append((cb, var, svar, names, MULT))
         c = check(body, L("no_heart_drop"), nodrop)
         c.pack(anchor="w", pady=(10, 0))
         label(body, L("no_heart_drop_desc"), size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=(20, 0))
@@ -546,6 +570,7 @@ def gui() -> None:
         names = [L("g_" + k) for k in I.CLASSIC_VARIANTS]
         vvar = tk.StringVar(value=names[list(I.CLASSIC_VARIANTS).index(variant.get())])
         ui["variant_var"] = vvar
+        ui["variant_values"] = names
         cb = combo(row, names, vvar, width=16)
         cb.pack(side="left")
         cb.bind("<<ComboboxSelected>>", lambda e: variant.set(list(I.CLASSIC_VARIANTS)[cb.current()]))
@@ -564,8 +589,15 @@ def gui() -> None:
         hd.pack(fill="x", padx=18, pady=(14, 8))
         left = tk.Frame(hd, bg=BG)
         left.pack(side="left", fill="x", expand=True)
-        tk.Label(left, text="Super Hero Boost", bg=BG, fg=ACCENT, font=(DISPLAY, 24, "bold")).pack(anchor="w")
-        tk.Label(left, text=L("subtitle"), bg=BG, fg=DIM, font=(FAM, 10)).pack(anchor="w")
+        brand = tk.Frame(left, bg=BG)
+        brand.pack(anchor="w")
+        logo = tk.Canvas(brand, width=58, height=48, bg=BG, highlightthickness=0)
+        logo.pack(side="left", padx=(0, 12))
+        emblem(logo, 29, 25, 30)
+        names = tk.Frame(brand, bg=BG)
+        names.pack(side="left")
+        tk.Label(names, text="Super Hero Boost", bg=BG, fg=ACCENT, font=(DISPLAY, 24, "bold")).pack(anchor="w")
+        tk.Label(names, text=L("subtitle"), bg=BG, fg=DIM, font=(FAM, 10)).pack(anchor="w")
         right = tk.Frame(hd, bg=BG)
         right.pack(side="right")
         ui["profile_badge"] = tk.Label(right, text="", bg=BG, fg=ACCENT, font=(FAM, 10, "bold"))

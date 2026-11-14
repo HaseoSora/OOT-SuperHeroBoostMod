@@ -33,13 +33,15 @@ per-user configuration folder (see the README). The app never needs administrato
 
 A profile sets **every** gameplay option. Every fixed profile includes the HUD and Classic Item Slots. Changing any
 option afterwards switches the profile to **Custom** and keeps your value. The button style (Switch / PlayStation /
-Xbox), the language and the emulator folder are not part of a profile.
+Xbox), the language and the emulator folder are not part of a profile. **Recommended** is the default and enables
+everything.
 
 Sprint is always **×1.25** in the profiles. It is only a starting point and can be changed by hand in the Stamina
 section; the profiles never use ×1.75, ×2 or ×3.
 
 | Profile | Stamina | Stamina style | Enemy HP | Damage | No hearts | Sprint | HUD | Classic |
 |---|---|---|---|---|---|---|---|---|
+| **Recommended** | on | Hardcore | ×1.5 | ×2 | on | ×1.25 | on | on |
 | Base | off | — | ×1 | ×1 | off | ×1.25 | on | on |
 | Hero Mode | off | — | ×1.5 | ×2 | on | ×1.25 | on | on |
 | Hero + Stamina | on | Hardcore | ×1.5 | ×2 | on | ×1.25 | on | on |
@@ -70,7 +72,7 @@ automatically (250 ms debounce).
 The same install code is available without a window:
 
 ```
-python app/main.py --cli --emu "RUTA_DEL_EMULADOR" --profile hero-stamina
+python app/main.py --cli --emu "RUTA_DEL_EMULADOR" --profile recommended
 python app/main.py --cli --emu "RUTA_DEL_EMULADOR" --preset 3 --off jump,shoot --combat-only
 python app/main.py --cli --emu "RUTA_DEL_EMULADOR" --profile hero-explorer --rupees --clock --clock24
 python app/main.py --list-profiles
@@ -94,9 +96,24 @@ PyInstaller from the same Python installation used to build; Linux produces a pl
 Classic Item Slots is downloaded by the app at install time and cached in the per-user folder. If the machine is
 offline the install stops with a clear error before touching the mod folder.
 
+## Linux
+
+The app itself is plain Python + Tkinter and builds on Linux:
+
+```
+sudo apt install python3 python3-tk
+python3 -m pip install --user pyinstaller
+python3 tools/build_app.py          # release/SuperHeroBoostConfig
+```
+
+`make_release.py` (the mod payload) is a separate step: it needs the LLVM toolchain and the game dump, so the usual
+flow is to build the payload once (on any machine that has them) and then build the app on each target OS. PyInstaller
+does not cross-compile.
+
 ## No-heart-drop file
 
 The "no hearts" option changes a game data table (`DropGlobalParam`) through romfs; it is not code. The repository does
-not redistribute that table. `tools/make_romfs_opts.py` generates it from the user's own game dump, and
-`make_release.py` keeps an existing `app/payload/romfs_opts` when rebuilding. If the file is missing, the app installs
-everything else and shows a note.
+not redistribute that table. `tools/make_romfs_opts.py` generates it from the user's own game dump (this project uses
+`F:\switch2\Longshot\romfs`, or `SHB_ROMFS`), and `make_release.py` keeps an existing `app/payload/romfs_opts` when
+rebuilding. That file is only needed at build time: the release payload already includes the generated copy, so users
+do not need a dump. If the file is missing, the app installs everything else and shows a note.

@@ -42,6 +42,8 @@ def _profile(key, *, classic=True, stamina=True, mode=0, costs=(True,) * 6, comb
 
 
 PROFILES = {
+    # Everything on: Hero Mode difficulty, hardcore stamina, HUD and Classic.
+    "recommended": _profile("recommended", enemy_hp=150, damage=200, no_heart_drop=True),
     # Vanilla difficulty, but with the pack's HUD and extra buttons.
     "base": _profile("base", stamina=False),
     # Hero Mode: x1.5 enemy health, x2 damage, no hearts.
@@ -58,8 +60,9 @@ PROFILES = {
     "survival": _profile("survival", enemy_hp=200, damage=200, no_heart_drop=True),
 }
 
-PROFILE_KEYS = ("base", "hero", "hero-stamina", "hero-explorer", "super-hero", "ultra-hero", "survival", "custom")
-DEFAULT_PROFILE = "hero-stamina"
+PROFILE_KEYS = ("recommended", "base", "hero", "hero-stamina", "hero-explorer", "super-hero", "ultra-hero",
+                "survival", "custom")
+DEFAULT_PROFILE = "recommended"
 
 
 def defaults() -> dict:

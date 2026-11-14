@@ -3,9 +3,9 @@
 Módulo de gameplay para el remake de consola (actualización v131072) y su app de configuración multiplataforma
 `SuperHeroBoostConfig`:
 
-- **Perfiles completos**: Base, Modo héroe, Héroe + estamina, Héroe explorador, Superhéroe, Ultra héroe y Supervivencia.
-  Todos incluyen el HUD y Classic Item Slots, y ajustan de una vez la dificultad, la estamina y el sprint; cualquier
-  cambio manual pasa a **Personalizado**.
+- **Perfiles completos**: **Recomendado** (todo activado), Base, Modo héroe, Héroe + estamina, Héroe explorador,
+  Superhéroe, Ultra héroe y Supervivencia. Todos incluyen el HUD y Classic Item Slots, y ajustan de una vez la
+  dificultad, la estamina y el sprint; cualquier cambio manual pasa a **Personalizado**.
 - **Estamina** con estilos (hardcore, solo combate, solo sprint, avanzado), agotamiento y recarga; coste al rodar,
   saltar, atacar, disparar, esprintar y bloquear con el escudo.
 - **Anillo de estamina** junto al jugador, dibujado con texturas del juego.

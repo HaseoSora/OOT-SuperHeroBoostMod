@@ -62,11 +62,13 @@ build/               salidas y capturas (ignorado por git)
 release/             binario de la app (ignorado por git)
 ```
 
-Rutas externas que usan las herramientas (en este PC):
-- Toolchain LLVM: `F:\project\oot\tools\llvm-mingw\llvm-mingw-20261104-ucrt-x86_64\bin`
+Rutas externas que usan las herramientas (en este PC, todas configurables por variable de entorno):
+- Toolchain LLVM: `F:\project\oot\tools\llvm-mingw\llvm-mingw-20261104-ucrt-x86_64\bin` (`SHB_LLVM`; en Linux, una
+  carpeta con `clang`, `ld.lld`, `llvm-objcopy`, `llvm-size` y `llvm-nm`).
 - `main` original (solo lectura, para verificar ganchos y desensamblar): `F:\project\oot\data\stock-exefs\main`
-- Volcado del romfs: `F:\switch2\Longshot\romfs` (configurable con `SHB_ROMFS`)
-- Cliente del servidor de depuración y lectores de BYML/GameData (solo desarrollo): ruta configurable con `SHB_DEVTOOL`.
+  (`SHB_STOCK_MAIN`).
+- Volcado del romfs: `F:\switch2\Longshot\romfs` (`SHB_ROMFS`).
+- Cliente del servidor de depuración y lectores de BYML/GameData (solo desarrollo): `SHB_DEVTOOL`.
 - Diccionario zstd del archivo de UI: `F:\project\oot\data\zsdic1.bin`
 
 ## 3. Cómo funciona el módulo

@@ -28,16 +28,16 @@ from hook_sites import (CODE_SITES, DISABLED_SITES, INPUT_SITES, PACIBSP,  # noq
                         SLOT_SITES, SLOT_STOCK)
 
 ROOT = Path(__file__).resolve().parent.parent
-TOOLCHAIN_BIN = Path(
-    r"F:\project\oot\tools\llvm-mingw\llvm-mingw-20261104-ucrt-x86_64\bin"
-)
-CLANG = TOOLCHAIN_BIN / "clang.exe"
-LLD = TOOLCHAIN_BIN / "ld.lld.exe"
-OBJCOPY = TOOLCHAIN_BIN / "llvm-objcopy.exe"
-SIZE = TOOLCHAIN_BIN / "llvm-size.exe"
-NM = TOOLCHAIN_BIN / "llvm-nm.exe"
+TOOLCHAIN_BIN = Path(os.environ.get(
+    "SHB_LLVM", r"F:\project\oot\tools\llvm-mingw\llvm-mingw-20261104-ucrt-x86_64\bin"))
+EXE = ".exe" if os.name == "nt" else ""
+CLANG = TOOLCHAIN_BIN / f"clang{EXE}"
+LLD = TOOLCHAIN_BIN / f"ld.lld{EXE}"
+OBJCOPY = TOOLCHAIN_BIN / f"llvm-objcopy{EXE}"
+SIZE = TOOLCHAIN_BIN / f"llvm-size{EXE}"
+NM = TOOLCHAIN_BIN / f"llvm-nm{EXE}"
 
-STOCK_MAIN = Path(r"F:\project\oot\data\stock-exefs\main")
+STOCK_MAIN = Path(os.environ.get("SHB_STOCK_MAIN", r"F:\project\oot\data\stock-exefs\main"))
 MAIN_BUILD_ID = "E0F3CCFAF50065AE4EA01EB5AEB13B1A45DA3348"
 
 BASE = 0x4F80000

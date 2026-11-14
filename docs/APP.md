@@ -110,6 +110,10 @@ python3 tools/build_app.py          # release/SuperHeroBoostConfig
 flow is to build the payload once (on any machine that has them) and then build the app on each target OS. PyInstaller
 does not cross-compile.
 
+To build the payload on Linux too, install `clang`, `lld` and the LLVM binutils, then set `SHB_LLVM` (folder with
+`clang`, `ld.lld`, `llvm-objcopy`, `llvm-size`, `llvm-nm`), `SHB_STOCK_MAIN` (the game's `main`), `SHB_ROMFS` (the
+`romfs` dump) and `SHB_DEVTOOL` (the BYML reader used by `make_romfs_opts.py`).
+
 ## No-heart-drop file
 
 The "no hearts" option changes a game data table (`DropGlobalParam`) through romfs; it is not code. The repository does

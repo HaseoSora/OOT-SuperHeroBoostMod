@@ -76,7 +76,9 @@ They are not distributed, but they should be documented:
 - `lz4` and `zbic` to decompress the original `main` during verification.
 - The debug server client and the BYML/GameData readers used by the test scripts.
 
-## Pending decision
+## Licence
 
-The project has no `LICENSE` file. If it is going to be published, a licence should be chosen for the original code
-(for example MIT). This audit does not decide the licence; it only records what is original and what is third-party.
+The project is released under the **Apache License, Version 2.0** (see [LICENSE](../LICENSE)). It allows use,
+modification and redistribution, including commercial use, provided the copyright and licence notices are kept and
+changes are stated. This audit does not change that licence; it only records what is original and what is third-party.
+Third-party development tools keep their own licences.

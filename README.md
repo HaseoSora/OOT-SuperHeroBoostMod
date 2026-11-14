@@ -116,3 +116,20 @@ runtime and only bundles its own module and its own art. You need your own legal
 ## Credits
 
 Module, HUD, stamina system, button mapping (with its textures) and app: original work by Kuribox.
+
+Thanks to:
+
+- [Kabosune / oot-remake-modding](https://github.com/Kabosune/oot-remake-modding) for the modding documentation
+  and help.
+- [platinumagpie / oot-remake-devtool](https://github.com/platinumagpie/oot-remake-devtool) for the development tools
+  used during research and testing.
+
+These projects are development references and tools; their code is not bundled with this mod.
+
+## License
+
+Licensed under the **Apache License, Version 2.0**. See [LICENSE](LICENSE).
+
+You can use, modify, redistribute and build on this project, including commercially, as long as you keep the
+copyright and license notices and state the changes you made. The license also includes an express grant of patent
+rights and does not grant any trademark rights.

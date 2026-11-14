@@ -329,6 +329,54 @@ static u8 *build_menu(const u8 *r) {
     g_menu_build_dbg[0]++;
     return root;
 }
+/* The pause menu's root layout (PlusMenu_00) gets LEG_N text panes for the assign legend (hud_menu_legend):
+ * clones of its own T_Text_00 (the Items page has no text pane to clone, and a text pane only works with its own
+ * layout's fonts and materials). Names T_OotTxt_10.. (the HUD uses _00.._09, in another layout). */
+#define LEG_N 5
+static char g_lnames[LEG_N][16] = {"T_OotTxt_10", "T_OotTxt_11", "T_OotTxt_12", "T_OotTxt_13", "T_OotTxt_14"};   /* arrays, not pointers: no relocations */
+static const u64 g_lhash[LEG_N] = {HASH_TXT10, HASH_TXT11, HASH_TXT12, HASH_TXT13, HASH_TXT14};
+u32 g_plus_build_dbg[2];   /* copies built, failure step */
+static u8 *build_plus(const u8 *r) {
+    if (name_index(r, 0x20, g_lnames[0]) >= 0) { g_plus_build_dbg[1] = 2; return 0; }
+    int ci = name_index(r, 0x20, "T_Text_00"), bi = name_index(r, 0x40, "T_Text_00"), ti = name_index(r, 0x80, "T_Text_00");
+    u32 nc = w(r, 0x38), nb = w(r, 0x58), nt = w(r, 0x98);
+    if (ci < 0 || bi < 0 || ti < 0 || nc > 512) { g_plus_build_dbg[1] = 3; return 0; }
+    u8 *root = pool_clone(r, 0x228);
+    u8 *first = pool_clone((const void *)((const u64 *)q(r, 0x28))[0], 68);
+    if (!root || !first) { g_plus_build_dbg[1] = 4; return 0; }
+    for (u32 t = 0; t < LEG_N; t++) {
+        u8 *cd = pool_clone((const void *)((const u64 *)q(r, 0x28))[ci], 68);
+        u8 *bd = pool_clone((const void *)((const u64 *)q(r, 0x48))[bi], 0x88);
+        u8 *td = pool_clone((const void *)((const u64 *)q(r, 0x88))[ti], 0xA8);
+        if (!cd || !bd || !td) { g_plus_build_dbg[1] = 4; return 0; }
+        *(u64 *)(td + 0x18) = q(td, 0x10);   /* default text: the empty string */
+        *(float *)(td + 0x98) = 1500.0f;
+        *(float *)(cd + 0x2C) = 900.0f; *(float *)(cd + 0x30) = 90.0f;
+        *(float *)(cd + 0x10) = 0.0f; *(float *)(cd + 0x14) = 0.0f;   /* hidden until placed */
+        *(u32 *)(cd + 40) = 0;
+        *(u32 *)(cd + 52) = nc + t + 1;
+        *(unsigned short *)(cd + 0x3c) = (unsigned short)(nb + t);
+        *(unsigned short *)(cd + 0x42) = (unsigned short)(nt + t);
+        if (!tbl_add(root, 0x20, g_lnames[t], cd, g_lhash[t]) || !tbl_add(root, 0x40, g_lnames[t], bd, g_lhash[t]) ||
+            !tbl_add(root, 0x80, g_lnames[t], td, g_lhash[t])) { g_plus_build_dbg[1] = 5; return 0; }
+    }
+    *(u32 *)(first + 52) = nc + LEG_N;
+    ((u64 *)q(root, 0x28))[0] = (u64)first;
+    {   /* per picture/text-list entry table: grow it */
+        u32 oc = w(r, 0x210);
+        const u8 *op = (const u8 *)q(r, 0x208);
+        if (op && oc == nb) {
+            int *na = pool_alloc((oc + LEG_N) * 4);
+            if (!na) { g_plus_build_dbg[1] = 5; return 0; }
+            memcpy(na, op, oc * 4);
+            for (u32 k = 0; k < LEG_N; k++) na[oc + k] = -1;
+            *(u64 *)(root + 0x208) = (u64)na;
+            *(u32 *)(root + 0x210) = oc + LEG_N;
+        } else { g_plus_build_dbg[1] = 6; return 0; }
+    }
+    g_plus_build_dbg[0]++;
+    return root;
+}
 static u8 *build_root(const u8 *r) {
     pic_names();
     if (name_index(r, 0x20, g_pinames[0]) >= 0) { g_hud_dbg[9] = MARK | 1; return 0; }
@@ -512,7 +560,8 @@ void *hud_prepare(void *handle, u8 *config) {
         char *d = g_pl[g_pl_n++];
         for (int i = 0; i < 15; i++) { d[i] = inst[i]; d[16 + i] = asset[i]; }
     }
-    u32 kind = str_eq(asset, "PlayerStatus_00") ? 1 : REPLICA && str_eq(asset, "PaItemMenu_00") ? 3 : 0;
+    u32 kind = str_eq(asset, "PlayerStatus_00") ? 1 : REPLICA && str_eq(asset, "PaItemMenu_00") ? 3 :
+               REPLICA && str_eq(asset, "PlusMenu_00") ? 4 : 0;
     /* one of our slot buttons: its nested Pa_ReplaceIcon_00 is built next and gets the private copy */
     for (u32 k = 0; !kind && k < PART_N; k++)
         if (str_eq(inst, part_name(k))) { g_repicon_armed = 1; return config; }
@@ -524,7 +573,7 @@ void *hud_prepare(void *handle, u8 *config) {
         if (g_res[i].src == r && g_res[i].kind == kind) { rep = g_res[i].copy; break; }
     if (i == g_res_n) {
         if (g_res_n == 140) return config;
-        rep = kind == 1 ? build_root(r) : kind == 3 ? build_menu(r) : build_repicon(r);
+        rep = kind == 1 ? build_root(r) : kind == 3 ? build_menu(r) : kind == 4 ? build_plus(r) : build_repicon(r);
         if (!rep) return config;
         g_res[i].src = r; g_res[i].copy = rep; g_res[i].kind = kind;
         g_res_n++;
@@ -1373,11 +1422,49 @@ static void slots_draw(SlotBtn *set, const u64 *ctrls, u64 frame, float dx, floa
 }
 /* Pause menu, Items tab: the cluster drawn on the menu page itself. Neither the HUD layer nor its frame update
  * run under the menu, so this is driven by the input hook (features/classic_slots), every frame. */
+/* Assign legend on the Items tab, bottom right above the game's own guide: which menu button assigns to which
+ * slot. g_leg_pos = x of the first text, y, x step, text scale (layout units of PlusMenu_00, y up). */
+static char g_leg_txt[LEG_N][16] = {"Asignar:", "X: B", "L: L", "R: R", "A: ZR"};
+float g_leg_pos[4] = {640.0f, -850.0f, 250.0f, 1.3f};
+static u64 g_plus_frame, g_leg_rec[LEG_N], g_leg_set;
+static u32 g_leg_shown;
+u64 g_leg_dbg[2];
+static void hud_menu_legend(u64 page) {
+    u64 pf = page ? ptr(page, 0x30) : 0;   /* the page frame +0x30: the PlusMenu_00 frame */
+    if (pf != g_plus_frame) { g_plus_frame = pf; g_leg_set = 0; for (u32 t = 0; t < LEG_N; t++) g_leg_rec[t] = 0; }
+    g_leg_dbg[0] = pf;
+    if (!pf) return;
+    static const float WHITE[3] = {1.0f, 1.0f, 1.0f}, GOLD[3] = {0.95f, 0.82f, 0.45f};
+    for (u32 t = 0; t < LEG_N; t++) {
+        if (!g_leg_rec[t]) g_leg_rec[t] = pane_record(pf, g_lnames[t]);
+        u64 rec = g_leg_rec[t];
+        if (!rec) continue;
+        if (g_leg_set != pf) {
+            u32 n = 0;
+            while (g_leg_txt[t][n]) n++;
+            struct { const void *s; u32 len, z; long long m1; } ref = {g_leg_txt[t], n, 0, -1};
+            set_text((void *)rec, &ref, 0);
+            g_leg_dbg[1]++;
+        }
+        const float *c = t ? WHITE : GOLD;
+        tint_rec(rec, c[0], c[1], c[2], 1.0f);
+        place(rec, g_leg_pos[0] + g_leg_pos[2] * (float)t, g_leg_pos[1], g_leg_pos[3], g_leg_pos[3], 0.0f);
+    }
+    g_leg_set = pf;
+    g_leg_shown = 1;
+}
+/* the menu shows another tab (or closes): hide the legend once */
+void hud_menu_off(void) {
+    if (!g_leg_shown || !g_plus_frame) return;
+    g_leg_shown = 0;
+    for (u32 t = 0; t < LEG_N; t++) if (g_leg_rec[t]) place(g_leg_rec[t], 0.0f, 0.0f, 0.0f, 0.0f, 0.0f);
+}
 void hud_menu_tick(void) {
     if (!REPLICA || g_sb_busy || !hud_menu_items()) return;
     u64 mf = ptr(g_menu_panel, 0x20);
     if (!mf) return;
     if (mf != g_mb_frame) { g_mb_frame = mf; for (u32 k = 0; k < PART_N; k++) g_mb[k].part = 0; }
+    hud_menu_legend(mf);
     slots_draw(g_mb, g_mb_ctrl, mf, g_mb_off[0], g_mb_off[1], g_mb_off[2], 0);
 }
 static void slots_update(u64 frame) {

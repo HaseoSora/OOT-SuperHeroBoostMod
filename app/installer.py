@@ -51,6 +51,8 @@ class Settings:
     hud_clock: bool = False
     clock_24h: bool = False
     songbook: bool = True            # play a learned song by selecting it in the native songbook
+    enemy_double: bool = False       # beta: install the duplicated-enemy romfs mod
+    enemy_speed: bool = False        # beta: install the x2 enemy animation/movement/cadence romfs mod
 
     def to_dict(self): return dict(self.__dict__)
 
@@ -287,6 +289,15 @@ def install(emu: Path, s: Settings, classic_variant: str = "default", name: str 
             # The option needs a file generated from the user's own game dump. Never block the
             # rest of the installation just because this optional file was not built.
             res.notes.append(("no_heart_drop_missing", ""))
+
+    for opt, enabled in (("enemy_double", s.enemy_double), ("enemy_speed", s.enemy_speed)):
+        if not enabled:
+            continue
+        src = pay.parent / "romfs_opts" / opt
+        if src.exists():
+            shutil.copytree(src, target / "romfs", dirs_exist_ok=True)
+        else:
+            res.notes.append((opt + "_missing", ""))
 
     conflicts = other_exefs_mods(mods, {name})
     if conflicts:

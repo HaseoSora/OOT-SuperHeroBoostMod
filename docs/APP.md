@@ -63,8 +63,14 @@ dropped hearts become green rupees (the optional romfs file; see the note below)
 - **Dificultad**: enemy health, damage taken, heart drops.
 - **HUD y botones**: rupee counter, clock (**off / 12 h / 24 h**, one selector), Classic Item Slots and button
   style.
-- **Modificaciones varias**: the Songbook option enables playing a learned song by selecting it in the game's native songbook (ZL). It injects the
-  five native note buttons, so the game keeps its own recognition, animation and effects. Only learned songs work.
+- **Modificaciones varias**: Songbook playback (select a learned song in the game's native songbook, ZL) and two
+  **beta** toggles:
+  - **Duplicate enemies (Option A)**: clones generic enemy placements in `Banc` and doubles field auto-spawn counts.
+    Bosses, minibosses and scripted enemies are excluded.
+  - **Enemy speed ×2**: scales enemy movement speeds and attack cadence in the actor data. Some enemies or attacks may
+    not change, or may desync.
+  Both beta mods are generated from the user's dump at build time and installed as extra romfs files. They are not
+  part of the normal payload and can break puzzles, quests or performance. Back up the save and test one at a time.
 - **Acerca de**: credits and the material/third-party notice.
 
 The bottom bar always shows the install state and the **Instalar / Desinstalar** buttons. Changes are saved

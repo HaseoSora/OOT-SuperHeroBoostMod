@@ -50,6 +50,8 @@ las constantes y operaciones publicadas. Se usa en tiempo de compilación para g
 - El repositorio no contiene texturas, layouts, BYML, romfs, `main` ni ningún archivo extraído del juego.
 - `tools/make_romfs_opts.py` genera el romfs opcional a partir del volcado del usuario; la app copia ese resultado
   solo si el usuario marca la opción.
+- `tools/make_enemy_opts.py` genera los dos mods beta de enemigos (duplicado y velocidad) desde el volcado; tampoco
+  se versionan ni se redistribuyen.
 - El módulo usa nombres de recursos internos del juego (por ejemplo `Circle64_00`, `NumBaseSide_00`,
   `Nt_RupeeIconNew_00`) para dibujar el HUD con el aspecto nativo. Son referencias a archivos que ya están en el
   juego del usuario, no material redistribuido.

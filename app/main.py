@@ -58,6 +58,8 @@ def cli(argv) -> int:
     ap.add_argument("--classic-variant", default="default", choices=list(I.CLASSIC_VARIANTS))
     ap.add_argument("--no-stamina", action="store_true")
     ap.add_argument("--no-songbook", action="store_true", help="disable playing songs from the native songbook")
+    ap.add_argument("--enemy-double", action="store_true", help="beta: duplicate generic enemies (romfs)")
+    ap.add_argument("--enemy-speed", action="store_true", help="beta: accelerate enemy animation/movement/cadence (romfs)")
     ap.add_argument("--off", default=None, help="advanced: comma list of jump,attack,sprint,block,shoot,roll to disable")
     ap.add_argument("--combat-only", action="store_true", default=None)
     ap.add_argument("--name", default=I.MOD_NAME)
@@ -99,6 +101,10 @@ def cli(argv) -> int:
         s.stamina = False
     if a.no_songbook:
         s.songbook = False
+    if a.enemy_double:
+        s.enemy_double = True
+    if a.enemy_speed:
+        s.enemy_speed = True
     if a.combat_only:
         s.combat_only = True
     if a.enemy_hp is not None:
@@ -209,6 +215,8 @@ def gui() -> None:
     variant = tk.StringVar(value=cfg.get("variant") if cfg.get("variant") in I.CLASSIC_VARIANTS else "default")
     stamina = tk.BooleanVar(value=bool(cfg.get("stamina", True)))
     songbook = tk.BooleanVar(value=bool(cfg.get("songbook", True)))
+    enemy_double = tk.BooleanVar(value=bool(cfg.get("enemy_double", False)))
+    enemy_speed = tk.BooleanVar(value=bool(cfg.get("enemy_speed", False)))
     mode = tk.StringVar(value=cfg.get("stamina_mode") if cfg.get("stamina_mode") in STAMINA_MODES
                         else STAMINA_MODES[cfg.get("preset", 0)] if cfg.get("preset", 0) in range(4) else "hardcore")
 
@@ -348,7 +356,8 @@ def gui() -> None:
         refresh()
         autosave()
 
-    for var in (classic, stamina, songbook, mode, combat, hp, dmg, speed, nodrop, rupees, clock_mode, *costs.values()):
+    for var in (classic, stamina, songbook, enemy_double, enemy_speed, mode, combat, hp, dmg, speed, nodrop,
+                rupees, clock_mode, *costs.values()):
         var.trace_add("write", on_setting_change)
 
     def on_mode_change(*_):
@@ -376,6 +385,7 @@ def gui() -> None:
 
     def settings():
         return I.Settings(classic=classic.get(), stamina=stamina.get(), songbook=songbook.get(),
+                          enemy_double=enemy_double.get(), enemy_speed=enemy_speed.get(),
                           preset=STAMINA_MODES.index(mode.get()),
                           combat_only=combat.get(),
                           **{k: costs[k].get() for k in KEYS},
@@ -387,7 +397,8 @@ def gui() -> None:
         return save_cfg({
             "lang": lang.get(), "emu": emu.get(), "profile": profile.get(),
             "classic": classic.get(), "variant": variant.get(),
-            "stamina": stamina.get(), "songbook": songbook.get(), "stamina_mode": mode.get(),
+            "stamina": stamina.get(), "songbook": songbook.get(),
+            "enemy_double": enemy_double.get(), "enemy_speed": enemy_speed.get(), "stamina_mode": mode.get(),
             "costs": {**{k: costs[k].get() for k in KEYS}, "combat_only": combat.get()},
             "combat_only": combat.get(),
             "enemy_hp": hp.get(), "damage": dmg.get(), "no_heart_drop": nodrop.get(),
@@ -603,6 +614,16 @@ def gui() -> None:
         label(body, L("songbook_desc"), size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=(20, 0))
         label(body, L("songbook_note"), size=9, color=AMBER, bg=PANEL).pack(anchor="w", pady=(8, 0))
 
+        body = card(parent, L("beta_title"), L("beta_desc"))
+        label(body, L("beta_warning"), size=9, color=RED, bold=True, bg=PANEL).pack(anchor="w", pady=(0, 6))
+        label(body, L("enemy_double"), size=10, color=ACCENT, bold=True, bg=PANEL).pack(anchor="w")
+        check(body, L("enemy_double_on"), enemy_double).pack(anchor="w", padx=(0, 0))
+        label(body, L("enemy_double_desc"), size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=(20, 0), pady=(0, 8))
+        label(body, L("enemy_speed"), size=10, color=ACCENT, bold=True, bg=PANEL).pack(anchor="w")
+        check(body, L("enemy_speed_on"), enemy_speed).pack(anchor="w", padx=(0, 0))
+        label(body, L("enemy_speed_desc"), size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=(20, 0))
+        label(body, L("enemy_beta_note"), size=9, color=AMBER, bg=PANEL).pack(anchor="w", pady=(8, 0))
+
     def build_about(parent):
         body = card(parent, L("about_title"))
         label(body, L("about_body"), size=10, bg=PANEL).pack(anchor="w")
@@ -714,7 +735,8 @@ def gui() -> None:
     elif profile.get() != "custom":
         apply_profile(profile.get(), save=False)
 
-    for v in (emu, classic, variant, stamina, songbook, mode, combat, hp, dmg, speed, nodrop, rupees, clock_mode, *costs.values()):
+    for v in (emu, classic, variant, stamina, songbook, enemy_double, enemy_speed, mode, combat, hp, dmg, speed,
+              nodrop, rupees, clock_mode, *costs.values()):
         v.trace_add("write", autosave)
     emu.trace_add("write", lambda *_: (status.set(""), refresh()))
 

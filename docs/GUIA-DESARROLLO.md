@@ -293,6 +293,7 @@ Los nombres de funciones no están en `main` en texto claro (el motor usa hashes
 | `build_core.py` | compila el módulo y su IPS; genera `hud_names.h` y `dispatch_gen.c` |
 | `make_release.py` / `build_app.py` | payload de la app / ejecutable |
 | `make_romfs_opts.py` | romfs opcionales (sin drop de corazones) |
+| `make_enemy_opts.py` | beta: genera romfs de duplicado de enemigos y velocidad ×2 desde el dump |
 | `features/songbook` | canción del songbook nativo -> notas inyectadas |
 | `check_no_game_data.py` | comprueba que git no tenga archivos del dump ni payloads generados |
 | `hook_sites.py` | lista de sitios de gancho |

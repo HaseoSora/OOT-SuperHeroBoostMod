@@ -1,67 +1,148 @@
 # Super Hero Boost
 
-Módulo de gameplay para el remake de consola (actualización v131072) y su app de configuración multiplataforma
-`SuperHeroBoostConfig`:
+Gameplay module for the console remake (update **v131072**) and its cross-platform configuration app
+**SuperHeroBoostConfig**.
 
-- **Perfiles completos**: **Recomendado** (todo activado), Base, Modo héroe, Héroe + estamina, Héroe explorador,
-  Superhéroe, Ultra héroe y Supervivencia. Todos incluyen el HUD y Classic Item Slots, y ajustan de una vez la
-  dificultad, la estamina y el sprint; cualquier cambio manual pasa a **Personalizado**.
-- **Estamina** con estilos (hardcore, solo combate, solo sprint, avanzado), agotamiento y recarga; coste al rodar,
-  saltar, atacar, disparar, esprintar y bloquear con el escudo.
-- **Anillo de estamina** junto al jugador, dibujado con texturas del juego.
-- **Velocidad del sprint** configurable (por defecto +25 %).
-- **Vida de los enemigos** y **daño recibido** multiplicables; opción **sin drop de corazones**.
-- **Reloj y contador de rupias siempre visibles**, con el aspecto nativo del juego (12 / 24 h).
-- **Autoreproducción del songbook**: al elegir una canción aprendida en el songbook nativo (ZL) se reproduce sola,
-  con el héroe tocándola y activando su efecto. Solo funciona con canciones aprendidas y no con la canción del
-  espantapájaros.
-- **Opciones beta**: duplicar enemigos genéricos (Opción A) y acelerar su movimiento, animación y cadencia ×2.
-- **Selector rápido (beta)**: mantener abajo para elegir botas o arriba para máscaras, con izquierda/derecha y
-  soltar para equipar, sin abrir el menú. Son experimentales
-  y pueden romper puzles, misiones o el rendimiento; se activan en la app y se instalan como romfs extra.
-- **Contador de la zona (beta)**: panel nativo debajo del reloj con las Skulltulas doradas y las piezas de
-  corazón del Banc actual (por ejemplo `SKULL 3/8  COR 1/2`). Las piezas de corazón sin ancla de mapa
-  (algunos cofres/minijuegos) todavía no se cuentan.
-- **Cambios del mundo (beta)**: reordena las magias de las Grandes Hadas (Hyrule niño → Amor de Nayru, cráter →
-  ataque circular, coloso del desierto → doble magia) y permite colocar puntos del Viento de Farore fuera de los
-  calabozos. El diálogo de la hada de Din sigue describiendo el orden original.
-- Compatible con **Classic Item Slots** (la app lo descarga de su release oficial en GitHub y lo instala con su crédito
-  original; no va incluido en el código).
+The mod adds stamina, difficulty scaling, an expanded HUD and extra item buttons, all configurable without
+recompiling anything. The app patches the prebuilt module and copies the files the game needs. The module, the HUD,
+the textures and the app are original work: no third-party mod is bundled or downloaded.
 
-## Uso
+## Features
 
-Abre `SuperHeroBoostConfig`, elige un perfil (o ajusta las secciones una a una), selecciona la carpeta del emulador e
-**Instala**. La app crea la carpeta `00-Super-Hero-Boost` en los mods del juego y guarda tus ajustes automáticamente.
+### Gameplay
 
-La app funciona en **Windows, macOS y Linux** (Python 3.10+ con Tkinter). Los ajustes se guardan junto al programa o,
-si esa carpeta no es escribible, en la carpeta de configuración del usuario:
+- **Complete profiles**: Recommended (everything on), Base, Hero Mode, Hero + Stamina, Hero Explorer, Super Hero,
+  Ultra Hero and Survival. They set difficulty, stamina and sprint in one step; changing any option afterwards
+  switches the profile to **Custom**.
+- **Stamina** with four styles: hardcore (everything costs), combat only, sprint only and advanced (choose which
+  actions cost). Includes exhaustion and regeneration, and costs for rolling, jumping, attacking, shooting,
+  sprinting and blocking with the shield.
+- **Stamina ring** next to the player, drawn with the game's own textures.
+- **Sprint speed** configurable (default +25%).
+- **Enemy health** and **damage taken** multipliers (×1 to ×3).
+- **No heart drops**: hearts dropped by enemies become green rupees instead.
+- **Always-visible clock and rupee counter**, with the game's native look and 12/24-hour format.
+- **Songbook autoplay**: selecting a learned song in the native songbook (ZL) makes the hero play it and trigger
+  its effect. Learned songs only; not the Scarecrow's Song.
+- **Own button mapping** (`buttonMapping`):
+  - **B, L, R and ZR** item buttons on the HUD, assignable from the **Items** tab of the pause menu.
+  - **Switch / PlayStation / Xbox** button styles.
+  - **Extended** layout (B, L, R, ZR, X, Y, A and the sword) or **simple** layout (only the assignable buttons, with
+    B centred and L / R / ZR repositioned so there are no gaps).
+  - **L button modes**: item or the game's item selector.
 
-- Windows: `%APPDATA%\SuperHeroBoostConfig\settings.json`
-- macOS: `~/Library/Application Support/SuperHeroBoostConfig/settings.json`
-- Linux: `~/.config/SuperHeroBoostConfig/settings.json`
+### Configuration app
 
-## Desarrollo
+- GUI for Windows, macOS and Linux (Python 3.10+ with Tkinter).
+- Profiles, per-section settings, install and uninstall into the emulator's mod folder.
+- Translations in Spanish, English, Portuguese, French, German and Italian.
+- Command-line mode to install the same configuration without opening the window.
 
-Todo el proceso (arquitectura, ganchos, HUD, configuración, compilación, pruebas y cómo añadir opciones) está en
-**[docs/GUIA-DESARROLLO.md](docs/GUIA-DESARROLLO.md)**.
+### Beta
 
-Otras notas: [docs/APP.md](docs/APP.md) (app y perfiles), [docs/RE-NOTES.md](docs/RE-NOTES.md) (ingeniería inversa),
-[docs/CLASSIC-HOOKS.md](docs/CLASSIC-HOOKS.md), [docs/CLASSIC-REPLICA.md](docs/CLASSIC-REPLICA.md) (Classic Item
-Slots) y [docs/AUDIT.md](docs/AUDIT.md) (auditoría de código y materiales de terceros).
+These options are **experimental**: some are code features, others install extra romfs files. They can break
+puzzles, quests or performance. Back up your save and test one at a time.
 
-Pasos rápidos:
+- **Enemy duplication (Option A)**: clones generic enemy placements in the map data and doubles field auto-spawn
+  counts. Bosses, minibosses and scripted enemies are excluded.
+- **Enemy speed ×2**: speeds up movement, animation and attack cadence. Some enemies or attacks may not change or
+  may desync.
+- **Quick select**: hold D-pad **down** to pick the boots (Kokiri / Iron / Hover) or **up** to pick a mask, choose
+  with Left/Right and release to equip, without opening the menu. A short tap keeps the normal behaviour.
+- **Area collectibles counter**: a native-style plate below the clock with the Gold Skulltulas and heart pieces of
+  the current area (for example `SKULL 3/8  COR 1/2`). Heart pieces without a map anchor (some chests/minigames) are
+  not counted yet.
+- **World changes**: reorders the three Great Fairy magic rewards (Hyrule Castle child → Nayru's Love, Death
+  Mountain Crater → magic spin attack, Desert Colossus → double magic) and allows placing Farore's Wind points
+  outside dungeons. The Din fairy's overview dialogue still describes the original order.
 
+## Usage
+
+1. **Requirements**: the game on update **v131072** and an emulator that loads mods from its
+   `user/load/0400486024DEC000` folder (or the path you have configured). Back up your save before installing.
+2. Open **SuperHeroBoostConfig** (or run `python app/main.py` from source).
+3. Pick a profile or adjust the sections one by one.
+4. Select the emulator folder. The app finds the mods folder, including a custom `load_directory` from
+   `qt-config.ini`.
+5. Press **Install**. The app creates the `00-Super-Hero-Boost` folder with the module, the button textures and the
+   optional romfs files, and patches the selected configuration.
+6. Close the game before installing or uninstalling.
+
+To remove the mod, press **Uninstall** in the app or delete the `00-Super-Hero-Boost` folder.
+
+Prebuilt binaries are not published in this repository yet; build the app from source with the steps below.
+
+### Button mapping controls
+
+- In the pause menu's **Items** tab, with an item highlighted: **X** assigns it to **B**, **L** to **L**, **R** to
+  **R** and **A** to the game's **ZR** box.
+- Pressing the same button again unassigns it; if the item was already in another slot, they are swapped.
+- If L is in **selector** mode, L cannot be assigned and its button is hidden from the HUD and from the legend.
+- In **selector** mode, L opens the game's item selector.
+
+### Command line
+
+```bash
+python app/main.py --cli --emu "EMULATOR_PATH" --profile recommended
+python app/main.py --cli --emu "EMULATOR_PATH" --profile hero-explorer --button-style switch --bm-simple
+python app/main.py --cli --emu "EMULATOR_PATH" --profile recommended --bm-l selector
 ```
-python tools/build_core.py --features stamina,songbook --compat --base 0x4F87000
-python tools/make_release.py
-python tools/build_app.py
+
+`--profile` applies a complete profile; individual flags override it. `--list-profiles` shows the list.
+
+The Great Fairy beta rewrites event flows with the `evfl` library (`pip install evfl`); if it is not installed,
+`make_release.py` warns and keeps the previously generated files.
+
+## Building
+
+The app does not compile the mod: it uses the payload already staged in `app/payload`. Regenerating it requires the
+game dump, LLVM (`clang`, `lld`, `llvm-objcopy`, `llvm-size`, `llvm-nm`) and the development dependencies listed in
+[docs/GUIA-DESARROLLO.md](docs/GUIA-DESARROLLO.md).
+
+```bash
+python tools/build_core.py --features stamina,songbook,button_mapping --slots --compat --base 0x4F80000
+python tools/make_release.py     # module + button textures + optional romfs files
+python tools/build_app.py        # release/SuperHeroBoostConfig[.exe|.app]
 ```
 
-El ejecutable se genera en `release/` para el sistema donde se compila (PyInstaller no hace compilación cruzada).
-La beta de las Grandes Hadas reescribe event flows con la librería `evfl` (`pip install evfl`); si no está
-instalada, `make_release.py` avisa y conserva los archivos ya generados.
+`build_app.py` uses PyInstaller and does not cross-compile: run it on each target OS. The executable is written to
+`release/`. See the development guide for details.
 
-## Créditos
+## Documentation
 
-Classic Item Slots v1.4.3, de sonofsilvanus, se descarga de su release oficial de GitHub cuando se activa y se instala
-tal cual. No se distribuye con la app. El módulo, el HUD, el sistema de estamina y la app son trabajo original.
+- [docs/GUIA-DESARROLLO.md](docs/GUIA-DESARROLLO.md): architecture, hooks, HUD, configuration and compilation.
+- [docs/APP.md](docs/APP.md): app, profiles and options.
+- [docs/BUTTON-MAPPING.md](docs/BUTTON-MAPPING.md): button mapping design.
+- [docs/RE-NOTES.md](docs/RE-NOTES.md): reverse-engineering notes.
+- [docs/AUDIT.md](docs/AUDIT.md): code and third-party material audit.
+
+## Notice
+
+No game code, text, textures or any other game material is redistributed. The mod reads the user's own dump at
+runtime and only bundles its own module and its own art. You need your own legal copy of the game to use it.
+
+## Credits
+
+Module, HUD, stamina system, button mapping (with its textures) and app: original work by Kuribox.
+
+Thanks to:
+
+- [Kabosune / oot-remake-modding](https://github.com/Kabosune/oot-remake-modding) for the modding documentation
+  and help.
+- [platinumagpie / oot-remake-devtool](https://github.com/platinumagpie/oot-remake-devtool) for the development tools
+  used during research and testing.
+
+These projects are development references and tools; their code is not bundled with this mod.
+
+## AI assistance
+
+AI assistants (Anthropic Claude and DeepSeek) were used for parts of the coding, reverse engineering and testing.
+I orchestrated the work, tested the results and adjusted them until they worked.
+
+## License
+
+Licensed under the **Apache License, Version 2.0**. See [LICENSE](LICENSE).
+
+You can use, modify, redistribute and build on this project, including commercially, as long as you keep the
+copyright and license notices and state the changes you made. The license also includes an express grant of patent
+rights and does not grant any trademark rights.

@@ -32,6 +32,3 @@ def settings_paths() -> tuple[Path, Path]:
     """Portable first, per-user second."""
     return program_dir() / f"{APP_NAME}.json", user_config_dir() / "settings.json"
 
-
-def cache_dir() -> Path:
-    return user_config_dir() / "classic"

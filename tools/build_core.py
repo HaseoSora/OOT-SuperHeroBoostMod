@@ -63,15 +63,15 @@ FEATURE_INPUT_HANDLERS = {
     "stamina": ["stamina_on_input"],
     "songbook": ["songbook_on_input"],
     "quick_select": ["quick_select_on_input"],
-    "classic_slots": ["classic_slots_on_input"],
+    "button_mapping": ["button_mapping_on_input"],
 }
 FEATURE_SLOT_HANDLERS = {
-    "classic_slots": ["classic_slots_on_call"],
+    "button_mapping": ["button_mapping_on_call"],
 }
 
 
 FEATURE_SLOT_PRE = {
-    "classic_slots": ["classic_slots_pre"],
+    "button_mapping": ["button_mapping_pre"],
 }
 
 
@@ -186,10 +186,11 @@ def verify_stock_sites() -> None:
             raise SystemExit(
                 f"site {site:#x} ({name}) is not bl {stock:#x} (found {target:#x})"
             )
-    for site, name, _id in CODE_SITES:
+    for site, name, _id, *stock in CODE_SITES:
         word = struct.unpack_from("<I", text, site)[0]
-        if word != PACIBSP:
-            raise SystemExit(f"code site {site:#x} ({name}) is {word:#x}, expected pacibsp")
+        want = stock[0] if stock else PACIBSP
+        if word != want:
+            raise SystemExit(f"code site {site:#x} ({name}) is {word:#x}, expected {want:#x}")
     for site, name, expected in STORE_SITES:
         word = struct.unpack_from("<I", text, site)[0]
         if word != expected:
@@ -238,14 +239,15 @@ def write_handler_table(features: list[str], path: Path) -> None:
     path.write_text("\n".join(lines) + "\n", encoding="ascii")
 
 
-COMPAT = False   # --compat: coexist with Classic Item Slots (its IPS owns the input/slot sites)
+COMPAT = False   # --compat: read input through the shared PLT stub (the five input call sites stay stock)
+SLOTS = False    # --slots: also hook the four equip calls (buttonMapping)
 # PLT stub of the input reader used during gameplay: first instruction `adrp x16, GOT3`.
 COMPAT_STUB = (0x3C42800, "hook_stub3", 0xB00083F0)
 
 
 def active_sites():
     if COMPAT:
-        return [], []
+        return [], (list(SLOT_SITES) if SLOTS else [])
     return list(INPUT_SITES), list(SLOT_SITES)
 
 
@@ -256,7 +258,7 @@ def make_ips(symbols: dict[str, int]) -> bytes:
         delta = symbols[name] - site
         out += struct.pack(">I", site + 0x100) + struct.pack(">H", 4)
         out += struct.pack("<I", 0x14000000 | ((delta >> 2) & 0x03FFFFFF))
-    for site, name, _stock in (list(INPUT_SITES) + list(SLOT_SITES)) if not COMPAT else []:
+    for site, name, _stock in active_sites()[0] + active_sites()[1]:
         if site in DISABLED_SITES:
             continue  # stays the stock bl (see hook_sites.DISABLED_SITES)
         target = symbols[name]
@@ -264,7 +266,7 @@ def make_ips(symbols: dict[str, int]) -> bytes:
         out += struct.pack(">I", site + 0x100)   # +0x100: NSO text starts at file 0x100
         out += struct.pack(">H", 4)
         out += struct.pack("<I", word)
-    for site, name, _id in CODE_SITES:
+    for site, name, _id, *_stock in CODE_SITES:
         delta = symbols[name] - site
         word = 0x14000000 | ((delta >> 2) & 0x03FFFFFF)   # b <wrapper>
         out += struct.pack(">I", site + 0x100)
@@ -283,10 +285,13 @@ def main() -> int:
     ap.add_argument("--features", default="probe",
                     help="comma-separated feature dirs under features/")
     ap.add_argument("--compat", action="store_true",
-                    help="coexist with Classic Item Slots (module placed after it, PLT-stub input hook)")
+                    help="PLT-stub input hook (the release build) and the module placed at --base")
     ap.add_argument("--base", default="0x4F88000", help="module base used with --compat")
+    ap.add_argument("--slots", action="store_true",
+                    help="hook the equip calls too (buttonMapping)")
     args = ap.parse_args()
-    global COMPAT, BASE, LINK_SCRIPT
+    global COMPAT, BASE, LINK_SCRIPT, SLOTS
+    SLOTS = args.slots
     if args.compat:
         COMPAT = True
         BASE = int(args.base, 0)
@@ -308,7 +313,7 @@ def main() -> int:
     (OUT / "hud_names.h").write_text(
         "".join(f"#define HASH_PART{i} {city_hash64(n.encode())}ull\n" for i, n in enumerate(names))
         # clock/rupee HUD: text panes T_ShbTxt_00.. and picture panes P_ShbPic_00.. (names in core/hud.c)
-        + "".join(f"#define HASH_TXT{i} {city_hash64(f'T_ShbTxt_{i:02d}'.encode())}ull\n" for i in range(8))
+        + "".join(f"#define HASH_TXT{i} {city_hash64(f'T_ShbTxt_{i:02d}'.encode())}ull\n" for i in range(32))
         + "#define HASH_PIC_LIST " + ", ".join(f"{city_hash64(f'P_ShbPic_{i:03d}'.encode())}ull" for i in range(400))
         + "\n",
         encoding="ascii")
@@ -321,7 +326,9 @@ def main() -> int:
     objs: list[str] = []
     for src in sources + [gen]:
         obj = OUT / (src.stem + ".o")
-        extra = ["-DCLASSIC_PROBE"] if os.environ.get("CLASSIC_PROBE") else []
+        extra = ["-DBUTTON_PROBE"] if os.environ.get("BUTTON_PROBE") else []
+        if "button_mapping" in features:
+            extra.append("-DBUTTON_MAPPING")   # core/hud.c draws the buttonMapping buttons
         run([str(CLANG), *CFLAGS, *extra, "-I", str(OUT), "-I", str(CORE_SRC),
              "-c", str(src), "-o", str(obj)])
         objs.append(str(obj))

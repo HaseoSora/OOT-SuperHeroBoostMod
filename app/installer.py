@@ -6,18 +6,17 @@ import re
 import shutil
 import struct
 import sys
-import urllib.request
-import zipfile
 from dataclasses import dataclass, field
 from pathlib import Path
-
-import paths
 
 TITLE_ID = "0400486024DEC000"
 BUILD_ID = "E0F3CCFAF50065AE4EA01EB5AEB13B1A45DA3348"
 MOD_NAME = "00-Super-Hero-Boost"
 MARKER = ".super-hero-boost"
-CLASSIC_SUBSDK_SIZE = 20744          # Classic Item Slots' module
+BUTTON_STYLES = ("switch", "playstation", "xbox")   # buttonMapping button art (the config byte: 0 Switch, 1 Xbox, 2 PS)
+STYLE_BYTE = {"switch": 0, "xbox": 1, "playstation": 2}
+L_MODES = ("assign", "selector")           # buttonMapping L: an item slot or the game's item selector
+L_MODE_VALUES = {"assign": 0, "selector": 2}
 
 
 class InstallError(Exception):
@@ -33,7 +32,6 @@ def resource_dir() -> Path:
 
 @dataclass
 class Settings:
-    classic: bool = True
     stamina: bool = True
     preset: int = 0                 # 0 hardcore, 1 hardcore combat only, 2 sprint only, 3 advanced
     jump: bool = True
@@ -58,6 +56,10 @@ class Settings:
     enemy_speed: bool = False        # beta: install the x2 enemy animation/movement/cadence romfs mod
     great_fairy: bool = False        # beta: reorder the three Great Fairy magic rewards
     farore_outdoor: bool = False     # beta: allow Farore's Wind points outside dungeons
+    button_mapping: bool = True      # buttonMapping: our own item buttons B / L / R / ZR on the HUD
+    button_style: str = "switch"     # one of BUTTON_STYLES
+    bm_simple: bool = False          # simple layout: only the assignable buttons (no A / X / Y)
+    bm_l_mode: str = "assign"        # one of L_MODES
 
     def to_dict(self): return dict(self.__dict__)
 
@@ -168,85 +170,19 @@ def patch_config(nso: bytes, s: Settings) -> bytes:
     b[f + 2], b[f + 3], b[f + 4] = int(s.jump), int(s.attack), int(s.sprint)
     b[f + 5], b[f + 6], b[f + 7] = int(s.block), int(s.shoot), int(s.roll)
     b[f + 8] = int(s.combat_only)
-    b[f + 9] = int(s.classic)
+    b[f + 9] = 0                      # reserved legacy flag (always 0)
     struct.pack_into("<HH", b, f + 10, int(s.enemy_hp), int(s.damage))
     b[f + 14], b[f + 15], b[f + 16], b[f + 17] = int(s.hud_rupees), int(s.hud_clock), int(s.clock_24h), int(s.no_heart_drop)
     struct.pack_into("<H", b, f + 18, int(s.sprint_speed))
     b[f + 20] = int(s.songbook)
-    b[f + 21] = int(s.quick_boots)
-    b[f + 22] = int(s.quick_mask)
-    b[f + 23] = int(s.hud_collectibles)
+    b[f + 21] = int(s.button_mapping)
+    b[f + 22] = STYLE_BYTE.get(s.button_style, 0)
+    b[f + 23] = int(s.bm_simple)
+    b[f + 24] = L_MODE_VALUES.get(s.bm_l_mode, 0)
+    b[f + 25] = int(s.quick_boots)
+    b[f + 26] = int(s.quick_mask)
+    b[f + 27] = int(s.hud_collectibles)
     return bytes(b)
-
-
-# ---------- Classic Item Slots v1.4.3 (downloaded from its official release, not bundled) ----------
-CLASSIC_VARIANTS = ("default", "playstation", "xbox")
-CLASSIC_VERSION = "1.4.3"
-CLASSIC_TAG = f"v{CLASSIC_VERSION}"
-CLASSIC_ASSETS = {
-    "default": f"Classic-Item-Slots-{CLASSIC_TAG}.zip",
-    "playstation": f"Classic-Item-Slots-{CLASSIC_TAG}-PlayStation.zip",
-    "xbox": f"Classic-Item-Slots-{CLASSIC_TAG}-Xbox.zip",
-}
-CLASSIC_URL = "https://github.com/sonofsilvanus/OoTNS2-Classic-Item-Slots/releases/download/{tag}/{name}"
-CACHE = paths.cache_dir()
-# the 14 main offsets its patch file touches (checked after unpacking, so a wrong archive is never installed)
-CLASSIC_SITES = {0x33A927C, 0x33AAC34, 0x33BD928, 0x33C9AB4, 0x34694F8, 0x3469524, 0x3469550, 0x346966C,
-                 0x3469698, 0x33D7124, 0x33D8CC4, 0xD57CE4, 0x33F6894, 0x33E64E0}
-
-
-def is_classic(d: Path) -> bool:
-    try:
-        s, ips = d / "exefs" / "subsdk9", d / "exefs" / f"{BUILD_ID}.ips"
-        if not (s.exists() and ips.exists() and (d / "romfs").exists() and s.stat().st_size == CLASSIC_SUBSDK_SIZE):
-            return False
-        return {off - 0x100 for off, _ in read_ips(ips.read_bytes())} == CLASSIC_SITES
-    except Exception:
-        return False
-
-
-def _find_classic_in(root: Path) -> Path | None:
-    for d in [root] + [p for p in root.rglob("*") if p.is_dir()]:
-        if is_classic(d):
-            return d
-    return None
-
-
-def fetch_classic(variant: str) -> Path:
-    """Reuse the cached copy or download the chosen official release asset from GitHub."""
-    if variant not in CLASSIC_VARIANTS:
-        raise InstallError("classic_missing", variant)
-    dest = CACHE / f"{CLASSIC_VERSION}-{variant}"
-    found = _find_classic_in(dest) if dest.exists() else None
-    if found:
-        return found
-
-    shutil.rmtree(dest, ignore_errors=True)
-    CACHE.mkdir(parents=True, exist_ok=True)
-    tmp = CACHE / f"{variant}.zip.part"
-    try:
-        url = CLASSIC_URL.format(tag=CLASSIC_TAG, name=CLASSIC_ASSETS[variant])
-        req = urllib.request.Request(url, headers={"User-Agent": "super-hero-boost"})
-        with urllib.request.urlopen(req, timeout=60) as response, open(tmp, "wb") as out:
-            shutil.copyfileobj(response, out)
-        dest.mkdir(parents=True)
-        with zipfile.ZipFile(tmp) as archive:
-            archive.extractall(dest)
-    except Exception:
-        shutil.rmtree(dest, ignore_errors=True)
-        try:
-            tmp.unlink()
-        except OSError:
-            pass
-        raise InstallError("classic_download", variant)
-    try:
-        tmp.unlink()
-    except OSError:
-        pass
-    found = _find_classic_in(dest)
-    if not found:
-        raise InstallError("classic_invalid", variant)
-    return found
 
 
 # ---------- install ----------
@@ -257,15 +193,14 @@ class Result:
     notes: list = field(default_factory=list)      # (key, arg) pairs, localized by the window
 
 
-def install(emu: Path, s: Settings, classic_variant: str = "default", name: str = MOD_NAME) -> Result:
+def install(emu: Path, s: Settings, name: str = MOD_NAME) -> Result:
     mods = find_mods_dir(emu)
     if mods is None:
         raise InstallError("no_mods_dir")
-    variant = "classic" if s.classic else "standalone"
+    variant = "standalone"
     pay = resource_dir() / variant
     if not (pay / "subsdk9").exists():
         raise InstallError("no_payload", variant)
-    classic_dir = fetch_classic(classic_variant) if s.classic else None
     target = mods / name
     mods.mkdir(parents=True, exist_ok=True)
     if target.exists():
@@ -279,14 +214,16 @@ def install(emu: Path, s: Settings, classic_variant: str = "default", name: str 
     (target / MARKER).write_text(json.dumps({"variant": variant, **s.to_dict()}))
 
     (target / "exefs" / "subsdk9").write_bytes(patch_config((pay / "subsdk9").read_bytes(), s))
-    ours = (pay / "ours.ips").read_bytes()
-    if classic_dir:
-        cips = (classic_dir / "exefs" / f"{BUILD_ID}.ips").read_bytes()
-        (target / "exefs" / f"{BUILD_ID}.ips").write_bytes(merge_ips(cips, ours))
-        shutil.copy2(classic_dir / "exefs" / "subsdk9", target / "exefs" / "subsdk8")
-        shutil.copytree(classic_dir / "romfs", target / "romfs")
-    else:
-        (target / "exefs" / f"{BUILD_ID}.ips").write_bytes(ours)
+    (target / "exefs" / f"{BUILD_ID}.ips").write_bytes((pay / "ours.ips").read_bytes())
+
+    if s.button_mapping:   # buttonMapping: the button textures of the chosen style + a bigger UI budget
+        rep = pay.parent / "button_romfs"
+        plat = s.button_style if s.button_style in BUTTON_STYLES else "switch"
+        if not (rep / plat).exists():
+            raise InstallError("no_payload", "buttonMapping")
+        shutil.copytree(rep / plat, target / "romfs", dirs_exist_ok=True)
+        if (rep / "common").exists():
+            shutil.copytree(rep / "common", target / "romfs", dirs_exist_ok=True)
 
     res = Result(target, variant)
     if s.no_heart_drop:                       # romfs files generated from the game's own data (tools/make_romfs_opts.py)

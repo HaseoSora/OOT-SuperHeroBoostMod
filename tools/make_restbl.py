@@ -21,7 +21,7 @@ NAME = VANILLA.name
 
 # path -> extra bytes
 GROW = {
-    "UI/Layout2Archive/Common.Product.100.Nin_Ounce_NVN2.blarc": 0x300000,
+    "UI/Layout2Archive/Common.Product.100.Nin_Ounce_NVN2.blarc": 0x600000,   # 12 extra item-button parts
 }
 
 
@@ -55,8 +55,12 @@ def dump(ver, sbs, crc, names) -> bytes:
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("out", help="mod romfs folder to write into")
+    ap.add_argument("--vanilla-raw", help="an already decompressed vanilla table (e.g. build/rsizetable.bin)")
     args = ap.parse_args()
-    raw = zstandard.ZstdDecompressor().decompressobj().decompress(VANILLA.read_bytes())
+    if args.vanilla_raw:
+        raw = Path(args.vanilla_raw).read_bytes()
+    else:
+        raw = zstandard.ZstdDecompressor().decompressobj().decompress(VANILLA.read_bytes())
     ver, sbs, crc, names = load(raw)
     for path, extra in GROW.items():
         key = zlib.crc32(path.encode())

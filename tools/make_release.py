@@ -1,12 +1,9 @@
-﻿"""Developer step (NOT done by the app): compile the two prebuilt variants and stage them as the app payload.
+﻿"""Developer step (NOT done by the app): compile the prebuilt module and stage it as the app payload.
 
-  classic     module linked after Classic Item Slots (base 0x4F87000)
-  standalone  module linked right after subsdk0 (base 0x4F80000)
+  standalone  module linked right after subsdk0 (base 0x4F80000): stamina, songbook and buttonMapping (our own
+              item buttons.)
 
-Output: app/payload/<variant>/{subsdk9,ours.ips} + app/payload/manifest.json
-
-Classic Item Slots is NOT bundled: the app downloads the chosen official
-release from GitHub when the user installs it.
+Output: app/payload/<variant>/{subsdk9,ours.ips} + app/payload/manifest.json + app/payload/button_romfs
 """
 import hashlib
 import json
@@ -18,7 +15,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "app" / "payload"
 BUILD_ID = "E0F3CCFAF50065AE4EA01EB5AEB13B1A45DA3348"
-VARIANTS = {"classic": "0x4F87000", "standalone": "0x4F80000"}
+VARIANTS = {"standalone": "0x4F80000"}
+# buttonMapping needs the equip-call hooks too (--slots)
+VARIANT_ARGS = {"standalone": ["--features", "stamina,songbook,button_mapping,quick_select", "--slots"]}
 
 
 def stage_rupee_ips():
@@ -26,6 +25,19 @@ def stage_rupee_ips():
     import struct
     rec = struct.pack(">I", 0x33C3B80 + 0x100) + struct.pack(">H", 4) + struct.pack("<I", 0x14000000 | 3)
     (OUT / "rupee.ips").write_bytes(b"IPS32" + rec + b"EEOF")
+
+
+def stage_buttons():
+    """Romfs of our buttonMapping: the button textures per platform (tools/make_buttons.py) and a resource size
+    table with a bigger UI budget (the 12 extra HUD parts do not fit the stock one; the game hangs at boot)."""
+    subprocess.run([sys.executable, str(ROOT / "tools" / "make_buttons.py")], check=True, cwd=ROOT)
+    for plat in ("switch", "xbox", "playstation"):
+        shutil.copytree(ROOT / "build" / "buttons" / plat / "romfs", OUT / "button_romfs" / plat)
+    raw = ROOT / "build" / "rsizetable.bin"   # decompressed vanilla table (the dump may not be available)
+    r = subprocess.run([sys.executable, str(ROOT / "tools" / "make_restbl.py"), str(OUT / "button_romfs" / "common")]
+                       + (["--vanilla-raw", str(raw)] if raw.exists() else []), cwd=ROOT)
+    if r.returncode:
+        print("WARNING: no resource size table: our HUD will not fit the stock UI budget")
 
 
 def main():
@@ -41,7 +53,7 @@ def main():
         print("WARNING: collectible table not built (game dump missing?): the HUD counter stays empty")
     man = {"build_id": BUILD_ID, "variants": {}}
     for name, base in VARIANTS.items():
-        subprocess.run([sys.executable, str(ROOT / "tools" / "build_core.py"), "--features", "stamina,songbook,quick_select",
+        subprocess.run([sys.executable, str(ROOT / "tools" / "build_core.py"), *VARIANT_ARGS[name],
                         "--compat", "--base", base], check=True, cwd=ROOT)
         d = OUT / name
         d.mkdir(parents=True)
@@ -51,6 +63,7 @@ def main():
         man["variants"][name] = {"base": base, "sha256": hashlib.sha256((d / "subsdk9").read_bytes()).hexdigest()}
     if keep is not None and keep.exists():
         shutil.copytree(keep, OUT / "romfs_opts")
+    stage_buttons()
     r = subprocess.run([sys.executable, str(ROOT / "tools" / "make_romfs_opts.py")], cwd=ROOT)
     if r.returncode:
         print("WARNING: romfs options not built (game dump missing?): the payload keeps any previous 'romfs_opts'")

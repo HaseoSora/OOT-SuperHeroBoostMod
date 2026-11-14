@@ -17,7 +17,7 @@ typedef struct {
     unsigned char cost_shoot;
     unsigned char cost_roll;
     unsigned char combat_only;     /* advanced: costs only while in combat */
-    unsigned char classic_slots;   /* informational (the app decides which files to install) */
+    unsigned char unused_09;       /* reserved legacy flag; always 0 */
     /* v1 additions (append-only; older apps leave the defaults) */
     unsigned short enemy_hp_pct;   /* enemy health, percent of vanilla (100 = vanilla, 150 = Hero Mode) */
     unsigned short damage_taken_pct; /* damage the player receives, percent of vanilla (200 = Hero Mode) */
@@ -27,10 +27,14 @@ typedef struct {
     unsigned char no_heart_drop;   /* informational (done through a romfs file) */
     unsigned short sprint_speed_pct; /* sprint (A held while moving) speed, percent of vanilla (100 = vanilla, default 125) */
     unsigned char songbook_enabled;  /* play a learned song by selecting it in the native songbook */
+    unsigned char button_mapping;    /* buttonMapping: our own item buttons B / L / R / ZR on the HUD */
+    unsigned char button_style;      /* buttonMapping buttons: 0 Switch, 1 Xbox, 2 PlayStation */
+    unsigned char bm_simple;         /* buttonMapping simple layout: only the assignable buttons (no B / A / X / Y) */
+    unsigned char bm_l_mode;         /* buttonMapping L: 0 assignable, 2 the game's item selector */
     unsigned char quick_boots;       /* beta: hold D-pad down to pick the boots */
     unsigned char quick_mask;        /* beta: hold D-pad up to pick a mask */
     unsigned char hud_collectibles; /* beta: per-area Skulltula / heart-piece counter */
-    unsigned char reserved[30];
+    unsigned char reserved[26];
 } ShbConfig;
 
 extern volatile ShbConfig g_shbcfg;

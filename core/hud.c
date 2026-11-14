@@ -336,15 +336,34 @@ static u8 *build_menu(const u8 *r) {
 #define LEG_N 5
 static char g_lnames[LEG_N][16] = {"T_OotTxt_10", "T_OotTxt_11", "T_OotTxt_12", "T_OotTxt_13", "T_OotTxt_14"};   /* arrays, not pointers: no relocations */
 static const u64 g_lhash[LEG_N] = {HASH_TXT10, HASH_TXT11, HASH_TXT12, HASH_TXT13, HASH_TXT14};
+static char g_legbar_name[16] = "P_OotPic_399";   /* the legend's backing bar */
+#define LEG_BASE "P_MessageBase_01"   /* 2200 x 360: the plate PlusMenu_00 puts its own texts on */
 u32 g_plus_build_dbg[2];   /* copies built, failure step */
 static u8 *build_plus(const u8 *r) {
     if (name_index(r, 0x20, g_lnames[0]) >= 0) { g_plus_build_dbg[1] = 2; return 0; }
     int ci = name_index(r, 0x20, "T_Text_00"), bi = name_index(r, 0x40, "T_Text_00"), ti = name_index(r, 0x80, "T_Text_00");
-    u32 nc = w(r, 0x38), nb = w(r, 0x58), nt = w(r, 0x98);
-    if (ci < 0 || bi < 0 || ti < 0 || nc > 512) { g_plus_build_dbg[1] = 3; return 0; }
+    int pci = name_index(r, 0x20, LEG_BASE), pbi = name_index(r, 0x40, LEG_BASE), ppi = name_index(r, 0x60, LEG_BASE);
+    u32 nc = w(r, 0x38), nb = w(r, 0x58), nt = w(r, 0x98), np = w(r, 0x78);
+    if (ci < 0 || bi < 0 || ti < 0 || pci < 0 || pbi < 0 || ppi < 0 || nc > 512) { g_plus_build_dbg[1] = 3; return 0; }
     u8 *root = pool_clone(r, 0x228);
     u8 *first = pool_clone((const void *)((const u64 *)q(r, 0x28))[0], 68);
     if (!root || !first) { g_plus_build_dbg[1] = 4; return 0; }
+    {   /* the legend's backing plate first (drawn under the texts): a clone of the menu's own message plate */
+        u8 *cd = pool_clone((const void *)((const u64 *)q(r, 0x28))[pci], 68);
+        u8 *bd = pool_clone((const void *)((const u64 *)q(r, 0x48))[pbi], 0x88);
+        u8 *pd = pool_clone((const void *)((const u64 *)q(r, 0x68))[ppi], 0x88);
+        if (!cd || !bd || !pd) { g_plus_build_dbg[1] = 4; return 0; }
+        *(u32 *)(pd + 0x10) = nb;
+        *(u32 *)(cd + 40) = 0;
+        *(u32 *)(cd + 52) = nc + 1;
+        *(float *)(cd + 0x10) = 0.0f; *(float *)(cd + 0x14) = 0.0f;   /* hidden until placed */
+        *(unsigned short *)(cd + 0x3c) = (unsigned short)nb;
+        *(unsigned short *)(cd + 0x40) = 0xFFFF;
+        *(unsigned short *)(cd + 0x42) = (unsigned short)np;
+        if (!tbl_add(root, 0x20, g_legbar_name, cd, g_pihash[399]) || !tbl_add(root, 0x40, g_legbar_name, bd, g_pihash[399]) ||
+            !tbl_add(root, 0x60, g_legbar_name, pd, g_pihash[399])) { g_plus_build_dbg[1] = 5; return 0; }
+        nc++; nb++;   /* the texts follow it */
+    }
     for (u32 t = 0; t < LEG_N; t++) {
         u8 *cd = pool_clone((const void *)((const u64 *)q(r, 0x28))[ci], 68);
         u8 *bd = pool_clone((const void *)((const u64 *)q(r, 0x48))[bi], 0x88);
@@ -361,18 +380,18 @@ static u8 *build_plus(const u8 *r) {
         if (!tbl_add(root, 0x20, g_lnames[t], cd, g_lhash[t]) || !tbl_add(root, 0x40, g_lnames[t], bd, g_lhash[t]) ||
             !tbl_add(root, 0x80, g_lnames[t], td, g_lhash[t])) { g_plus_build_dbg[1] = 5; return 0; }
     }
-    *(u32 *)(first + 52) = nc + LEG_N;
+    *(u32 *)(first + 52) = nc + LEG_N;   /* (nc counts the plate already) */
     ((u64 *)q(root, 0x28))[0] = (u64)first;
     {   /* per picture/text-list entry table: grow it */
         u32 oc = w(r, 0x210);
         const u8 *op = (const u8 *)q(r, 0x208);
-        if (op && oc == nb) {
-            int *na = pool_alloc((oc + LEG_N) * 4);
+        if (op && oc == nb - 1) {   /* (nb counts the plate already) */
+            int *na = pool_alloc((oc + 1 + LEG_N) * 4);
             if (!na) { g_plus_build_dbg[1] = 5; return 0; }
             memcpy(na, op, oc * 4);
-            for (u32 k = 0; k < LEG_N; k++) na[oc + k] = -1;
+            for (u32 k = 0; k < 1 + LEG_N; k++) na[oc + k] = -1;
             *(u64 *)(root + 0x208) = (u64)na;
-            *(u32 *)(root + 0x210) = oc + LEG_N;
+            *(u32 *)(root + 0x210) = oc + 1 + LEG_N;
         } else { g_plus_build_dbg[1] = 6; return 0; }
     }
     g_plus_build_dbg[0]++;
@@ -1159,6 +1178,16 @@ float g_sb_pos[PART_N][2] = {{1020.4f, 872.3f}, {1292.6f, 843.0f}, {1545.2f, 872
                              {1292.6f, 517.0f},                                            /* B */
                              {995.1f, 897.6f}, {1519.9f, 897.6f}, {1104.3f, 705.3f}, {1651.9f, 705.3f}, {1267.3f, 542.3f}};
 float g_sb_scale = 0.62f;
+/* Placement of a whole set around the centre of the X / Y / A / B diamond: {spread (distance from the centre),
+ * size (icons and labels), dx, dy} in layout units. g_sb_lay: the HUD; g_mb_lay: the pause menu's Items page. */
+#define SB_CX 1292.6f
+#define SB_CY 680.0f
+float g_sb_lay[4] = {0.75f, 0.85f, 130.0f, 70.0f};     /* compact, top right */
+float g_mb_lay[4] = {0.55f, 0.6f, -880.0f, -230.0f};   /* between the item grid and the item preview */
+static void sb_xy(const float *lay, u32 k, float *x, float *y) {
+    *x = SB_CX + (g_sb_pos[k][0] - SB_CX) * lay[0] + lay[2];
+    *y = SB_CY + (g_sb_pos[k][1] - SB_CY) * lay[0] + lay[3];
+}
 u32 g_sb_big_items = 1;
 /* per-part scale: buttons, then items (Classic draws the item bigger than its button) */
 float g_sb_sc[PART_N] = {0.34f, 0.34f, 0.34f, 0.34f, 0.34f, 0.34f, 0.34f, 0.44f, 0.44f, 0.44f, 0.44f, 0.44f};
@@ -1443,13 +1472,12 @@ static void sword_mirror(void) {
     dst[31] = 0;   /* apply again */
 }
 /* The pause menu's Items page (PaItemMenu_00) carries the same PART_N parts (build_menu): g_mb, with their own
- * icon controllers (hud_menu_ctrl_init). Placement there: g_mb_off = dx, dy (layout units, y up), scale. */
+ * icon controllers (hud_menu_ctrl_init). Placement there: g_mb_lay (see g_sb_lay). */
 static SlotBtn g_mb[PART_N];
 static u64 g_mb_ctrl[PART_N];
 static u64 g_mb_frame;
-float g_mb_off[3] = {210.0f, -150.0f, 0.8f};   /* under the rupee counter */
 u64 g_mb_dbg[PART_N];
-static void slots_draw(SlotBtn *set, const u64 *ctrls, u64 frame, float dx, float dy, float scale, int main_set) {
+static void slots_draw(SlotBtn *set, const u64 *ctrls, u64 frame, const float *lay, int main_set) {
     for (u32 k = 0; k < PART_N; k++) {
         SlotBtn *b = &set[k];
         if (!b->part) {
@@ -1480,8 +1508,10 @@ static void slots_draw(SlotBtn *set, const u64 *ctrls, u64 frame, float dx, floa
         }
         /* an item part with no item (and no fixed texture, like the sword) is hidden */
         u32 empty = k >= SB_NBTN && g_sb_item[k] < 0 && g_sb_force[k][0] <= 1;
-        float sc = empty || !BTNMAP ? 0.0f : g_sb_sc[k] * scale;
-        if (b->rec) place(b->rec, g_sb_pos[k][0] * scale + dx, g_sb_pos[k][1] * scale + dy, sc, sc, 0.0f);
+        float sc = empty || !BTNMAP ? 0.0f : g_sb_sc[k] * lay[1];
+        float px, py;
+        sb_xy(lay, k, &px, &py);
+        if (b->rec) place(b->rec, px, py, sc, sc, 0.0f);
         /* ItemPattern = icon framing. Frame 0 shows the full picture: buttons, and items drawn big and even
          * like Classic (item_pattern() keeps the stock box's per-item framing for a smaller style) */
         if (b->anim[0]) set_frame((void *)b->anim[0], g_sb_item[k] < 0 || g_sb_big_items ? 0.0f : item_pattern(g_sb_item[k]));
@@ -1527,18 +1557,28 @@ static void slots_draw(SlotBtn *set, const u64 *ctrls, u64 frame, float dx, floa
 /* Pause menu, Items tab: the cluster drawn on the menu page itself. Neither the HUD layer nor its frame update
  * run under the menu, so this is driven by the input hook (features/button_mapping), every frame. */
 /* Assign legend on the Items tab, bottom right above the game's own guide: which menu button assigns to which
- * slot. g_leg_pos = x of the first text, y, x step, text scale (layout units of PlusMenu_00, y up). */
+ * slot. g_leg_pos = x of the first text, y, x step, text scale (layout units of PlusMenu_00, y up); g_leg_bar = the
+ * dark bar behind it, like the game's own guide bar below. */
 static char g_leg_txt[LEG_N][16] = {"Asignar:", "X: B", "L: L", "R: R", "A: ZR"};
-float g_leg_pos[4] = {640.0f, -850.0f, 250.0f, 1.3f};
+float g_leg_pos[4] = {900.0f, -905.0f, 208.0f, 1.0f};   /* right above the game's guide bar */
+float g_leg_bar[8] = {1330.0f, -905.0f, 0.56f, 0.27f, 0.85f, 0.07f, 0.06f, 0.05f};   /* backing plate: centre x, y,
+                                                                               * x / y scale, alpha, rgb */
+static u64 g_leg_bar_rec;
 static u64 g_plus_frame, g_leg_rec[LEG_N], g_leg_set;
 static u32 g_leg_shown;
 u64 g_leg_dbg[2];
 static void hud_menu_legend(u64 page) {
     u64 pf = page ? ptr(page, 0x30) : 0;   /* the page frame +0x30: the PlusMenu_00 frame */
-    if (pf != g_plus_frame) { g_plus_frame = pf; g_leg_set = 0; for (u32 t = 0; t < LEG_N; t++) g_leg_rec[t] = 0; }
+    if (pf != g_plus_frame) { g_plus_frame = pf; g_leg_set = 0; g_leg_bar_rec = 0; for (u32 t = 0; t < LEG_N; t++) g_leg_rec[t] = 0; }
     g_leg_dbg[0] = pf;
     if (!pf) return;
     static const float WHITE[3] = {1.0f, 1.0f, 1.0f}, GOLD[3] = {0.95f, 0.82f, 0.45f};
+    if (!g_leg_bar_rec) g_leg_bar_rec = pane_record(pf, g_legbar_name);
+    if (g_leg_bar_rec) {
+        tint_rec(g_leg_bar_rec, g_leg_bar[5], g_leg_bar[6], g_leg_bar[7], g_leg_bar[4]);
+        *(float *)(g_leg_bar_rec + 0x74) = 1.0f; *(float *)(g_leg_bar_rec + 0x78) = 1.0f;   /* (the source plate starts hidden) */
+        place(g_leg_bar_rec, g_leg_bar[0], g_leg_bar[1], g_leg_bar[2], g_leg_bar[3], 0.0f);
+    }
     for (u32 t = 0; t < LEG_N; t++) {
         if (!g_leg_rec[t]) g_leg_rec[t] = pane_record(pf, g_lnames[t]);
         u64 rec = g_leg_rec[t];
@@ -1562,6 +1602,7 @@ void hud_menu_off(void) {
     if (!g_leg_shown || !g_plus_frame) return;
     g_leg_shown = 0;
     for (u32 t = 0; t < LEG_N; t++) if (g_leg_rec[t]) place(g_leg_rec[t], 0.0f, 0.0f, 0.0f, 0.0f, 0.0f);
+    if (g_leg_bar_rec) place(g_leg_bar_rec, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f);
 }
 void hud_menu_tick(void) {
     if (!BTNMAP || g_sb_busy || !hud_menu_items()) return;
@@ -1569,7 +1610,7 @@ void hud_menu_tick(void) {
     if (!mf) return;
     if (mf != g_mb_frame) { g_mb_frame = mf; for (u32 k = 0; k < PART_N; k++) g_mb[k].part = 0; }
     hud_menu_legend(mf);
-    slots_draw(g_mb, g_mb_ctrl, mf, g_mb_off[0], g_mb_off[1], g_mb_off[2], 0);
+    slots_draw(g_mb, g_mb_ctrl, mf, g_mb_lay, 0);
 }
 static void slots_update(u64 frame) {
     if (g_sb_busy) return;
@@ -1584,7 +1625,7 @@ static void slots_update(u64 frame) {
         *(float *)(r + 0x60) = 0.0f; *(float *)(r + 0x64) = 0.0f;
         *(u32 *)r |= 0x6F;
     }
-    slots_draw(g_sb, g_sb_ctrl, frame, 0.0f, 0.0f, 1.0f, 1);
+    slots_draw(g_sb, g_sb_ctrl, frame, g_sb_lay, 1);
 }
 char g_sb_jump_label[16] = "Saltar";
 /* The game's control guide (UICtrlGuideScreen, the "A Hablar" prompt next to Link) writes A's context action
@@ -1632,8 +1673,12 @@ static void slots_labels(u64 frame) {
     static const float LABEL[3] = {0.92f, 0.92f, 0.92f};
     if (!hud_ingame()) return;
     a_label_update();
-    put_text(frame, 3, g_sb_jump_label, g_sb_pos[SB_X][0], g_sb_pos[SB_X][1], 1, LABEL);
-    put_text(frame, 4, g_sb_a_label, g_sb_pos[SB_A][0], g_sb_pos[SB_A][1], g_sb_a_label[0] != 0, LABEL);
+    float xx, xy, ax, ay;
+    sb_xy(g_sb_lay, SB_X, &xx, &xy);
+    sb_xy(g_sb_lay, SB_A, &ax, &ay);
+    g_fld_sc[3] = g_fld_sc[4] = 0.80f * g_sb_lay[1];   /* the labels follow the buttons' size */
+    put_text(frame, 3, g_sb_jump_label, xx, xy, 1, LABEL);
+    put_text(frame, 4, g_sb_a_label, ax, ay, g_sb_a_label[0] != 0, LABEL);
 }
 static void slots_reset(void) {
     g_ps_frame = 0; for (u32 k = 0; k < PART_N; k++) g_sb[k].part = 0; g_stock_box_rec = 0; g_stock_dots_rec = 0; }

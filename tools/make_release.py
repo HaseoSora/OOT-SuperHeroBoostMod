@@ -29,7 +29,7 @@ def stage_classic():
     for key, name in CLASSIC_ASSETS.items():
         f = cache / name
         if not f.exists():
-            req = urllib.request.Request(CLASSIC_URL.format(tag=CLASSIC_TAG, name=name), headers={"User-Agent": "oot-master-build"})
+            req = urllib.request.Request(CLASSIC_URL.format(tag=CLASSIC_TAG, name=name), headers={"User-Agent": "super-hero-boost"})
             f.write_bytes(urllib.request.urlopen(req, timeout=120).read())
         shutil.copy2(f, dst / f"{key}.zip")
 
@@ -46,7 +46,7 @@ def main():
         shutil.rmtree(OUT)
     man = {"build_id": BUILD_ID, "variants": {}}
     for name, base in VARIANTS.items():
-        subprocess.run([sys.executable, str(ROOT / "tools" / "build_core.py"), "--features", "hero_core",
+        subprocess.run([sys.executable, str(ROOT / "tools" / "build_core.py"), "--features", "stamina",
                         "--compat", "--base", base], check=True, cwd=ROOT)
         d = OUT / name
         d.mkdir(parents=True)

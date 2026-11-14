@@ -3,7 +3,7 @@
 All offsets are module-relative to `main` (add the ASLR base at runtime).
 The release IPS stores offsets with the synthetic `+0x100` NSO header.
 
-| # | site | stock instruction | Hero instruction | Classic target | overlap Hero? |
+| # | site | stock instruction | Stamina instruction | Classic target | overlap Stamina? |
 |---|---|---|---|---|---|
 | 0 | 0x033A927C | 0x9779A261 `bl #0x1211c00` | 0x9779A261 `bl #0x1211c00` | 0x04F80FF0 | no |
 | 1 | 0x033AAC34 | 0x97799BF3 `bl #0x1211c00` | 0x97799BF3 `bl #0x1211c00` | 0x04F80FF0 | no |
@@ -22,9 +22,9 @@ The release IPS stores offsets with the synthetic `+0x100` NSO header.
 
 ## What the five overlaps mean
 
-Hero Core already replaces these five input calls with its own handlers in
+Stamina already replaces these five input calls with its own handlers in
 `subsdk1` (offsets 0xD00..0xD60). Classic also needs them for the extra item
 buttons. A full merge must call the stock reader once, then Classic's
-continuation, then Hero's input post-filter. The `experimental` build does
+continuation, then the stamina input post-filter. The `experimental` build does
 that with trampolines in main's text padding; the `stable` build lets Classic
-own those five calls and keeps all other Hero hooks.
+own those five calls and keeps all other stamina hooks.

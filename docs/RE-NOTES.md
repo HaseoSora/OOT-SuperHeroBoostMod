@@ -1,8 +1,8 @@
-﻿# RE notes (oot-master-mod)
+﻿# RE notes (super-hero-boost)
 
 Build under test: title `0400486024DEC000`, update 131072, main build id
-`E0F3CCFAF50065AE4EA01EB5AEB13B1A45DA3348`. Emulator: Fritchii, which loads
-mods from `E:\Switch2\Emu\lichii-windows-x86_64\user\load` (its LoadDir).
+`E0F3CCFAF50065AE4EA01EB5AEB13B1A45DA3348`. The test emulator loads mods from
+its configured `LoadDir` (see the `load_directory` entry in `qt-config.ini`).
 
 ## Load layout (confirmed from logs)
 
@@ -49,12 +49,12 @@ caller module from LR; this part is a precaution and has not been shown to be ne
 
 Consequence: only site 3 sees gameplay input. The four classic slot sites
 (`bl 0x1211C00`) also never ran in the live check, so F3 needs its own RE.
-## hero_core (F2) status
+## stamina (F2) status
 
-- Stamina state machine in `features/hero_core/stamina.c` (moved from `core/`).
-  Values are **placeholders**: `stamina_default_config` was written from memory of
-  the Hero Core behaviour. They are not checked against `HERO-CORE.md` yet.
-- Handler `features/hero_core/hero_core.c`: site 0 counts combat frames, charges
+- Stamina state machine in `features/stamina/stamina.c` (moved from `core/`).
+  Values are **placeholders** written as clean-room defaults; they have not been
+  balance-tested against the final gameplay tuning yet.
+- Handler `features/stamina/stamina_hooks.c`: site 0 counts combat frames, charges
   the slash cost on B press, and when stamina is empty removes B/ZR from the input
   buffer at every hooked site.
 - Capacity uses a fixed `LIFE_QUARTERS = 20` (5 hearts). Reading the real heart
@@ -73,7 +73,7 @@ Consequence: only site 3 sees gameplay input. The four classic slot sites
 
 - HUD part registration: hook main+0x43A6F8 (UI resource build, x0 handle, x1 config).
   We give PlayerStatus_00 a private metadata copy with one extra part
-  `Pa_OotStamina_00` (clone of the stock gauge descriptors; CityHash64 of the
+  `Pa_ShbStamina_00` (clone of the stock gauge descriptors; CityHash64 of the
   name in tools/lib/cityhash.py, checked against all 40 stock names) and a private
   copy of the gauge file with a flat white fill tinted yellow. Frame drive from
   main+0x2B30DE0 (scheduler vtable main+0x4B05318). Verified live: bar renders under
@@ -91,7 +91,7 @@ Consequence: only site 3 sees gameplay input. The four classic slot sites
 ## Classic update (controls, item icons, HUD limit)
 
 - Real controls on this game: X jump, A dodge/roll, Y sword, B/L/R/ZR free. Classic
-  slots are B, L, R, ZR (an empty slot keeps its normal behaviour). hero_core costs:
+  slots are B, L, R, ZR (an empty slot keeps its normal behaviour). stamina costs:
   Y = slash, A = roll; with stamina 0 in combat both are removed from the input.
 - Assignment (replaces the pause-menu assignment, whose hooks 9-13 turned out to be
   UI constructors): hold ZL and press B / L / R to cycle that slot's item (ZR is not
@@ -191,7 +191,7 @@ Consequence: only site 3 sees gameplay input. The four classic slot sites
   507x80 with a chevron on the left end; each is drawn twice (second copy mirrored, scale x = -1) so both ends get
   the chevron. Rupee icon = Nt_RupeeIconNew_00. Sun = Circle64_00 + 8 rotated White8_00_BC4L rays; moon = two
   Circle64_00 (crescent). All live in Common.Product.100.Nin_Ounce_NVN2.bntx.zs (no sun/moon texture exists there,
-  nor in Title/ZeldaNotes). Third-party "HUD of Time" draws its sun the same way (32 small panes).
+  nor in the title or notes resources). A third-party HUD mod draws its sun the same way (32 small panes).
 - Materials: root+0x130 = {u64 *materials, count, stride}. Picture/text-list entry (+0x40 table) +0x14 = material
   index. A textured material starts with a sampler list {ptr, count}; sampler = {u32 flags, pad, u64 texture name}.
   Textures resolve by name at layout build, so a deep copy of a textured material (P_SubItemBg_00 uses #31,
@@ -204,7 +204,7 @@ Consequence: only site 3 sees gameplay input. The four classic slot sites
 - Tuning: g_hudp[] in core/hud.c; tools/hud_tune.py set/get/shot/cfg writes it live (and the HUD options).
 
 ## Stamina ring as a dot tube (replaces the 128 gauge parts)
-- The ring is now ~230 plain picture panes (P_OotPic_020..) with the stock Circle64_00 texture: 48 dots on ring 1
+- The ring is now ~230 plain picture panes (P_ShbPic_020..) with the stock Circle64_00 texture: 48 dots on ring 1
   and 64 on ring 2, overlapping so they read as one continuous tube with round ends. A slightly bigger black dot
   behind each one is the empty track and the border. The fill's last dot sits at the exact fill angle (small-angle
   sin/cos rotation of the precomputed dot table), so the end moves smoothly. Yellow when exhausted.
@@ -215,15 +215,14 @@ Consequence: only site 3 sees gameplay input. The four classic slot sites
 - Live tuning: tools/hud_tune.py set <i>=<v> --sym g_ringp (radii, thickness, border, track alpha/brightness).
 
 ## Sprint speed, shield cost, enemy health (Nov 14)
-- Sprint speed: Link's ground movement is `main+0x9352F0(player, direction, float speed)`; his own call is the
+- Sprint speed: the player's ground movement is `main+0x9352F0(player, direction, float speed)`; his own call is the
   `bl` at main+0x934990 (returns to main+0x934994). Hook 10 sits on the function entry and, only for that return
   address, multiplies s0 (saved d0) by `sprint_speed_pct` while A is held and not stripped by the stamina rules.
   Measured: run ~5.6 m/s, native sprint ~7 m/s, x2 -> ~14.5 m/s. Default 125 %. Writing position (actor+0x31C) or
   velocity (actor+0x388) does nothing (both are outputs); RollingMaxSpeed does not drive the sprint.
-  (Reference: the MIT "Movement Speed Increase" mod by Zerossa patches the same call.)
-- Shield cost: the hit arrives during Link's hit reaction, when his movement update pauses (player_active() false
+- Shield cost: the hit arrives during the player's hit reaction, when his movement update pauses (player_active() false
   for a few frames) and queued events were dropped. Shield hits are now a counter (player_guard_seq) kept across
   pauses shorter than 60 frames; GuardFailHit (the hit went through) no longer counts.
-- Enemy health: works (g_hp_log). Peahat larvae have MaxLife 1 (x3 = 3), the big Peahat 6 and only takes damage on
-  its root (IsHeadshotOnlyDamage, bone Tail_1). Kokiri Sword EquipmentPerformance 1.
+- Enemy health: works (g_hp_log). Small enemies with MaxLife 1 scale to 3; the large enemy with MaxLife 6 only takes
+  damage on its root (IsHeadshotOnlyDamage, bone Tail_1). The starting sword has EquipmentPerformance 1.
 - Stamina refill wait: 0.8 s, 1.8 s in combat, 2.5 s after exhaustion.

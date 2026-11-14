@@ -3,6 +3,7 @@ perform actions with injected input, and check the stamina behaviour against wha
 
 Usage: python tools/e2e_matrix.py [scenario-name ...]    Results: build/e2e/results.txt
 """
+import os
 import re
 import shutil
 import subprocess
@@ -11,8 +12,8 @@ import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-EXE = ROOT / "release" / "OotMasterConfig.exe"
-EMU = "E:/Switch2/Emu/Fritchii-v4.1-Windows-x64/Fritchii-v4.1"      # same emulator live_check.py launches
+EXE = ROOT / "release" / ("SuperHeroBoostConfig.exe" if sys.platform == "win32" else "SuperHeroBoostConfig")
+EMU = os.environ.get("SHB_EMU", "E:/Switch2/Emu/Fritchii-v4.1-Windows-x64/Fritchii-v4.1")
 OUT = ROOT / "build" / "e2e"
 KEYS = ("jump", "attack", "sprint", "block", "shoot", "roll")
 
@@ -89,7 +90,7 @@ def one(sc):
     time.sleep(4)
     ok = "installed in" in r.stdout
     base = "0x4F87000" if sc["classic"] else "0x4F80000"          # symbols of the installed variant
-    run([sys.executable, "tools/build_core.py", "--features", "hero_core", "--compat", "--base", base], 300)
+    run([sys.executable, "tools/build_core.py", "--features", "stamina", "--compat", "--base", base], 300)
     acts = [a for a in ACTIONS if a != "shoot" or sc["classic"]]
     steps, pos = [], {}
     for a in acts:

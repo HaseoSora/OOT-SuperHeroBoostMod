@@ -1,5 +1,5 @@
-#ifndef OOT_MASTER_DISPATCH_H
-#define OOT_MASTER_DISPATCH_H
+#ifndef SHB_DISPATCH_H
+#define SHB_DISPATCH_H
 
 typedef unsigned int u32;
 typedef unsigned long long u64;

@@ -12,6 +12,7 @@ Symbols come from build/native/module.elf (run tools/build_core.py first).
 from __future__ import annotations
 
 import argparse
+import os
 import re
 import struct
 import subprocess
@@ -20,17 +21,16 @@ import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, r"F:\project\oot\vendor\devtool\oot-remake-devtool-main")
+sys.path.insert(0, os.environ.get("SHB_DEVTOOL", r"F:\project\oot\vendor\devtool\oot-remake-devtool-main"))
 from lichii import DebugClient  # noqa: E402
 
-TOOLCHAIN_BIN = Path(
-    r"F:\project\oot\tools\llvm-mingw\llvm-mingw-20261104-ucrt-x86_64\bin"
-)
+TOOLCHAIN_BIN = Path(os.environ.get(
+    "SHB_LLVM", r"F:\project\oot\tools\llvm-mingw\llvm-mingw-20261104-ucrt-x86_64\bin"))
 NM = TOOLCHAIN_BIN / "llvm-nm.exe"
 ELF = ROOT / "build" / "native" / "module.elf"
 
-FRITCHII = Path(r"E:\Switch2\Emu\Fritchii-v4.1-Windows-x64\Fritchii-v4.1")
-GAME = Path(r"E:\Switch2\Roms\NX\Zelda Ocarina.nx")
+FRITCHII = Path(os.environ.get("SHB_EMU", r"E:\Switch2\Emu\Fritchii-v4.1-Windows-x64\Fritchii-v4.1"))
+GAME = Path(os.environ.get("SHB_GAME", "game.nx"))
 LOG = FRITCHII / "user" / "log" / "eden_log.txt"
 PORT = 6545
 
@@ -91,8 +91,11 @@ def main() -> int:
         cwd=str(FRITCHII), env=env,
     )
     try:
-        from lib.winmove import move_to_secondary  # keep the emulator off the primary monitor
-        move_to_secondary(proc.pid)
+        try:                                   # keep the emulator off the primary monitor (Windows helper)
+            from lib.winmove import move_to_secondary
+            move_to_secondary(proc.pid)
+        except Exception:
+            pass
         c = DebugClient(port=PORT, timeout=10)
         st = wait_for_status(c)
         print("debug status:", "ok" if st is not None else "NO CONNECTION")
@@ -180,8 +183,8 @@ def main() -> int:
                 time.sleep(0.7)
                 if "g_stamina" in syms:
                     print("   stamina 0.7s later:", struct.unpack("<f", read_sym("g_stamina", 4))[0])
-                if "g_hc_dbg" in syms:
-                    dd = struct.unpack("<6I", read_sym("g_hc_dbg", 24))
+                if "g_st_dbg" in syms:
+                    dd = struct.unpack("<6I", read_sym("g_st_dbg", 24))
                     print(f"   combat {dd[5] - 0x10000000} exhausted {dd[3] - 0x10000000} counts rolls/jumps/runframes/attacks {dd[0]-0x10000000}/{dd[1]-0x10000000}/{dd[2]-0x10000000}/{dd[4]-0x10000000}")
                 if "g_ev" in syms:
                     ev = struct.unpack("<5I", read_sym("g_ev", 20))
@@ -275,16 +278,17 @@ def main() -> int:
             print("slot instances seen by prepare (asset ptr):", [hex(v - 0x1000000000000000) for v in sd])
             bd = struct.unpack("<4Q", read_sym("g_bind_dbg", 32))
             print("slot0 part/pat/num/pane:", [hex(v - 0x1000000000000000) for v in bd])
-        if "g_hc_seen" in syms:
-            seen = struct.unpack("<Q", read_sym("g_hc_seen", 8))[0] - 0x100000000
-            cnt = struct.unpack("<I", read_sym("g_hc_count", 4))[0]
-            print(f"hero_core: buttons seen at site 3 = {seen:#x}, sample count = {cnt:#x}")
-        if "g_hc_dbg" in syms:
-            d = struct.unpack("<6I", read_sym("g_hc_dbg", 24))
-            print("hero_core rolls/jumps/run-frames/exhausted/attacks:", tuple(v - 0x10000000 for v in d))
-        if "g_link_actor" in syms:
-            la, lp = struct.unpack("<2Q", read_sym("g_link_actor", 16))
-            print(f"link actor {la:#x} player {lp:#x} seen {struct.unpack(chr(60)+chr(73), read_sym(chr(103)+chr(95)+chr(108)+chr(105)+chr(110)+chr(107)+chr(95)+chr(115)+chr(101)+chr(101)+chr(110), 4))[0] - 0x10000000}")
+        if "g_st_seen" in syms:
+            seen = struct.unpack("<Q", read_sym("g_st_seen", 8))[0] - 0x100000000
+            cnt = struct.unpack("<I", read_sym("g_st_count", 4))[0]
+            print(f"stamina: buttons seen at site 3 = {seen:#x}, sample count = {cnt:#x}")
+        if "g_st_dbg" in syms:
+            d = struct.unpack("<6I", read_sym("g_st_dbg", 24))
+            print("stamina rolls/jumps/run-frames/exhausted/attacks:", tuple(v - 0x10000000 for v in d))
+        if "g_player_actor" in syms:
+            la, lp = struct.unpack("<2Q", read_sym("g_player_actor", 16))
+            seen = struct.unpack("<I", read_sym("g_player_seen", 4))[0] - 0x10000000
+            print(f"player actor {la:#x} component {lp:#x} seen {seen}")
         if "g_pt_dbg" in syms:
             print("player track stages:", tuple(v - 0x10000000 for v in struct.unpack("<8I", read_sym("g_pt_dbg", 32))))
         if "g_pt_diff" in syms:
@@ -338,21 +342,21 @@ def main() -> int:
             print("num anims found (In,Out,Number,NumMax,NumMin,PosPattern,IsTotalVisible,ChangePattern,ControlType,FlushIn):", struct.unpack("<10I", read_sym("g_num_dbg", 40)))
         if "g_hp_dbg" in syms:
             print("enemy hp scaling (n, cur before, max before, max after):", struct.unpack("<4I", read_sym("g_hp_dbg", 16)),
-                  "link damage scalings:", struct.unpack("<I", read_sym("g_dmg_dbg", 4))[0])
+                  "player damage scalings:", struct.unpack("<I", read_sym("g_dmg_dbg", 4))[0])
         if "g_num_ctl" in syms:
             print("rupee display: controller", hex(struct.unpack("<Q", read_sym("g_num_ctl", 8))[0]), "calls",
                   struct.unpack("<I", read_sym("g_num_calls", 4))[0], "state (d0,d4,d8,158,160,161):",
                   struct.unpack("<6I", read_sym("g_num_dbg", 24)))
-        if "g_hc_guard" in syms:
-            print("guard hits costed:", struct.unpack("<I", read_sym("g_hc_guard", 4))[0],
-                  "lowest stamina after one:", struct.unpack("<f", read_sym("g_hc_lowest", 4))[0])
+        if "g_st_guard" in syms:
+            print("guard hits costed:", struct.unpack("<I", read_sym("g_st_guard", 4))[0],
+                  "lowest stamina after one:", struct.unpack("<f", read_sym("g_st_lowest", 4))[0])
         if "g_guard_names" in syms:
             gn = struct.unpack("<I", read_sym("g_guard_n", 4))[0]; raw = read_sym("g_guard_names", 16 * 24)
             print("guard state names:", [raw[i*24:(i+1)*24].split(b"\0")[0].decode("latin1") for i in range(min(gn, 16))])
-        if "g_link_maxlife" in syms:
-            print("link max life (quarters):", struct.unpack("<i", read_sym("g_link_maxlife", 4))[0])
-        if "g_link_life" in syms:
-            print("link life value:", struct.unpack("<i", read_sym("g_link_life", 4))[0])
+        if "g_player_maxlife" in syms:
+            print("player max life (quarters):", struct.unpack("<i", read_sym("g_player_maxlife", 4))[0])
+        if "g_player_life" in syms:
+            print("player life value:", struct.unpack("<i", read_sym("g_player_life", 4))[0])
         if "g_anchor_dbg" in syms:
             a = struct.unpack("<6i", read_sym("g_anchor_dbg", 24))
             print(f"anchor: updates {a[0]-0x10000000} cams {a[1]} vtmismatch {a[2]} dist {a[3]/100:.2f} screen ({a[4]},{a[5]})")

@@ -1,6 +1,6 @@
-"""Minimal NSO/IPS32 helpers for the OoT remake mod work.
+"""Minimal NSO/IPS32 helpers for the game's remake mod work.
 
-NSO layout used by Project Eglantine (build E0F3...):
+NSO layout used by the game (build E0F3...):
   offset 0x00: magic 'NSO0'
   offset 0x0C: flags (bit0 = compressed)
   offset 0x10: text file offset, 0x14 text memory offset, 0x18 text size
@@ -83,7 +83,7 @@ def memory_image(raw: bytes) -> bytearray:
 
 
 def parse_ips32(raw: bytes) -> list[tuple[int, bytes, bool]]:
-    """Parse the IPS32 dialect used by Lichii: 4-byte offsets, 2-byte sizes, EEOF."""
+    """Parse the IPS32 dialect used by the mod loader: 4-byte offsets, 2-byte sizes, EEOF."""
     if raw[:5] != b"IPS32":
         raise ValueError("not an IPS32 file")
     pos = 5

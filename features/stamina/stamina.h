@@ -1,9 +1,9 @@
 /*
- * Clean-room stamina core for the unified OoT remake mod.
+ * Clean-room stamina core for Super Hero Boost.
  * No game code is used here; this is the portable state machine.
  */
-#ifndef OOT_STAMINA_H
-#define OOT_STAMINA_H
+#ifndef SHB_STAMINA_H
+#define SHB_STAMINA_H
 
 typedef unsigned int u32;
 typedef float f32;

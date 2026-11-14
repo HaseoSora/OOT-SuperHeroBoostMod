@@ -6,8 +6,17 @@ data/
 *.bin
 *.o
 *.elf
+*.spec
+*.log
 
 app/payload/
 release/
+dist/
 app/__pycache__/
-app/OotMasterConfig.json
+app/SuperHeroBoostConfig.json
+
+# macOS / Windows / Linux desktop noise
+.DS_Store
+Thumbs.db
+desktop.ini
+.venv/

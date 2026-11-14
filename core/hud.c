@@ -65,17 +65,17 @@ static const char CIRCLE_TEX[] = "Circle64_00";
 #define SEG_N 128   /* ring segments = appended gauge parts */
 static const char *part_replaces(u32 i);
 /* names live in .data as char arrays (no pointer tables: the module has no relocations) */
-static char g_pnames[SEG_N][16] = {"Pa_OotSeg_000", "Pa_OotSeg_001", "Pa_OotSeg_002", "Pa_OotSeg_003", "Pa_OotSeg_004", "Pa_OotSeg_005", "Pa_OotSeg_006", "Pa_OotSeg_007", "Pa_OotSeg_008", "Pa_OotSeg_009", "Pa_OotSeg_010", "Pa_OotSeg_011", "Pa_OotSeg_012", "Pa_OotSeg_013", "Pa_OotSeg_014", "Pa_OotSeg_015", "Pa_OotSeg_016", "Pa_OotSeg_017", "Pa_OotSeg_018", "Pa_OotSeg_019", "Pa_OotSeg_020", "Pa_OotSeg_021", "Pa_OotSeg_022", "Pa_OotSeg_023", "Pa_OotSeg_024", "Pa_OotSeg_025", "Pa_OotSeg_026", "Pa_OotSeg_027", "Pa_OotSeg_028", "Pa_OotSeg_029", "Pa_OotSeg_030", "Pa_OotSeg_031", "Pa_OotSeg_032", "Pa_OotSeg_033", "Pa_OotSeg_034", "Pa_OotSeg_035", "Pa_OotSeg_036", "Pa_OotSeg_037", "Pa_OotSeg_038", "Pa_OotSeg_039", "Pa_OotSeg_040", "Pa_OotSeg_041", "Pa_OotSeg_042", "Pa_OotSeg_043", "Pa_OotSeg_044", "Pa_OotSeg_045", "Pa_OotSeg_046", "Pa_OotSeg_047", "Pa_OotSeg_048", "Pa_OotSeg_049", "Pa_OotSeg_050", "Pa_OotSeg_051", "Pa_OotSeg_052", "Pa_OotSeg_053", "Pa_OotSeg_054", "Pa_OotSeg_055", "Pa_OotSeg_056", "Pa_OotSeg_057", "Pa_OotSeg_058", "Pa_OotSeg_059", "Pa_OotSeg_060", "Pa_OotSeg_061", "Pa_OotSeg_062", "Pa_OotSeg_063", "Pa_OotSeg_064", "Pa_OotSeg_065", "Pa_OotSeg_066", "Pa_OotSeg_067", "Pa_OotSeg_068", "Pa_OotSeg_069", "Pa_OotSeg_070", "Pa_OotSeg_071", "Pa_OotSeg_072", "Pa_OotSeg_073", "Pa_OotSeg_074", "Pa_OotSeg_075", "Pa_OotSeg_076", "Pa_OotSeg_077", "Pa_OotSeg_078", "Pa_OotSeg_079", "Pa_OotSeg_080", "Pa_OotSeg_081", "Pa_OotSeg_082", "Pa_OotSeg_083", "Pa_OotSeg_084", "Pa_OotSeg_085", "Pa_OotSeg_086", "Pa_OotSeg_087", "Pa_OotSeg_088", "Pa_OotSeg_089", "Pa_OotSeg_090", "Pa_OotSeg_091", "Pa_OotSeg_092", "Pa_OotSeg_093", "Pa_OotSeg_094", "Pa_OotSeg_095", "Pa_OotSeg_096", "Pa_OotSeg_097", "Pa_OotSeg_098", "Pa_OotSeg_099", "Pa_OotSeg_100", "Pa_OotSeg_101", "Pa_OotSeg_102", "Pa_OotSeg_103", "Pa_OotSeg_104", "Pa_OotSeg_105", "Pa_OotSeg_106", "Pa_OotSeg_107", "Pa_OotSeg_108", "Pa_OotSeg_109", "Pa_OotSeg_110", "Pa_OotSeg_111", "Pa_OotSeg_112", "Pa_OotSeg_113", "Pa_OotSeg_114", "Pa_OotSeg_115", "Pa_OotSeg_116", "Pa_OotSeg_117", "Pa_OotSeg_118", "Pa_OotSeg_119", "Pa_OotSeg_120", "Pa_OotSeg_121", "Pa_OotSeg_122", "Pa_OotSeg_123", "Pa_OotSeg_124", "Pa_OotSeg_125", "Pa_OotSeg_126", "Pa_OotSeg_127"};
-static char g_anames[SEG_N][16] = {"PaOotSeg_000", "PaOotSeg_001", "PaOotSeg_002", "PaOotSeg_003", "PaOotSeg_004", "PaOotSeg_005", "PaOotSeg_006", "PaOotSeg_007", "PaOotSeg_008", "PaOotSeg_009", "PaOotSeg_010", "PaOotSeg_011", "PaOotSeg_012", "PaOotSeg_013", "PaOotSeg_014", "PaOotSeg_015", "PaOotSeg_016", "PaOotSeg_017", "PaOotSeg_018", "PaOotSeg_019", "PaOotSeg_020", "PaOotSeg_021", "PaOotSeg_022", "PaOotSeg_023", "PaOotSeg_024", "PaOotSeg_025", "PaOotSeg_026", "PaOotSeg_027", "PaOotSeg_028", "PaOotSeg_029", "PaOotSeg_030", "PaOotSeg_031", "PaOotSeg_032", "PaOotSeg_033", "PaOotSeg_034", "PaOotSeg_035", "PaOotSeg_036", "PaOotSeg_037", "PaOotSeg_038", "PaOotSeg_039", "PaOotSeg_040", "PaOotSeg_041", "PaOotSeg_042", "PaOotSeg_043", "PaOotSeg_044", "PaOotSeg_045", "PaOotSeg_046", "PaOotSeg_047", "PaOotSeg_048", "PaOotSeg_049", "PaOotSeg_050", "PaOotSeg_051", "PaOotSeg_052", "PaOotSeg_053", "PaOotSeg_054", "PaOotSeg_055", "PaOotSeg_056", "PaOotSeg_057", "PaOotSeg_058", "PaOotSeg_059", "PaOotSeg_060", "PaOotSeg_061", "PaOotSeg_062", "PaOotSeg_063", "PaOotSeg_064", "PaOotSeg_065", "PaOotSeg_066", "PaOotSeg_067", "PaOotSeg_068", "PaOotSeg_069", "PaOotSeg_070", "PaOotSeg_071", "PaOotSeg_072", "PaOotSeg_073", "PaOotSeg_074", "PaOotSeg_075", "PaOotSeg_076", "PaOotSeg_077", "PaOotSeg_078", "PaOotSeg_079", "PaOotSeg_080", "PaOotSeg_081", "PaOotSeg_082", "PaOotSeg_083", "PaOotSeg_084", "PaOotSeg_085", "PaOotSeg_086", "PaOotSeg_087", "PaOotSeg_088", "PaOotSeg_089", "PaOotSeg_090", "PaOotSeg_091", "PaOotSeg_092", "PaOotSeg_093", "PaOotSeg_094", "PaOotSeg_095", "PaOotSeg_096", "PaOotSeg_097", "PaOotSeg_098", "PaOotSeg_099", "PaOotSeg_100", "PaOotSeg_101", "PaOotSeg_102", "PaOotSeg_103", "PaOotSeg_104", "PaOotSeg_105", "PaOotSeg_106", "PaOotSeg_107", "PaOotSeg_108", "PaOotSeg_109", "PaOotSeg_110", "PaOotSeg_111", "PaOotSeg_112", "PaOotSeg_113", "PaOotSeg_114", "PaOotSeg_115", "PaOotSeg_116", "PaOotSeg_117", "PaOotSeg_118", "PaOotSeg_119", "PaOotSeg_120", "PaOotSeg_121", "PaOotSeg_122", "PaOotSeg_123", "PaOotSeg_124", "PaOotSeg_125", "PaOotSeg_126", "PaOotSeg_127"};
+static char g_pnames[SEG_N][16] = {"Pa_ShbSeg_000", "Pa_ShbSeg_001", "Pa_ShbSeg_002", "Pa_ShbSeg_003", "Pa_ShbSeg_004", "Pa_ShbSeg_005", "Pa_ShbSeg_006", "Pa_ShbSeg_007", "Pa_ShbSeg_008", "Pa_ShbSeg_009", "Pa_ShbSeg_010", "Pa_ShbSeg_011", "Pa_ShbSeg_012", "Pa_ShbSeg_013", "Pa_ShbSeg_014", "Pa_ShbSeg_015", "Pa_ShbSeg_016", "Pa_ShbSeg_017", "Pa_ShbSeg_018", "Pa_ShbSeg_019", "Pa_ShbSeg_020", "Pa_ShbSeg_021", "Pa_ShbSeg_022", "Pa_ShbSeg_023", "Pa_ShbSeg_024", "Pa_ShbSeg_025", "Pa_ShbSeg_026", "Pa_ShbSeg_027", "Pa_ShbSeg_028", "Pa_ShbSeg_029", "Pa_ShbSeg_030", "Pa_ShbSeg_031", "Pa_ShbSeg_032", "Pa_ShbSeg_033", "Pa_ShbSeg_034", "Pa_ShbSeg_035", "Pa_ShbSeg_036", "Pa_ShbSeg_037", "Pa_ShbSeg_038", "Pa_ShbSeg_039", "Pa_ShbSeg_040", "Pa_ShbSeg_041", "Pa_ShbSeg_042", "Pa_ShbSeg_043", "Pa_ShbSeg_044", "Pa_ShbSeg_045", "Pa_ShbSeg_046", "Pa_ShbSeg_047", "Pa_ShbSeg_048", "Pa_ShbSeg_049", "Pa_ShbSeg_050", "Pa_ShbSeg_051", "Pa_ShbSeg_052", "Pa_ShbSeg_053", "Pa_ShbSeg_054", "Pa_ShbSeg_055", "Pa_ShbSeg_056", "Pa_ShbSeg_057", "Pa_ShbSeg_058", "Pa_ShbSeg_059", "Pa_ShbSeg_060", "Pa_ShbSeg_061", "Pa_ShbSeg_062", "Pa_ShbSeg_063", "Pa_ShbSeg_064", "Pa_ShbSeg_065", "Pa_ShbSeg_066", "Pa_ShbSeg_067", "Pa_ShbSeg_068", "Pa_ShbSeg_069", "Pa_ShbSeg_070", "Pa_ShbSeg_071", "Pa_ShbSeg_072", "Pa_ShbSeg_073", "Pa_ShbSeg_074", "Pa_ShbSeg_075", "Pa_ShbSeg_076", "Pa_ShbSeg_077", "Pa_ShbSeg_078", "Pa_ShbSeg_079", "Pa_ShbSeg_080", "Pa_ShbSeg_081", "Pa_ShbSeg_082", "Pa_ShbSeg_083", "Pa_ShbSeg_084", "Pa_ShbSeg_085", "Pa_ShbSeg_086", "Pa_ShbSeg_087", "Pa_ShbSeg_088", "Pa_ShbSeg_089", "Pa_ShbSeg_090", "Pa_ShbSeg_091", "Pa_ShbSeg_092", "Pa_ShbSeg_093", "Pa_ShbSeg_094", "Pa_ShbSeg_095", "Pa_ShbSeg_096", "Pa_ShbSeg_097", "Pa_ShbSeg_098", "Pa_ShbSeg_099", "Pa_ShbSeg_100", "Pa_ShbSeg_101", "Pa_ShbSeg_102", "Pa_ShbSeg_103", "Pa_ShbSeg_104", "Pa_ShbSeg_105", "Pa_ShbSeg_106", "Pa_ShbSeg_107", "Pa_ShbSeg_108", "Pa_ShbSeg_109", "Pa_ShbSeg_110", "Pa_ShbSeg_111", "Pa_ShbSeg_112", "Pa_ShbSeg_113", "Pa_ShbSeg_114", "Pa_ShbSeg_115", "Pa_ShbSeg_116", "Pa_ShbSeg_117", "Pa_ShbSeg_118", "Pa_ShbSeg_119", "Pa_ShbSeg_120", "Pa_ShbSeg_121", "Pa_ShbSeg_122", "Pa_ShbSeg_123", "Pa_ShbSeg_124", "Pa_ShbSeg_125", "Pa_ShbSeg_126", "Pa_ShbSeg_127"};
+static char g_anames[SEG_N][16] = {"PaShbSeg_000", "PaShbSeg_001", "PaShbSeg_002", "PaShbSeg_003", "PaShbSeg_004", "PaShbSeg_005", "PaShbSeg_006", "PaShbSeg_007", "PaShbSeg_008", "PaShbSeg_009", "PaShbSeg_010", "PaShbSeg_011", "PaShbSeg_012", "PaShbSeg_013", "PaShbSeg_014", "PaShbSeg_015", "PaShbSeg_016", "PaShbSeg_017", "PaShbSeg_018", "PaShbSeg_019", "PaShbSeg_020", "PaShbSeg_021", "PaShbSeg_022", "PaShbSeg_023", "PaShbSeg_024", "PaShbSeg_025", "PaShbSeg_026", "PaShbSeg_027", "PaShbSeg_028", "PaShbSeg_029", "PaShbSeg_030", "PaShbSeg_031", "PaShbSeg_032", "PaShbSeg_033", "PaShbSeg_034", "PaShbSeg_035", "PaShbSeg_036", "PaShbSeg_037", "PaShbSeg_038", "PaShbSeg_039", "PaShbSeg_040", "PaShbSeg_041", "PaShbSeg_042", "PaShbSeg_043", "PaShbSeg_044", "PaShbSeg_045", "PaShbSeg_046", "PaShbSeg_047", "PaShbSeg_048", "PaShbSeg_049", "PaShbSeg_050", "PaShbSeg_051", "PaShbSeg_052", "PaShbSeg_053", "PaShbSeg_054", "PaShbSeg_055", "PaShbSeg_056", "PaShbSeg_057", "PaShbSeg_058", "PaShbSeg_059", "PaShbSeg_060", "PaShbSeg_061", "PaShbSeg_062", "PaShbSeg_063", "PaShbSeg_064", "PaShbSeg_065", "PaShbSeg_066", "PaShbSeg_067", "PaShbSeg_068", "PaShbSeg_069", "PaShbSeg_070", "PaShbSeg_071", "PaShbSeg_072", "PaShbSeg_073", "PaShbSeg_074", "PaShbSeg_075", "PaShbSeg_076", "PaShbSeg_077", "PaShbSeg_078", "PaShbSeg_079", "PaShbSeg_080", "PaShbSeg_081", "PaShbSeg_082", "PaShbSeg_083", "PaShbSeg_084", "PaShbSeg_085", "PaShbSeg_086", "PaShbSeg_087", "PaShbSeg_088", "PaShbSeg_089", "PaShbSeg_090", "PaShbSeg_091", "PaShbSeg_092", "PaShbSeg_093", "PaShbSeg_094", "PaShbSeg_095", "PaShbSeg_096", "PaShbSeg_097", "PaShbSeg_098", "PaShbSeg_099", "PaShbSeg_100", "PaShbSeg_101", "PaShbSeg_102", "PaShbSeg_103", "PaShbSeg_104", "PaShbSeg_105", "PaShbSeg_106", "PaShbSeg_107", "PaShbSeg_108", "PaShbSeg_109", "PaShbSeg_110", "PaShbSeg_111", "PaShbSeg_112", "PaShbSeg_113", "PaShbSeg_114", "PaShbSeg_115", "PaShbSeg_116", "PaShbSeg_117", "PaShbSeg_118", "PaShbSeg_119", "PaShbSeg_120", "PaShbSeg_121", "PaShbSeg_122", "PaShbSeg_123", "PaShbSeg_124", "PaShbSeg_125", "PaShbSeg_126", "PaShbSeg_127"};
 static const u64 g_phash[SEG_N] = {HASH_PART0, HASH_PART1, HASH_PART2, HASH_PART3, HASH_PART4, HASH_PART5, HASH_PART6, HASH_PART7, HASH_PART8, HASH_PART9, HASH_PART10, HASH_PART11, HASH_PART12, HASH_PART13, HASH_PART14, HASH_PART15, HASH_PART16, HASH_PART17, HASH_PART18, HASH_PART19, HASH_PART20, HASH_PART21, HASH_PART22, HASH_PART23, HASH_PART24, HASH_PART25, HASH_PART26, HASH_PART27, HASH_PART28, HASH_PART29, HASH_PART30, HASH_PART31, HASH_PART32, HASH_PART33, HASH_PART34, HASH_PART35, HASH_PART36, HASH_PART37, HASH_PART38, HASH_PART39, HASH_PART40, HASH_PART41, HASH_PART42, HASH_PART43, HASH_PART44, HASH_PART45, HASH_PART46, HASH_PART47, HASH_PART48, HASH_PART49, HASH_PART50, HASH_PART51, HASH_PART52, HASH_PART53, HASH_PART54, HASH_PART55, HASH_PART56, HASH_PART57, HASH_PART58, HASH_PART59, HASH_PART60, HASH_PART61, HASH_PART62, HASH_PART63, HASH_PART64, HASH_PART65, HASH_PART66, HASH_PART67, HASH_PART68, HASH_PART69, HASH_PART70, HASH_PART71, HASH_PART72, HASH_PART73, HASH_PART74, HASH_PART75, HASH_PART76, HASH_PART77, HASH_PART78, HASH_PART79, HASH_PART80, HASH_PART81, HASH_PART82, HASH_PART83, HASH_PART84, HASH_PART85, HASH_PART86, HASH_PART87, HASH_PART88, HASH_PART89, HASH_PART90, HASH_PART91, HASH_PART92, HASH_PART93, HASH_PART94, HASH_PART95, HASH_PART96, HASH_PART97, HASH_PART98, HASH_PART99, HASH_PART100, HASH_PART101, HASH_PART102, HASH_PART103, HASH_PART104, HASH_PART105, HASH_PART106, HASH_PART107, HASH_PART108, HASH_PART109, HASH_PART110, HASH_PART111, HASH_PART112, HASH_PART113, HASH_PART114, HASH_PART115, HASH_PART116, HASH_PART117, HASH_PART118, HASH_PART119, HASH_PART120, HASH_PART121, HASH_PART122, HASH_PART123, HASH_PART124, HASH_PART125, HASH_PART126, HASH_PART127};
 #define PART_TOT PART_N
 static const char *part_name(u32 i) { return g_pnames[i % SEG_N]; }
 static u64 part_hash(u32 i) { return g_phash[i % SEG_N]; }
 __attribute__((unused, noinline)) static const char *part_replaces(u32 i) { (void)i; return 0; }
 static const char *asset_name(u32 i) { return g_anames[i % SEG_N]; }
-/* ring centre: where Link usually stands on screen (layout units, root-relative, Y up;
+/* ring centre: where the player usually stands on screen (layout units, root-relative, Y up;
  * ~0.356 px per unit at 720p). Placeholder until the ring follows his projected position. */
-static const float g_part_x[1] = {250.0f};   /* beside Link (right), not on him */
+static const float g_part_x[1] = {250.0f};   /* beside the player (right), not on him */
 static const float g_part_y[1] = {-300.0f};
 static const float g_part_rgb[1][3] = {{0.30f, 0.85f, 0.25f}};   /* green */
 #define CIRCLE_CAP 40.0f
@@ -145,7 +145,7 @@ static void extend_pools(u8 *root, u32 add) {
 #define FLD_N 3
 #define TXT_N (FLD_N * 2)
 static const char g_font_normal[] = "Normal";
-static char g_tnames[TXT_N][16] = {"T_OotTxt_00", "T_OotTxt_01", "T_OotTxt_02", "T_OotTxt_03", "T_OotTxt_04", "T_OotTxt_05"};
+static char g_tnames[TXT_N][16] = {"T_ShbTxt_00", "T_ShbTxt_01", "T_ShbTxt_02", "T_ShbTxt_03", "T_ShbTxt_04", "T_ShbTxt_05"};
 static const u64 g_thash[TXT_N] = {HASH_TXT0, HASH_TXT1, HASH_TXT2, HASH_TXT3, HASH_TXT4, HASH_TXT5};
 /* Picture panes. Each gets its own copy of the textured material of P_SubItemBg_00 with the game's
  * texture named below (all in the Common texture archive):
@@ -164,8 +164,8 @@ static const u64 g_thash[TXT_N] = {HASH_TXT0, HASH_TXT1, HASH_TXT2, HASH_TXT3, H
 #define RF1 (RT2 + RING2_DOTS)              /* ring 1 fill (+1 end dot) */
 #define RF2 (RF1 + RING1_DOTS + 1)          /* ring 2 fill (+1 end dot) */
 #define PIC_N (RF2 + RING2_DOTS + 1)
-static char g_pinames[PIC_N][16];           /* "P_OotPic_000".. filled by pic_names() */
-static const u64 g_pihash[400] = {HASH_PIC_LIST};   /* CityHash64 of "P_OotPic_000".. (tools/build_core.py) */
+static char g_pinames[PIC_N][16];           /* "P_ShbPic_000".. filled by pic_names() */
+static const u64 g_pihash[400] = {HASH_PIC_LIST};   /* CityHash64 of "P_ShbPic_000".. (tools/build_core.py) */
 _Static_assert(PIC_N <= 400, "more picture panes than generated hashes");
 #define TEX_N 5
 static char g_texn[TEX_N][24] = {"NumBaseSide_00", "NumBaseSide_01", "Nt_RupeeIconNew_00", "Circle64_00", "White8_00_BC4L"};
@@ -178,7 +178,7 @@ static float pic_w(u32 k) { return k < 20 ? g_pic_w0[k] : 100.0f; }
 static float pic_h(u32 k) { return k < 20 ? g_pic_h0[k] : 100.0f; }
 static void pic_names(void) {
     for (u32 k = 0; k < PIC_N; k++) {
-        static const char P[] = "P_OotPic_";
+        static const char P[] = "P_ShbPic_";
         char *d = g_pinames[k];
         for (u32 i = 0; i < 9; i++) d[i] = P[i];
         d[9] = (char)('0' + k / 100); d[10] = (char)('0' + k / 10 % 10); d[11] = (char)('0' + k % 10); d[12] = 0;
@@ -559,23 +559,23 @@ static void bind_segs(u64 parent) {
 static u32 g_tired;
 void hud_set_tired(u32 t) { g_tired = t; }
 
-/* ---- world anchor: project Link (beside his chest) to the screen like the native 3D-anchored UI ----
- * Link: physics actor position f32[3] at actor+0x31C. Camera: view = [[[[CAMMGR]]+0x28]]+0x78 with
+/* ---- world anchor: project the player (beside his chest) to the screen like the native 3D-anchored UI ----
+ * the player: physics actor position f32[3] at actor+0x31C. Camera: view = [[[[CAMMGR]]+0x28]]+0x78 with
  * CAMMGR = main+0x4C86BC0; matrix f32[3][4] row-major at view+0x08 (row0 right, row1 up, row2 back,
  * translation in column 3; the camera looks along -row2). Layout units: 3596 x 2022 for 16:9. */
-extern u64 g_link_actor;
+extern u64 g_player_actor;
 static float g_anchor_x, g_anchor_y, g_anchor_s;
 static u32 g_anchor_ok;
 u32 g_anchor_dbg[6] = {0x10000000u};
 #define ANCHOR_TAN_HALF_FOV 0.4663f   /* tan(25 deg): 50 deg vertical FOV */
 #define ANCHOR_ASPECT 1.7778f
-#define ANCHOR_SIDE 0.54f             /* metres to the camera's right of Link */
+#define ANCHOR_SIDE 0.54f             /* metres to the camera's right of the player */
 #define ANCHOR_HEIGHT 0.55f           /* metres above his feet */
 #define ANCHOR_REF_DIST 4.0f          /* camera radius at which the ring has RING_SIZE */
 
 static void anchor_update(void) {
     g_anchor_ok = 0;
-    if (g_link_actor == 1) return;
+    if (g_player_actor == 1) return;
     u64 base = (u64)MAIN_SCHED_VT - 0x4B05318ull;
     u64 slot = *(volatile u64 *)(base + 0x4C86BC0ull);
     if (!slot) return;
@@ -591,7 +591,7 @@ static void anchor_update(void) {
     if (!view) return;
     if (*(volatile u64 *)view != base + 0x4BF8A88ull) { g_anchor_dbg[2]++; return; }
     const volatile float *m = (const volatile float *)(view + 0x08);   /* rows at +0, +4, +8 floats (stride 4) */
-    const volatile float *pos = (const volatile float *)(g_link_actor + 0x31C);
+    const volatile float *pos = (const volatile float *)(g_player_actor + 0x31C);
     float rx = m[0], ry = m[1], rz = m[2];
     float px = pos[0] + rx * ANCHOR_SIDE;
     float py = pos[1] + ANCHOR_HEIGHT + ry * ANCHOR_SIDE;
@@ -643,7 +643,7 @@ static void drive_segs(void) {
         if (lit > 1.0f) lit = 1.0f;
         int unlocked = !ring2 || (int)j < avail2;
         float show = (g_show > 0.5f && g_anchor_ok && unlocked && ((k >= SET_N) == (g_tired != 0))) ? 1.0f : 0.0f;
-        if (s->part_pane && g_anchor_ok) {   /* the whole ring moves with Link */
+        if (s->part_pane && g_anchor_ok) {   /* the whole ring moves with the player */
             u64 pp = s->part_pane;
             *(float *)(pp + 0x60) = g_anchor_s;
             *(float *)(pp + 0x64) = g_anchor_s;
@@ -786,7 +786,7 @@ static void plates_update(u64 frame) {
         if (!g_pic_rec[k]) g_pic_rec[k] = pane_record(frame, g_pinames[k]);
     for (u32 k = 0; k < PIC_N; k++) if (!g_pic_rec[k]) return;
     u32 active = player_active() != 0;
-    u32 clk = active && g_ootcfg.hud_clock, rup = active && g_ootcfg.hud_rupees;
+    u32 clk = active && g_shbcfg.hud_clock, rup = active && g_shbcfg.hud_rupees;
     /* outside gameplay (loading, menus, cutscenes) nothing is touched except hiding the plates once:
      * setting texts there costs the engine a slow lookup per call */
     if (!clk && !rup) {
@@ -845,11 +845,11 @@ static void plates_update(u64 frame) {
     {   /* clock */
         char b[16]; u32 n = 0;
         int h = sec / 3600, m = (sec / 60) % 60, hh = h;
-        if (!g_ootcfg.clock_24h) { hh = h % 12; if (!hh) hh = 12; }
-        if (g_ootcfg.clock_24h || hh >= 10) b[n++] = (char)('0' + hh / 10);
+        if (!g_shbcfg.clock_24h) { hh = h % 12; if (!hh) hh = 12; }
+        if (g_shbcfg.clock_24h || hh >= 10) b[n++] = (char)('0' + hh / 10);
         b[n++] = (char)('0' + hh % 10);
         b[n++] = ':'; b[n++] = (char)('0' + m / 10); b[n++] = (char)('0' + m % 10);
-        if (!g_ootcfg.clock_24h) { b[n++] = ' '; b[n++] = h < 12 ? 'A' : 'P'; b[n++] = 'M'; }
+        if (!g_shbcfg.clock_24h) { b[n++] = ' '; b[n++] = h < 12 ? 'A' : 'P'; b[n++] = 'M'; }
         b[n] = 0;
         put_text(frame, 0, b, tx, P[1] + ty, clk, WHITE);
     }
@@ -1028,12 +1028,12 @@ u64 g_inst_child[32] = {1};
 
 void player_track(u64 actor);
 void player_guard_event(u32 id);
-__attribute__((weak)) void hero_speed_hook(void *regs);   /* features/hero_core (absent in builds without it) */
+__attribute__((weak)) void stamina_speed_hook(void *regs);   /* features/stamina (absent in builds without it) */
 void hud_on_code(u32 id, void *a0, void *a1, void *a2, void *regs) {
     (void)a1; (void)a2;
     if (id == 5) { player_track((u64)a0); return; }
     if (id >= 6 && id <= 9) { player_guard_event(id); return; }
-    if (id == 10) { if (hero_speed_hook) hero_speed_hook(regs); return; }   /* ground movement: sprint speed */
+    if (id == 10) { if (stamina_speed_hook) stamina_speed_hook(regs); return; }   /* ground movement: sprint speed */
     if (id == 4) {   /* part instance creation: log the pane index being instantiated */
         u64 layout = (u64)a1, pane = (u64)a2;
         u64 arr = layout ? ptr(layout, 0x100) : 0;

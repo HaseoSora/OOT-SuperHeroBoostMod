@@ -1,5 +1,5 @@
-#ifndef OOT_HID_H
-#define OOT_HID_H
+#ifndef SHB_HID_H
+#define SHB_HID_H
 
 typedef unsigned int u32;
 typedef unsigned long long u64;
@@ -13,7 +13,7 @@ typedef struct {
     u32 controller;
 } HidView;
 
-/* Nintendo Switch HID button bits used by the game's full-controller state. */
+/* Console HID button bits used by the game's full-controller state. */
 #define BTN_A      0x0001ull
 #define BTN_B      0x0002ull
 #define BTN_X      0x0004ull

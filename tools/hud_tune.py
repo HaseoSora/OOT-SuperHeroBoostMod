@@ -74,15 +74,15 @@ def main() -> int:
             time.sleep(0.4)
             shot(c, a.shot, a.crop)
     elif a.cmd == "cfg":   # cfg rupees=1 clock=1 clock24=0: switch the HUD options in the running game
-        offs = {"rupees": 30, "clock": 31, "clock24": 32}   # OotConfig field offsets (core/config.h)
+        offs = {"rupees": 30, "clock": 31, "clock24": 32}   # ShbConfig field offsets (core/config.h)
         pids = lichii_pids()
         hm = HostMemory(pids[0])
         hm.calibrate(c, [base])
-        cfg = base + syms["g_ootcfg"]
+        cfg = base + syms["g_shbcfg"]
         for kv in a.args:
             k, v = kv.split("=")
             hm.write(cfg + offs[k], bytes([int(v)]))
-        print("g_ootcfg", bytes(c.read(cfg, 40)).hex())
+        print("g_shbcfg", bytes(c.read(cfg, 40)).hex())
     elif a.cmd == "shot":
         shot(c, a.args[0] if a.args else "build/tune.png", a.crop)
     elif a.cmd == "dbg":

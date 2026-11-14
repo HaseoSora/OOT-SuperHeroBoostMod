@@ -1,6 +1,6 @@
 # Own replica of Classic Item Slots: analysis and plan
 
-Goal: our own version of "Classic Item Slots & Smart HUD" (sonofsilvanus, v1.4.3) inside OoT Master Mod, so the
+Goal: our own version of "Classic Item Slots & Smart HUD" (sonofsilvanus, v1.4.3) inside Super Hero Boost, so the
 way it is used can be our own. The upstream repository only has the README (no code); what follows comes from that
 README, from the hook map of its IPS (docs/CLASSIC-HOOKS.md) and from what our own module already does.
 
@@ -23,7 +23,7 @@ through a PLT-stub hook).
 
 ## What we already have
 
-- `features/classic_slots/classic_slots.c` (not shipped; release builds only `hero_core`): B / L / R / ZR slots that
+- `features/classic_slots/classic_slots.c` (not shipped; release builds only `stamina`): B / L / R / ZR slots that
   work by equipping the slot's item into the game's item box (forced item index on the stock `0x1211C00` call),
   holding ZR while the slot button is held, and restoring the previous item on release. Assignment is a test
   method (ZL + button cycles the item). Measured item index -> ItemPattern icon frame table.

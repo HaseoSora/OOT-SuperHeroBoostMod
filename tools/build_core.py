@@ -60,7 +60,7 @@ CFLAGS = [
 # Handler table entries per feature, per table
 FEATURE_INPUT_HANDLERS = {
     "probe": ["probe_on_input"],
-    "hero_core": ["hero_core_on_input"],
+    "stamina": ["stamina_on_input"],
     "classic_slots": ["classic_slots_on_input"],
 }
 FEATURE_SLOT_HANDLERS = {
@@ -124,7 +124,7 @@ def build_nso(text: bytes, ro: bytes, data: bytes,
     # the loader read nothing for the segments (crash on load, seen in F0).
     struct.pack_into("<III", header, 0x60, len(text), len(ro), len(data))
     # Module id at 0x40. No hash at 0xA0 (flags == 0, nothing is checked).
-    header[0x40:0x60] = hashlib.sha256(b"oot-master-mod\0" + text).digest()
+    header[0x40:0x60] = hashlib.sha256(b"super-hero-boost\0" + text).digest()
     out = bytearray(header)
     out += text
     out += b"\0" * (ro_off - len(out))
@@ -283,12 +283,12 @@ def main() -> int:
     OUT.mkdir(parents=True, exist_ok=True)
     # Hashes of our HUD part names (the engine stores a CityHash64 next to each name).
     from lib.cityhash import city_hash64
-    names = [f"Pa_OotSeg_{k:03d}" for k in range(128)]
+    names = [f"Pa_ShbSeg_{k:03d}" for k in range(128)]
     (OUT / "hud_names.h").write_text(
         "".join(f"#define HASH_PART{i} {city_hash64(n.encode())}ull\n" for i, n in enumerate(names))
-        # clock/rupee HUD: text panes T_OotTxt_00.. and picture panes P_OotPic_00.. (names in core/hud.c)
-        + "".join(f"#define HASH_TXT{i} {city_hash64(f'T_OotTxt_{i:02d}'.encode())}ull\n" for i in range(8))
-        + "#define HASH_PIC_LIST " + ", ".join(f"{city_hash64(f'P_OotPic_{i:03d}'.encode())}ull" for i in range(400))
+        # clock/rupee HUD: text panes T_ShbTxt_00.. and picture panes P_ShbPic_00.. (names in core/hud.c)
+        + "".join(f"#define HASH_TXT{i} {city_hash64(f'T_ShbTxt_{i:02d}'.encode())}ull\n" for i in range(8))
+        + "#define HASH_PIC_LIST " + ", ".join(f"{city_hash64(f'P_ShbPic_{i:03d}'.encode())}ull" for i in range(400))
         + "\n",
         encoding="ascii")
     gen = OUT / "dispatch_gen.c"

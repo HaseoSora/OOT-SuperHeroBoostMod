@@ -1,6 +1,6 @@
-"""Find Link's action-state fields: sample the player component while injecting actions.
+"""Find the player's action-state fields: sample the player component while injecting actions.
 
-Usage: python tools/action_diff.py [size_hex] [exp,...]   (needs g_link_player published by core/player.c)
+Usage: python tools/action_diff.py [size_hex] [exp,...]   (needs g_player_comp published by core/player.c)
 Prints, per experiment, the 4-byte words that differ from the idle baseline (idle noise removed).
 """
 import os, struct, subprocess, sys, threading, time
@@ -39,7 +39,7 @@ def main():
             c.input([{"buttons": ["A"], "frames": 20}]); time.sleep(6)
         time.sleep(40)
         mb = log_addr("main")
-        pl = struct.unpack("<Q", bytes(c.read(mb + syms["g_link_player"], 8)))[0]
+        pl = struct.unpack("<Q", bytes(c.read(mb + syms["g_player_comp"], 8)))[0]
         print("player component", hex(pl))
         c2 = DebugClient(port=PORT, timeout=10)
         # idle baseline with noise detection

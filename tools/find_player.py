@@ -33,7 +33,7 @@ def main():
             if rd(c, q(c, a + 0x10) + 0x58, 7) == b"Player\0":
                 P = a
                 break
-        print("Link player-type object", hex(P) if P else None)
+        print("the player player-type object", hex(P) if P else None)
         if P:
             mvp = P + 0x1D50
             for label, val in (("movement ptr", mvp), ("player obj ptr", P)):

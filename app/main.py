@@ -1,0 +1,675 @@
+"""Super Hero Boost - configuration and installer window.
+
+The mod is prebuilt and reads its options when the game loads; this app only
+edits those options, remembers them and installs the mod into the emulator.
+It does not compile anything.
+
+Headless use (tests):
+    SuperHeroBoostConfig --cli --emu <folder> [--profile hero] [--preset 2] ...
+"""
+import argparse
+import json
+import os
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import installer as I  # noqa: E402
+import paths  # noqa: E402
+from i18n import LANGS, tr, system_lang  # noqa: E402
+from presets import (DEFAULT_PROFILE, KEYS, PROFILES, PROFILE_KEYS,  # noqa: E402
+                     STAMINA_MODES, defaults, profile_values)
+
+
+# ---------------------------------------------------------------- settings file
+def load_cfg() -> dict:
+    for p in paths.settings_paths():
+        try:
+            data = json.loads(p.read_text(encoding="utf-8"))
+            if isinstance(data, dict):
+                return data
+        except Exception:
+            continue
+    return {}
+
+
+def save_cfg(d: dict) -> str:
+    for p in paths.settings_paths():
+        try:
+            p.parent.mkdir(parents=True, exist_ok=True)
+            p.write_text(json.dumps(d, indent=1, ensure_ascii=False), encoding="utf-8")
+            return str(p)
+        except OSError:
+            continue
+    return ""
+
+
+# ---------------------------------------------------------------- command line
+def cli(argv) -> int:
+    ap = argparse.ArgumentParser(description="Super Hero Boost installer (headless mode)")
+    ap.add_argument("--cli", action="store_true")
+    ap.add_argument("--emu", help="emulator folder (the one that contains 'user')")
+    ap.add_argument("--profile", choices=PROFILE_KEYS, default="custom",
+                    help="apply a complete game profile before the individual options")
+    ap.add_argument("--list-profiles", action="store_true", help="print the profile keys and exit")
+    ap.add_argument("--preset", type=int, choices=range(4), default=None,
+                    help="stamina style: 0 hardcore, 1 combat only, 2 sprint only, 3 advanced")
+    ap.add_argument("--no-classic", action="store_true")
+    ap.add_argument("--classic-variant", default="default", choices=list(I.CLASSIC_VARIANTS))
+    ap.add_argument("--no-stamina", action="store_true")
+    ap.add_argument("--off", default=None, help="advanced: comma list of jump,attack,sprint,block,shoot,roll to disable")
+    ap.add_argument("--combat-only", action="store_true", default=None)
+    ap.add_argument("--name", default=I.MOD_NAME)
+    ap.add_argument("--enemy-hp", type=int, default=None, help="enemy health, percent (150 = Hero Mode)")
+    ap.add_argument("--damage", type=int, default=None, help="damage taken, percent (200 = Hero Mode)")
+    ap.add_argument("--no-heart-drop", action="store_true")
+    ap.add_argument("--sprint-speed", type=int, default=None, help="sprint speed, percent (125 = default)")
+    ap.add_argument("--rupees", action="store_true", help="always-visible rupee counter")
+    ap.add_argument("--clock", action="store_true", help="always-visible clock")
+    ap.add_argument("--clock24", action="store_true")
+    a = ap.parse_args(argv)
+
+    if a.list_profiles:
+        from i18n import T
+        for key in PROFILE_KEYS:
+            token = "profile_custom" if key == "custom" else "p_" + key.replace("-", "_")
+            print(f"{key:13s} {T['en'].get(token, '')}")
+        return 0
+    if not a.emu:
+        ap.error("--emu is required")
+
+    v = profile_values(a.profile) if a.profile != "custom" else defaults()
+    costs = dict(zip(KEYS, v["costs"]))
+    if a.off is not None:
+        for k in a.off.split(","):
+            if k in costs:
+                costs[k] = False
+    s = I.Settings(classic=v["classic"], stamina=v["stamina"], preset=v["mode"],
+                   combat_only=v["combat_only"], **costs,
+                   enemy_hp=v["enemy_hp"], damage=v["damage"],
+                   no_heart_drop=v["no_heart_drop"], sprint_speed=v["sprint_speed"],
+                   hud_rupees=v["hud_rupees"], hud_clock=v["hud_clock"], clock_24h=v["clock_24h"])
+    if a.preset is not None:
+        s.preset = a.preset
+    if a.no_classic:
+        s.classic = False
+    if a.no_stamina:
+        s.stamina = False
+    if a.combat_only:
+        s.combat_only = True
+    if a.enemy_hp is not None:
+        s.enemy_hp = a.enemy_hp
+    if a.damage is not None:
+        s.damage = a.damage
+    if a.sprint_speed is not None:
+        s.sprint_speed = a.sprint_speed
+    if a.no_heart_drop:
+        s.no_heart_drop = True
+    if a.rupees:
+        s.hud_rupees = True
+    if a.clock:
+        s.hud_clock = True
+    if a.clock24:
+        s.clock_24h = True
+
+    try:
+        r = I.install(Path(a.emu), s, a.classic_variant, a.name)
+    except I.InstallError as e:
+        print("error:", e.key, e.arg)
+        return 1
+    print("installed in", r.target, "variant", r.variant)
+    for k, arg in r.notes:
+        print(" -", k, arg)
+    return 0
+
+
+# ---------------------------------------------------------------- window
+BG = "#0f141b"
+SIDEBAR = "#0b1016"
+PANEL = "#171f2a"
+PANEL2 = "#0c1219"
+BORDER = "#263342"
+ACCENT = "#4cc2ff"
+ACCENT_DARK = "#1d5f7d"
+AMBER = "#ffb347"
+TEXT = "#e7eef7"
+DIM = "#94a3b3"
+RED = "#ff7070"
+
+
+class ScrollArea:
+    """A vertical scrolling frame that also works with wheel/trackpad on every OS."""
+
+    def __init__(self, parent, bg):
+        import tkinter as tk
+        self.frame = tk.Frame(parent, bg=bg)
+        self.canvas = tk.Canvas(self.frame, bg=bg, highlightthickness=0)
+        self.bar = tk.Scrollbar(self.frame, orient="vertical", command=self.canvas.yview)
+        self.canvas.configure(yscrollcommand=self.bar.set)
+        self.canvas.pack(side="left", fill="both", expand=True)
+        self.bar.pack(side="right", fill="y")
+        self.inner = tk.Frame(self.canvas, bg=bg)
+        self._win = self.canvas.create_window((0, 0), window=self.inner, anchor="nw")
+        self.inner.bind("<Configure>", lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all")))
+        self.canvas.bind("<Configure>", lambda e: self.canvas.itemconfigure(self._win, width=e.width))
+        self.canvas.bind_all("<MouseWheel>", self._wheel)
+        self.canvas.bind_all("<Button-4>", self._wheel)
+        self.canvas.bind_all("<Button-5>", self._wheel)
+
+    def destroy(self):
+        for seq in ("<MouseWheel>", "<Button-4>", "<Button-5>"):
+            try:
+                self.canvas.unbind_all(seq)
+            except Exception:
+                pass
+        self.frame.destroy()
+
+    def _wheel(self, event):
+        if getattr(event, "num", None) == 4:
+            step = -1
+        elif getattr(event, "num", None) == 5:
+            step = 1
+        else:
+            step = -1 if getattr(event, "delta", 0) > 0 else 1
+        self.canvas.yview_scroll(step, "units")
+
+
+def gui() -> None:
+    import tkinter as tk
+    import tkinter.font as tkfont
+    from tkinter import filedialog, messagebox, ttk
+
+    if sys.platform == "win32":                    # crisp text on scaled displays
+        try:
+            import ctypes
+            ctypes.windll.shcore.SetProcessDpiAwareness(1)
+        except Exception:
+            pass
+
+    cfg = load_cfg()
+    root = tk.Tk()
+    root.title("Super Hero Boost")
+    root.configure(bg=BG)
+    root.geometry("1060x740")
+    root.minsize(920, 620)
+
+    fams = set(tkfont.families())
+    FAM = next((f for f in ("Segoe UI", "SF Pro Text", "Helvetica Neue", "DejaVu Sans", "Arial") if f in fams), "TkDefaultFont")
+
+    lang = tk.StringVar(value=cfg.get("lang") if cfg.get("lang") in LANGS else system_lang())
+    emu = tk.StringVar(value=cfg.get("emu", ""))
+    profile = tk.StringVar(value=cfg.get("profile") if cfg.get("profile") in PROFILE_KEYS else "custom")
+    classic = tk.BooleanVar(value=bool(cfg.get("classic", True)))
+    variant = tk.StringVar(value=cfg.get("variant") if cfg.get("variant") in I.CLASSIC_VARIANTS else "default")
+    stamina = tk.BooleanVar(value=bool(cfg.get("stamina", True)))
+    mode = tk.StringVar(value=cfg.get("stamina_mode") if cfg.get("stamina_mode") in STAMINA_MODES
+                        else STAMINA_MODES[cfg.get("preset", 0)] if cfg.get("preset", 0) in range(4) else "hardcore")
+
+    saved_costs = cfg.get("costs")
+    if not isinstance(saved_costs, dict):
+        saved_costs = cfg.get("custom") if isinstance(cfg.get("custom"), dict) else {}
+    costs = {k: tk.BooleanVar(value=bool(saved_costs.get(k, True))) for k in KEYS}
+    combat = tk.BooleanVar(value=bool(saved_costs.get("combat_only", cfg.get("combat_only", False))))
+    MULT = (100, 150, 200, 300)
+    hp = tk.IntVar(value=cfg.get("enemy_hp", 100) if cfg.get("enemy_hp", 100) in MULT else 100)
+    dmg = tk.IntVar(value=cfg.get("damage", 100) if cfg.get("damage", 100) in MULT else 100)
+    SPEEDS = (100, 125, 150, 175, 200, 250, 300)
+    speed = tk.IntVar(value=cfg.get("sprint_speed", 125) if cfg.get("sprint_speed", 125) in SPEEDS else 125)
+    nodrop = tk.BooleanVar(value=bool(cfg.get("no_heart_drop", False)))
+    rupees = tk.BooleanVar(value=bool(cfg.get("hud_rupees", False)))
+    clock = tk.BooleanVar(value=bool(cfg.get("hud_clock", False)))
+    clock24 = tk.BooleanVar(value=bool(cfg.get("clock_24h", False)))
+
+    status = tk.StringVar(value="")
+    guard = {"on": False}
+    ui = {"nav": {}, "sections": {}}
+    state = {"section": "install"}
+
+    L = lambda key, **kw: tr(lang.get(), key, **kw)  # noqa: E731
+
+    # ---- style ----
+    style = ttk.Style()
+    try:
+        style.theme_use("clam")
+    except Exception:
+        pass
+    style.configure("SHB.TCombobox", fieldbackground=PANEL2, background=PANEL, foreground=TEXT,
+                    arrowcolor=ACCENT, bordercolor=BORDER, lightcolor=PANEL, darkcolor=PANEL,
+                    selectbackground=PANEL2, selectforeground=TEXT)
+    style.map("SHB.TCombobox", fieldbackground=[("readonly", PANEL2)], foreground=[("readonly", TEXT)])
+    root.option_add("*TCombobox*Listbox.background", PANEL2)
+    root.option_add("*TCombobox*Listbox.foreground", TEXT)
+    root.option_add("*TCombobox*Listbox.selectBackground", ACCENT_DARK)
+    root.option_add("*TCombobox*Listbox.selectForeground", TEXT)
+
+    # ---- small widget helpers ----
+    def button(parent, text, cmd, primary=False, **kw):
+        return tk.Button(parent, text=text, command=cmd, font=(FAM, 10, "bold"), relief="flat", bd=0,
+                         cursor="hand2", bg=ACCENT if primary else PANEL2, fg="#06121a" if primary else TEXT,
+                         activebackground="#78d4ff" if primary else BORDER,
+                         activeforeground="#06121a" if primary else TEXT,
+                         disabledforeground=DIM, highlightthickness=1,
+                         highlightbackground=ACCENT if primary else BORDER,
+                         padx=16, pady=7, **kw)
+
+    def label(parent, text, size=10, color=TEXT, bold=False, italic=False, wrap=760, **kw):
+        style_name = "italic" if italic else ("bold" if bold else "normal")
+        return tk.Label(parent, text=text, bg=kw.pop("bg", PANEL), fg=color, font=(FAM, size, style_name),
+                        justify="left", anchor="w", wraplength=wrap, **kw)
+
+    def card(parent, title, desc=None):
+        f = tk.Frame(parent, bg=PANEL, highlightbackground=BORDER, highlightthickness=1)
+        f.pack(fill="x", padx=4, pady=(0, 12))
+        label(f, title, size=12, color=ACCENT, bold=True, bg=PANEL).pack(anchor="w", padx=14, pady=(10, 0))
+        if desc:
+            label(f, desc, size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=14, pady=(2, 8))
+        body = tk.Frame(f, bg=PANEL)
+        body.pack(fill="x", padx=14, pady=(0, 12))
+        return body
+
+    def check(parent, text, var):
+        return tk.Checkbutton(parent, text=text, variable=var, bg=PANEL, fg=TEXT, selectcolor=PANEL2,
+                              activebackground=PANEL, activeforeground=ACCENT, disabledforeground=DIM,
+                              font=(FAM, 10), anchor="w", highlightthickness=0, bd=0)
+
+    def radio(parent, text, var, value, cmd=None):
+        return tk.Radiobutton(parent, text=text, variable=var, value=value, command=cmd, bg=PANEL, fg=TEXT,
+                              selectcolor=PANEL2, activebackground=PANEL, activeforeground=ACCENT,
+                              disabledforeground=DIM, font=(FAM, 10), anchor="w", highlightthickness=0, bd=0)
+
+    def combo(parent, values, var, width=16):
+        cb = ttk.Combobox(parent, state="readonly", style="SHB.TCombobox", width=width, values=values)
+        cb.current(values.index(var.get()) if var.get() in values else 0)
+        return cb
+
+    # ---- profile handling ----
+    def profile_name(key):
+        return L("profile_custom") if key == "custom" else L("p_" + key.replace("-", "_"))
+
+    def apply_profile(key, save=True):
+        if key == "custom":
+            refresh()
+            return
+        v = profile_values(key)
+        guard["on"] = True
+        profile.set(key)
+        classic.set(v["classic"])
+        stamina.set(v["stamina"])
+        mode.set(STAMINA_MODES[v["mode"]])
+        for k, val in zip(KEYS, v["costs"]):
+            costs[k].set(val)
+        combat.set(v["combat_only"])
+        hp.set(v["enemy_hp"])
+        dmg.set(v["damage"])
+        nodrop.set(v["no_heart_drop"])
+        speed.set(v["sprint_speed"])
+        rupees.set(v["hud_rupees"])
+        clock.set(v["hud_clock"])
+        clock24.set(v["clock_24h"])
+        guard["on"] = False
+        refresh()
+        if save:
+            autosave()
+
+    def choose_profile(key):
+        if key == "custom":
+            profile.set("custom")
+            refresh()
+            autosave()
+        else:
+            apply_profile(key)
+
+    def on_setting_change(*_):
+        if guard["on"]:
+            return
+        if profile.get() != "custom":
+            guard["on"] = True
+            profile.set("custom")
+            guard["on"] = False
+        refresh()
+        autosave()
+
+    for var in (classic, stamina, mode, combat, hp, dmg, speed, nodrop, rupees, clock, clock24, *costs.values()):
+        var.trace_add("write", on_setting_change)
+
+    pending = {"id": None}
+
+    def autosave(*_):
+        if pending["id"]:
+            root.after_cancel(pending["id"])
+        pending["id"] = root.after(250, remember)
+
+    def settings():
+        return I.Settings(classic=classic.get(), stamina=stamina.get(),
+                          preset=STAMINA_MODES.index(mode.get()),
+                          combat_only=combat.get(),
+                          **{k: costs[k].get() for k in KEYS},
+                          enemy_hp=hp.get(), damage=dmg.get(), no_heart_drop=nodrop.get(),
+                          sprint_speed=speed.get(), hud_rupees=rupees.get(),
+                          hud_clock=clock.get(), clock_24h=clock24.get())
+
+    def remember():
+        return save_cfg({
+            "lang": lang.get(), "emu": emu.get(), "profile": profile.get(),
+            "classic": classic.get(), "variant": variant.get(),
+            "stamina": stamina.get(), "stamina_mode": mode.get(),
+            "costs": {**{k: costs[k].get() for k in KEYS}, "combat_only": combat.get()},
+            "combat_only": combat.get(),
+            "enemy_hp": hp.get(), "damage": dmg.get(), "no_heart_drop": nodrop.get(),
+            "sprint_speed": speed.get(), "hud_rupees": rupees.get(),
+            "hud_clock": clock.get(), "clock_24h": clock24.get(),
+        })
+
+    def ok_emu():
+        e = emu.get().strip()
+        return I.find_mods_dir(Path(e).expanduser()) if e else None
+
+    # ---- actions ----
+    def browse():
+        d = filedialog.askdirectory(title=L("emu_hint"))
+        if d:
+            emu.set(d)
+
+    def do_install():
+        try:
+            status.set(L("working"))
+            root.update_idletasks()
+            r = I.install(Path(emu.get().strip()).expanduser(), settings(), variant.get())
+            remember()
+            msg = L("done_msg", n=r.target.name,
+                    w=L("with_classic") if r.variant == "classic" else L("without_classic"))
+            for k, arg in r.notes:
+                msg += "\n\n" + L("n_" + k, a=arg)
+            status.set(L("ready"))
+            messagebox.showinfo(L("done_title"), msg)
+        except I.InstallError as ex:
+            status.set("")
+            messagebox.showerror(L("err_title"), L("e_" + ex.key, a=ex.arg))
+        except Exception as ex:
+            status.set("")
+            messagebox.showerror(L("err_title"), str(ex))
+
+    def do_remove():
+        e = emu.get().strip()
+        status.set(L("uninstalled") if e and I.uninstall(Path(e).expanduser()) else L("nothing"))
+
+    def refresh(*_):
+        if not ui["sections"]:
+            return
+        stam = stamina.get()
+        adv = stam and mode.get() == "advanced"
+        for w in ui.get("modes", []):
+            w.config(state="normal" if stam else "disabled")
+        for w in ui.get("costs", []):
+            w.config(state="normal" if adv else "disabled")
+        for key in ("combat", "sprint"):
+            w = ui.get(key)
+            if w is not None:
+                w.config(state="normal" if stam else "disabled")
+        ui["variant"].config(state="readonly" if classic.get() else "disabled")
+        ui["note"].config(text="" if stam else L("stamina_off_note"), fg=AMBER)
+        mods = ok_emu()
+        ui["install"].config(state="normal" if mods else "disabled")
+        ui["mods"].config(text=L("mods_found", a=mods) if mods else L("mods_missing"),
+                          fg=ACCENT if mods else DIM)
+        if not mods and not status.get():
+            status.set(L("pick_emu"))
+        if mods and status.get() == L("pick_emu"):
+            status.set("")
+        token = profile.get().replace("-", "_")
+        ui["profile_desc"].config(text=L("p_" + token + "_d") if profile.get() in PROFILES
+                                  else L("p_custom_d"))
+        ui["profile_current"].config(text=L("profile_current", a=profile_name(profile.get())),
+                                     fg=AMBER if profile.get() == "custom" else ACCENT)
+        cb = ui.get("profile_cb")
+        if cb is not None:
+            idx = PROFILE_KEYS.index(profile.get())
+            if cb.current() != idx:
+                cb.current(idx)
+        cb = ui.get("profile_home")
+        if cb is not None:
+            idx = PROFILE_KEYS.index(profile.get())
+            if cb.current() != idx:
+                cb.current(idx)
+        ui["reapply"].config(state="normal" if profile.get() != "custom" else "disabled")
+
+    # ---- sections ----
+    def build_install(parent):
+        body = card(parent, L("home_title"), L("home_desc"))
+        row = tk.Frame(body, bg=PANEL)
+        row.pack(fill="x")
+        label(row, L("profile") + ":", size=10, bg=PANEL).pack(side="left", padx=(0, 8))
+        cb = ttk.Combobox(row, state="readonly", style="SHB.TCombobox", width=24,
+                          values=[profile_name(k) for k in PROFILE_KEYS])
+        cb.current(PROFILE_KEYS.index(profile.get()))
+        cb.pack(side="left")
+        cb.bind("<<ComboboxSelected>>", lambda e: choose_profile(PROFILE_KEYS[cb.current()]))
+        ui["profile_home"] = cb
+        ui["profile_current"] = label(body, "", size=10, color=ACCENT, bold=True, bg=PANEL)
+        ui["profile_current"].pack(anchor="w", pady=(8, 0))
+        ui["profile_desc"] = label(body, "", size=9, color=DIM, bg=PANEL)
+        ui["profile_desc"].pack(anchor="w", pady=(1, 6))
+        ui["reapply"] = button(body, L("reapply"), lambda: apply_profile(profile.get()))
+        ui["reapply"].pack(anchor="w", pady=(0, 8))
+        prof = tk.Frame(body, bg=PANEL)
+        prof.pack(fill="x")
+        for i, key in enumerate(PROFILE_KEYS):
+            r = radio(prof, profile_name(key), profile, key, cmd=lambda k=key: choose_profile(k))
+            r.grid(row=i, column=0, sticky="w", pady=1)
+            label(prof, L("p_" + key.replace("-", "_") + "_d"), size=9, color=DIM, bg=PANEL).grid(
+                row=i, column=1, sticky="w", padx=(10, 0), pady=1)
+
+        body = card(parent, L("install_title"), L("install_desc"))
+        row = tk.Frame(body, bg=PANEL)
+        row.pack(fill="x")
+        entry = tk.Entry(row, textvariable=emu, bg=PANEL2, fg=TEXT, insertbackground=ACCENT, relief="flat",
+                         font=(FAM, 10), highlightthickness=1, highlightbackground=BORDER,
+                         highlightcolor=ACCENT)
+        entry.pack(side="left", fill="x", expand=True, ipady=4)
+        button(row, L("browse"), browse).pack(side="left", padx=(8, 0))
+        label(body, L("emu_hint"), size=9, color=DIM, bg=PANEL).pack(anchor="w", pady=(5, 0))
+        ui["mods"] = label(body, "", size=9, color=DIM, bg=PANEL)
+        ui["mods"].pack(anchor="w", pady=(2, 0))
+        label(body, L("install_hint"), size=9, color=AMBER, bg=PANEL).pack(anchor="w", pady=(6, 0))
+        label(body, L("autosave"), size=9, color=DIM, bg=PANEL).pack(anchor="w", pady=(2, 0))
+
+    def build_stamina(parent):
+        body = card(parent, L("stamina_title"), L("stamina_desc"))
+        check(body, L("stamina_on"), stamina).pack(anchor="w")
+        label(body, L("stamina_on_desc"), size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=(20, 0))
+        ui["note"] = label(parent, "", size=9, color=AMBER, bg=BG, wrap=760)
+        ui["note"].pack(anchor="w", padx=10, pady=(0, 6))
+
+        body = card(parent, L("stamina_mode"))
+        ui["modes"] = []
+        for name in STAMINA_MODES:
+            r = radio(body, L("m_" + name), mode, name)
+            r.pack(anchor="w")
+            ui["modes"].append(r)
+            label(body, L("m_" + name + "_d"), size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=(20, 0), pady=(0, 3))
+
+        body = card(parent, L("costs_title"), L("costs_desc"))
+        grid = tk.Frame(body, bg=PANEL)
+        grid.pack(fill="x")
+        ui["costs"] = []
+        for i, k in enumerate(KEYS):
+            c = check(grid, L("a_" + k), costs[k])
+            c.grid(row=i // 2, column=i % 2, sticky="w", padx=(0, 28), pady=1)
+            ui["costs"].append(c)
+        ui["combat"] = check(body, L("combat_only"), combat)
+        ui["combat"].pack(anchor="w", pady=(6, 0))
+
+        body = card(parent, L("sprint_speed"))
+        row = tk.Frame(body, bg=PANEL)
+        row.pack(fill="x")
+        label(row, L("sprint_speed") + ":", size=10, bg=PANEL).pack(side="left", padx=(0, 8))
+        values = [L("speed_van")] + ["×%g" % (v / 100) for v in SPEEDS[1:]]
+        svar = tk.StringVar(value=values[SPEEDS.index(speed.get())])
+        ui["sprint_var"] = svar
+        cb = combo(row, values, svar, width=14)
+        cb.pack(side="left")
+        cb.bind("<<ComboboxSelected>>", lambda e: speed.set(SPEEDS[cb.current()]))
+        ui["sprint"] = cb
+
+    def build_difficulty(parent):
+        body = card(parent, L("difficulty_title"), L("difficulty_desc"))
+        row = tk.Frame(body, bg=PANEL)
+        row.pack(fill="x")
+        names = [L("mult_van"), L("mult_15"), L("mult_2"), L("mult_3")]
+        for n, (lab, var) in enumerate(((L("enemy_hp"), hp), (L("damage"), dmg))):
+            label(row, lab + ":", size=10, bg=PANEL).grid(row=0, column=n * 2, sticky="w", padx=(0, 6))
+            svar = tk.StringVar(value=names[MULT.index(var.get())])
+            ui[f"mult_var_{n}"] = svar
+            cb = combo(row, names, svar, width=14)
+            cb.grid(row=0, column=n * 2 + 1, padx=(0, 24))
+            cb.bind("<<ComboboxSelected>>", lambda e, c=cb, v=var: v.set(MULT[c.current()]))
+        c = check(body, L("no_heart_drop"), nodrop)
+        c.pack(anchor="w", pady=(10, 0))
+        label(body, L("no_heart_drop_desc"), size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=(20, 0))
+        label(body, L("difficulty_note"), size=9, color=DIM, bg=PANEL).pack(anchor="w", pady=(8, 0))
+
+    def build_hud(parent):
+        body = card(parent, L("hud_title"), L("hud_desc"))
+        row = tk.Frame(body, bg=PANEL)
+        row.pack(fill="x")
+        check(row, L("hud_rupees"), rupees).grid(row=0, column=0, sticky="w", padx=(0, 24))
+        check(row, L("hud_clock"), clock).grid(row=0, column=1, sticky="w", padx=(0, 24))
+        check(row, L("clock24"), clock24).grid(row=0, column=2, sticky="w")
+        label(body, L("hud_note"), size=9, color=DIM, bg=PANEL).pack(anchor="w", pady=(8, 0))
+
+    def build_buttons(parent):
+        body = card(parent, L("buttons_title"), L("buttons_desc"))
+        check(body, L("classic"), classic).pack(anchor="w")
+        label(body, L("classic_desc", a=I.CLASSIC_VERSION), size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=(20, 0))
+        row = tk.Frame(body, bg=PANEL)
+        row.pack(anchor="w", pady=(8, 0))
+        label(row, L("variant") + ":", size=10, bg=PANEL).pack(side="left", padx=(0, 8))
+        names = [L("g_" + k) for k in I.CLASSIC_VARIANTS]
+        cb = combo(row, names, tk.StringVar(value=names[list(I.CLASSIC_VARIANTS).index(variant.get())]), width=16)
+        cb.pack(side="left")
+        cb.bind("<<ComboboxSelected>>", lambda e: variant.set(list(I.CLASSIC_VARIANTS)[cb.current()]))
+        ui["variant"] = cb
+        label(body, L("classic_note"), size=9, color=DIM, bg=PANEL).pack(anchor="w", pady=(8, 0))
+
+    def build_about(parent):
+        body = card(parent, L("about_title"))
+        label(body, L("about_body"), size=10, bg=PANEL).pack(anchor="w")
+        label(body, L("credits", a=I.CLASSIC_VERSION), size=9, color=DIM, bg=PANEL).pack(anchor="w", pady=(10, 0))
+        label(body, L("audit"), size=9, color=DIM, bg=PANEL).pack(anchor="w", pady=(6, 0))
+
+    # ---- shell ----
+    def build_header(shell):
+        hd = tk.Frame(shell, bg=BG)
+        hd.pack(fill="x", padx=18, pady=(14, 8))
+        left = tk.Frame(hd, bg=BG)
+        left.pack(side="left", fill="x", expand=True)
+        tk.Label(left, text="Super Hero Boost", bg=BG, fg=TEXT, font=(FAM, 22, "bold")).pack(anchor="w")
+        tk.Label(left, text=L("subtitle"), bg=BG, fg=DIM, font=(FAM, 10)).pack(anchor="w")
+        right = tk.Frame(hd, bg=BG)
+        right.pack(side="right")
+        tk.Label(right, text=L("profile"), bg=BG, fg=DIM, font=(FAM, 9)).grid(row=0, column=0, sticky="e", padx=(0, 6))
+        pcb = ttk.Combobox(right, state="readonly", style="SHB.TCombobox", width=20,
+                           values=[profile_name(k) for k in PROFILE_KEYS])
+        pcb.current(PROFILE_KEYS.index(profile.get()))
+        pcb.grid(row=0, column=1, padx=(0, 18))
+        pcb.bind("<<ComboboxSelected>>", lambda e: choose_profile(PROFILE_KEYS[pcb.current()]))
+        ui["profile_cb"] = pcb
+        tk.Label(right, text=L("language"), bg=BG, fg=DIM, font=(FAM, 9)).grid(row=0, column=2, sticky="e", padx=(0, 6))
+        lcb = ttk.Combobox(right, state="readonly", style="SHB.TCombobox", width=12, values=list(LANGS.values()))
+        lcb.current(list(LANGS).index(lang.get()) if lang.get() in LANGS else 0)
+        lcb.grid(row=0, column=3)
+        lcb.bind("<<ComboboxSelected>>", lambda e: change_lang(list(LANGS)[lcb.current()]))
+
+    def change_lang(code):
+        lang.set(code)
+        remember()
+        render()
+
+    def build_sidebar(shell):
+        side = tk.Frame(shell, bg=SIDEBAR, width=190)
+        side.pack(side="left", fill="y")
+        side.pack_propagate(False)
+        for key, text in (("install", "nav_install"), ("stamina", "nav_stamina"),
+                          ("difficulty", "nav_difficulty"), ("hud", "nav_hud"),
+                          ("buttons", "nav_buttons"), ("about", "nav_about")):
+            b = tk.Button(side, text=L(text), command=lambda k=key: show_section(k), anchor="w",
+                          bg=SIDEBAR, fg=TEXT, activebackground=PANEL, activeforeground=ACCENT,
+                          relief="flat", bd=0, cursor="hand2", font=(FAM, 10, "bold"),
+                          padx=18, pady=10, highlightthickness=0)
+            b.pack(fill="x", pady=1)
+            ui["nav"][key] = b
+        return side
+
+    def build_content(shell):
+        wrap = tk.Frame(shell, bg=BG)
+        wrap.pack(side="left", fill="both", expand=True, padx=(12, 12), pady=(0, 8))
+        scroll = ScrollArea(wrap, BG)
+        scroll.frame.pack(fill="both", expand=True)
+        builders = {"install": build_install, "stamina": build_stamina, "difficulty": build_difficulty,
+                    "hud": build_hud, "buttons": build_buttons, "about": build_about}
+        for key, fn in builders.items():
+            f = tk.Frame(scroll.inner, bg=BG)
+            fn(f)
+            ui["sections"][key] = f
+        ui["_scroll"] = scroll
+        return scroll
+
+    def build_footer(shell):
+        ft = tk.Frame(shell, bg=BG)
+        ft.pack(side="bottom", fill="x", padx=18, pady=(0, 12))
+        tk.Label(ft, textvariable=status, bg=BG, fg=ACCENT, font=(FAM, 9, "italic"), anchor="w").pack(side="left")
+        ui["install"] = button(ft, L("install"), do_install, primary=True)
+        ui["install"].pack(side="right")
+        button(ft, L("uninstall"), do_remove).pack(side="right", padx=(0, 8))
+        ui["install"].config(state="normal" if ok_emu() else "disabled")
+
+    def show_section(key):
+        state["section"] = key
+        for k, f in ui["sections"].items():
+            f.pack_forget()
+        ui["sections"][key].pack(fill="x", padx=4, pady=(4, 0))
+        ui["_scroll"].canvas.yview_moveto(0)
+        for k, b in ui["nav"].items():
+            b.config(bg=PANEL if k == key else SIDEBAR, fg=ACCENT if k == key else TEXT)
+
+    def render():
+        old = ui.get("_scroll")
+        if old is not None:
+            old.destroy()
+        for w in root.winfo_children():
+            w.destroy()
+        ui["nav"] = {}
+        ui["sections"] = {}
+        shell = tk.Frame(root, bg=BG)
+        shell.pack(fill="both", expand=True)
+        build_header(shell)
+        build_footer(shell)
+        body = tk.Frame(shell, bg=BG)
+        body.pack(side="top", fill="both", expand=True)
+        build_sidebar(body)
+        build_content(body)
+        show_section(state["section"])
+        refresh()
+
+    # New installations start from the flagship profile; saved/legacy settings keep their values.
+    if not cfg:
+        profile.set(DEFAULT_PROFILE)
+        apply_profile(DEFAULT_PROFILE, save=False)
+    elif "profile" not in cfg:
+        profile.set("custom")
+    elif profile.get() != "custom":
+        apply_profile(profile.get(), save=False)
+
+    for v in (emu, classic, variant, stamina, mode, combat, hp, dmg, speed, nodrop, rupees, clock, clock24, *costs.values()):
+        v.trace_add("write", autosave)
+    emu.trace_add("write", lambda *_: (status.set(""), refresh()))
+
+    render()
+    root.protocol("WM_DELETE_WINDOW", lambda: (remember(), root.destroy()))
+    root.mainloop()
+
+
+if __name__ == "__main__":
+    if any(a in sys.argv for a in ("--cli", "--list-profiles", "-h", "--help")):
+        raise SystemExit(cli(sys.argv[1:]))
+    gui()

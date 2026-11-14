@@ -1,9 +1,9 @@
-# OoT Master Mod: guía de desarrollo
+# Super Hero Boost: guía de desarrollo
 
-Cómo está hecho el mod, cómo se compila, se instala y se prueba, y cómo modificar cada parte. Juego: *The Legend of
-Zelda: Ocarina of Time* (Switch 2), actualización v131072, `main` Build ID `E0F3CCFAF50065AE4EA01EB5AEB13B1A45DA3348`.
-Emulador de pruebas: Fritchii v4.1 (base Lichii), con carpeta de mods en
-`E:\Switch2\Emu\lichii-windows-x86_64\user\load\0400486024DEC000` (la usa por `load_directory` en su `qt-config.ini`).
+Cómo está hecho el mod, cómo se compila, se instala y se prueba, y cómo modificar cada parte. Juego: remake para
+consola, actualización v131072, `main` Build ID `E0F3CCFAF50065AE4EA01EB5AEB13B1A45DA3348`.
+El emulador de pruebas carga los mods desde su `LoadDir` (la ruta se configura con `load_directory` en
+`qt-config.ini`; las herramientas aceptan la carpeta con `--emu` o la variable `SHB_EMU`).
 
 Documentos relacionados:
 - [RE-NOTES.md](RE-NOTES.md): hallazgos de ingeniería inversa (direcciones, formatos, qué funcionó y qué no).
@@ -23,8 +23,9 @@ El mod son dos piezas que el emulador carga junto al juego:
 | `exefs/<BuildID>.ips` | Parche IPS32 sobre `main`: cada punto de gancho salta a nuestro módulo | `tools/build_core.py` |
 | `romfs/...` (opcional) | Datos del juego modificados (p. ej. "sin drop de corazones") | `tools/make_romfs_opts.py` |
 
-La **app** (`release/OotMasterConfig.exe`) no compila nada: lleva el módulo ya compilado, escribe las opciones del
-usuario en un bloque de configuración dentro de `subsdk9` y copia todo a la carpeta de mods (`00-OOT-Master`).
+La **app** (`release/SuperHeroBoostConfig` en Windows/macOS/Linux) no compila nada: lleva el módulo ya compilado,
+escribe las opciones del usuario en un bloque de configuración dentro de `subsdk9` y copia todo a la carpeta de mods
+(`00-Super-Hero-Boost`).
 
 Flujo de una modificación:
 
@@ -41,26 +42,31 @@ core/                código común del módulo
   hooks.S            envoltorios de ganchos (entrada de mando, ranuras, ganchos de código)
   dispatch.c/.h      reparto de eventos de entrada a las features (tabla generada, sin punteros)
   hid.c/.h           lectura/escritura de botones y sticks en las muestras HID
-  config.c/.h        bloque de configuración OOTMCFG1 (lo parchea la app)
-  player.c           seguimiento de Link y enemigos: estado de acción, vida, combate, escala de vida, escudo
+  config.c/.h        bloque de configuración SHBCFG01 (lo parchea la app)
+  player.c           seguimiento del jugador y enemigos: estado de acción, vida, combate, escala de vida, escudo
   hud.c              todo el HUD propio: anillo de estamina, reloj, contador de rupias
   mem.c, slots.c ... utilidades
 features/
-  hero_core/         estamina (costes, agotamiento, recarga), multiplicador de sprint
+  stamina/           estamina (costes, agotamiento, recarga), multiplicador de sprint
   classic_slots/     réplica antigua de ranuras extra (no se publica; ver CLASSIC-REPLICA.md)
   probe/             feature de diagnóstico
 tools/               compilación, publicación, pruebas en vivo y análisis (ver sección 9)
 app/                 app de configuración (Tkinter) + payload precompilado
+  main.py            ventana, navegación y modo --cli
+  presets.py         perfiles completos de juego
+  installer.py       instalación y parcheo del bloque de configuración
+  paths.py           rutas portables / por usuario (Windows, macOS, Linux)
+  i18n.py            textos en seis idiomas
 docs/                esta guía y las notas
 build/               salidas y capturas (ignorado por git)
-release/             OotMasterConfig.exe (ignorado por git)
+release/             binario de la app (ignorado por git)
 ```
 
 Rutas externas que usan las herramientas (en este PC):
 - Toolchain LLVM: `F:\project\oot\tools\llvm-mingw\llvm-mingw-20261104-ucrt-x86_64\bin`
 - `main` original (solo lectura, para verificar ganchos y desensamblar): `F:\project\oot\data\stock-exefs\main`
 - Volcado del romfs: `F:\switch2\hookshott\romfs`
-- Devtool de platinumagpie (cliente del servidor de depuración): `F:\project\oot\vendor\devtool\oot-remake-devtool-main`
+- Cliente del servidor de depuración y lectores de BYML/GameData (solo desarrollo): ruta configurable con `SHB_DEVTOOL`.
 - Diccionario zstd del archivo de UI: `F:\project\oot\data\zsdic1.bin`
 
 ## 3. Cómo funciona el módulo
@@ -92,12 +98,12 @@ Ganchos de código actuales (`CODE_SITES`):
 | 2 | 0x43A6F8 | construcción de un recurso de UI | `hud_prepare()`: inyecta paneles en PlayerStatus_00 |
 | 3 | 0x2D2D90 | `set_frame(anim, frame)` | observación de animaciones (diagnóstico) |
 | 4 | 0x152F8F0 | creación de instancias de partes de layout | diagnóstico |
-| 5 | 0x2C215E0 | actualización de movimiento de actores físicos (x0 = actor) | `player_track()`: Link y enemigos |
-| 6-9 | 0x27F7D00, 0x27F7F90, 0x27FB0C0, 0x27FA200 | nodos de reacción de escudo de Link | coste de estamina al bloquear |
+| 5 | 0x2C215E0 | actualización de movimiento de actores físicos (x0 = actor) | `player_track()`: el jugador y enemigos |
+| 6-9 | 0x27F7D00, 0x27F7F90, 0x27FB0C0, 0x27FA200 | nodos de reacción de escudo del jugador | coste de estamina al bloquear |
 | 10 | 0x9352F0 | movimiento en suelo (x0 jugador, x1 dirección, s0 velocidad) | multiplicador de sprint |
 
 En el callback, `regs` apunta a los registros guardados: `x0` en `+0x10`, `x30` (dirección de retorno) en `+0x08`,
-`d0` en `+0xB0`. Ejemplo: el sprint comprueba `x30 == main+0x934994` (solo la llamada de Link) y multiplica `s0`.
+`d0` en `+0xB0`. Ejemplo: el sprint comprueba `x30 == main+0x934994` (solo la llamada del jugador) y multiplica `s0`.
 
 **Añadir un gancho de código nuevo:**
 1. Comprobar con `python tools/disasm.py <dir> 0x10` que la función empieza con `pacibsp` (0xD503237F).
@@ -108,8 +114,8 @@ En el callback, `regs` apunta a los registros guardados: `x0` en `+0x10`, `x30` 
 6. `build_core.py` verifica que el sitio tiene la instrucción esperada antes de generar el IPS.
 
 ### 3.3 Configuración en tiempo de ejecución (`core/config.h`)
-Bloque `OotConfig` con magia `OOTMCFG1` en `.data`. La app busca la magia en `subsdk9` y escribe los campos; el mod
-los lee en cada fotograma (`g_ootcfg`). **Solo se añaden campos al final** (usar `reserved`), sin reordenar.
+Bloque `ShbConfig` con magia `SHBCFG01` en `.data`. La app busca la magia en `subsdk9` y escribe los campos; el mod
+los lee en cada fotograma (`g_shbcfg`). **Solo se añaden campos al final** (usar `reserved`), sin reordenar.
 
 | offset | campo | app (`installer.patch_config`) |
 |---|---|---|
@@ -125,46 +131,48 @@ los lee en cada fotograma (`g_ootcfg`). **Solo se añaden campos al final** (usa
 | 34 | `sprint_speed_pct` (u16, defecto 125) | Velocidad del sprint |
 
 **Añadir una opción nueva:** campo en `config.h` (quitando bytes de `reserved`), valor por defecto en `config.c`,
-escritura en `installer.patch_config` (`f = magia + 16`), campo en `installer.Settings`, flag en `ootconfig.cli`,
-control en `ootconfig.gui` (variable, guardado en `cfg`, `Settings(...)`) y textos en `app/i18n.py` para los 6
+escritura en `installer.patch_config` (`f = magia + 16`), campo en `installer.Settings`, flag en `main.cli`,
+control en `main.py` (variable, guardado en `cfg`, `Settings(...)`) y textos en `app/i18n.py` para los 6
 idiomas (`en es pt fr de it`).
 
 ## 4. Features
 
-### 4.1 Estamina (`features/hero_core/hero_core.c`, `stamina.c`)
-- Corre dentro de la lectura de mando de juego (sitio 3). Los costes salen de las **acciones** de Link
+### 4.1 Estamina (`features/stamina/stamina_hooks.c`, `stamina.c`)
+- Corre dentro de la lectura de mando de juego (sitio 3). Los costes salen de las **acciones** del jugador
   (`player_track` lee su estado en `player+0x244`: `Rolling`, `Jump`, `Cut...`, `Guard...`), no de los botones.
 - Capacidad: 75 + 75/17 por corazón a partir del 4.º (hasta 150).
 - Sprint = A mantenido en estado `Move` durante 12 fotogramas: gasta 7/s.
 - Agotado (amarillo): se bloquean las acciones según el preset (se quitan botones de la entrada) y se camina.
 - Recarga tras 0,8 s sin acciones (1,8 s en combate, 2,5 s tras agotarse), a 24/s (48/s tras agotarse).
 - Bloqueo con escudo: los ganchos 6-9 y los estados `Guard*Hit/Break/Reaction/Repel` (no `GuardFailHit`) suben un
-  contador (`player_guard_seq`) que sobrevive a pausas cortas (el golpe llega durante la reacción de Link, cuando su
+  contador (`player_guard_seq`) que sobrevive a pausas cortas (el golpe llega durante la reacción del jugador, cuando su
   actualización se detiene unos fotogramas).
 - Combate: un enemigo vivo a menos de 10 m que se acerca o está encima (5 s de margen).
-- Constantes: `#define` al principio de `hero_core.c` y `stamina_default_config()`.
+- Constantes: `#define` al principio de `stamina_hooks.c` y `stamina_default_config()`.
 
-### 4.2 Multiplicador de sprint (gancho 10, `hero_speed_hook`)
-Multiplica la velocidad del movimiento en suelo de Link mientras A está pulsado y no lo ha quitado la estamina.
-Rodar, nadar y trepar no pasan por esa llamada. Referencia: mod MIT "Movement Speed Increase" (Zerossa), que parchea
-la misma llamada.
+### 4.2 Multiplicador de sprint (gancho 10, `stamina_speed_hook`)
+Multiplica la velocidad del movimiento en suelo del jugador mientras A está pulsado y no lo ha quitado la estamina.
+Rodar, nadar y trepar no pasan por esa llamada. La implementación es propia: solo lee la dirección de retorno y
+multiplica el argumento de velocidad.
 
 ### 4.3 Vida de enemigos y daño recibido (`core/player.c`)
 - Enemigo = actor cuyo recurso de vida se llama `Enemy_*`. Al verlo por primera vez se escalan su vida máxima y
   actual (`life+0x1C10` actual, `+0x1C18` máxima, valor s32 en `+8`). Diagnóstico: `g_hp_log`.
-- Daño recibido: cuando baja la vida de Link se resta el extra (nunca mata solo el extra).
+- Daño recibido: cuando baja la vida del jugador se resta el extra (nunca mata solo el extra).
 - Valores de vida de cada enemigo: `Pack/Actor/<Enemigo>.pack.zs` → `Life/LifeParameters/*.bgyml` (`MaxLife`).
 
 ### 4.4 Sin drop de corazones (romfs)
 `tools/make_romfs_opts.py` genera, a partir del volcado del propio juego, `GameParameter/DropGlobalParam/...` con
-`DropGlobalParam.HpActor` (el actor que cae como "corazón") apuntando a la rupia verde. La app copia ese romfs si la opción está marcada.
+`DropGlobalParam.HpActor` (el actor que cae como "corazón") apuntando a la rupia verde. La app copia ese romfs si la
+opción está marcada. Si el payload no lo incluye (no se ejecutó el generador con el volcado), la app instala el resto
+y avisa con una nota; no bloquea la instalación.
 
 ## 5. HUD propio (`core/hud.c`)
 
 ### 5.1 Cómo se añaden paneles al HUD del juego
 1. El gancho 2 (`hud_prepare`) intercepta la construcción del layout `PlayerStatus_00` y entrega al motor una
-   **copia privada de sus metadatos** (`build_root`) con paneles extra: imágenes `P_OotPic_000..` y textos
-   `T_OotTxt_00..05`. Cada nombre lleva su CityHash64 (generado por `build_core.py` en `hud_names.h`).
+   **copia privada de sus metadatos** (`build_root`) con paneles extra: imágenes `P_ShbPic_000..` y textos
+   `T_ShbTxt_00..05`. Cada nombre lleva su CityHash64 (generado por `build_core.py` en `hud_names.h`).
 2. Cada panel se describe en varias tablas del layout (lista común `+0x20`, imagen/texto `+0x40`, imágenes `+0x60`,
    textos `+0x80`). Detalles del formato en RE-NOTES ("Layout file format", "Rupee counter / clock HUD").
    **Importante:** en el descriptor común de una imagen, `+0x40 = 0xFFFF` y `+0x42 = índice en la lista de imágenes`.
@@ -188,7 +196,7 @@ la misma llamada.
 
 ### 5.3 Anillo de estamina
 Unos 230 paneles `Circle64_00` solapados (48 en el anillo interior, 64 en el exterior) que forman un tubo
-continuo, con una pista negra detrás; el último punto va en el ángulo exacto del relleno. Sigue a Link proyectando su
+continuo, con una pista negra detrás; el último punto va en el ángulo exacto del relleno. Sigue al jugador proyectando su
 posición con la matriz de la cámara (`anchor_update`). Aspecto: `g_ringp[]`.
 
 ### 5.4 Ajustar el aspecto en vivo
@@ -204,12 +212,15 @@ Cuando el aspecto convence, se copian los valores a los inicializadores de `g_hu
 ## 6. Compilar, publicar y la app
 
 ```
-python tools/build_core.py --features hero_core --compat --base 0x4F87000   # módulo de prueba en build/native
+python tools/build_core.py --features stamina --compat --base 0x4F87000   # módulo de prueba en build/native
 python tools/make_release.py     # compila las 2 variantes en app/payload + romfs opcional + Classic empaquetado
-python tools/build_app.py        # release/OotMasterConfig.exe (PyInstaller). Cerrar el .exe antes.
+python tools/build_app.py        # binario nativo de la app (PyInstaller). Cerrar la app antes.
 ```
 
-La app (`app/ootconfig.py` interfaz, `app/installer.py` lógica, `app/i18n.py` textos):
+`build_app.py` funciona en Windows, macOS y Linux, pero PyInstaller no compila de forma cruzada: hay que ejecutarlo en
+cada sistema destino. La app usa Tkinter y rutas portables (`app/paths.py`); no requiere permisos de administrador.
+
+La app (`app/main.py` interfaz, `app/presets.py` perfiles, `app/installer.py` lógica, `app/i18n.py` textos):
 1. encuentra la carpeta de mods del emulador (respeta `load_directory`);
 2. copia la variante adecuada y parchea el bloque de configuración;
 3. con Classic Item Slots: copia su módulo como `subsdk8` y su romfs, y fusiona los dos IPS comprobando que no
@@ -218,12 +229,12 @@ La app (`app/ootconfig.py` interfaz, `app/installer.py` lógica, `app/i18n.py` t
 
 También tiene modo línea de comandos (el mismo código de instalación):
 ```
-python app/ootconfig.py --cli --emu "E:/Switch2/Emu/Fritchii-v4.1-Windows-x64/Fritchii-v4.1" --preset 0 --rupees --clock --sprint-speed 125
+python app/main.py --cli --emu "RUTA_DEL_EMULADOR" --profile hero-stamina --preset 0 --rupees --clock --sprint-speed 125
 ```
 
 ## 7. Probar en el emulador
 
-`tools/live_check.py` arranca Fritchii con el servidor de depuración (`EDEN_NX2_DEBUG_SERVER=127.0.0.1:6545`), espera
+`tools/live_check.py` arranca el emulador de pruebas con el servidor de depuración (`EDEN_NX2_DEBUG_SERVER=127.0.0.1:6545`), espera
 la pantalla de título, pulsa A 4 veces, espera a que cargue la partida (≈30 s), saca capturas en `build/` e imprime
 los diagnósticos del módulo (símbolos leídos de `build/native/module.elf`).
 
@@ -240,8 +251,8 @@ Puntos clave:
 - Escribir memoria en vivo: `HostMemory(pid).calibrate(cliente, [base_main])` y luego `write(dir, bytes)`.
 - El log del emulador (`user/log/eden_log.txt`) debe quedar limpio: muchas líneas `Unmapped Read/Write` indican
   un fallo de descriptores o punteros y ralentizan muchísimo el juego.
-- Mods de terceros que chocan (Always-On Rupee Counter, HUD of Time, Hero Core, Classic suelto...) deben estar
-  desactivados en el emulador.
+- Mods de terceros que chocan (contadores de HUD, otras versiones del sistema de estamina, Classic suelto...)
+  deben estar desactivados en el emulador.
 
 ## 8. Investigar el juego (receta)
 
@@ -254,7 +265,7 @@ Puntos clave:
 | Layouts de UI | `UI/Layout2Archive/Common...blarc.zs` (SARC de `.buil`, formato BFFH en RE-NOTES) |
 | Texturas de UI | `Common...bntx.zs`: `tools/bntx_probe.py` lista, `tools/bntx_decode.py` decodifica BC4 (altura de bloque 4 para 128x128) |
 | Un valor en memoria | `DebugClient.search(...)` + leer vecinos; bisección escribiendo valores con `HostMemory` |
-| Estado de Link | `player+0x244` (nombre de acción), `actor+0x31C` posición (solo lectura efectiva), `actor+0x388` velocidad (salida) |
+| Estado del jugador | `player+0x244` (nombre de acción), `actor+0x31C` posición (solo lectura efectiva), `actor+0x388` velocidad (salida) |
 
 Los nombres de funciones no están en `main` en texto claro (el motor usa hashes); las pistas salen de los datos
 (AINB, BYML) y de las direcciones que ya usan otros mods.
@@ -272,12 +283,14 @@ Los nombres de funciones no están en `main` en texto claro (el motor usa hashes
 | `disasm.py` | desensamblar `main` |
 | `bntx_probe.py`, `bntx_decode.py` | texturas de UI |
 | `pane_dump.py`, `gauge_dump.py`, `text_probe.py`, `clock_probe.py` | volcados del HUD en vivo |
-| `enemy_probe.py`, `find_player.py`, `player_strings.py`, `action_names.py` | actores y estados de Link |
-| `e2e_matrix.py` | prueba completa: instala cada configuración con el `.exe` (sin ventana), arranca, hace acciones y comprueba que la estamina se comporta como promete esa configuración (`build/e2e/results.txt`) |
+| `enemy_probe.py`, `find_player.py`, `player_strings.py`, `action_names.py` | actores y estados del jugador |
+| `e2e_matrix.py` | prueba completa: instala cada configuración con el binario (sin ventana), arranca, hace acciones y comprueba que la estamina se comporta como promete esa configuración (`build/e2e/results.txt`) |
 | `compat_pack.py`, `make_restbl.py` | paquete de prueba Classic + nuestro módulo; tabla de tamaños de recursos (presupuesto de memoria de la UI) |
-| `lib/` | `nso.py` (NSO/IPS), `sarc.py`, `cityhash.py`, `winmove.py` |
+| `lib/` | `nso.py` (NSO/IPS), `sarc.py`, `cityhash.py` (implementación propia del algoritmo público), `winmove.py` |
 
 ## 10. Licencias y referencias
-- Classic Item Slots (sonofsilvanus): se descarga de su release oficial y se instala tal cual.
-- "Movement Speed Increase" (Zerossa, MIT): referencia para la llamada de movimiento del sprint.
-- OoT Remake DevTool (platinumagpie): servidor de depuración, `HostMemory`, lectores de BYML/GameData.
+- Classic Item Slots (sonofsilvanus): se descarga de su release oficial y se instala tal cual (único componente de
+  terceros distribuido con la app).
+- El cliente del servidor de depuración, `HostMemory` y los lectores de BYML/GameData son herramientas de
+  desarrollo y no se distribuyen con el mod.
+- El resto del código (módulo, HUD, estamina, app e instalador) es propio. Ver [AUDIT.md](AUDIT.md).

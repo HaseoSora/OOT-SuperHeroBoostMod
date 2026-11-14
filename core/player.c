@@ -1,20 +1,20 @@
 #include "dispatch.h"
 #include "config.h"
 
-/* Finds Link from the per-frame movement update of physics actors (hook at main+0x2C215E0,
+/* Finds the player from the per-frame movement update of physics actors (hook at main+0x2C215E0,
  * x0 = actor) and turns his action-state name into events.
  * Verified live: [actor+0x270] = component table; table+0x2B8 = Life component whose resource
- * (life+0x10 -> +0x58) is named "Player" for Link; table+0x358 = player component; the current
+ * (life+0x10 -> +0x58) is named "Player" for the player; table+0x358 = player component; the current
  * action-state name is an inline string at player+0x244 ("Wait", "Move", "Jump", "Land",
  * "Rolling", "SideStep", "SideStepLand", "CutS1", "ChargeWait", "LockOnWait", ...). */
 typedef unsigned long long u64;
 typedef unsigned int u32;
-u64 g_link_actor = 1;
-u64 g_link_player = 1;
-u64 g_link_table = 1;
-u32 g_link_seen = 0x10000000u;
-int g_link_life = 0x7777;
-int g_link_maxlife = 0;   /* max life in quarter hearts (Life+0x1C18 -> record, s32 at +8) */
+u64 g_player_actor = 1;
+u64 g_player_comp = 1;
+u64 g_player_table = 1;
+u32 g_player_seen = 0x10000000u;
+int g_player_life = 0x7777;
+int g_player_maxlife = 0;   /* max life in quarter hearts (Life+0x1C18 -> record, s32 at +8) */
 static u32 g_active_frame;
 static int g_prev_life = -1;
 u32 g_dmg_dbg;
@@ -35,7 +35,7 @@ static u32 g_pending;
 static char g_prev[24];
 static char g_cur[24] = {'W', 'a', 'i', 't'};
 static char g_prev2[24], g_cur2[24];
-static u32 g_combat_frame;   /* last frame a hostile enemy was near Link */   /* upper-body state name at player+0x34C (bow / slingshot) */
+static u32 g_combat_frame;   /* last frame a hostile enemy was near the player */   /* upper-body state name at player+0x34C (bow / slingshot) */
 u32 g_ev_count[8] = {0x10000000u};
 char g_names_seen[16][24] = {{1}};
 u32 g_names_n;
@@ -74,7 +74,7 @@ static void guard_hit(void) {
     g_guard_seq++;
     g_ev[3]++;
 }
-/* Shield hits are counted, not queued as an event: the hit arrives while Link is in his hit reaction, when
+/* Shield hits are counted, not queued as an event: the hit arrives while the player is in his hit reaction, when
  * his movement update (and so player_active()) pauses for a few frames and queued events are dropped. */
 u32 player_guard_seq(void) { return g_guard_seq; }
 void player_guard_event(u32 id) { g_guard_calls[id - 6]++; guard_hit(); }
@@ -98,14 +98,14 @@ static void classify(const char *n) {
         { g_pending |= PEV_ATTACK; g_ev[2]++; }
 }
 
-/* ---- combat = a hostile enemy close to Link ----
+/* ---- combat = a hostile enemy close to the player ----
  * Every physics actor passes through player_track each frame. An actor whose Life resource is named
- * "Enemy_*" (friendly shopkeepers excluded), still alive, within ENEMY_RADIUS of Link marks combat;
+ * "Enemy_*" (friendly shopkeepers excluded), still alive, within ENEMY_RADIUS of the player marks combat;
  * the state then lasts 5 seconds after the last such enemy (grace, like the original design). */
 #define ENEMY_RADIUS 10.0f
 u32 g_enemy_dbg[4] = {0x10000000u};        /* enemies seen, close ones, ... */
 float g_enemy_min2 = 1.0e8f;               /* squared distance of the nearest alive enemy seen (diagnostic) */
-/* Awareness: an enemy counts as "fixed on Link" when it is within ENEMY_RADIUS and either already on top of him
+/* Awareness: an enemy counts as "fixed on the player" when it is within ENEMY_RADIUS and either already on top of him
  * (<= ENEMY_TOUCH) or has been getting closer during the last ENEMY_CHASE_FRAMES. Per-enemy memory (by actor
  * pointer) compares the squared distance over a short window. */
 #define ENEMY_TOUCH 3.0f
@@ -116,7 +116,7 @@ static EnemyMem g_em[24];
 u32 g_enemy_chasing;       /* diagnostic: enemies currently counted as aware (last evaluation) */
 
 /* Enemy health multiplier: scaled once when an enemy is first seen (its Life records: current at +0x1C10, max at +0x1C18,
- * value s32 at +8, the same ones used for Link). Remembered per actor with the scaled maximum, so a reused actor
+ * value s32 at +8, the same ones used for the player). Remembered per actor with the scaled maximum, so a reused actor
  * pointer (new enemy, vanilla maximum) is scaled again. */
 typedef struct { u64 actor; int smax; } EnemyHp;
 static EnemyHp g_hp[64];
@@ -135,7 +135,7 @@ static void hp_log(u64 actor, int m0, int m1) {
     e->name[23] = 0;
 }
 static void enemy_scale(u64 actor, u64 life) {
-    unsigned pct = g_ootcfg.enemy_hp_pct;
+    unsigned pct = g_shbcfg.enemy_hp_pct;
     if (pct == 100 || pct == 0) return;
     u64 rec = rd(life, 0x1C10), mrec = rd(life, 0x1C18);
     if (!rec || !mrec) return;
@@ -163,11 +163,11 @@ static void enemy_check(u64 actor, u64 comp, u64 life, const char *n) {
     g_enemy_dbg[0]++;
     g_scaling_name = n;
     enemy_scale(actor, life);
-    if (g_link_actor == 1) return;
+    if (g_player_actor == 1) return;
     u64 rec = rd(life, 0x1C10);
     if (rec && *(volatile int *)(rec + 8) <= 0) return;      /* dead (ragdoll still updating) */
     const volatile float *e = (const volatile float *)(actor + 0x31C);
-    const volatile float *l = (const volatile float *)(g_link_actor + 0x31C);
+    const volatile float *l = (const volatile float *)(g_player_actor + 0x31C);
     float dx = e[0] - l[0], dy = e[1] - l[1], dz = e[2] - l[2];
     float d2 = dx * dx + dy * dy + dz * dz;
     if (d2 < g_enemy_min2) g_enemy_min2 = d2;
@@ -206,10 +206,10 @@ void player_track(u64 actor) {
         return;
     }
     if (!pl) return;
-    g_link_actor = actor;
-    g_link_table = comp;
-    g_link_player = pl;
-    g_link_seen++;
+    g_player_actor = actor;
+    g_player_table = comp;
+    g_player_comp = pl;
+    g_player_seen++;
     u32 nowf = hud_frame_count();
     if (nowf - g_active_frame > 3u) g_prev_life = -1;     /* not updated for a while (loading, menus): no comparison */
     g_active_frame = nowf;
@@ -218,7 +218,7 @@ void player_track(u64 actor) {
         if (rec) {
             volatile int *lp = (volatile int *)(rec + 8);
             int cur = *lp;
-            unsigned pct = g_ootcfg.damage_taken_pct;
+            unsigned pct = g_shbcfg.damage_taken_pct;
             if (pct > 100 && g_prev_life > 0 && cur > 0 && cur < g_prev_life) {   /* took damage: charge the extra share */
                 int nl = cur - (int)(((long long)(g_prev_life - cur) * (pct - 100) + 50) / 100);
                 if (nl < 1) nl = 1;                /* the extra share alone never kills: only the real hit can */
@@ -226,10 +226,10 @@ void player_track(u64 actor) {
                 g_dmg_dbg++;
             }
             g_prev_life = cur;
-            g_link_life = cur; g_alive = g_link_life > 0;
+            g_player_life = cur; g_alive = g_player_life > 0;
         }
         u64 mrec = rd(life, 0x1C18);
-        if (mrec) g_link_maxlife = *(volatile int *)(mrec + 8);
+        if (mrec) g_player_maxlife = *(volatile int *)(mrec + 8);
     }
 
     const volatile char *s = (const volatile char *)(pl + 0x244);
@@ -257,7 +257,7 @@ void player_track(u64 actor) {
     }
 }
 
-u64 player_get(void) { return g_link_player == 1 ? 0 : g_link_player; }
+u64 player_get(void) { return g_player_comp == 1 ? 0 : g_player_comp; }
 
 /* pending action events since the last call */
 u32 player_take_events(void) {
@@ -268,14 +268,14 @@ u32 player_take_events(void) {
 /* current action-state name equals / starts with */
 int player_state_is(const char *name) { return eq(g_cur, name); }
 
-/* 1 while Link exists, is alive and his update ran within the last frames (not in menus/pause) */
+/* 1 while the player exists, is alive and his update ran within the last frames (not in menus/pause) */
 int player_active(void) {
     return g_alive && (hud_frame_count() - g_active_frame) <= 2;
 }
 
-int player_max_life(void) { return g_link_maxlife; }
+int player_max_life(void) { return g_player_maxlife; }
 
-/* a hostile enemy was within ENEMY_RADIUS of Link in the last 5 seconds */
+/* a hostile enemy was within ENEMY_RADIUS of the player in the last 5 seconds */
 void player_mark_combat(void) { u32 f = hud_frame_count(); g_combat_frame = f ? f : 1; }
 
 int player_in_combat(void) {

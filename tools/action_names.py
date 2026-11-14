@@ -48,7 +48,7 @@ EXPERIMENTS = {
     "x_hold": [{"buttons": ["X"], "frames": 60}],
     "y_hold": [{"buttons": ["Y"], "frames": 70}],
     "a_hold": [{"buttons": ["A"], "frames": 70}],
-    # hold the shield up while the camera turns so enemies come to Link; the names show what a shield hit is called
+    # hold the shield up while the camera turns so enemies come to the player; the names show what a shield hit is called
     "guard_wait": [{"buttons": ["R"], "frames": 5400, "right_stick": [1.0, 0.0]}],
 }
 
@@ -76,7 +76,7 @@ def main():
             c.input([{"buttons": ["A"], "frames": 20}]); time.sleep(6)
         time.sleep(40)
         mb = log_addr("main")
-        pl = struct.unpack("<Q", bytes(c.read(mb + syms["g_link_player"], 8)))[0]
+        pl = struct.unpack("<Q", bytes(c.read(mb + syms["g_player_comp"], 8)))[0]
         print("player component", hex(pl), "idle name:", name_at(c, pl))
         c2 = DebugClient(port=PORT, timeout=10)
         for name in names:

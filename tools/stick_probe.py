@@ -1,4 +1,4 @@
-"""Find which key of the debug server's input steps drives the left stick (reads g_hc_dbg run frames)."""
+"""Find which key of the debug server's input steps drives the left stick (reads g_st_dbg run frames)."""
 import os, struct, subprocess, sys, time
 sys.path.insert(0, r"F:\project\oot\vendor\devtool\oot-remake-devtool-main")
 from lichii import DebugClient
@@ -23,7 +23,7 @@ def main():
         time.sleep(40)
         mb = log_addr("main")
         def rd():
-            return struct.unpack("<4I", bytes(c.read(mb + syms["g_hc_dbg"], 16)))
+            return struct.unpack("<4I", bytes(c.read(mb + syms["g_st_dbg"], 16)))
         for k in KEYS:
             val = [1.0, 0.0] if k not in ("lx",) else 1.0
             before = rd()

@@ -1,4 +1,4 @@
-"""Dump the printable strings stored inside Link's player component (idle, then guarding) to find state-name fields."""
+"""Dump the printable strings stored inside the player's player component (idle, then guarding) to find state-name fields."""
 import os, re, struct, subprocess, sys, time
 sys.path.insert(0, r"F:\project\oot\vendor\devtool\oot-remake-devtool-main")
 from lichii import DebugClient
@@ -18,7 +18,7 @@ try:
         c.input([{"buttons": ["A"], "frames": 20}]); time.sleep(6)
     time.sleep(45)
     mb = log_addr("main")
-    pl = struct.unpack("<Q", bytes(c.read(mb + syms["g_link_player"], 8)))[0]
+    pl = struct.unpack("<Q", bytes(c.read(mb + syms["g_player_comp"], 8)))[0]
     def dump():
         out = {}
         for off in range(0, 0xC00, 0x200):

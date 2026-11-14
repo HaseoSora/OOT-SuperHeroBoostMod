@@ -1,4 +1,4 @@
-"""Boot, load the save, then sample the two clock sources once a second while Link runs."""
+"""Boot, load the save, then sample the two clock sources once a second while the player runs."""
 import os, struct, subprocess, sys, time
 sys.path.insert(0, r"F:\project\oot\vendor\devtool\oot-remake-devtool-main")
 from lichii import DebugClient

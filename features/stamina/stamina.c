@@ -1,7 +1,7 @@
 #include "stamina.h"
 
-/* Clean-room defaults observed from Hero Core's documented behaviour.
- * They are deliberately plain data so the final module can replace them. */
+/* Clean-room stamina defaults. They are deliberately plain data so the
+ * balance can be tuned without touching the state machine. */
 void stamina_default_config(StaminaConfig *c) {
     c->units_per_heart = 20.0f;
     c->regen_delay = 1.25f;

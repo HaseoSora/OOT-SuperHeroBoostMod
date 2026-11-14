@@ -3,8 +3,8 @@
  * The game-specific item IDs and menu calls are wired later; this file owns
  * the assignment/state rules.
  */
-#ifndef OOT_SLOTS_H
-#define OOT_SLOTS_H
+#ifndef SHB_SLOTS_H
+#define SHB_SLOTS_H
 
 typedef unsigned int u32;
 

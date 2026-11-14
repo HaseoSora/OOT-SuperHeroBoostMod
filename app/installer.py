@@ -1,9 +1,7 @@
-"""Install logic of the OoT Master Mod companion app. No compiler involved: it only patches the config block
+"""Install logic of the Super Hero Boost companion app. No compiler involved: it only patches the config block
 inside the prebuilt module, merges the IPS patch files and copies files into the emulator's mod folder.
 User-facing problems are raised as InstallError(key, arg) so the window can show them in the chosen language."""
-import hashlib
 import json
-import os
 import re
 import shutil
 import struct
@@ -12,10 +10,12 @@ import zipfile
 from dataclasses import dataclass, field
 from pathlib import Path
 
+import paths
+
 TITLE_ID = "0400486024DEC000"
 BUILD_ID = "E0F3CCFAF50065AE4EA01EB5AEB13B1A45DA3348"
-MOD_NAME = "00-OOT-Master"
-MARKER = ".oot-master-mod"
+MOD_NAME = "00-Super-Hero-Boost"
+MARKER = ".super-hero-boost"
 CLASSIC_SUBSDK_SIZE = 20744          # Classic Item Slots' module
 
 
@@ -44,7 +44,7 @@ class Settings:
     combat_only: bool = False
     enemy_hp: int = 100             # enemy health, percent of vanilla
     sprint_speed: int = 125         # sprint (A held while moving) speed, percent of vanilla
-    damage: int = 100               # damage Link takes, percent of vanilla
+    damage: int = 100               # damage the player takes, percent of vanilla
     no_heart_drop: bool = False     # hearts dropped by enemies/grass become green rupees
     hud_rupees: bool = False
     hud_clock: bool = False
@@ -62,17 +62,46 @@ PRESET_VIEW = {
 
 
 # ---------- emulator / mods folder detection ----------
+def _load_directory(emu: Path) -> Path | None:
+    """Read `load_directory` from the emulator's qt-config.ini (portable across platforms)."""
+    for cfg in (emu / "user" / "config" / "qt-config.ini", emu / "config" / "qt-config.ini"):
+        if not cfg.exists():
+            continue
+        try:
+            txt = cfg.read_text(errors="replace")
+        except OSError:
+            continue
+        for m in re.finditer(r"^\s*load_directory\s*=\s*(.+?)\s*$", txt, re.M):
+            value = m.group(1).strip().strip('"')
+            if not value:
+                continue
+            p = Path(value).expanduser()
+            if not p.is_absolute():
+                p = emu / p
+            if p.exists():
+                return p
+    return None
+
+
 def find_mods_dir(emu: Path) -> Path | None:
-    """<emu>/user/load/<title id>, honouring a custom load directory from qt-config.ini when present."""
+    """Find the folder that holds the per-title mod folders.
+
+    Accepts the emulator folder, its `user`/`load` folder or the title folder
+    itself, and honours a custom `load_directory` from `qt-config.ini`.
+    """
     if not emu or not emu.exists():
         return None
-    cfg = emu / "user" / "config" / "qt-config.ini"
-    if cfg.exists():
-        txt = cfg.read_text(errors="replace")
-        for m in re.finditer(r"^load_directory=(.+)$", txt, re.M):
-            p = Path(m.group(1).strip().strip('"'))
-            if p.exists():
-                return p / TITLE_ID
+    if emu.name == TITLE_ID:
+        return emu
+    if (emu / TITLE_ID).is_dir():
+        return emu / TITLE_ID
+    load = _load_directory(emu)
+    if load is not None:
+        return load / TITLE_ID
+    for cand in (emu / "user" / "load" / TITLE_ID, emu / "load" / TITLE_ID,
+                 emu / "mods" / "contents" / TITLE_ID, emu / "mods" / TITLE_ID):
+        if cand.exists():
+            return cand
     if (emu / "user").exists():
         return emu / "user" / "load" / TITLE_ID
     return None
@@ -117,8 +146,8 @@ def merge_ips(*blobs: bytes) -> bytes:
 
 # ---------- config block ----------
 def patch_config(nso: bytes, s: Settings) -> bytes:
-    i = nso.find(b"OOTMCFG1")
-    if i < 0 or nso.count(b"OOTMCFG1") != 1:
+    i = nso.find(b"SHBCFG01")
+    if i < 0 or nso.count(b"SHBCFG01") != 1:
         raise InstallError("bad_module", "config block not found")
     version, size = struct.unpack_from("<II", nso, i + 8)
     if version != 1 or size < 0x48:
@@ -140,7 +169,7 @@ def patch_config(nso: bytes, s: Settings) -> bytes:
 # ---------- Classic Item Slots v1.4.3 (bundled inside this app: three button-glyph variants) ----------
 CLASSIC_VARIANTS = ("default", "playstation", "xbox")
 CLASSIC_VERSION = "1.4.3"
-CACHE = Path(os.environ.get("APPDATA", str(Path.home()))) / "OotMasterConfig" / "classic"
+CACHE = paths.cache_dir()
 # the 14 main offsets its patch file touches (checked after unpacking, so a wrong archive is never installed)
 CLASSIC_SITES = {0x33A927C, 0x33AAC34, 0x33BD928, 0x33C9AB4, 0x34694F8, 0x3469524, 0x3469550, 0x346966C,
                  0x3469698, 0x33D7124, 0x33D8CC4, 0xD57CE4, 0x33F6894, 0x33E64E0}
@@ -219,13 +248,16 @@ def install(emu: Path, s: Settings, classic_variant: str = "default", name: str 
     else:
         (target / "exefs" / f"{BUILD_ID}.ips").write_bytes(ours)
 
+    res = Result(target, variant)
     if s.no_heart_drop:                       # romfs files generated from the game's own data (tools/make_romfs_opts.py)
         src = pay.parent / "romfs_opts" / "no_heart_drop"
-        if not src.exists():
-            raise InstallError("no_payload", "no_heart_drop")
-        shutil.copytree(src, target / "romfs", dirs_exist_ok=True)
+        if src.exists():
+            shutil.copytree(src, target / "romfs", dirs_exist_ok=True)
+        else:
+            # The option needs a file generated from the user's own game dump. Never block the
+            # rest of the installation just because this optional file was not built.
+            res.notes.append(("no_heart_drop_missing", ""))
 
-    res = Result(target, variant)
     conflicts = other_exefs_mods(mods, {name})
     if conflicts:
         res.notes.append(("conflicts", ", ".join(conflicts)))

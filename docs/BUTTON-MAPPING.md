@@ -14,7 +14,7 @@ en este proyecto.
 | Diseño simple | solo los botones asignables B, L, R y ZR; oculta X, Y, A y la espada, y reubica L / R / ZR en su sitio con B centrado y más cerca, en zigzag, tanto en el HUD como en la pestaña Objetos del menú |
 | Modo de L: objeto | L es una ranura de objeto más |
 | Modo de L: escudo | L hace de ZL (escudo) sin bloquear cámara; en diseño extendido muestra el escudo equipado y no se puede asignar; en simple se oculta |
-| Modo de L: selector | L abre el selector de objetos del juego; misma lógica de diseño, sin icono de escudo |
+| Modo de L: selector | L abre el selector de objetos del juego; se oculta el botón L en ambos diseños y la leyenda del menú quita L |
 | Asignación en pausa | pestaña Objetos: B / L / R sobre el objeto resaltado; un objeto que ya está en otra ranura se intercambia |
 | Iconos | partes `PaItemBtn_00` con el icono del objeto y su sombra, igual que la caja de objeto nativa |
 

@@ -1507,7 +1507,7 @@ u64 g_mb_dbg[PART_N];
 static int bm_part_hidden(u32 k) {
     if (g_shbcfg.bm_simple && (k == SB_X || k == SB_Y || k == SB_A || k == 9)) return 1;
     if (g_shbcfg.bm_l_mode && g_shbcfg.bm_simple && (k == SB_L || k == 7)) return 1;
-    if (g_shbcfg.bm_l_mode == 2 && k == 7) return 1;
+    if (g_shbcfg.bm_l_mode == 2 && (k == SB_L || k == 7)) return 1;   /* L opens the item selector: no L button in either layout */
     return 0;
 }
 static void slots_draw(SlotBtn *set, const u64 *ctrls, u64 frame, const float *lay, int main_set) {

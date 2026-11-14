@@ -333,6 +333,8 @@ def gui() -> None:
         speed.set(v["sprint_speed"])
         rupees.set(v["hud_rupees"])
         clock_mode.set("24" if v["clock_24h"] else "12" if v["hud_clock"] else "off")
+        enemy_double.set(v["enemy_double"])
+        enemy_speed.set(v["enemy_speed"])
         guard["on"] = False
         refresh()
         if save:

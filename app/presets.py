@@ -31,16 +31,19 @@ class Profile:
     hud_clock: bool
     clock_24h: bool
     songbook: bool
+    enemy_double: bool           # beta options: a named profile starts with them off
+    enemy_speed: bool
 
 
 def _profile(key, *, classic=True, stamina=True, mode=0, costs=(True,) * 6, combat_only=False,
              enemy_hp=100, damage=100, no_heart_drop=False, sprint_speed=SPRINT_DEFAULT,
-             hud_rupees=True, hud_clock=True, clock_24h=True, songbook=True):
+             hud_rupees=True, hud_clock=True, clock_24h=True, songbook=True,
+             enemy_double=False, enemy_speed=False):
     return Profile(key=key, classic=classic, stamina=stamina, mode=mode, costs=costs,
                    combat_only=combat_only, enemy_hp=enemy_hp, damage=damage,
                    no_heart_drop=no_heart_drop, sprint_speed=sprint_speed,
                    hud_rupees=hud_rupees, hud_clock=hud_clock, clock_24h=clock_24h,
-                   songbook=songbook)
+                   songbook=songbook, enemy_double=enemy_double, enemy_speed=enemy_speed)
 
 
 PROFILES = {
@@ -71,7 +74,8 @@ def defaults() -> dict:
     """Balanced starting values (same shape as a profile, without a fixed key)."""
     return dict(classic=True, stamina=True, mode=0, costs=(True,) * 6, combat_only=False,
                 enemy_hp=100, damage=100, no_heart_drop=False, sprint_speed=SPRINT_DEFAULT,
-                hud_rupees=True, hud_clock=True, clock_24h=True, songbook=True)
+                hud_rupees=True, hud_clock=True, clock_24h=True, songbook=True,
+                enemy_double=False, enemy_speed=False)
 
 
 def profile_values(key: str) -> dict:
@@ -83,4 +87,4 @@ def profile_values(key: str) -> dict:
                 combat_only=p.combat_only, enemy_hp=p.enemy_hp, damage=p.damage,
                 no_heart_drop=p.no_heart_drop, sprint_speed=p.sprint_speed,
                 hud_rupees=p.hud_rupees, hud_clock=p.hud_clock, clock_24h=p.clock_24h,
-                songbook=p.songbook)
+                songbook=p.songbook, enemy_double=p.enemy_double, enemy_speed=p.enemy_speed)

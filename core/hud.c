@@ -342,6 +342,7 @@ static const u64 g_lhash[LEG_N] = {HASH_TXT10, HASH_TXT11, HASH_TXT12, HASH_TXT1
 /* icon panes use the game's button-glyph font (the guide bar's icons): text 0xE040 A, 0xE041 B, 0xE042 X,
  * 0xE043 Y, 0xE044 L, 0xE045 R, 0xE046 ZL, 0xE047 ZR (UTF-8) */
 #define LEG_ICON(t) ((t) > 0 && (t) % 3 != 2)
+#define LEG_PAIR_L 1   /* pairs: X > B, L > L, R > R, A > ZR */
 static char g_legbar_name[16] = "P_ShbPic_399";   /* the legend's backing bar */
 #define LEG_BASE "P_MessageBase_01"   /* 2200 x 360: the plate PlusMenu_00 puts its own texts on */
 u32 g_plus_build_dbg[2];   /* copies built, failure step */
@@ -1463,17 +1464,19 @@ void hud_menu_zr(int item) {   /* -1: empty */
 /* Y shows the equipped sword: GameData PlayerStatus.EquipWeapon (String64 table k = 16, record 23, 0x108 bytes
  * each, the live string at +0x74 / pointed to by +0x68). Its value is the icon name itself (Weapon_Sword_Kokiri,
  * _Master, _Giant, _Biggoron, _BrokenGiant); empty = no sword, the Y icon is hidden. */
-static void sword_mirror(void) {
+/* An equipped weapon / shield (GameData String64 PlayerStatus.EquipWeapon / .EquipShield = its icon name) as the
+ * fixed texture of an item part: the Y button shows the sword; with the L shield mode, L shows the shield. */
+static void equip_mirror(u32 idx, u32 part) {
     u64 mgr = *(u64 *)GAMEDATA_MGR;
     if (!mgr) return;
     u32 cnt = *(u32 *)(mgr + 8 + 0x60 * 16 + 8);
     u64 rec = *(u64 *)(mgr + 8 + 0x60 * 16 + 0x10);
-    if (!rec || cnt < 24) return;
-    u64 r = rec + 23 * 0x108;
+    if (!rec || cnt <= idx) return;
+    u64 r = rec + (u64)idx * 0x108;
     const char *s = *(const char **)(r + 0x68);
     if (!s) s = (const char *)(r + 0x74);
-    char *dst = g_sb_force[9];
-    if (!s[0] || s[0] != 'W') { dst[0] = 1; return; }   /* none: hidden (a later sword sets it again) */
+    char *dst = g_sb_force[part];
+    if (!s[0] || s[0] != 'W') { dst[0] = 1; return; }   /* none: hidden (a later one sets it again) */
     if (str_eq(dst, s)) return;
     u32 i;
     for (i = 0; i < 30 && s[i]; i++) dst[i] = s[i];
@@ -1486,6 +1489,14 @@ static SlotBtn g_mb[PART_N];
 static u64 g_mb_ctrl[PART_N];
 static u64 g_mb_frame;
 u64 g_mb_dbg[PART_N];
+/* Layout options (app): simple = only the assignable buttons (no A / X / Y and the sword); L as shield or item
+ * selector = L can't hold an item (simple: no L at all; extended: the L button, with the shield in shield mode). */
+static int bm_part_hidden(u32 k) {
+    if (g_shbcfg.bm_simple && (k == SB_X || k == SB_Y || k == SB_A || k == 9)) return 1;
+    if (g_shbcfg.bm_l_mode && g_shbcfg.bm_simple && (k == SB_L || k == 7)) return 1;
+    if (g_shbcfg.bm_l_mode == 2 && k == 7) return 1;
+    return 0;
+}
 static void slots_draw(SlotBtn *set, const u64 *ctrls, u64 frame, const float *lay, int main_set) {
     for (u32 k = 0; k < PART_N; k++) {
         SlotBtn *b = &set[k];
@@ -1516,7 +1527,7 @@ static void slots_draw(SlotBtn *set, const u64 *ctrls, u64 frame, const float *l
             b->part = p;
         }
         /* an item part with no item (and no fixed texture, like the sword) is hidden */
-        u32 empty = k >= SB_NBTN && g_sb_item[k] < 0 && g_sb_force[k][0] <= 1;
+        u32 empty = (k >= SB_NBTN && g_sb_item[k] < 0 && g_sb_force[k][0] <= 1) || bm_part_hidden(k);
         float sc = empty || !BTNMAP ? 0.0f : g_sb_sc[k] * lay[1];
         float px, py;
         sb_xy(lay, k, &px, &py);
@@ -1583,11 +1594,13 @@ static void hud_menu_legend(u64 page) {
     g_leg_dbg[0] = pf;
     if (!pf) return;
     static const float WHITE[3] = {1.0f, 1.0f, 1.0f}, GOLD[3] = {0.95f, 0.82f, 0.45f};
+    u32 no_l = g_shbcfg.bm_l_mode != 0;   /* L is the shield or the item selector: nothing to assign there */
     if (!g_leg_bar_rec) g_leg_bar_rec = pane_record(pf, g_legbar_name);
     if (g_leg_bar_rec) {
         tint_rec(g_leg_bar_rec, g_leg_bar[5], g_leg_bar[6], g_leg_bar[7], g_leg_bar[4]);
         *(float *)(g_leg_bar_rec + 0x74) = 1.0f; *(float *)(g_leg_bar_rec + 0x78) = 1.0f;   /* (the source plate starts hidden) */
-        place(g_leg_bar_rec, g_leg_bar[0], g_leg_bar[1], g_leg_bar[2], g_leg_bar[3], 0.0f);
+        float shift = no_l ? g_leg_pos[2] : 0.0f;   /* one pair less: shorter by a pair step, right edge kept */
+        place(g_leg_bar_rec, g_leg_bar[0] + shift * 0.5f, g_leg_bar[1], g_leg_bar[2] - shift / 2200.0f, g_leg_bar[3], 0.0f);
     }
     for (u32 t = 0; t < LEG_N; t++) {
         if (!g_leg_rec[t]) g_leg_rec[t] = pane_record(pf, g_lnames[t]);
@@ -1603,12 +1616,15 @@ static void hud_menu_legend(u64 page) {
         const float *c = t ? WHITE : GOLD;
         tint_rec(rec, c[0], c[1], c[2], 1.0f);
         float x = g_leg_pos[0], sc = g_leg_pos[3];
+        u32 on = 1;
         if (t) {
             u32 pr = (t - 1) / 3, k = (t - 1) % 3;
+            if (no_l && pr == LEG_PAIR_L) on = 0;
+            else if (no_l && pr > LEG_PAIR_L) pr--;
             x += g_leg_geo[0] + g_leg_pos[2] * (float)pr + g_leg_geo[1] * (float)k;
             if (k != 1) sc *= g_leg_geo[2];
         }
-        place(rec, x, g_leg_pos[1], sc, sc, 0.0f);
+        place(rec, x, g_leg_pos[1], on ? sc : 0.0f, on ? sc : 0.0f, 0.0f);
     }
     g_leg_set = pf;
     g_leg_shown = 1;
@@ -1632,7 +1648,11 @@ static void slots_update(u64 frame) {
     if (g_sb_busy) return;
     if (!g_ps_frame && g_sb[0].part) g_ps_frame = ptr(g_sb[0].part, 0x28);
     if (!hud_ingame()) return;
-    if (BTNMAP) { zr_mirror(); sword_mirror(); }   /* (the ZR icon is frozen while a slot borrows the box) */
+    if (BTNMAP) {
+        zr_mirror();
+        equip_mirror(GD_S64_EQUIP_WEAPON, 9);                              /* Y: the sword */
+        if (g_shbcfg.bm_l_mode == 1) equip_mirror(GD_S64_EQUIP_SHIELD, 7);  /* L: the shield */
+    }   /* (the ZR icon is frozen while a slot borrows the box) */
     if (!g_stock_box_rec) g_stock_box_rec = pane_record(frame, "Pa_SelectItem_00");
     if (!g_stock_dots_rec) g_stock_dots_rec = pane_record(frame, "N_Shortcut_00");
     for (u32 i = 0; i < 2 && g_sb_hide_stock && BTNMAP; i++) {
@@ -1693,8 +1713,9 @@ static void slots_labels(u64 frame) {
     sb_xy(g_sb_lay, SB_X, &xx, &xy);
     sb_xy(g_sb_lay, SB_A, &ax, &ay);
     g_fld_sc[3] = g_fld_sc[4] = 0.80f * g_sb_lay[1];   /* the labels follow the buttons' size */
-    put_text(frame, 3, g_sb_jump_label, xx, xy, 1, LABEL);
-    put_text(frame, 4, g_sb_a_label, ax, ay, g_sb_a_label[0] != 0, LABEL);
+    u32 lbl = !g_shbcfg.bm_simple;   /* simple layout: no X / A buttons, so no labels */
+    put_text(frame, 3, g_sb_jump_label, xx, xy, lbl, LABEL);
+    put_text(frame, 4, g_sb_a_label, ax, ay, lbl && g_sb_a_label[0] != 0, LABEL);
 }
 static void slots_reset(void) {
     g_ps_frame = 0; for (u32 k = 0; k < PART_N; k++) g_sb[k].part = 0; g_stock_box_rec = 0; g_stock_dots_rec = 0; }

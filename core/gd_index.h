@@ -2,6 +2,8 @@
 #define GD_IS_CHILDHOOD 10836
 #define GD_BOX_CHILD 65   /* Enum index of PlayerStatus.AssignableItem.Child */
 #define GD_BOX_ADULT 59
+#define GD_S64_EQUIP_WEAPON 23   /* String64 index of PlayerStatus.EquipWeapon */
+#define GD_S64_EQUIP_SHIELD 22
 #define GD_EMPTY_HASH 0xBE69DE49u   /* the Enum value "Empty" */
 #define GD_ISGET_N 199
 static const unsigned int GD_ISGET[GD_ISGET_N][2] = {

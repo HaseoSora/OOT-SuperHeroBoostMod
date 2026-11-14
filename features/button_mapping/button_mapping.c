@@ -173,6 +173,9 @@ void button_mapping_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_r
         }
     }
 
+    /* L as the shield or the game's item selector (app option): L never holds an item */
+    if (g_shbcfg.bm_l_mode) g_assign[SLOT_L] = -1;
+
     /* Publish the slots to the HUD (core/hud.c): B, L, R as assigned (ZR mirrors the game's own box). */
     for (int s = 0; s < SLOT_N; s++)
         hud_slot_item((u32)s, s == SLOT_ZR && g_assign[s] < 0 ? g_zr_item : g_assign[s]);
@@ -198,6 +201,7 @@ void button_mapping_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_r
         static const u64 MENU_BTN[SLOT_ZR] = {BTN_X, BTN_L, BTN_R};   /* -> SLOT_B, SLOT_L, SLOT_R */
         for (int s = 0; s < SLOT_ZR; s++) {
             if (!(pressed & MENU_BTN[s])) continue;
+            if (s == SLOT_L && g_shbcfg.bm_l_mode) continue;   /* L is the shield / item selector: not assignable */
             int it = hud_menu_item();
             if (it < 0) continue;
             int old = g_assign[s];
@@ -226,6 +230,13 @@ void button_mapping_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_r
         set_all(&view, BTN_X | BTN_L | BTN_R, 0);
         g_phase = PH_IDLE; g_swallow = 0;
         return;
+    }
+
+    /* L as the shield: L raises it the way ZL does (for now through ZL itself, so it also targets) */
+    if (g_shbcfg.button_mapping && g_shbcfg.bm_l_mode == 1 && hud_ingame() && (buttons & BTN_L)) {
+        set_all(&view, BTN_L, BTN_ZL);
+        buttons = (buttons & ~BTN_L) | BTN_ZL;
+        pressed &= ~BTN_L;
     }
 
     /* Link must be free to act: standing or moving. Menus, the ocarina, dialogues, the item selector, climbing,

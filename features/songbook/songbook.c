@@ -56,6 +56,10 @@ u32 g_songbook_dbg[8] = {0x10000000u, 0x10000000u, 0x10000000u, 0x10000000u,
 
 u32 hud_frame_count(void);
 
+/* core/link.ld: the ocarina state machine. The game only calls it from page 0
+ * when the melody is finished, so on the preview page we call it ourselves. */
+extern void RES_OCARINA_UPDATE(void *ctx);
+
 static int valid_ptr(u64 p) { return p > 0x10000ull && p < 0x1000000000000ull; }
 
 static u32 read_sel(u64 ctx) {
@@ -138,8 +142,8 @@ void songbook_on_frame(void) {
     if (busy != 0) return;
     u32 page = *(volatile u32 *)(ctx + 0x278);
     g_songbook_page = page;
-    /* The ocarina state machine only runs on page 0 (free play). */
-    if (page != 0u) return;
+    /* 0 = free play (the game runs the state machine itself), 2 = preview page. */
+    if (page != 0u && page != 2u) return;
 
     const Song *song = &g_songs[song_id];
     volatile u32 *shown = (volatile u32 *)(ctx + 0x158);
@@ -163,4 +167,8 @@ void songbook_on_frame(void) {
     g_songbook_dbg[7] = 0x10000000u + song_id;
     g_songbook_pending = NO_SONG;
     g_songbook_preview = song_id;   /* do not replay the same preview */
+
+    /* On the preview page the game does not call the state machine, so run it
+     * once here with the melody already loaded. */
+    if (page == 2u) RES_OCARINA_UPDATE((void *)ctx);
 }

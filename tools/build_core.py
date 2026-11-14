@@ -174,10 +174,11 @@ def verify_stock_sites() -> None:
             raise SystemExit(
                 f"site {site:#x} ({name}) is not bl {stock:#x} (found {target:#x})"
             )
-    for site, name, _id in CODE_SITES:
+    for site, name, _id, *stock in CODE_SITES:
         word = struct.unpack_from("<I", text, site)[0]
-        if word != PACIBSP:
-            raise SystemExit(f"code site {site:#x} ({name}) is {word:#x}, expected pacibsp")
+        want = stock[0] if stock else PACIBSP
+        if word != want:
+            raise SystemExit(f"code site {site:#x} ({name}) is {word:#x}, expected {want:#x}")
     print(f"verified {len(INPUT_SITES)} input sites and {len(SLOT_SITES)} slot sites")
 
 
@@ -248,7 +249,7 @@ def make_ips(symbols: dict[str, int]) -> bytes:
         out += struct.pack(">I", site + 0x100)   # +0x100: NSO text starts at file 0x100
         out += struct.pack(">H", 4)
         out += struct.pack("<I", word)
-    for site, name, _id in CODE_SITES:
+    for site, name, _id, *_stock in CODE_SITES:
         delta = symbols[name] - site
         word = 0x14000000 | ((delta >> 2) & 0x03FFFFFF)   # b <wrapper>
         out += struct.pack(">I", site + 0x100)

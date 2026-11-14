@@ -58,7 +58,8 @@ int hud_zr_item(void);
 void hud_zr_hold(int hold);
 int hud_ingame(void);   /* core/hud.c: 0 while a menu covers the game (pause ...) */
 int hud_menu_items(void);   /* core/hud.c: the pause menu's Items tab is open */
-int hud_menu_item(void);    /* core/hud.c: item index highlighted there (-1: none / not owned) */   /* core/hud.c: keep showing the ZR item while a slot item borrows the item box */
+int hud_menu_item(void);    /* core/hud.c: item index highlighted there (-1: none / not owned) */
+void hud_menu_tick(void);   /* core/hud.c: draw the slot cluster on the menu page */   /* core/hud.c: keep showing the ZR item while a slot item borrows the item box */
 /* The game's own "put this item in the item box" call, as the R button makes it (main+0x33C9AB4):
  * main+0x1211C00(item manager, item set, item index, 1, 1); manager = **(main+0x4C7E0D0),
  * set = byte +0x5C0 of **(main+0x4C7E2A8). Calling it directly equips without pressing R (R opens the selector). */
@@ -159,6 +160,8 @@ void classic_slots_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_re
             g_assign[s] = it;
             g_cl_dbg[3]++;
         }
+        for (int s = 0; s < SLOT_ZR; s++) hud_slot_item((u32)s, g_assign[s]);   /* show a swap at once */
+        hud_menu_tick();
         set_all(&view, BTN_X | BTN_L | BTN_R, 0);
         g_phase = PH_IDLE; g_swallow = 0;
         return;

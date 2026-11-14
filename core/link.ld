@@ -53,6 +53,7 @@ SECTIONS
     RES_HUDINIT = 0x33F5D24;
     RES_SETTEXT = 0x439524;
     RES_MENUSEL = 0x2CBD24;
+    RES_MENUPAGE = 0xF78BAC;
     icon_widget_init = 0x33B7DA0;  /* (widget, heap): widget+0x20 = part holding Pa_ReplaceIcon_00; builds its icon controller (initial icon Item_AgonyStone) */
     tex_replace = 0xA73920;     /* (replacer, const char **name, flag): load UI/Tex/Icon/<name> into a replaceable pane texture */
     item_actor_name = 0x592B20; /* (manager, const char **out, item index): actor name of an item (Item_Boomerang ...) */
@@ -61,6 +62,8 @@ SECTIONS
     ITEM_SET_SLOT = 0x4C7E2A8;  /* -> pointer to an object whose byte +0x5C0 is the item set passed to the equip call */
     MAIN_SCHED_VT = 0x4B05318;
     find_part = 0x43C3E0;
+    ui_find_sub = 0x43C4A0;     /* (name, part, &sub part): a nested part by name */
+    ui_owner_layout = 0x43C040; /* (pane+0x40): the layout that owns a pane */
     find_anim = 0x43C7A0;
     set_frame = 0x2D2D90;
     PLT0 = 0x3C41C50;

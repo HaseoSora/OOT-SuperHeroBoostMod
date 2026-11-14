@@ -285,6 +285,50 @@ static u32 g_repicon_armed;
  * the slot parts are four stock filler parts turned into item buttons in place: same
  * pane slot, same name, same parent; only the part descriptor changes to the item
  * button's. They are driven by their original names. */
+static const u8 *g_proto_c, *g_proto_p;   /* PlayerStatus' Pa_SelectItem_00 descriptors (set by build_root) */
+u32 g_menu_build_dbg[4];   /* menu copies built, failures (step), panes, parts */
+/* The pause menu's Items page (PaItemMenu_00) gets the same PART_N item-button parts appended (clones of the
+ * PlayerStatus item box, asset PaItemBtn_00), so the cluster shows over the menu: the HUD layer is not drawn
+ * while the menu is open. */
+static u8 *build_menu(const u8 *r) {
+    if (!g_proto_c || !g_proto_p) { g_menu_build_dbg[1] = 1; return 0; }
+    if (name_index(r, 0x20, part_name(0)) >= 0) { g_menu_build_dbg[1] = 2; return 0; }
+    u32 nc = w(r, 0x38), np = w(r, 0xD8);
+    g_menu_build_dbg[2] = nc; g_menu_build_dbg[3] = np;
+    if (nc > 256 || np > 128 || !q(r, 0xC8)) { g_menu_build_dbg[1] = 3; return 0; }
+    u8 *root = pool_clone(r, 0x228);
+    u8 *first = pool_clone((const void *)((const u64 *)q(r, 0x28))[0], 68);
+    if (!root || !first) { g_menu_build_dbg[1] = 4; return 0; }
+    u8 *cdk[PART_N], *pdk[PART_N];
+    for (u32 k = 0; k < PART_N; k++) {
+        cdk[k] = pool_clone(g_proto_c, 68);
+        pdk[k] = pool_clone(g_proto_p, 88);
+        if (!cdk[k] || !pdk[k]) { g_menu_build_dbg[1] = 4; return 0; }
+        *(u32 *)(cdk[k] + 40) = 0;                    /* parent: root pane */
+        *(u32 *)(cdk[k] + 52) = nc + k + 1;           /* subtree end = own index + 1 */
+        *(u32 *)(cdk[k] + 64) = 0x7FFFF;
+        cdk[k][56] |= 1;
+        *(unsigned short *)(cdk[k] + 0x42) = (unsigned short)(np + k);
+        *(float *)(cdk[k] + 0x10) = 0.0f; *(float *)(cdk[k] + 0x14) = 0.0f;   /* hidden until placed */
+        *(u32 *)(pdk[k] + 64) = nc + k;               /* part -> index of its pane */
+    }
+    *(u32 *)(first + 52) = nc + PART_N;
+    for (u32 t = 0; t < 2; t++) {
+        u32 off = t ? 0xC0 : 0x20, n = t ? np : nc;
+        for (u32 j = 0; j < 3; j++) {
+            u64 *a = pool_alloc((n + PART_N) * 8);
+            if (!a) { g_menu_build_dbg[1] = 5; return 0; }
+            memcpy(a, (const void *)q(r, off + j * 8), n * 8);
+            for (u32 k = 0; k < PART_N; k++)
+                a[n + k] = j == 0 ? (u64)part_name(k) : j == 1 ? (u64)(t ? pdk[k] : cdk[k]) : part_hash(k);
+            if (!t && j == 1) a[0] = (u64)first;
+            *(u64 *)(root + off + j * 8) = (u64)a;
+        }
+        *(u32 *)(root + off + 24) = n + PART_N;
+    }
+    g_menu_build_dbg[0]++;
+    return root;
+}
 static u8 *build_root(const u8 *r) {
     pic_names();
     if (name_index(r, 0x20, g_pinames[0]) >= 0) { g_hud_dbg[9] = MARK | 1; return 0; }
@@ -295,6 +339,8 @@ static u8 *build_root(const u8 *r) {
     u8 *root = pool_clone(r, 0x228);
     u8 *first = pool_clone((const void *)((const u64 *)q(r, 0x28))[0], 68);
     if (!root || !first) { g_hud_dbg[9] = MARK | 4; return 0; }
+    g_proto_c = (const u8 *)((const u64 *)q(r, 0x28))[mci];   /* stock item box: pane + part descriptors */
+    g_proto_p = (const u8 *)((const u64 *)q(r, 0xC8))[mpi];
     /* PART_N appended gauge parts (the ring segments): pane nc+k, part descriptor np+k.
      * The engine finds each part's descriptor through cdesc+0x42, so it must name np+k. */
     u8 *cdk[PART_TOT], *pdk[PART_TOT];
@@ -466,7 +512,7 @@ void *hud_prepare(void *handle, u8 *config) {
         char *d = g_pl[g_pl_n++];
         for (int i = 0; i < 15; i++) { d[i] = inst[i]; d[16 + i] = asset[i]; }
     }
-    u32 kind = str_eq(asset, "PlayerStatus_00") ? 1 : 0;
+    u32 kind = str_eq(asset, "PlayerStatus_00") ? 1 : REPLICA && str_eq(asset, "PaItemMenu_00") ? 3 : 0;
     /* one of our slot buttons: its nested Pa_ReplaceIcon_00 is built next and gets the private copy */
     for (u32 k = 0; !kind && k < PART_N; k++)
         if (str_eq(inst, part_name(k))) { g_repicon_armed = 1; return config; }
@@ -478,12 +524,12 @@ void *hud_prepare(void *handle, u8 *config) {
         if (g_res[i].src == r && g_res[i].kind == kind) { rep = g_res[i].copy; break; }
     if (i == g_res_n) {
         if (g_res_n == 140) return config;
-        rep = kind == 1 ? build_root(r) : build_repicon(r);
+        rep = kind == 1 ? build_root(r) : kind == 3 ? build_menu(r) : build_repicon(r);
         if (!rep) return config;
         g_res[i].src = r; g_res[i].copy = rep; g_res[i].kind = kind;
         g_res_n++;
     }
-    if (kind >= 2 && kind < 7) {
+    if (kind == 2) {
         u32 s = (kind - 2) * 4;
         g_prep_dbg[s] = (u64)handle; g_prep_dbg[s + 1] = (u64)config;
         g_prep_dbg[s + 2] = q(handle, 0x28); g_prep_dbg[s + 3] = q(handle, 0x38);
@@ -1014,7 +1060,7 @@ static const char *slot_anim_name(u32 i) {
     case 8: return "UnSelect"; case 9: return "Decide"; default: return "Assign";
     }
 }
-typedef struct { u64 part, anim[SA_N], rec, rep, ctrl, hide[9], ic, sh; u32 icon_set; int shown_item; } SlotBtn;
+typedef struct { u64 part, anim[SA_N], rec, rep, ctrl, hide[9], ic, sh; u32 icon_set; int shown_item; char forced[32]; } SlotBtn;
 static SlotBtn g_sb[PART_N];
 u64 g_sb_dbg[PART_N];       /* part object per button (diagnostic) */
 u32 g_sb_anim[PART_N];      /* bit i = anim i found */
@@ -1090,7 +1136,7 @@ static const char *hide_name(u32 i) {   /* the item box's own frame, glyph and c
  * stand-in "widget" whose +0x20 is our button part. It finds the part's Pa_ReplaceIcon_00, allocates and inits an
  * icon controller (main+0xA37320, hook 11 captures it) whose +0x30 / +0x38 are the icon / shadow texture
  * replacers; main+0xA73920 then loads UI/Tex/Icon/<name> and UI/Tex/IconSh/<name>_Sh into them. */
-static u64 g_sb_widget[PART_N][12];   /* stand-in widgets (the init writes +0x30..+0x48) */
+static u64 g_sb_widget[PART_N][12], g_mb_widget[PART_N][12];   /* stand-in widgets (the init writes +0x30..+0x48) */
 static volatile u32 g_ctrl_capture;
 static volatile u64 g_ctrl_captured;
 u64 g_sb_ctrl_dbg[PART_N];
@@ -1216,28 +1262,19 @@ static void sword_mirror(void) {
     dst[i] = 0;
     dst[31] = 0;   /* apply again */
 }
-float g_sb_menu_dy = -150.0f;   /* cluster offset in the pause menu (layout units, y up) */
-static void slots_update(u64 frame) {
-    if (g_sb_busy) return;
-    if (!g_ps_frame && g_sb[0].part) g_ps_frame = ptr(g_sb[0].part, 0x28);
-    /* in the pause menu's Items tab the cluster is drawn under the rupee counter, to see what goes where */
-    int menu = REPLICA && hud_menu_items();
-    if (!hud_ingame() && !menu) return;
-    float dy = menu ? g_sb_menu_dy : 0.0f;
-    if (REPLICA && !menu) { zr_mirror(); sword_mirror(); }   /* (the ZR icon is frozen while a slot borrows the box) */
-    if (!g_stock_box_rec) g_stock_box_rec = pane_record(frame, "Pa_SelectItem_00");
-    if (!g_stock_dots_rec) g_stock_dots_rec = pane_record(frame, "N_Shortcut_00");
-    for (u32 i = 0; i < 2 && g_sb_hide_stock && REPLICA; i++) {
-        u64 r = i ? g_stock_dots_rec : g_stock_box_rec;
-        if (!r) continue;
-        *(float *)(r + 0x60) = 0.0f; *(float *)(r + 0x64) = 0.0f;
-        *(u32 *)r |= 0x6F;
-    }
+/* The pause menu's Items page (PaItemMenu_00) carries the same PART_N parts (build_menu): g_mb, with their own
+ * icon controllers (hud_menu_ctrl_init). Placement there: g_mb_off = dx, dy (layout units, y up), scale. */
+static SlotBtn g_mb[PART_N];
+static u64 g_mb_ctrl[PART_N];
+static u64 g_mb_frame;
+float g_mb_off[3] = {210.0f, -150.0f, 0.8f};   /* under the rupee counter */
+u64 g_mb_dbg[PART_N];
+static void slots_draw(SlotBtn *set, const u64 *ctrls, u64 frame, float dx, float dy, float scale, int main_set) {
     for (u32 k = 0; k < PART_N; k++) {
-        SlotBtn *b = &g_sb[k];
+        SlotBtn *b = &set[k];
         if (!b->part) {
             u64 p = (u64)find_part((void *)frame, part_name(k));
-            g_sb_dbg[k] = MARK | p;
+            if (main_set) g_sb_dbg[k] = MARK | p; else g_mb_dbg[k] = MARK | p;
             if (!p) continue;
             u64 none = (u64)find_anim((void *)p, "__no_such_anim__");
             u32 mask = 0;
@@ -1246,17 +1283,16 @@ static void slots_update(u64 frame) {
                 b->anim[i] = (a && a != none) ? a : 0;
                 if (b->anim[i]) mask |= 1u << i;
             }
-            g_sb_anim[k] = 0x10000000u | mask;
-            {   /* the nested icon part and its layout (diagnostic: where the texture replacers live) */
+            if (main_set) g_sb_anim[k] = 0x10000000u | mask;
+            {   /* the nested icon part: its icon pane and its shadow pane (where our button is drawn) */
                 u64 rif = (u64)find_part((void *)p, "Pa_ReplaceIcon_00");
-                g_sb_rif[k][0] = MARK | rif;
-                g_sb_rif[k][1] = MARK | (rif ? ptr(rif, 0x80) : 0);
-                /* its texture replacer (the object the game's HUD gives the item's icon name to) */
+                if (main_set) { g_sb_rif[k][0] = MARK | rif; g_sb_rif[k][1] = MARK | (rif ? ptr(rif, 0x80) : 0); }
                 b->rep = rif ? ptr(rif, 0x6A8) : 0;
-                b->ic = rif ? part_child(rif, "P_ReplaceIcon_00") : 0;     /* item icon pane */
-                b->sh = rif ? part_child(rif, "P_ReplaceIconSh_00") : 0;   /* its shadow pane: our button */
+                b->ic = rif ? part_child(rif, "P_ReplaceIcon_00") : 0;
+                b->sh = rif ? part_child(rif, "P_ReplaceIconSh_00") : 0;
                 b->icon_set = 0;
-                b->ctrl = g_sb_ctrl[k];   /* built during the HUD init (hud_slots_init) */
+                b->forced[0] = 0;
+                b->ctrl = ctrls[k];   /* built during the HUD / menu init (hud_slots_init, hud_menu_ctrl_init) */
             }
             b->rec = pane_record(frame, part_name(k));
             for (u32 i = 0; i < 9; i++) b->hide[i] = part_child(p, hide_name(i));
@@ -1264,8 +1300,8 @@ static void slots_update(u64 frame) {
         }
         /* an item part with no item (and no fixed texture, like the sword) is hidden */
         u32 empty = k >= SB_NBTN && g_sb_item[k] < 0 && g_sb_force[k][0] <= 1;
-        float sc = empty || !REPLICA ? 0.0f : g_sb_sc[k];
-        if (b->rec) place(b->rec, g_sb_pos[k][0], g_sb_pos[k][1] + dy, sc, sc, 0.0f);
+        float sc = empty || !REPLICA ? 0.0f : g_sb_sc[k] * scale;
+        if (b->rec) place(b->rec, g_sb_pos[k][0] * scale + dx, g_sb_pos[k][1] * scale + dy, sc, sc, 0.0f);
         /* ItemPattern = icon framing. Frame 0 shows the full picture: buttons, and items drawn big and even
          * like Classic (item_pattern() keeps the stock box's per-item framing for a smaller style) */
         if (b->anim[0]) set_frame((void *)b->anim[0], g_sb_item[k] < 0 || g_sb_big_items ? 0.0f : item_pattern(g_sb_item[k]));
@@ -1284,21 +1320,52 @@ static void slots_update(u64 frame) {
             }
         for (u32 i = 0; i < SA_N; i++)
             if (g_sb_animf[i] >= 0.0f && b->anim[i]) set_frame((void *)b->anim[i], g_sb_animf[i]);
-        /* icon of the button's item (only when it changes) */
-        if (b->ctrl && !g_sb_busy && g_sb_force[k][0] > 1 && g_sb_force[k][31] != 1) {   /* fixed texture */
-            g_sb_force[k][31] = 1;
-            if (g_sb_force[k][0] == 'O' && g_sb_force[k][6] && g_sb_force[k][7] == '_')   /* OotBtn<style>_..: pad style */
-                g_sb_force[k][6] = g_ootcfg.button_style == 1 ? 'X' : g_ootcfg.button_style == 2 ? 'P' : 'S';
-            set_icon(b, g_sb_force[k]);
+        /* fixed texture (buttons, sword, ZR mirror), only when it changes; OotBtn<style>_..: the pad style */
+        if (b->ctrl && !g_sb_busy && g_sb_force[k][0] > 1) {
+            char nm[32];
+            u32 i;
+            for (i = 0; i < 31 && g_sb_force[k][i]; i++) nm[i] = g_sb_force[k][i];
+            nm[i] = 0;
+            if (nm[0] == 'O' && i > 7 && nm[7] == '_')
+                nm[6] = g_ootcfg.button_style == 1 ? 'X' : g_ootcfg.button_style == 2 ? 'P' : 'S';
+            if (!str_eq(b->forced, nm)) {
+                for (u32 j = 0; j <= i; j++) b->forced[j] = nm[j];
+                set_icon(b, nm);
+            }
         }
+        /* icon of the button's item (only when it changes) */
         if (b->ctrl && !g_sb_busy && (!b->icon_set || b->shown_item != g_sb_item[k])) {
             const char *nm = item_name(g_sb_item[k]);
             b->icon_set = 1;
             b->shown_item = g_sb_item[k];
-            for (u32 i = 0; i < 31; i++) { g_sb_name_dbg[k][i] = nm ? nm[i] : 0; if (nm && !nm[i]) break; }
+            if (main_set) for (u32 i = 0; i < 31; i++) { g_sb_name_dbg[k][i] = nm ? nm[i] : 0; if (nm && !nm[i]) break; }
             if (nm) set_icon_btn(b, nm, g_sb_btn[k][0] ? g_sb_btn[k] : 0);
         }
     }
+}
+/* Pause menu, Items tab: the cluster drawn on the menu page itself. Neither the HUD layer nor its frame update
+ * run under the menu, so this is driven by the input hook (features/classic_slots), every frame. */
+void hud_menu_tick(void) {
+    if (!REPLICA || g_sb_busy || !hud_menu_items()) return;
+    u64 mf = ptr(g_menu_panel, 0x20);
+    if (!mf) return;
+    if (mf != g_mb_frame) { g_mb_frame = mf; for (u32 k = 0; k < PART_N; k++) g_mb[k].part = 0; }
+    slots_draw(g_mb, g_mb_ctrl, mf, g_mb_off[0], g_mb_off[1], g_mb_off[2], 0);
+}
+static void slots_update(u64 frame) {
+    if (g_sb_busy) return;
+    if (!g_ps_frame && g_sb[0].part) g_ps_frame = ptr(g_sb[0].part, 0x28);
+    if (!hud_ingame()) return;
+    if (REPLICA) { zr_mirror(); sword_mirror(); }   /* (the ZR icon is frozen while a slot borrows the box) */
+    if (!g_stock_box_rec) g_stock_box_rec = pane_record(frame, "Pa_SelectItem_00");
+    if (!g_stock_dots_rec) g_stock_dots_rec = pane_record(frame, "N_Shortcut_00");
+    for (u32 i = 0; i < 2 && g_sb_hide_stock && REPLICA; i++) {
+        u64 r = i ? g_stock_dots_rec : g_stock_box_rec;
+        if (!r) continue;
+        *(float *)(r + 0x60) = 0.0f; *(float *)(r + 0x64) = 0.0f;
+        *(u32 *)r |= 0x6F;
+    }
+    slots_draw(g_sb, g_sb_ctrl, frame, 0.0f, 0.0f, 1.0f, 1);
 }
 char g_sb_jump_label[16] = "Saltar";
 /* The game's control guide (UICtrlGuideScreen, the "A Hablar" prompt next to Link) writes A's context action
@@ -1344,12 +1411,10 @@ static void a_label_update(void) {
 static void slots_labels(u64 frame) {
     if (!REPLICA) return;
     static const float LABEL[3] = {0.92f, 0.92f, 0.92f};
-    int menu = hud_menu_items();
-    if (!hud_ingame() && !menu) return;
-    if (!menu) a_label_update();
-    float dy = menu ? g_sb_menu_dy : 0.0f;
-    put_text(frame, 3, g_sb_jump_label, g_sb_pos[SB_X][0], g_sb_pos[SB_X][1] + dy, 1, LABEL);
-    put_text(frame, 4, g_sb_a_label, g_sb_pos[SB_A][0], g_sb_pos[SB_A][1] + dy, g_sb_a_label[0] != 0 && !menu, LABEL);
+    if (!hud_ingame()) return;
+    a_label_update();
+    put_text(frame, 3, g_sb_jump_label, g_sb_pos[SB_X][0], g_sb_pos[SB_X][1], 1, LABEL);
+    put_text(frame, 4, g_sb_a_label, g_sb_pos[SB_A][0], g_sb_pos[SB_A][1], g_sb_a_label[0] != 0, LABEL);
 }
 static void slots_reset(void) {
     g_ps_frame = 0; for (u32 k = 0; k < PART_N; k++) g_sb[k].part = 0; g_stock_box_rec = 0; g_stock_dots_rec = 0; }
@@ -1453,6 +1518,50 @@ static void hud_on_settext(u64 pane, const u64 *ref, u64 lr, const u64 *regs) {
     if (nm && (u64)nm > 0x10000) for (u32 i = 0; i < 23 && nm[i]; i++) g_st_log[k].nm[i] = nm[i];
     g_st_log[k].lr2 = fp ? *(u64 *)(fp + 8) : 0;
 }
+/* Our parts on the Items page get their icon controllers at the end of the page build (main+0xF78BA8, hook 15:
+ * x19 = the page panel, its +0x20 the page frame; x20 = the build heap), right after the game's own cells got
+ * theirs from that heap (main+0x43E500). Not later: the build heap is spent by then (the HUD's too), the default
+ * heap (0) crashes and a heap of ours won't do (it holds textures). Not earlier: during the cells' inits our
+ * parts' pane lists are not linked yet, and icon_widget_init walks one (it loops on null), so the same walk is
+ * checked here first. */
+extern u64 ui_find_sub(const char *name, u64 part, u64 *out);
+extern u64 ui_owner_layout(u64 pane);
+static int icon_list_ok(u64 part) {
+    u64 sub = 0;
+    if (!ui_find_sub("Pa_ReplaceIcon_00", part, &sub) || !sub) return 0;
+    u64 lay = ui_owner_layout(sub + 0x40);
+    if (!lay) return 0;
+    u64 n = ptr(lay, 0x130);
+    for (u32 i = 0; i < 64; i++) {
+        if (!n) return 0;
+        if (n == lay + 0x128) return 0;   /* end: not found (the init would give up anyway) */
+        u64 nm = ptr(n, 0x148);
+        if (nm && str_eq((const char *)nm, "Pa_ReplaceIcon_00")) return 1;
+        n = ptr(n, 8);
+    }
+    return 0;
+}
+static u64 g_mb_ctrl_frame;
+u32 g_mb_ctrl_dbg[3];   /* controllers built, failed, parts whose list was not ready */
+static void hud_menu_ctrl_init(u64 fr, u64 heap) {
+    if (!REPLICA || !fr || !heap || fr == g_mb_ctrl_frame) return;
+    if (!find_part((void *)fr, part_name(0))) return;   /* not the page that carries our parts (build_menu) */
+    g_mb_ctrl_frame = fr;
+    for (u32 k = 0; k < PART_N; k++) {
+        g_mb_ctrl[k] = 0;
+        u64 p = (u64)find_part((void *)fr, part_name(k));
+        if (!p) continue;
+        if (!icon_list_ok(p)) { g_mb_ctrl_dbg[2]++; continue; }
+        for (u32 i = 0; i < 12; i++) g_mb_widget[k][i] = 0;
+        g_mb_widget[k][4] = p;
+        g_ctrl_captured = 0; g_ctrl_capture = 1; g_sb_busy = 1;
+        icon_widget_init(g_mb_widget[k], (void *)heap);
+        g_sb_busy = 0; g_ctrl_capture = 0;
+        g_mb_ctrl[k] = g_ctrl_captured;
+        g_mb_ctrl_dbg[g_mb_ctrl[k] ? 0 : 1]++;
+    }
+    for (u32 k = 0; k < PART_N; k++) g_mb[k].part = 0;   /* rebind with the controllers */
+}
 /* pause menu: the caption panel of the highlighted item (its name string at +0x68, written by the call) */
 u64 g_menu_panel, g_menu_cell;
 u32 g_menu_sel_n;
@@ -1461,8 +1570,12 @@ void hud_on_code(u32 id, void *a0, void *a1, void *a2, void *regs) {
     if (id == 5) { player_track((u64)a0); return; }
     if (id >= 6 && id <= 9) { player_guard_event(id); return; }
     if (id == 10) { if (hero_speed_hook) hero_speed_hook(regs); return; }   /* ground movement: sprint speed */
-    if (id == 11) { hud_icon_ctrl_init((u64)a0); return; }                  /* icon controller init */
+    if (id == 11) {
+        hud_icon_ctrl_init((u64)a0);
+        return;
+    }                  /* icon controller init */
     if (id == 12) { hud_slots_init((u64)a0, (u64)a1); return; }             /* PlayerStatus HUD init: build icon controllers */
+    if (id == 15) { hud_menu_ctrl_init(ptr(*(u64 *)((u8 *)regs + 0xA0), 0x20), *(u64 *)((u8 *)regs + 0xA8)); return; }
     if (id == 14) { g_menu_panel = (u64)a0; g_menu_cell = (u64)a1; g_menu_sel_n++; return; }
     if (id == 13) { hud_on_settext((u64)a0, (const u64 *)a1, *(u64 *)((u8 *)regs + 0x08), (const u64 *)regs); return; }
     if (id == 4) {   /* part instance creation: log the pane index being instantiated */

@@ -252,6 +252,53 @@ CODE_HOOK hook_guard2, 8, RES_GUARD2
 CODE_HOOK hook_guard3, 9, RES_GUARD3
 /* Ground movement (x0 player, x1 direction, s0 speed); the player's call returns to main+0x934994. */
 CODE_HOOK hook_code_speed, 10, RES_SPEED
+/* Ocarina / songbook enter and leave: x0 is the ocarina UI context. */
+CODE_HOOK hook_code_ocarina_enter, 13, RES_OCARINA_ENTER
+CODE_HOOK hook_code_ocarina_leave, 14, RES_OCARINA_LEAVE
+
+/* Songbook list: the stock `str w20,[x19,#0x22c]` selects a song. Save the
+ * caller-saved registers, record the selection, restore, do the store and
+ * continue at site+4. x19 is the songbook/ocarina context. */
+    .global hook_songbook_select
+    .type hook_songbook_select, %function
+hook_songbook_select:
+    sub sp, sp, #0x100
+    stp x0, x1, [sp, #0x00]
+    stp x2, x3, [sp, #0x10]
+    stp x4, x5, [sp, #0x20]
+    stp x6, x7, [sp, #0x30]
+    stp x8, x9, [sp, #0x40]
+    stp x10, x11, [sp, #0x50]
+    stp x12, x13, [sp, #0x60]
+    stp x14, x15, [sp, #0x70]
+    stp x16, x17, [sp, #0x80]
+    str x30, [sp, #0x90]
+    stp d0, d1, [sp, #0x98]
+    stp d2, d3, [sp, #0xA8]
+    stp d4, d5, [sp, #0xB8]
+    stp d6, d7, [sp, #0xC8]
+    mov x0, x19
+    mov w1, w20
+    bl  songbook_on_select
+    ldr x30, [sp, #0x90]
+    ldp d0, d1, [sp, #0x98]
+    ldp d2, d3, [sp, #0xA8]
+    ldp d4, d5, [sp, #0xB8]
+    ldp d6, d7, [sp, #0xC8]
+    ldp x0, x1, [sp, #0x00]
+    ldp x2, x3, [sp, #0x10]
+    ldp x4, x5, [sp, #0x20]
+    ldp x6, x7, [sp, #0x30]
+    ldp x8, x9, [sp, #0x40]
+    ldp x10, x11, [sp, #0x50]
+    ldp x12, x13, [sp, #0x60]
+    ldp x14, x15, [sp, #0x70]
+    ldp x16, x17, [sp, #0x80]
+    add sp, sp, #0x100
+    str w20, [x19, #0x22c]
+    b   0x3294bd0
+    .size hook_songbook_select, . - hook_songbook_select
+
 
 /* Classic extra-button sites: four `bl 0x1211c00` calls. 0x1211c00 is a normal
  * function (not an import stub), so these use the same wrapper, with their own

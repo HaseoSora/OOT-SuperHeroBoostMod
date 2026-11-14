@@ -25,7 +25,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from hook_sites import (CODE_SITES, DISABLED_SITES, INPUT_SITES, PACIBSP,  # noqa: E402
-                        SLOT_SITES, SLOT_STOCK)
+                        SLOT_SITES, SLOT_STOCK, STORE_SITES)
 
 ROOT = Path(__file__).resolve().parent.parent
 TOOLCHAIN_BIN = Path(os.environ.get(
@@ -61,6 +61,7 @@ CFLAGS = [
 FEATURE_INPUT_HANDLERS = {
     "probe": ["probe_on_input"],
     "stamina": ["stamina_on_input"],
+    "songbook": ["songbook_on_input"],
     "classic_slots": ["classic_slots_on_input"],
 }
 FEATURE_SLOT_HANDLERS = {
@@ -144,6 +145,16 @@ def encode_bl(pc: int, target: int) -> int:
     return 0x94000000 | (imm & 0x03FFFFFF)
 
 
+def encode_b(pc: int, target: int) -> int:
+    delta = target - pc
+    if delta % 4:
+        raise ValueError("unaligned branch")
+    imm = delta >> 2
+    if not -(1 << 25) <= imm < (1 << 25):
+        raise ValueError("branch out of range")
+    return 0x14000000 | (imm & 0x03FFFFFF)
+
+
 def decode_bl(word: int, pc: int) -> int | None:
     if (word & 0xFC000000) != 0x94000000:
         return None
@@ -178,7 +189,12 @@ def verify_stock_sites() -> None:
         word = struct.unpack_from("<I", text, site)[0]
         if word != PACIBSP:
             raise SystemExit(f"code site {site:#x} ({name}) is {word:#x}, expected pacibsp")
-    print(f"verified {len(INPUT_SITES)} input sites and {len(SLOT_SITES)} slot sites")
+    for site, name, expected in STORE_SITES:
+        word = struct.unpack_from("<I", text, site)[0]
+        if word != expected:
+            raise SystemExit(f"store site {site:#x} ({name}) is {word:#x}, expected {expected:#x}")
+    print(f"verified {len(INPUT_SITES)} input sites, {len(SLOT_SITES)} slot sites "
+          f"and {len(STORE_SITES)} store sites")
 
 
 def write_handler_table(features: list[str], path: Path) -> None:
@@ -253,6 +269,10 @@ def make_ips(symbols: dict[str, int]) -> bytes:
         out += struct.pack(">I", site + 0x100)
         out += struct.pack(">H", 4)
         out += struct.pack("<I", word)
+    for site, name, _expected in STORE_SITES:
+        out += struct.pack(">I", site + 0x100)
+        out += struct.pack(">H", 4)
+        out += struct.pack("<I", encode_b(site, symbols[name]))
     out += b"EEOF"
     return bytes(out)
 

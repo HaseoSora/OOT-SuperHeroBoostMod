@@ -285,6 +285,13 @@ def main() -> int:
         if "g_st_dbg" in syms:
             d = struct.unpack("<6I", read_sym("g_st_dbg", 24))
             print("stamina rolls/jumps/run-frames/exhausted/attacks:", tuple(v - 0x10000000 for v in d))
+        if "g_songbook_dbg" in syms:
+            d = struct.unpack("<8I", read_sym("g_songbook_dbg", 32))
+            ctx = struct.unpack("<Q", read_sym("g_songbook_ctx", 8))[0]
+            sel = struct.unpack("<I", read_sym("g_songbook_sel", 4))[0]
+            page = struct.unpack("<I", read_sym("g_songbook_page", 4))[0]
+            print("songbook ctx/active/sel/pending/tick/page:", hex(ctx),
+                  tuple(v - 0x10000000 for v in d[:7]), "sel", sel, "page", page)
         if "g_player_actor" in syms:
             la, lp = struct.unpack("<2Q", read_sym("g_player_actor", 16))
             seen = struct.unpack("<I", read_sym("g_player_seen", 4))[0] - 0x10000000

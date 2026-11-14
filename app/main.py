@@ -57,6 +57,7 @@ def cli(argv) -> int:
     ap.add_argument("--no-classic", action="store_true")
     ap.add_argument("--classic-variant", default="default", choices=list(I.CLASSIC_VARIANTS))
     ap.add_argument("--no-stamina", action="store_true")
+    ap.add_argument("--no-songbook", action="store_true", help="disable playing songs from the native songbook")
     ap.add_argument("--off", default=None, help="advanced: comma list of jump,attack,sprint,block,shoot,roll to disable")
     ap.add_argument("--combat-only", action="store_true", default=None)
     ap.add_argument("--name", default=I.MOD_NAME)
@@ -85,7 +86,7 @@ def cli(argv) -> int:
         for k in a.off.split(","):
             if k in costs:
                 costs[k] = False
-    s = I.Settings(classic=v["classic"], stamina=v["stamina"], preset=v["mode"],
+    s = I.Settings(classic=v["classic"], stamina=v["stamina"], songbook=v["songbook"], preset=v["mode"],
                    combat_only=v["combat_only"], **costs,
                    enemy_hp=v["enemy_hp"], damage=v["damage"],
                    no_heart_drop=v["no_heart_drop"], sprint_speed=v["sprint_speed"],
@@ -96,6 +97,8 @@ def cli(argv) -> int:
         s.classic = False
     if a.no_stamina:
         s.stamina = False
+    if a.no_songbook:
+        s.songbook = False
     if a.combat_only:
         s.combat_only = True
     if a.enemy_hp is not None:
@@ -205,6 +208,7 @@ def gui() -> None:
     classic = tk.BooleanVar(value=bool(cfg.get("classic", True)))
     variant = tk.StringVar(value=cfg.get("variant") if cfg.get("variant") in I.CLASSIC_VARIANTS else "default")
     stamina = tk.BooleanVar(value=bool(cfg.get("stamina", True)))
+    songbook = tk.BooleanVar(value=bool(cfg.get("songbook", True)))
     mode = tk.StringVar(value=cfg.get("stamina_mode") if cfg.get("stamina_mode") in STAMINA_MODES
                         else STAMINA_MODES[cfg.get("preset", 0)] if cfg.get("preset", 0) in range(4) else "hardcore")
 
@@ -310,6 +314,7 @@ def gui() -> None:
         profile.set(key)
         classic.set(v["classic"])
         stamina.set(v["stamina"])
+        songbook.set(v["songbook"])
         mode.set(STAMINA_MODES[v["mode"]])
         for k, val in zip(KEYS, v["costs"]):
             costs[k].set(val)
@@ -343,7 +348,7 @@ def gui() -> None:
         refresh()
         autosave()
 
-    for var in (classic, stamina, mode, combat, hp, dmg, speed, nodrop, rupees, clock_mode, *costs.values()):
+    for var in (classic, stamina, songbook, mode, combat, hp, dmg, speed, nodrop, rupees, clock_mode, *costs.values()):
         var.trace_add("write", on_setting_change)
 
     def on_mode_change(*_):
@@ -370,7 +375,7 @@ def gui() -> None:
         pending["id"] = root.after(250, remember)
 
     def settings():
-        return I.Settings(classic=classic.get(), stamina=stamina.get(),
+        return I.Settings(classic=classic.get(), stamina=stamina.get(), songbook=songbook.get(),
                           preset=STAMINA_MODES.index(mode.get()),
                           combat_only=combat.get(),
                           **{k: costs[k].get() for k in KEYS},
@@ -382,7 +387,7 @@ def gui() -> None:
         return save_cfg({
             "lang": lang.get(), "emu": emu.get(), "profile": profile.get(),
             "classic": classic.get(), "variant": variant.get(),
-            "stamina": stamina.get(), "stamina_mode": mode.get(),
+            "stamina": stamina.get(), "songbook": songbook.get(), "stamina_mode": mode.get(),
             "costs": {**{k: costs[k].get() for k in KEYS}, "combat_only": combat.get()},
             "combat_only": combat.get(),
             "enemy_hp": hp.get(), "damage": dmg.get(), "no_heart_drop": nodrop.get(),
@@ -591,6 +596,11 @@ def gui() -> None:
         ui["variant"] = cb
         label(body, L("classic_note"), size=9, color=DIM, bg=PANEL).pack(anchor="w", pady=(8, 0))
 
+    def build_songbook(parent):
+        body = card(parent, L("songbook_title"), L("songbook_desc"))
+        check(body, L("songbook_on"), songbook).pack(anchor="w")
+        label(body, L("songbook_note"), size=9, color=AMBER, bg=PANEL).pack(anchor="w", pady=(8, 0))
+
     def build_about(parent):
         body = card(parent, L("about_title"))
         label(body, L("about_body"), size=10, bg=PANEL).pack(anchor="w")
@@ -633,7 +643,7 @@ def gui() -> None:
         side.pack_propagate(False)
         for key, text in (("install", "nav_install"), ("stamina", "nav_stamina"),
                           ("difficulty", "nav_difficulty"), ("hud", "nav_hud"),
-                          ("about", "nav_about")):
+                          ("songbook", "nav_songbook"), ("about", "nav_about")):
             b = tk.Button(side, text=L(text), command=lambda k=key: show_section(k), anchor="w",
                           bg=SIDEBAR, fg=TEXT, activebackground=PANEL, activeforeground=ACCENT,
                           relief="flat", bd=0, cursor="hand2", font=(FAM, 10, "bold"),
@@ -648,7 +658,7 @@ def gui() -> None:
         scroll = ScrollArea(wrap, BG)
         scroll.frame.pack(fill="both", expand=True)
         builders = {"install": build_install, "stamina": build_stamina, "difficulty": build_difficulty,
-                    "hud": build_hud, "about": build_about}
+                    "hud": build_hud, "songbook": build_songbook, "about": build_about}
         for key, fn in builders.items():
             f = tk.Frame(scroll.inner, bg=BG)
             fn(f)
@@ -702,7 +712,7 @@ def gui() -> None:
     elif profile.get() != "custom":
         apply_profile(profile.get(), save=False)
 
-    for v in (emu, classic, variant, stamina, mode, combat, hp, dmg, speed, nodrop, rupees, clock_mode, *costs.values()):
+    for v in (emu, classic, variant, stamina, songbook, mode, combat, hp, dmg, speed, nodrop, rupees, clock_mode, *costs.values()):
         v.trace_add("write", autosave)
     emu.trace_add("write", lambda *_: (status.set(""), refresh()))
 

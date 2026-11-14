@@ -31,10 +31,10 @@ per-user configuration folder (see the README). The app never needs administrato
 
 ## Game profiles
 
-A profile sets **every** gameplay option. Every fixed profile includes the HUD and Classic Item Slots. Changing any
-option afterwards switches the profile to **Custom** and keeps your value. The button style (Switch / PlayStation /
-Xbox), the language and the emulator folder are not part of a profile. **Recommended** is the default and enables
-everything.
+A profile sets **every** gameplay option. Every fixed profile includes the HUD, Classic Item Slots and the Songbook.
+Changing any option afterwards switches the profile to **Custom** and keeps your value. The button style (Switch /
+PlayStation / Xbox), the language and the emulator folder are not part of a profile. **Recommended** is the default
+and enables everything.
 
 Sprint is always **×1.25** in the profiles. It is only a starting point and can be changed by hand in the Stamina
 section; the profiles never use ×1.75, ×2 or ×3.
@@ -63,6 +63,8 @@ dropped hearts become green rupees (the optional romfs file; see the note below)
 - **Dificultad**: enemy health, damage taken, heart drops.
 - **HUD y botones**: rupee counter, clock (**off / 12 h / 24 h**, one selector), Classic Item Slots and button
   style.
+- **Cancionero**: enables playing a learned song by selecting it in the game's native songbook (ZL). It injects the
+  five native note buttons, so the game keeps its own recognition, animation and effects. Only learned songs work.
 - **Acerca de**: credits and the material/third-party notice.
 
 The bottom bar always shows the install state and the **Instalar / Desinstalar** buttons. Changes are saved
@@ -76,6 +78,7 @@ The same install code is available without a window:
 python app/main.py --cli --emu "RUTA_DEL_EMULADOR" --profile recommended
 python app/main.py --cli --emu "RUTA_DEL_EMULADOR" --preset 3 --off jump,shoot --combat-only
 python app/main.py --cli --emu "RUTA_DEL_EMULADOR" --profile hero-explorer --rupees --clock --clock24
+python app/main.py --cli --emu "RUTA_DEL_EMULADOR" --profile recommended --no-songbook
 python app/main.py --list-profiles
 ```
 

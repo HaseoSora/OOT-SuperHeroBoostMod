@@ -90,7 +90,7 @@ def one(sc):
     time.sleep(4)
     ok = "installed in" in r.stdout
     base = "0x4F87000" if sc["classic"] else "0x4F80000"          # symbols of the installed variant
-    run([sys.executable, "tools/build_core.py", "--features", "stamina", "--compat", "--base", base], 300)
+    run([sys.executable, "tools/build_core.py", "--features", "stamina,songbook", "--compat", "--base", base], 300)
     acts = [a for a in ACTIONS if a != "shoot" or sc["classic"]]
     steps, pos = [], {}
     for a in acts:

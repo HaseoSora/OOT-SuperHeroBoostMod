@@ -26,7 +26,8 @@ typedef struct {
     unsigned char clock_24h;       /* clock in 24 h format */
     unsigned char no_heart_drop;   /* informational (done through a romfs file) */
     unsigned short sprint_speed_pct; /* sprint (A held while moving) speed, percent of vanilla (100 = vanilla, default 125) */
-    unsigned char reserved[34];
+    unsigned char songbook_enabled;  /* play a learned song by selecting it in the native songbook */
+    unsigned char reserved[33];
 } ShbConfig;
 
 extern volatile ShbConfig g_shbcfg;

@@ -214,6 +214,27 @@ Consequence: only site 3 sees gameplay input. The four classic slot sites
   samplers in one material); using it as a fill would need the ui shader's combiner/threshold settings.
 - Live tuning: tools/hud_tune.py set <i>=<v> --sym g_ringp (radii, thickness, border, track alpha/brightness).
 
+## Songbook (native song list) - Nov 14
+
+- The remake's songbook is the native one opened with ZL (and the pause-menu song list). It shows only learned songs.
+- Ocarina enter/leave are function entries at `main+0x2894340` and `main+0x28947F0` (`pacibsp`, resume +4). `x0` is
+  the ocarina/songbook context.
+- Songbook fields in that context (observed from the song-list code): selected song index at `+0x22C`, learned flag
+  byte per song at `+0x264 + index` (1 = learned), page/state at `+0x278`, UI state at `+0x230`, busy flag at
+  `+0x114`.
+- Song data: `GameParameter/MelodyScoreBook/Default.game__ocarina__MelodyScoreBook.bgyml`. It has 12 entries
+  (Zelda's Lullaby, Epona, Saria, Sun, Time, Storms, Minuet, Bolero, Serenade, Requiem, Nocturne, Prelude). Each
+  `MelodyScore` is a list of note hashes.
+- Note hashes map to the five remake buttons: `0xCC...` (3433458314)=Y, `0x313...` (825411668)=X,
+  `0x54D...` (1423767502)=A, `0x982...` (2552959238)=R, `0x63C...` (1673550086)=L.
+- `features/songbook` does not call the internal playback routines. It reads the selected index/learned flag, waits
+  20 frames, then injects the note buttons for 3 frames each with 4-frame gaps through the gameplay input hook. The
+  game recognises the melody with its normal logic (sound, animation, effects).
+- Scarecrow's Song (index 12) is player-composed and is intentionally not injected.
+- The installed third-party "Songbook Autoplay" IPS patches `0x3294578`/`0x3294BCC` and uses a code cave at
+  `0x3C46800`; it is a different implementation and conflicts with ours at the ocarina/songbook state. Do not install
+  both.
+
 ## Sprint speed, shield cost, enemy health (Nov 14)
 - Sprint speed: the player's ground movement is `main+0x9352F0(player, direction, float speed)`; his own call is the
   `bl` at main+0x934990 (returns to main+0x934994). Hook 10 sits on the function entry and, only for that return

@@ -1029,11 +1029,15 @@ u64 g_inst_child[32] = {1};
 void player_track(u64 actor);
 void player_guard_event(u32 id);
 __attribute__((weak)) void stamina_speed_hook(void *regs);   /* features/stamina (absent in builds without it) */
+__attribute__((weak)) void songbook_on_ocarina(u32 active, void *ctx);   /* features/songbook */
+__attribute__((weak)) void songbook_on_select(void *ctx, u32 sel) { (void)ctx; (void)sel; }   /* overridden by the feature */
 void hud_on_code(u32 id, void *a0, void *a1, void *a2, void *regs) {
     (void)a1; (void)a2;
     if (id == 5) { player_track((u64)a0); return; }
     if (id >= 6 && id <= 9) { player_guard_event(id); return; }
     if (id == 10) { if (stamina_speed_hook) stamina_speed_hook(regs); return; }   /* ground movement: sprint speed */
+    if (id == 13) { if (songbook_on_ocarina) songbook_on_ocarina(1, a0); return; }   /* ocarina enter */
+    if (id == 14) { if (songbook_on_ocarina) songbook_on_ocarina(0, a0); return; }   /* ocarina leave */
     if (id == 4) {   /* part instance creation: log the pane index being instantiated */
         u64 layout = (u64)a1, pane = (u64)a2;
         u64 arr = layout ? ptr(layout, 0x100) : 0;

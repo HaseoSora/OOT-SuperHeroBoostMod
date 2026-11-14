@@ -50,6 +50,7 @@ class Settings:
     hud_rupees: bool = False
     hud_clock: bool = False
     clock_24h: bool = False
+    songbook: bool = True            # play a learned song by selecting it in the native songbook
 
     def to_dict(self): return dict(self.__dict__)
 
@@ -164,6 +165,7 @@ def patch_config(nso: bytes, s: Settings) -> bytes:
     struct.pack_into("<HH", b, f + 10, int(s.enemy_hp), int(s.damage))
     b[f + 14], b[f + 15], b[f + 16], b[f + 17] = int(s.hud_rupees), int(s.hud_clock), int(s.clock_24h), int(s.no_heart_drop)
     struct.pack_into("<H", b, f + 18, int(s.sprint_speed))
+    b[f + 20] = int(s.songbook)
     return bytes(b)
 
 

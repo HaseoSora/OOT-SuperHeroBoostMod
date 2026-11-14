@@ -42,9 +42,19 @@ CODE_SITES = (
     (0x27FB0C0, "hook_guard2", 8),       # ExecutePlayerReactionGuardJustRepelled slot 10
     (0x27FA200, "hook_guard3", 9),       # ExecutePlayerReactionGuardBreak slot 10
     (0x9352F0, "hook_code_speed", 10),   # ground movement (x0 player, x1 direction, s0 speed): sprint multiplier
+    (0x2894340, "hook_code_ocarina_enter", 13),  # ocarina enter (x0 = ocarina/songbook context)
+    (0x28947F0, "hook_code_ocarina_leave", 14),  # ocarina leave
     (0x152F8F0, "hook_code_inst", 4),   # part instance creation (x1 layout, x2 pane): diagnostics
     (0x43A6F8, "hook_ui", 2),            # UI resource build (x0 = handle, x1 = config)
 )
+# Mid-function store hooks: the stock instruction at `site` is replaced by a
+# branch to a wrapper that saves the registers, calls our handler, executes the
+# original store and jumps back to site+4.
+# (site, wrapper symbol, expected stock instruction)
+STORE_SITES = (
+    (0x3294BCC, "hook_songbook_select", 0xB9022E74),  # str w20,[x19,#0x22c] in the songbook list
+)
+
 PACIBSP = 0xD503237F
 
 # Sites we do NOT patch yet. Site 3 (0x346966C) crashes the game when our module

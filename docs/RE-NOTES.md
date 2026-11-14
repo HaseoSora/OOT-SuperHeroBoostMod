@@ -233,6 +233,28 @@ Consequence: only site 3 sees gameplay input. The four classic slot sites
   game recognises the melody with its normal logic (sound, animation, effects).
 - Scarecrow's Song (index 12) is player-composed and is intentionally not injected.
 
+## Beta enemy mods (Nov 14)
+
+Both mods are generated from the user's own dump by `tools/make_enemy_opts.py`; nothing is redistributed.
+
+- **Duplication (Option A)**: `Banc/*.bcett.byml.zs` keeps an `Actors` array; a generic `Enemy_*` entry is
+  cloned with a new `Hash`, its `Phive/Placement/ID` set to the same value, a new `SRTHash` and a small
+  `Translate` offset. Entries with `Links`/`Name` and every boss/miniboss/scripted actor are skipped.
+  `Scene/Component/AutoPlacementMgrParam/*.bgyml` doubles `CreateActorCountMin/MaxAtOnce` and
+  `MinExistActorCountToCreate`, and halves `IntervalToCreateFrame*`. Rewritten BYMLs grow, so
+  `System/Resource/ResourceSizeTable...rsizetable.zs` is patched by CRC32 (`binascii.crc32` of the
+  path without `.zs`) to the new uncompressed size.
+- **Speed ×2**: `Pack/Actor/Enemy_*.pack.zs` scales `BSA/MovementParam` (`Walk/Run/Dash/Escape/Special/Strafe/
+  LiftWalk/WalkBackwards`) by 2, and halves `GameBalance/AttackInterval/*` plus the explicit
+  `ActionSeqContainer` cooldown fields. `AttackIntervalRatio` is **not** touched: it multiplies the
+  global interval table, so scaling both would give ×4.
+- **Animation**: `AS/Enemy_*.root.asb.zs` (ASB, magic `ASB `): header `0x14` = element count, `0x18` =
+  element array, stride `0x24`. Each element starts with a `u16` type; type **12** is the frame
+  controller and its payload offset is the `u32` at element `+0x08`. The playback rate is the `f32` at
+  payload `+0x04` (normally `1.0`, with 0.8/1.1/1.2 variations; `0.0` = paused/instant) and is
+  multiplied by 2. Earlier attempts read a different table (`0x0C/0x10`, stride `0x30`), which is why
+  they saw only zeros.
+
 ## Sprint speed, shield cost, enemy health (Nov 14)
 - Sprint speed: the player's ground movement is `main+0x9352F0(player, direction, float speed)`; his own call is the
   `bl` at main+0x934990 (returns to main+0x934994). Hook 10 sits on the function entry and, only for that return

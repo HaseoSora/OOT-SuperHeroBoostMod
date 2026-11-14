@@ -67,7 +67,7 @@ dropped hearts become green rupees (the optional romfs file; see the note below)
   **beta** toggles:
   - **Duplicate enemies (Option A)**: clones generic enemy placements in `Banc` and doubles field auto-spawn counts.
     Bosses, minibosses and scripted enemies are excluded.
-  - **Enemy speed ×2**: scales enemy movement speeds and attack cadence in the actor data. Some enemies or attacks may
+  - **Enemy speed ×2**: scales enemy movement speed, animation playback and attack cadence in the actor data. Some enemies or attacks may
     not change, or may desync.
   Both beta mods are generated from the user's dump at build time and installed as extra romfs files. They are not
   part of the normal payload and can break puzzles, quests or performance. Back up the save and test one at a time.

@@ -108,8 +108,10 @@ def edit_pack(path, dictionaries, speed=True):
                 scale_fields(block, before, ("/WalkSpeed", "/RunSpeed", "/DashSpeed", "/EscapeSpeed",
                                              "/SpecialMoveSpeed", "/StrafeSpeed", "/LiftWalkSpeed",
                                              "/WalkBackwardsSpeed"), 2.0)
+            # AttackIntervalRatio multiplies the global AttackInterval table, so scaling both
+            # would give x4. Keep the ratio and shorten the table plus the explicit cooldowns.
             if "Game/BSA/ActionSeqContainer/" in name:
-                scale_fields(block, before, ("/AttackIntervalRatio", "/AttackStartTimeoutFrames",
+                scale_fields(block, before, ("/AttackStartTimeoutFrames",
                                              "/AttackIntervalTimeFromDamage", "/AttackIntervalTimeFromGuard",
                                              "/AttackIntervalTimeGuarded", "/AttackIntervalTimeMinGrdedCombo",
                                              "/BackWalkTimeMax", "/BackWalkTimeMin", "/TimeoutTime"), 0.5)
@@ -133,18 +135,23 @@ def edit_asb(path, zs_dict):
         return None
     if data[:4] != b"ASB ":
         return None
-    count = struct.unpack_from("<I", data, 0x0C)[0]
-    arr = struct.unpack_from("<I", data, 0x10)[0]
+    # Header: 0x14 = element count, 0x18 = element array (stride 0x24).
+    count, arr = struct.unpack_from("<II", data, 0x14)
     if not (0 < count < 10000 and 0 < arr < len(data)):
         return None
     changed = False
     for i in range(count):
-        off = arr + i * 0x30
+        off = arr + i * 0x24
         if off + 0x0C > len(data):
             break
-        rate = struct.unpack_from("<f", data, off + 0x08)[0]
-        if rate > 0.01 and rate < 100.0:
-            struct.pack_into("<f", data, off + 0x08, rate * 2.0)
+        if struct.unpack_from("<H", data, off)[0] != 12:   # FrameController
+            continue
+        body = struct.unpack_from("<I", data, off + 0x08)[0]
+        if not (0 < body <= len(data) - 8):
+            continue
+        rate = struct.unpack_from("<f", data, body + 0x04)[0]   # playback rate (1.0 = normal)
+        if 0.01 < rate < 8.0:
+            struct.pack_into("<f", data, body + 0x04, min(rate * 2.0, 8.0))
             changed = True
     if not changed:
         return None

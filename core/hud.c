@@ -33,6 +33,8 @@ extern void *find_anim(void *part, const char *name);
 extern void set_frame(void *anim, float frame);
 extern void tex_replace(void *replacer, const char **name, int flag);   /* main+0xA73920 */
 extern void icon_widget_init(void *widget, void *heap);                 /* main+0x33B7DA0 */
+extern void item_actor_name(void *mgr, const char **out, u64 item);     /* main+0x592B20 */
+extern char ITEM_MGR_SLOT[], ITEM_NAME_DEFAULT[];
 extern void *memcpy(void *d, const void *s, unsigned long n);
 extern long set_text(void *pane, const void *ref, int zero);   /* stock text-pane setter (main+0x439520) */
 extern char GAMEDATA_MGR[];                                      /* main+0x4E842A8: GameData manager pointer slot */
@@ -973,17 +975,39 @@ static const char *slot_anim_name(u32 i) {
     case 8: return "UnSelect"; case 9: return "Decide"; default: return "Assign";
     }
 }
-typedef struct { u64 part, anim[SA_N], rec, rep, ctrl; u32 icon_set; } SlotBtn;
+typedef struct { u64 part, anim[SA_N], rec, rep, ctrl; u32 icon_set; int shown_item; } SlotBtn;
 static SlotBtn g_sb[PART_N];
 u64 g_sb_dbg[PART_N];       /* part object per button (diagnostic) */
 u32 g_sb_anim[PART_N];      /* bit i = anim i found */
 u64 g_sb_rif[PART_N][2];    /* nested Pa_ReplaceIcon_00 frame, its layout (diagnostic) */
-/* icon per button: name of a texture in UI/Tex/Icon (the game's own item icons) */
-char g_sb_icon_name[PART_N][32] = {"Item_Boomerang", "Item_DekuNut", "Item_Bomb", "Item_Arrow_Fire"};
-float g_sb_pos[PART_N][2] = {{-600.0f, 0.0f}, {-300.0f, 0.0f}, {0.0f, 0.0f}, {300.0f, 0.0f}};
-float g_sb_scale = 0.85f;
+/* item per button (the game's item index, as passed to the equip call main+0x1211C00); -1 = empty */
+int g_sb_item[PART_N] = {3, 1, 2, 30};   /* test: boomerang, nuts, bombs, bow */
+char g_sb_name_dbg[PART_N][32];   /* actor name resolved for each button (diagnostic) */
+/* ItemPattern = how the icon of each item is framed in the button (scale / offset); frame 0 draws it oversized.
+ * Measured on the stock item box (docs/RE-NOTES.md, "Item index -> ItemPattern icon frame"); others use 6. */
+static float item_pattern(int item) {
+    switch (item) {
+    case 0: return 0.0f;  case 1: return 6.0f;  case 2: return 4.0f;  case 3: return 3.0f;  case 4: return 1.0f;
+    case 5: return 33.0f; case 6: return 34.0f; case 7: return 32.0f; case 9: return 5.0f;  case 10: return 8.0f;
+    case 13: return 2.0f; case 14: return 23.0f; case 18: return 36.0f; case 30: return 24.0f; case 31: return 9.0f;
+    default: return 6.0f;
+    }
+}
+/* the game's own item index -> actor name (also the icon texture name in UI/Tex/Icon) */
+static const char *item_name(int item) {
+    u64 slot = *(u64 *)ITEM_MGR_SLOT;
+    u64 mgr = slot ? *(u64 *)slot : 0;
+    const char *nm = *(const char **)ITEM_NAME_DEFAULT;
+    if (!mgr || item < 0) return 0;
+    item_actor_name((void *)mgr, &nm, (u64)item);
+    return nm && nm[0] ? nm : 0;
+}
+/* around the stock item box (top right): above, left, below, right-above; layout units, root-relative */
+float g_sb_pos[PART_N][2] = {{1170.0f, 600.0f}, {930.0f, 773.0f}, {1170.0f, 946.0f}, {1410.0f, 600.0f}};
+float g_sb_scale = 0.62f;
+/* animation frame forced on every button each frame, per animation (-1 = leave it); see slot_anim_name() */
+float g_sb_animf[SA_N] = {-1.0f, -1.0f, -1.0f, -1.0f, -1.0f, -1.0f, -1.0f, -1.0f, -1.0f, -1.0f, -1.0f};
 static volatile u32 g_sb_busy;
-#define SLOT_ICON_DIRECT 0
 /* Item icons: the game's own icon setup (main+0x33B7DA0, used for the Agony Stone icon) is called with a small
  * stand-in "widget" whose +0x20 is our button part. It finds the part's Pa_ReplaceIcon_00, allocates and inits an
  * icon controller (main+0xA37320, hook 11 captures it) whose +0x30 / +0x38 are the icon / shadow texture
@@ -1054,21 +1078,16 @@ static void slots_update(u64 frame) {
             b->part = p;
         }
         if (b->rec) place(b->rec, g_sb_pos[k][0], g_sb_pos[k][1], g_sb_scale, g_sb_scale, 0.0f);
-        /* DISABLED: the object at rif+0x6A8 is not what tex_replace expects (the game first builds a 0x40-byte
-         * icon controller with main+0xA37320(controller, part), which creates the icon / shadow replacers at
-         * controller+0x30 / +0x38; calling tex_replace directly recursed until the stack overflowed).
-         * See docs/CLASSIC-REPLICA.md, "Item icons". */
-        if (b->ctrl && !b->icon_set && !g_sb_busy) {
+        if (b->anim[0]) set_frame((void *)b->anim[0], item_pattern(g_sb_item[k]));   /* ItemPattern: icon framing */
+        for (u32 i = 0; i < SA_N; i++)
+            if (g_sb_animf[i] >= 0.0f && b->anim[i]) set_frame((void *)b->anim[i], g_sb_animf[i]);
+        /* icon of the button's item (only when it changes) */
+        if (b->ctrl && !g_sb_busy && (!b->icon_set || b->shown_item != g_sb_item[k])) {
+            const char *nm = item_name(g_sb_item[k]);
             b->icon_set = 1;
-            set_icon(b, g_sb_icon_name[k]);
-        }
-        if (SLOT_ICON_DIRECT && b->rep && !b->icon_set && !g_sb_busy) {
-            /* tex_replace can run the frame hook again (re-entry): mark first, and never nest */
-            const char *nm = g_sb_icon_name[k];
-            b->icon_set = 1;
-            g_sb_busy = 1;
-            tex_replace((void *)b->rep, &nm, 0);
-            g_sb_busy = 0;
+            b->shown_item = g_sb_item[k];
+            for (u32 i = 0; i < 31; i++) { g_sb_name_dbg[k][i] = nm ? nm[i] : 0; if (nm && !nm[i]) break; }
+            if (nm) set_icon(b, nm);
         }
     }
 }

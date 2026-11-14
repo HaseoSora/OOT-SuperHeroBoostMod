@@ -78,5 +78,30 @@ game shows ammo for bombs / arrows / seeds on an item button (StockNum vs a sepa
 - Calling `main+0xA73920` on the object found at `nested ReplaceIcon frame + 0x6A8` recursed until the stack
   overflowed (game frozen): that object is not a ready replacer. The direct call is kept behind
   `SLOT_ICON_DIRECT 0`.
-- Next step: reproduce step 1-2 exactly (read the full stock sequence from main+0x33B7E80 and the controller
-  layout), then step 3 with our own names.
+- **Solved (commit f5ad284 and later):** the controllers are built by the game's own routine
+  `main+0x33B7DA0(widget, heap)` (the Agony Stone icon setup: finds `Pa_ReplaceIcon_00` in `widget+0x20`, builds the
+  controller, initial icon `Item_AgonyStone`). We call it with a stand-in widget per button **during the PlayerStatus
+  HUD init** (hook 12 on `main+0x33F5D20`, x0 HUD, x1 heap): that heap only accepts allocations during the init
+  (later calls got a null controller and crashed). Hook 11 on `main+0xA37320` captures the controller it creates.
+  Icons are then set any time with `main+0xA73920` on `controller+0x30` (name) and `+0x38` (`name_Sh`).
+
+## Item index -> icon (Nov 14)
+
+- `main+0x592B20(manager, &name, item)` returns the item's actor name, which is also its icon texture name.
+  `manager = **(main+0x4C7E0D0)`, default name `*(main+0x4C7DAD0)` (the HUD does the same before setting its icon).
+- Item index = the index of the equip call `main+0x1211C00`. Read live:
+  0 Item_DekuStick, 1 Item_DekuNut, 2 Item_Bomb, 3 Item_Boomerang, 4 Weapon_Range_SlingShot, 5 Item_Hookshot,
+  6 Item_Longshot, 7 Item_Hammer, 9 Item_Bombchu, 10 Item_DinFire, 11 Item_FaroreWind, 12 Item_NayruLove,
+  13 Item_MagicBean, 14 Item_Bottle_<content>, 18 Item_FishingRod, 30 Weapon_Range_Bow, 31 Item_WeirdEgg ..
+  44 Item_ClaimCheck (trade items), 46 Item_Arrow_Fire, 47 Item_Arrow_Ice, 48 Item_Arrow_Light
+  (8, 15-17, 19-29, 45: empty in this save).
+- `ItemPattern` is the per-item **framing** of the icon in the button (frame 0 draws it oversized), not the item
+  choice; the measured item -> frame table is applied per item (`item_pattern()` in hud.c). `ItemChange` is the
+  icon's pop-in animation (frame 0 = hidden). `Type` changes nothing visible.
+
+## Next (requested): button backgrounds, Jump and context A
+- Each slot icon must sit on the **button it is assigned to** (B / L / R / X look, like Classic), plus a **Jump**
+  button and the **context A** (attack / talk / open ...). Candidates: the game's own `PaABtn_00` part and the
+  `DoCommand*` textures (A action command UI), button glyphs of the External_00 font (`T_Assign_00` in the item
+  button), or our own textures loaded through the same icon mechanism (Classic ships `UI/Tex/Icon/Mod_HudButton*`).
+

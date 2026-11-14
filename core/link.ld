@@ -52,7 +52,10 @@ SECTIONS
     RES_ICONCTRL = 0xA37324;
     RES_HUDINIT = 0x33F5D24;
     icon_widget_init = 0x33B7DA0;  /* (widget, heap): widget+0x20 = part holding Pa_ReplaceIcon_00; builds its icon controller (initial icon Item_AgonyStone) */
-    tex_replace = 0xA73920;     /* (replacer, const char **name, flag): load UI/Tex/Icon/<name> into a replaceable pane texture */
+    tex_replace = 0xA73920;
+    item_actor_name = 0x592B20; /* (manager, const char **out, item index): actor name of an item (Item_Boomerang ...) */
+    ITEM_MGR_SLOT = 0x4C7E0D0;  /* -> pointer to the item manager pointer */
+    ITEM_NAME_DEFAULT = 0x4C7DAD0; /* -> default (empty) name pointer */     /* (replacer, const char **name, flag): load UI/Tex/Icon/<name> into a replaceable pane texture */
     MAIN_SCHED_VT = 0x4B05318;
     find_part = 0x43C3E0;
     find_anim = 0x43C7A0;

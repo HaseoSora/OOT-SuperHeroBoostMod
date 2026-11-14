@@ -15,7 +15,9 @@ Módulo de gameplay para el remake de consola (actualización v131072) y su app 
 - **Autoreproducción del songbook**: al elegir una canción aprendida en el songbook nativo (ZL) se reproduce sola,
   con el héroe tocándola y activando su efecto. Solo funciona con canciones aprendidas y no con la canción del
   espantapájaros.
-- **Opciones beta**: duplicar enemigos genéricos (Opción A) y acelerar su movimiento, animación y cadencia ×2. Son experimentales
+- **Opciones beta**: duplicar enemigos genéricos (Opción A) y acelerar su movimiento, animación y cadencia ×2.
+- **Selector rápido (beta)**: mantener abajo para elegir botas o arriba para máscaras, con izquierda/derecha y
+  soltar para equipar, sin abrir el menú. Son experimentales
   y pueden romper puzles, misiones o el rendimiento; se activan en la app y se instalan como romfs extra.
 - Compatible con **Classic Item Slots** (la app lo descarga de su release oficial en GitHub y lo instala con su crédito
   original; no va incluido en el código).

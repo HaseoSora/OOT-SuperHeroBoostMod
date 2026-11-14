@@ -27,7 +27,9 @@ typedef struct {
     unsigned char no_heart_drop;   /* informational (done through a romfs file) */
     unsigned short sprint_speed_pct; /* sprint (A held while moving) speed, percent of vanilla (100 = vanilla, default 125) */
     unsigned char songbook_enabled;  /* play a learned song by selecting it in the native songbook */
-    unsigned char reserved[33];
+    unsigned char quick_boots;       /* beta: hold D-pad down to pick the boots */
+    unsigned char quick_mask;        /* beta: hold D-pad up to pick a mask */
+    unsigned char reserved[31];
 } ShbConfig;
 
 extern volatile ShbConfig g_shbcfg;

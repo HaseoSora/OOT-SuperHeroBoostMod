@@ -51,6 +51,8 @@ class Settings:
     hud_clock: bool = False
     clock_24h: bool = False
     songbook: bool = True            # play a learned song by selecting it in the native songbook
+    quick_boots: bool = False        # beta: hold D-pad down to pick the boots
+    quick_mask: bool = False         # beta: hold D-pad up to pick a mask
     enemy_double: bool = False       # beta: install the duplicated-enemy romfs mod
     enemy_speed: bool = False        # beta: install the x2 enemy animation/movement/cadence romfs mod
 
@@ -168,6 +170,8 @@ def patch_config(nso: bytes, s: Settings) -> bytes:
     b[f + 14], b[f + 15], b[f + 16], b[f + 17] = int(s.hud_rupees), int(s.hud_clock), int(s.clock_24h), int(s.no_heart_drop)
     struct.pack_into("<H", b, f + 18, int(s.sprint_speed))
     b[f + 20] = int(s.songbook)
+    b[f + 21] = int(s.quick_boots)
+    b[f + 22] = int(s.quick_mask)
     return bytes(b)
 
 

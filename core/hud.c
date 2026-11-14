@@ -33,6 +33,7 @@ extern void *find_anim(void *part, const char *name);
 extern void set_frame(void *anim, float frame);
 extern void *memcpy(void *d, const void *s, unsigned long n);
 extern long set_text(void *pane, const void *ref, int zero);   /* stock text-pane setter (main+0x439520) */
+__attribute__((weak)) int quick_select_text(char *b, u32 cap);   /* features/quick_select */
 extern char GAMEDATA_MGR[];                                      /* main+0x4E842A8: GameData manager pointer slot */
 extern char WORLD_MGR[];                                         /* main+0x4E7EAB0: world manager pointer slot */
 int player_active(void);
@@ -845,8 +846,11 @@ static void plates_update(u64 frame) {
     static const float GREEN[3] = {0.38f, 0.95f, 0.25f};
     /* text panes are centre-aligned: P[7] is the centre of the text area (right of the icon) */
     float ty = P[8];
-    {   /* clock */
+    {   /* clock (or the quick-select text while it is open) */
         char b[16]; u32 n = 0;
+        if (quick_select_text && quick_select_text(b, sizeof b)) {
+            put_text(frame, 0, b, P[20] + P[7], P[21] + ty, clk, WHITE);
+        } else {
         int h = sec / 3600, m = (sec / 60) % 60, hh = h;
         if (!g_shbcfg.clock_24h) { hh = h % 12; if (!hh) hh = 12; }
         if (g_shbcfg.clock_24h || hh >= 10) b[n++] = (char)('0' + hh / 10);
@@ -855,6 +859,7 @@ static void plates_update(u64 frame) {
         if (!g_shbcfg.clock_24h) { b[n++] = ' '; b[n++] = h < 12 ? 'A' : 'P'; b[n++] = 'M'; }
         b[n] = 0;
         put_text(frame, 0, b, P[20] + P[7], P[21] + ty, clk, WHITE);
+        }
     }
     {   /* rupees: GameData Int table (k = 2), records 0x28 bytes, live value at +0x1C.
          * 962 = PlayerStatus.CurrentRupee, 976 = wallet capacity (member "Rupee" of the ammo/rupee caps). */

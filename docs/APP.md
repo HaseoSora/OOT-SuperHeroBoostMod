@@ -63,6 +63,11 @@ dropped hearts become green rupees (the optional romfs file; see the note below)
 - **Dificultad**: enemy health, damage taken, heart drops.
 - **HUD y botones**: rupee counter, clock (**off / 12 h / 24 h**, one selector), Classic Item Slots and button
   style.
+- **Quick select (beta)**: hold D-pad **down** to pick the boots (Kokiri / Iron / Hover) or **up** to pick a
+  mask, choose with Left/Right and release to equip. It writes the same PlayerStatus.EquipBoot /
+  PlayerStatus.EquipHeadArmor GameData slots as the pause menu. A short tap keeps the normal behaviour.
+  Experimental: back up the save. Masks are the child head-armour set; the Lens of Truth is a C-item, not a
+  head armour.
 - **Modificaciones varias**: Songbook autoplay (select a learned song in the game's native songbook with ZL and it plays
   automatically, effect included; not the Scarecrow's Song) and two
   **beta** toggles:

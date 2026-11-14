@@ -58,6 +58,8 @@ def cli(argv) -> int:
     ap.add_argument("--classic-variant", default="default", choices=list(I.CLASSIC_VARIANTS))
     ap.add_argument("--no-stamina", action="store_true")
     ap.add_argument("--no-songbook", action="store_true", help="disable playing songs from the native songbook")
+    ap.add_argument("--quick-boots", action="store_true", help="beta: hold D-pad down to pick boots")
+    ap.add_argument("--quick-mask", action="store_true", help="beta: hold D-pad up to pick a mask")
     ap.add_argument("--enemy-double", action="store_true", help="beta: duplicate generic enemies (romfs)")
     ap.add_argument("--enemy-speed", action="store_true", help="beta: accelerate enemy animation/movement/cadence (romfs)")
     ap.add_argument("--off", default=None, help="advanced: comma list of jump,attack,sprint,block,shoot,roll to disable")
@@ -101,6 +103,10 @@ def cli(argv) -> int:
         s.stamina = False
     if a.no_songbook:
         s.songbook = False
+    if a.quick_boots:
+        s.quick_boots = True
+    if a.quick_mask:
+        s.quick_mask = True
     if a.enemy_double:
         s.enemy_double = True
     if a.enemy_speed:
@@ -215,6 +221,8 @@ def gui() -> None:
     variant = tk.StringVar(value=cfg.get("variant") if cfg.get("variant") in I.CLASSIC_VARIANTS else "default")
     stamina = tk.BooleanVar(value=bool(cfg.get("stamina", True)))
     songbook = tk.BooleanVar(value=bool(cfg.get("songbook", True)))
+    quick_boots = tk.BooleanVar(value=bool(cfg.get("quick_boots", False)))
+    quick_mask = tk.BooleanVar(value=bool(cfg.get("quick_mask", False)))
     enemy_double = tk.BooleanVar(value=bool(cfg.get("enemy_double", False)))
     enemy_speed = tk.BooleanVar(value=bool(cfg.get("enemy_speed", False)))
     mode = tk.StringVar(value=cfg.get("stamina_mode") if cfg.get("stamina_mode") in STAMINA_MODES
@@ -323,6 +331,8 @@ def gui() -> None:
         classic.set(v["classic"])
         stamina.set(v["stamina"])
         songbook.set(v["songbook"])
+        quick_boots.set(v["quick_boots"])
+        quick_mask.set(v["quick_mask"])
         mode.set(STAMINA_MODES[v["mode"]])
         for k, val in zip(KEYS, v["costs"]):
             costs[k].set(val)
@@ -358,7 +368,8 @@ def gui() -> None:
         refresh()
         autosave()
 
-    for var in (classic, stamina, songbook, enemy_double, enemy_speed, mode, combat, hp, dmg, speed, nodrop,
+    for var in (classic, stamina, songbook, quick_boots, quick_mask, enemy_double, enemy_speed, mode,
+                combat, hp, dmg, speed, nodrop,
                 rupees, clock_mode, *costs.values()):
         var.trace_add("write", on_setting_change)
 
@@ -387,6 +398,7 @@ def gui() -> None:
 
     def settings():
         return I.Settings(classic=classic.get(), stamina=stamina.get(), songbook=songbook.get(),
+                          quick_boots=quick_boots.get(), quick_mask=quick_mask.get(),
                           enemy_double=enemy_double.get(), enemy_speed=enemy_speed.get(),
                           preset=STAMINA_MODES.index(mode.get()),
                           combat_only=combat.get(),
@@ -400,6 +412,7 @@ def gui() -> None:
             "lang": lang.get(), "emu": emu.get(), "profile": profile.get(),
             "classic": classic.get(), "variant": variant.get(),
             "stamina": stamina.get(), "songbook": songbook.get(),
+            "quick_boots": quick_boots.get(), "quick_mask": quick_mask.get(),
             "enemy_double": enemy_double.get(), "enemy_speed": enemy_speed.get(), "stamina_mode": mode.get(),
             "costs": {**{k: costs[k].get() for k in KEYS}, "combat_only": combat.get()},
             "combat_only": combat.get(),
@@ -591,6 +604,16 @@ def gui() -> None:
         ui["clock_values"] = values
         label(body, L("hud_note"), size=9, color=DIM, bg=PANEL).pack(anchor="w", pady=(8, 0))
         build_buttons(parent)
+        build_quick_select(parent)
+
+    def build_quick_select(parent):
+        body = card(parent, L("quick_title"), L("quick_desc"))
+        label(body, L("quick_warning"), size=9, color=RED, bold=True, bg=PANEL).pack(anchor="w", pady=(0, 6))
+        check(body, L("quick_boots_on"), quick_boots).pack(anchor="w")
+        label(body, L("quick_boots_desc"), size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=(20, 0), pady=(0, 8))
+        check(body, L("quick_mask_on"), quick_mask).pack(anchor="w")
+        label(body, L("quick_mask_desc"), size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=(20, 0))
+        label(body, L("quick_note"), size=9, color=AMBER, bg=PANEL).pack(anchor="w", pady=(8, 0))
 
     def build_buttons(parent):
         body = card(parent, L("buttons_title"), L("buttons_desc"))
@@ -737,7 +760,8 @@ def gui() -> None:
     elif profile.get() != "custom":
         apply_profile(profile.get(), save=False)
 
-    for v in (emu, classic, variant, stamina, songbook, enemy_double, enemy_speed, mode, combat, hp, dmg, speed,
+    for v in (emu, classic, variant, stamina, songbook, quick_boots, quick_mask, enemy_double,
+              enemy_speed, mode, combat, hp, dmg, speed,
               nodrop, rupees, clock_mode, *costs.values()):
         v.trace_add("write", autosave)
     emu.trace_add("write", lambda *_: (status.set(""), refresh()))

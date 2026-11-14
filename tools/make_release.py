@@ -38,7 +38,7 @@ def main():
         shutil.rmtree(OUT)
     man = {"build_id": BUILD_ID, "variants": {}}
     for name, base in VARIANTS.items():
-        subprocess.run([sys.executable, str(ROOT / "tools" / "build_core.py"), "--features", "stamina,songbook",
+        subprocess.run([sys.executable, str(ROOT / "tools" / "build_core.py"), "--features", "stamina,songbook,quick_select",
                         "--compat", "--base", base], check=True, cwd=ROOT)
         d = OUT / name
         d.mkdir(parents=True)

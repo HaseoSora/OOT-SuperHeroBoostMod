@@ -55,6 +55,8 @@ python tools/build_app.py
 ```
 
 El ejecutable se genera en `release/` para el sistema donde se compila (PyInstaller no hace compilación cruzada).
+La beta de las Grandes Hadas reescribe event flows con la librería `evfl` (`pip install evfl`); si no está
+instalada, `make_release.py` avisa y conserva los archivos ya generados.
 
 ## Créditos
 

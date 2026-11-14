@@ -10,3 +10,4 @@ data/
 app/payload/
 release/
 app/__pycache__/
+app/OotMasterConfig.json

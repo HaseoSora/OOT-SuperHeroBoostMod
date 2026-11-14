@@ -43,6 +43,8 @@ class Settings:
     roll: bool = True
     combat_only: bool = False
     enemy_hp: int = 100             # enemy health, percent of vanilla
+    classic_replica: bool = False   # our own Classic replica (experimental; only without the third-party Classic)
+    button_style: int = 0           # replica buttons: 0 Switch, 1 Xbox, 2 PlayStation (from the style selector)
     sprint_speed: int = 125         # sprint (A held while moving) speed, percent of vanilla
     damage: int = 100               # damage Link takes, percent of vanilla
     no_heart_drop: bool = False     # hearts dropped by enemies/grass become green rupees
@@ -134,6 +136,8 @@ def patch_config(nso: bytes, s: Settings) -> bytes:
     struct.pack_into("<HH", b, f + 10, int(s.enemy_hp), int(s.damage))
     b[f + 14], b[f + 15], b[f + 16], b[f + 17] = int(s.hud_rupees), int(s.hud_clock), int(s.clock_24h), int(s.no_heart_drop)
     struct.pack_into("<H", b, f + 18, int(s.sprint_speed))
+    b[f + 20] = int(s.classic_replica and not s.classic)
+    b[f + 21] = s.button_style
     return bytes(b)
 
 
@@ -218,6 +222,17 @@ def install(emu: Path, s: Settings, classic_variant: str = "default", name: str 
         shutil.copytree(classic_dir / "romfs", target / "romfs")
     else:
         (target / "exefs" / f"{BUILD_ID}.ips").write_bytes(ours)
+
+    if s.classic_replica and not s.classic:   # our replica: button textures of the chosen style + bigger UI budget
+        s.button_style = {"default": 0, "xbox": 1, "playstation": 2}.get(classic_variant, 0)
+        (target / "exefs" / "subsdk9").write_bytes(patch_config((pay / "subsdk9").read_bytes(), s))
+        rep = pay.parent / "replica_romfs"
+        plat = {0: "switch", 1: "xbox", 2: "playstation"}[s.button_style]
+        if not (rep / plat).exists():
+            raise InstallError("no_payload", "replica")
+        shutil.copytree(rep / plat, target / "romfs", dirs_exist_ok=True)
+        if (rep / "common").exists():
+            shutil.copytree(rep / "common", target / "romfs", dirs_exist_ok=True)
 
     if s.no_heart_drop:                       # romfs files generated from the game's own data (tools/make_romfs_opts.py)
         src = pay.parent / "romfs_opts" / "no_heart_drop"

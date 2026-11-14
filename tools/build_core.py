@@ -222,13 +222,14 @@ def write_handler_table(features: list[str], path: Path) -> None:
 
 
 COMPAT = False   # --compat: coexist with Classic Item Slots (its IPS owns the input/slot sites)
+SLOTS = False    # --slots: also hook the four equip calls (our own Classic replica, Classic not installed)
 # PLT stub of the input reader used during gameplay: first instruction `adrp x16, GOT3`.
 COMPAT_STUB = (0x3C42800, "hook_stub3", 0xB00083F0)
 
 
 def active_sites():
     if COMPAT:
-        return [], []
+        return [], (list(SLOT_SITES) if SLOTS else [])
     return list(INPUT_SITES), list(SLOT_SITES)
 
 
@@ -239,7 +240,7 @@ def make_ips(symbols: dict[str, int]) -> bytes:
         delta = symbols[name] - site
         out += struct.pack(">I", site + 0x100) + struct.pack(">H", 4)
         out += struct.pack("<I", 0x14000000 | ((delta >> 2) & 0x03FFFFFF))
-    for site, name, _stock in (list(INPUT_SITES) + list(SLOT_SITES)) if not COMPAT else []:
+    for site, name, _stock in active_sites()[0] + active_sites()[1]:
         if site in DISABLED_SITES:
             continue  # stays the stock bl (see hook_sites.DISABLED_SITES)
         target = symbols[name]
@@ -264,8 +265,11 @@ def main() -> int:
     ap.add_argument("--compat", action="store_true",
                     help="coexist with Classic Item Slots (module placed after it, PLT-stub input hook)")
     ap.add_argument("--base", default="0x4F88000", help="module base used with --compat")
+    ap.add_argument("--slots", action="store_true",
+                    help="hook the equip calls too (own Classic replica; only without Classic Item Slots)")
     args = ap.parse_args()
-    global COMPAT, BASE, LINK_SCRIPT
+    global COMPAT, BASE, LINK_SCRIPT, SLOTS
+    SLOTS = args.slots
     if args.compat:
         COMPAT = True
         BASE = int(args.base, 0)
@@ -301,6 +305,8 @@ def main() -> int:
     for src in sources + [gen]:
         obj = OUT / (src.stem + ".o")
         extra = ["-DCLASSIC_PROBE"] if os.environ.get("CLASSIC_PROBE") else []
+        if "classic_slots" in features:
+            extra.append("-DCLASSIC_REPLICA")   # core/hud.c draws the replica's buttons
         run([str(CLANG), *CFLAGS, *extra, "-I", str(OUT), "-I", str(CORE_SRC),
              "-c", str(src), "-o", str(obj)])
         objs.append(str(obj))

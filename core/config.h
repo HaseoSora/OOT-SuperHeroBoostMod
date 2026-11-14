@@ -26,7 +26,9 @@ typedef struct {
     unsigned char clock_24h;       /* clock in 24 h format */
     unsigned char no_heart_drop;   /* informational (done through a romfs file) */
     unsigned short sprint_speed_pct; /* sprint (A held while moving) speed, percent of vanilla (100 = vanilla, default 125) */
-    unsigned char reserved[34];
+    unsigned char classic_replica;   /* our own Classic Item Slots replica (only without the third-party Classic) */
+    unsigned char button_style;      /* replica buttons: 0 Switch, 1 Xbox, 2 PlayStation */
+    unsigned char reserved[32];
 } OotConfig;
 
 extern volatile OotConfig g_ootcfg;

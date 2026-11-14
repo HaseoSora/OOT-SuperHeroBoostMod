@@ -12,6 +12,9 @@ ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "app" / "payload"
 BUILD_ID = "E0F3CCFAF50065AE4EA01EB5AEB13B1A45DA3348"
 VARIANTS = {"classic": "0x4F87000", "standalone": "0x4F80000"}
+# standalone (no third-party Classic) carries our own Classic replica: its feature and the equip-call hooks
+VARIANT_ARGS = {"classic": ["--features", "hero_core"],
+                "standalone": ["--features", "hero_core,classic_slots", "--slots"]}
 
 
 CLASSIC_TAG = "v1.4.3"
@@ -41,12 +44,25 @@ def stage_rupee_ips():
     (OUT / "rupee.ips").write_bytes(b"IPS32" + rec + b"EEOF")
 
 
+def stage_replica():
+    """Romfs of our Classic replica: the button textures per platform (tools/make_buttons.py) and a resource size
+    table with a bigger UI budget (the 12 extra HUD parts do not fit the stock one; the game hangs at boot)."""
+    subprocess.run([sys.executable, str(ROOT / "tools" / "make_buttons.py")], check=True, cwd=ROOT)
+    for plat in ("switch", "xbox", "playstation"):
+        shutil.copytree(ROOT / "build" / "buttons" / plat / "romfs", OUT / "replica_romfs" / plat)
+    raw = ROOT / "build" / "rsizetable.bin"   # decompressed vanilla table (the dump may not be available)
+    r = subprocess.run([sys.executable, str(ROOT / "tools" / "make_restbl.py"), str(OUT / "replica_romfs" / "common")]
+                       + (["--vanilla-raw", str(raw)] if raw.exists() else []), cwd=ROOT)
+    if r.returncode:
+        print("WARNING: no resource size table: the replica's HUD will not fit the stock UI budget")
+
+
 def main():
     if OUT.exists():
         shutil.rmtree(OUT)
     man = {"build_id": BUILD_ID, "variants": {}}
     for name, base in VARIANTS.items():
-        subprocess.run([sys.executable, str(ROOT / "tools" / "build_core.py"), "--features", "hero_core",
+        subprocess.run([sys.executable, str(ROOT / "tools" / "build_core.py"), *VARIANT_ARGS[name],
                         "--compat", "--base", base], check=True, cwd=ROOT)
         d = OUT / name
         d.mkdir(parents=True)
@@ -55,6 +71,7 @@ def main():
         shutil.copy2(src / f"{BUILD_ID}.ips", d / "ours.ips")
         man["variants"][name] = {"base": base, "sha256": hashlib.sha256((d / "subsdk9").read_bytes()).hexdigest()}
     stage_classic()
+    stage_replica()
     r = subprocess.run([sys.executable, str(ROOT / "tools" / "make_romfs_opts.py")], cwd=ROOT)
     if r.returncode:
         print("WARNING: romfs options not built (game dump missing?): the payload has no 'no heart drop' option")

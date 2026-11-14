@@ -255,6 +255,8 @@ CODE_HOOK hook_code_speed, 10, RES_SPEED
 /* Ocarina / songbook enter and leave: x0 is the ocarina UI context. */
 CODE_HOOK hook_code_ocarina_enter, 13, RES_OCARINA_ENTER
 CODE_HOOK hook_code_ocarina_leave, 14, RES_OCARINA_LEAVE
+/* Ocarina UI update (x0 = ocarina context, every frame while it is open). */
+CODE_HOOK hook_code_ocarina_ui, 16, RES_OCARINA_UI
 
 /* Songbook list: the stock `str w20,[x19,#0x22c]` selects a song. Save the
  * caller-saved registers, record the selection, restore, do the store and

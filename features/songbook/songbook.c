@@ -2,14 +2,15 @@
  *
  * The song list only previews a melody. We copy the selected song's notes into
  * the ocarina context (display buffer +0x158, matching buffer +0x478, ring
- * index +0x25C, count +0x250) and ask the game's own matcher whether the
- * sequence is a learned song. On a match we set the same "playing" state the
- * ocarina uses, so Link performs it and the effect fires (warp, sun, storm,
- * Epona...). Notes come from MelodyScoreBook, not from a guess.
+ * index +0x25C, count +0x250), mark state 0x0A and the "finished playing" flag
+ * +0x26602 so the game's own state machine recognises the melody and fires the
+ * song effect.
  *
- * Only learned songs are used: the context keeps a byte flag per song at
- * +0x264 and the selected index at +0x22C. Index 12 (Scarecrow's Song, which
- * the player composes) is not handled.
+ * The ocarina UI update (main+0x3292070) is the only place that receives the
+ * real context every frame; its x0 is the ocarina context.
+ *
+ * Only learned songs are used: a byte flag per song at +0x264 and the preview
+ * song at +0x220. Index 12 (Scarecrow's Song) is not handled.
  */
 #include "../../core/dispatch.h"
 #include "../../core/config.h"
@@ -49,21 +50,20 @@ u32 g_songbook_active;
 u32 g_songbook_sel = 0xFFFFFFFFu;
 u32 g_songbook_pending = NO_SONG;
 u32 g_songbook_start;
-u32 g_songbook_armed;        /* frame when the song was selected */
-u32 g_songbook_preview;      /* +0x220 when the ocarina opened (13 = none) */
-u32 g_songbook_seen_page, g_songbook_seen_state, g_songbook_seen_busy;
-u32 g_songbook_seen_arm, g_songbook_seen_at;
-u32 g_songbook_enters;
-u32 g_songbook_in_book;      /* the songbook page was shown since the last ocarina page */
+u32 g_songbook_armed;
+u32 g_songbook_preview;
 u32 g_songbook_page;
+u32 g_songbook_enters;
+u32 g_songbook_last_ui;
+u32 g_songbook_seen_page, g_songbook_seen_state, g_songbook_seen_busy;
+u32 g_songbook_seen_preview, g_songbook_seen_arm, g_songbook_seen_at;
 u32 g_songbook_dbg[8] = {0x10000000u, 0x10000000u, 0x10000000u, 0x10000000u,
                          0x10000000u, 0x10000000u, 0x10000000u, 0x10000000u};
 
 u32 hud_frame_count(void);
 
-/* core/link.ld: the ocarina state machine. The game only calls it from page 0
- * when the melody is finished, so on the preview page we call it ourselves. */
-extern void RES_OCARINA_UPDATE(void *ctx);
+/* core/link.ld */
+extern int RES_OCARINA_IS_OPEN(void *ctx);   /* same check the UI update does first */
 
 static int valid_ptr(u64 p) { return p > 0x10000ull && p < 0x1000000000000ull; }
 
@@ -87,9 +87,99 @@ static void arm(u64 ctx, u32 sel) {
     g_songbook_dbg[4]++;
 }
 
-static u32 read_preview(u64 ctx) {
-    if (!valid_ptr(ctx)) return 13u;
-    return *(volatile u32 *)(ctx + 0x220);
+/* Ocarina enter/leave (ids 13/14): only used to count/debug. The real context
+ * comes from the UI update hook (id 16). */
+void songbook_on_ocarina(u32 active, void *ctx) {
+    (void)ctx;
+    if (active) g_songbook_enters++;
+    g_songbook_active = active;
+    g_songbook_dbg[0] = 0x10000000u + active;
+}
+
+/* Store hook in the song list: the stock `str w20,[x19,#0x22c]`. */
+void songbook_on_select(void *ctx, u32 sel) {
+    if (!g_shbcfg.songbook_enabled) return;
+    g_songbook_ctx = (u64)ctx;
+    if (sel < 12u && learned(g_songbook_ctx, sel)) arm((u64)ctx, sel);
+}
+
+/* Input poll: kept as a secondary selection detector. */
+void songbook_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_result) {
+    (void)a0;
+    (void)a1;
+    (void)a2;
+    (void)stock_result;
+    if (!g_shbcfg.songbook_enabled || site != 3) return;
+    u64 ctx = g_songbook_ctx;
+    if (!valid_ptr(ctx)) return;
+    u32 sel = read_sel(ctx);
+    if (sel < 12u && sel != g_songbook_sel && learned(ctx, sel)) arm(ctx, sel);
+}
+
+/* Ocarina UI update entry (code hook id 16): x0 is the real ocarina context. */
+void songbook_on_ui(void *ctx_) {
+    u64 ctx = (u64)ctx_;
+    if (!g_shbcfg.songbook_enabled) return;
+    if (!valid_ptr(ctx)) return;
+    if (!RES_OCARINA_IS_OPEN((void *)ctx)) return;
+
+    u32 now = hud_frame_count();
+    u32 page = *(volatile u32 *)(ctx + 0x278);
+    u32 state = *(volatile u32 *)(ctx + 0x230);
+    u32 busy = *(volatile u32 *)(ctx + 0x114);
+    u32 preview = *(volatile u32 *)(ctx + 0x220);
+
+    g_songbook_ctx = ctx;
+    g_songbook_active = 1;
+    g_songbook_page = page;
+    g_songbook_seen_page = page;
+    g_songbook_seen_state = state;
+    g_songbook_seen_busy = busy;
+    g_songbook_seen_preview = preview;
+    g_songbook_seen_arm = g_songbook_dbg[4] - 0x10000000u;
+    g_songbook_seen_at = now;
+
+    if (now - g_songbook_last_ui > 30u) {
+        /* new ocarina session */
+        g_songbook_preview = preview;
+        g_songbook_pending = NO_SONG;
+    } else if (preview != g_songbook_preview) {
+        g_songbook_preview = preview;
+        if (preview < 12u && learned(ctx, preview)) arm(ctx, preview);
+    }
+    g_songbook_last_ui = now;
+
+    if (g_songbook_pending >= 12u) return;
+    if (now < g_songbook_start || now - g_songbook_armed > 900u) {
+        g_songbook_pending = NO_SONG;
+        return;
+    }
+    if (page != 0u || busy != 0u) return;
+
+    u32 song_id = g_songbook_pending;
+    const Song *song = &g_songs[song_id];
+    volatile u32 *shown = (volatile u32 *)(ctx + 0x158);
+    volatile u32 *played = (volatile u32 *)(ctx + 0x478);
+    for (u32 i = 0; i < 8u; i++) {
+        shown[i] = song->notes[i];
+        played[i] = song->notes[i];
+    }
+    *(volatile u32 *)(ctx + 0x250) = song->len;
+    *(volatile u32 *)(ctx + 0x25C) = song->len & 7u;
+    *(volatile u32 *)(ctx + 0x230) = 0x0Au;
+    *(volatile unsigned char *)(ctx + 0x26602) |= 1u;
+
+    g_songbook_dbg[5]++;
+    g_songbook_dbg[7] = 0x10000000u + song_id;
+    g_songbook_pending = NO_SONG;
+    g_songbook_preview = song_id;
+}
+
+/* Per-frame hook: the ocarina UI update stops when the ocarina closes. */
+void songbook_on_frame(void) {
+    if (!g_shbcfg.songbook_enabled) return;
+    u32 now = hud_frame_count();
+    if (g_songbook_active && now - g_songbook_last_ui > 10u) g_songbook_active = 0;
 }
 
 static u32 put_u32(char *b, u32 v) {
@@ -103,147 +193,21 @@ static u32 put_u32(char *b, u32 v) {
     return n;
 }
 
-/* Temporary diagnostic shown on the clock plate: "A<arm> P<page>S<state>B<busy>". */
+/* Temporary diagnostic on the clock plate: N<active>P<page>V<preview>S<state>B<busy>. */
 int songbook_debug_text(char *b, u32 cap) {
     (void)cap;
-    u32 page, state, busy, arms;
-    if (valid_ptr(g_songbook_ctx)) {
-        page = g_songbook_seen_page;
-        state = g_songbook_seen_state;
-        busy = g_songbook_seen_busy;
-        arms = g_songbook_seen_arm;
-    } else {
-        page = state = busy = 0;
-        arms = g_songbook_dbg[4] - 0x10000000u;
-    }
+    if (!g_shbcfg.songbook_enabled) return 0;
     u32 n = 0;
-    b[n++] = 'N';                       /* ocarina active */
+    b[n++] = 'N';
     n += put_u32(b + n, g_songbook_active);
-    b[n++] = 'C';                       /* context valid */
-    n += put_u32(b + n, valid_ptr(g_songbook_ctx) ? 1u : 0u);
-    b[n++] = 'A';                       /* selections armed */
-    n += put_u32(b + n, arms);
     b[n++] = 'P';
-    n += put_u32(b + n, page);
+    n += put_u32(b + n, g_songbook_seen_page);
+    b[n++] = 'V';
+    n += put_u32(b + n, g_songbook_seen_preview);
     b[n++] = 'S';
-    n += put_u32(b + n, state);
+    n += put_u32(b + n, g_songbook_seen_state);
     b[n++] = 'B';
-    n += put_u32(b + n, busy);
+    n += put_u32(b + n, g_songbook_seen_busy);
     b[n] = 0;
     return 1;
-}
-
-/* Ocarina / songbook enter and leave (code hook ids 13/14). Leaving the
- * songbook must NOT drop the selection: the user releases ZL and the song is
- * played right after, on the ocarina page. */
-void songbook_on_ocarina(u32 active, void *ctx) {
-    u64 c = (u64)ctx;
-    if (active) g_songbook_enters++;
-    if (!valid_ptr(c)) return;
-    /* On leave the pointer may already be the (stale) UI owner: keep the last
-     * context so the frame hook can still use it, but only while active. */
-    if (active) g_songbook_ctx = c;
-    g_songbook_active = active;
-    g_songbook_sel = read_sel(c);
-
-    u32 preview = read_preview(c);
-    if (active) {
-        g_songbook_preview = preview;          /* snapshot on ocarina open */
-    } else if (preview != g_songbook_preview && preview < 12u && learned(c, preview)) {
-        g_songbook_preview = preview;          /* song picked in the songbook */
-        arm(c, preview);
-    }
-    g_songbook_dbg[0] = 0x10000000u + active;
-    g_songbook_dbg[1] = (u32)(c & 0xFFFFFFFFu);
-}
-
-/* Store hook in the song list: the stock `str w20,[x19,#0x22c]`. */
-void songbook_on_select(void *ctx, u32 sel) {
-    if (!g_shbcfg.songbook_enabled) return;
-    g_songbook_ctx = (u64)ctx;
-    g_songbook_active = 1;
-    if (sel < 12u && learned(g_songbook_ctx, sel)) arm((u64)ctx, sel);
-}
-
-/* Input poll: catches selections made without the store hook. No injection. */
-void songbook_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_result) {
-    (void)a0;
-    (void)a1;
-    (void)a2;
-    (void)stock_result;
-    if (!g_shbcfg.songbook_enabled || !g_songbook_active || site != 3) return;
-    if (!valid_ptr(g_songbook_ctx)) return;
-
-    u32 sel = read_sel(g_songbook_ctx);
-    g_songbook_dbg[2] = 0x10000000u + sel;
-    g_songbook_dbg[3] = 0x10000000u + (u32)learned(g_songbook_ctx, sel);
-    if (sel < 12u && sel != g_songbook_sel && learned(g_songbook_ctx, sel)) arm(g_songbook_ctx, sel);
-}
-
-/* Per-frame hook (runs from the scheduler): the ocarina state machine is only
- * called when the "finished playing" flag is set, so we must set it from here. */
-void songbook_on_frame(void) {
-    if (!g_shbcfg.songbook_enabled) return;
-    u64 ctx = g_songbook_ctx;
-    if (!valid_ptr(ctx)) return;
-
-    u32 now = hud_frame_count();
-    /* Snapshot only while the ocarina is open: after closing, the context may be
-     * recycled and its fields are meaningless. The HUD shows the last snapshot. */
-    if (g_songbook_active) {
-        g_songbook_seen_page = *(volatile u32 *)(ctx + 0x278);
-        g_songbook_seen_state = *(volatile u32 *)(ctx + 0x230);
-        g_songbook_seen_busy = *(volatile u32 *)(ctx + 0x114);
-        g_songbook_seen_arm = g_songbook_dbg[4] - 0x10000000u;
-        g_songbook_seen_at = now;
-    }
-    u32 page = *(volatile u32 *)(ctx + 0x278);
-    g_songbook_page = page;
-
-    if (page != 0u) {
-        /* The songbook is being shown (ZL held). Remember it; when the ocarina
-         * page comes back, play the song it left highlighted at +0x220. */
-        g_songbook_in_book = 1;
-        return;
-    }
-    if (g_songbook_in_book) {
-        g_songbook_in_book = 0;
-        u32 preview = read_preview(ctx);
-        if (preview < 12u && learned(ctx, preview)) arm(ctx, preview);
-    }
-
-    u32 song_id = g_songbook_pending;
-    if (song_id >= 12u) return;
-    /* Do not wait forever: a selection only counts for a few seconds. */
-    if (now - g_songbook_armed > 900u) {
-        g_songbook_pending = NO_SONG;
-        return;
-    }
-    if (now < g_songbook_start) return;
-
-    u32 busy = *(volatile u32 *)(ctx + 0x114);
-    if (busy != 0) return;
-
-    const Song *song = &g_songs[song_id];
-    volatile u32 *shown = (volatile u32 *)(ctx + 0x158);
-    volatile u32 *played = (volatile u32 *)(ctx + 0x478);
-    for (u32 i = 0; i < 8u; i++) {
-        shown[i] = song->notes[i];
-        played[i] = song->notes[i];
-    }
-    *(volatile u32 *)(ctx + 0x250) = song->len;       /* notes played */
-    *(volatile u32 *)(ctx + 0x25C) = song->len & 7u;  /* ring write index */
-
-    /* Leave the context exactly as the ocarina does after the last note:
-     * state 0x0A ("note added") and the "finished playing" flag. The game's own
-     * update (which runs right after this hook) then matches the melody and
-     * starts the performance. */
-    *(volatile u32 *)(ctx + 0x230) = 0x0Au;
-    *(volatile unsigned char *)(ctx + 0x26602) |= 1u;
-
-    g_songbook_dbg[5]++;
-    g_songbook_dbg[6] = 0x10001000u + page;
-    g_songbook_dbg[7] = 0x10000000u + song_id;
-    g_songbook_pending = NO_SONG;
-    g_songbook_preview = song_id;   /* do not replay the same preview */
 }

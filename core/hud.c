@@ -1041,6 +1041,7 @@ __attribute__((weak)) void stamina_speed_hook(void *regs);   /* features/stamina
 __attribute__((weak)) void songbook_on_ocarina(u32 active, void *ctx);   /* features/songbook */
 __attribute__((weak)) void songbook_on_select(void *ctx, u32 sel) { (void)ctx; (void)sel; }   /* overridden by the feature */
 __attribute__((weak)) void songbook_on_frame(void);                      /* features/songbook */
+__attribute__((weak)) void songbook_on_ui(void *ctx);                    /* features/songbook */
 __attribute__((weak)) int songbook_debug_text(char *b, u32 cap);         /* features/songbook */
 void hud_on_code(u32 id, void *a0, void *a1, void *a2, void *regs) {
     (void)a1; (void)a2;
@@ -1049,6 +1050,7 @@ void hud_on_code(u32 id, void *a0, void *a1, void *a2, void *regs) {
     if (id == 10) { if (stamina_speed_hook) stamina_speed_hook(regs); return; }   /* ground movement: sprint speed */
     if (id == 13) { if (songbook_on_ocarina) songbook_on_ocarina(1, a0); return; }   /* ocarina enter */
     if (id == 14) { if (songbook_on_ocarina) songbook_on_ocarina(0, a0); return; }   /* ocarina leave */
+    if (id == 16) { if (songbook_on_ui) songbook_on_ui(a0); return; }                /* ocarina UI update */
     if (id == 4) {   /* part instance creation: log the pane index being instantiated */
         u64 layout = (u64)a1, pane = (u64)a2;
         u64 arr = layout ? ptr(layout, 0x100) : 0;

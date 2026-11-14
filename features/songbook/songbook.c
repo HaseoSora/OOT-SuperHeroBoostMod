@@ -140,9 +140,11 @@ void songbook_on_ui(void *ctx_) {
     g_songbook_seen_at = now;
 
     if (now - g_songbook_last_ui > 30u) {
-        /* new ocarina session */
+        /* New ocarina session, but keep a song selected moments ago: the UI hook
+         * is not called while the songbook is shown, so a gap is normal. */
         g_songbook_preview = preview;
-        g_songbook_pending = NO_SONG;
+        if (g_songbook_pending < 12u && now - g_songbook_armed > 900u)
+            g_songbook_pending = NO_SONG;
     } else if (preview != g_songbook_preview) {
         g_songbook_preview = preview;
         if (preview < 12u && learned(ctx, preview)) arm(ctx, preview);
@@ -202,8 +204,8 @@ int songbook_debug_text(char *b, u32 cap) {
     n += put_u32(b + n, g_songbook_active);
     b[n++] = 'P';
     n += put_u32(b + n, g_songbook_seen_page);
-    b[n++] = 'V';
-    n += put_u32(b + n, g_songbook_seen_preview);
+    b[n++] = 'A';
+    n += put_u32(b + n, g_songbook_seen_arm);
     b[n++] = 'S';
     n += put_u32(b + n, g_songbook_seen_state);
     b[n++] = 'B';

@@ -26,18 +26,21 @@ SlotLog g_slot_log[LOG_N] = {{0x7FFFFFFFu, 0, 0, 0, 0}};   /* non-zero: lives in
 u32 g_slot_log_n = SLOT_BASE;
 
 enum { SLOT_B = 0, SLOT_L = 1, SLOT_R = 2, SLOT_ZR = 3, SLOT_N = 4 };
+#define BTN_RSTICK 0x0020ull   /* right stick click (R3) */
 static const u64 SLOT_MASK[SLOT_N] = {BTN_B, BTN_L, BTN_R, BTN_ZR};
 
 /* Item index per slot, -1 = empty (button stays normal). Test defaults; assignment
  * is done in game with ZL + slot button (cycles the item). (.data) */
 int g_assign[SLOT_N] = {3, 1, 2, -1};
 
-enum { PH_IDLE = 0, PH_EQUIP, PH_HOLD, PH_GAP, PH_RESTORE };
+enum { PH_IDLE = 0, PH_EQUIP, PH_HOLD, PH_GAP, PH_RESTORE, PH_ZRBACK };
 #define EQUIP_TICKS 4
 #define GAP_TICKS 20
 
 int g_pending = -1;        /* item index to force on the next stock call (old R-press method, unused) */
-int g_saved = -1;          /* item box content before a slot use */
+int g_saved = -1;          /* item box content before a slot use (the ZR item) */
+int g_borrowed;            /* a slot item is in the box; the ZR item goes back when ZR is pressed */
+int g_borrow_item = -1;    /* the slot item in the box */
 int g_zr_item = -1;        /* item the game's own buttons last selected */
 int g_phase = PH_IDLE;
 int g_active = -1;
@@ -48,8 +51,12 @@ u32 g_cl_dbg[4] = {SLOT_BASE, SLOT_BASE, SLOT_BASE, SLOT_BASE};  /* presses, ove
 void hud_slot_item(u32 slot, int item);
 int player_active(void);
 int player_state_is(const char *name);   /* core/player.c: Link's current action state */
+int player_state_starts(const char *prefix);
+const char *player_state_name(void);
+char g_cl_refused[24];   /* diagnostic: Link's state when a slot press was ignored (not free) */
 int hud_zr_item(void);
-void hud_zr_hold(int hold);   /* core/hud.c: keep showing the ZR item while a slot item borrows the item box */
+void hud_zr_hold(int hold);
+int hud_ingame(void);   /* core/hud.c: 0 while a menu covers the game (pause ...) */   /* core/hud.c: keep showing the ZR item while a slot item borrows the item box */
 /* The game's own "put this item in the item box" call, as the R button makes it (main+0x33C9AB4):
  * main+0x1211C00(item manager, item set, item index, 1, 1); manager = **(main+0x4C7E0D0),
  * set = byte +0x5C0 of **(main+0x4C7E2A8). Calling it directly equips without pressing R (R opens the selector). */
@@ -130,34 +137,45 @@ void classic_slots_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_re
     if (count == 0 || count > 64) return;
     HidView view = {a0, count, 0};
 
-    /* Publish the slots to the HUD replica (core/hud.c): B, L, R as assigned, ZR = the item the game has in its
-     * own item box (an unassigned ZR keeps its normal behaviour). */
+    /* Publish the slots to the HUD replica (core/hud.c): B, L, R as assigned (ZR mirrors the game's own box). */
     for (int s = 0; s < SLOT_N; s++)
         hud_slot_item((u32)s, s == SLOT_ZR && g_assign[s] < 0 ? g_zr_item : g_assign[s]);
-    /* Only during gameplay and with the replica switched on: in menus the buttons keep their own meaning
-     * (pressing R there would change the pause-menu tab). */
-    if (!g_ootcfg.classic_replica || !player_active()) {
-        g_phase = PH_IDLE; g_pending = -1; g_swallow = 0;
-        g_cl_prev = hid_merge_buttons(&view);
-        return;
-    }
 
-    if (g_phase == PH_IDLE) {   /* between uses: learn what the game has in its own item box (restored after a use) */
-        int z = hud_zr_item();
-        if (z >= 0) g_zr_item = z;
-    }
     u64 buttons = hid_merge_buttons(&view);
     u64 pressed = buttons & ~g_cl_prev;
     g_cl_prev = buttons;
-#ifdef CLASSIC_PROBE
-    probe_step();
-#endif
 
-    /* Assignment: hold ZL and press B / L / R to cycle that slot's item. The press
-     * is swallowed until released so it does not also act. (ZR is not assignable
-     * this way: ZL+ZR is the normal target-and-use.) */
+    /* Link must be free to act: standing or moving. Menus, the ocarina, dialogues, the item selector, climbing,
+     * swimming ... keep every button as the game means it (B = back / cancel there). A use in progress goes on. */
+    int ingame = player_active() && hud_ingame();
+    int free_now = ingame && (player_state_is("Wait") || player_state_is("Move") ||
+                              player_state_starts("LockOn"));   /* LockOn*: ZL held (target or free), aiming */
+    if (!g_ootcfg.classic_replica || (!free_now && g_phase == PH_IDLE)) {
+        if (ingame && (pressed & (BTN_B | BTN_L | BTN_R))) {   /* remember why a slot button did nothing */
+            const char *n = player_state_name();
+            for (int i = 0; i < 23; i++) g_cl_refused[i] = n[i];
+        }
+        g_swallow = 0;
+        return;
+    }
+    if (!ingame) {   /* a menu opened mid-use (pause ...): stop holding anything */
+        g_phase = PH_IDLE; g_swallow = 0;
+        return;
+    }
+
+    /* What the game has in its item box. While a slot item borrows it, a different item there means the player
+     * picked a new one (R selector / pause menu): that becomes the ZR item and nothing is put back. */
+    int box = hud_zr_item();
+    if (!g_borrowed) {
+        if (box >= 0) g_zr_item = box;
+    } else if (g_phase == PH_IDLE && box >= 0 && box != g_borrow_item && box != g_saved) {
+        g_borrowed = 0; g_zr_item = box; hud_zr_hold(0);
+    }
+
+    /* Assignment (temporary, until the pause-menu assignment): hold R3 (right stick click) and press B / L / R to
+     * cycle that slot's item. (ZL is targeting: the slots must work while it is held.) */
     for (int s = 0; s < SLOT_ZR; s++) {
-        if ((buttons & BTN_ZL) && (pressed & SLOT_MASK[s]) && g_phase == PH_IDLE) {
+        if ((buttons & BTN_RSTICK) && (pressed & SLOT_MASK[s]) && g_phase == PH_IDLE) {
             cycle_slot(s);
             g_swallow |= SLOT_MASK[s];
         }
@@ -173,49 +191,49 @@ void classic_slots_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_re
     if (g_phase == PH_IDLE) {
         for (int s = 0; s < SLOT_N; s++) {
             if ((pressed & SLOT_MASK[s]) && g_assign[s] >= 0) {
+                if (!g_borrowed) { g_saved = g_zr_item; g_borrowed = 1; hud_zr_hold(1); }
                 g_active = s;
-                g_saved = g_zr_item;           /* what the item box had: put back on release */
-                hud_zr_hold(1);                /* ZR keeps showing its own item meanwhile */
-                equip_now(g_assign[s]);        /* the slot's item into the item box, no R press */
+                g_borrow_item = g_assign[s];
+                if (box != g_assign[s]) equip_now(g_assign[s]);   /* already there (used again): no swap */
                 g_phase = PH_EQUIP;
                 g_phase_t = 0;
                 g_cl_dbg[0]++;
                 break;
             }
         }
+        /* ZR pressed while a slot item borrows the box: put the ZR item back first, then let ZR through */
+        if (g_phase == PH_IDLE && g_borrowed && (pressed & BTN_ZR) && g_saved >= 0) {
+            equip_now(g_saved);
+            g_phase = PH_ZRBACK;
+            g_phase_t = 0;
+            g_cl_dbg[2]++;
+        }
     }
 
     /* Assigned slot buttons never reach the game directly: the item is used through ZR. */
-    u64 set = 0;
+    u64 set = 0, clear = all_slot;
     switch (g_phase) {
     case PH_EQUIP:                             /* let the equip settle before using it */
         if (++g_phase_t >= EQUIP_TICKS) g_phase = PH_HOLD;
         break;
-    case PH_HOLD:
+    case PH_HOLD:                              /* ZR follows the slot button (aim while held, throw on release) */
         if (buttons & SLOT_MASK[g_active]) set = BTN_ZR;
-        else { g_phase = PH_GAP; g_phase_t = 0; }
+        else g_phase = PH_IDLE;                /* the item stays in the box: nothing is swapped mid-use */
         break;
-    case PH_GAP:
-        if (++g_phase_t >= GAP_TICKS) { g_phase = PH_RESTORE; g_phase_t = 0; }
-        break;
-    case PH_RESTORE:
-        /* Put the item box back. The game refuses while the item is still in use (a boomerang in flight, an
-         * item in Link's hand), so retry every few frames until the box reports it again (up to ~10 s). */
-        if (g_saved < 0 || g_saved == g_assign[g_active] || hud_zr_item() == g_saved || g_phase_t > 600) {
-            g_phase = PH_IDLE;
-            hud_zr_hold(0);
-        } else if (!player_state_is("Wait") && !player_state_is("Move") && g_phase_t < 300) {
-            g_phase_t++;   /* the item is still being used (throw / swing / aiming): swapping now would cancel it */
-        } else if (g_phase_t++ % 10 == 0) {
+    case PH_ZRBACK:                            /* hold ZR back until the box has the ZR item again */
+        clear |= BTN_ZR;
+        if (box == g_saved || ++g_phase_t > 30) {
+            g_borrowed = 0; hud_zr_hold(0);
+            g_phase = PH_IDLE;                 /* ZR (still held by the player) reaches the game from now on */
+        } else if (g_phase_t % 8 == 0) {
             equip_now(g_saved);
-            g_cl_dbg[2]++;
         }
         break;
     default:
         g_phase = PH_IDLE;
         break;
     }
-    set_all(&view, all_slot, set);
+    set_all(&view, clear, set);
 }
 
 /* Called before the stock item function: may replace its item index (x2). */

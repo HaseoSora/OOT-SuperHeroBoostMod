@@ -1167,8 +1167,15 @@ static void zr_mirror(void) {
     dst[i] = 0;
     dst[31] = 0;   /* apply again */
 }
+/* PlayerStatus frame our parts live in. Its u32 at +0x1A4 has bit 0x20000 set while the game is played and
+ * clear while a menu covers it (pause ...), measured stable across pause / resume: then nothing of ours is touched
+ * and the replica does not act. */
+static u64 g_ps_frame;
+int hud_ingame(void) { return !g_ps_frame || (*(volatile u32 *)(g_ps_frame + 0x1A4) & 0x20000u) != 0; }
 static void slots_update(u64 frame) {
     if (g_sb_busy) return;
+    if (!g_ps_frame && g_sb[0].part) g_ps_frame = ptr(g_sb[0].part, 0x28);
+    if (!hud_ingame()) return;
     if (REPLICA) zr_mirror();   /* (the index keeps tracking the box; the ZR icon is frozen while held) */
     if (!g_stock_box_rec) g_stock_box_rec = pane_record(frame, "Pa_SelectItem_00");
     if (!g_stock_dots_rec) g_stock_dots_rec = pane_record(frame, "N_Shortcut_00");
@@ -1253,7 +1260,8 @@ static void slots_labels(u64 frame) {
     put_text(frame, 3, g_sb_jump_label, g_sb_pos[SB_X][0], g_sb_pos[SB_X][1], 1, LABEL);
     put_text(frame, 4, g_sb_a_label, g_sb_pos[SB_A][0], g_sb_pos[SB_A][1], g_sb_a_label[0] != 0, LABEL);
 }
-static void slots_reset(void) { for (u32 k = 0; k < PART_N; k++) g_sb[k].part = 0; g_stock_box_rec = 0; g_stock_dots_rec = 0; }
+static void slots_reset(void) {
+    g_ps_frame = 0; for (u32 k = 0; k < PART_N; k++) g_sb[k].part = 0; g_stock_box_rec = 0; g_stock_dots_rec = 0; }
 
 u32 hud_frame_count(void) { return g_tick; }
 static void hud_frame(void) {

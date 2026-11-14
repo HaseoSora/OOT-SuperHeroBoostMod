@@ -57,7 +57,7 @@ static const char CIRCLE_TEX[] = "Circle64_00";
  * parts 1..4 are the slot circles: the gauge's fill texture is replaced by the
  * stock Circle64_00 and the gauge is kept full, so it draws a tinted circle. The
  * art is a placeholder until the real assets arrive. */
-#define PART_N 4   /* Classic replica slot buttons: clones of the stock item box Pa_SelectItem_00 (asset PaItemBtn_00).
+#define PART_N 8   /* Classic replica: parts 0..3 button backgrounds, 4..7 the item icons on them; clones of the stock item box Pa_SelectItem_00 (asset PaItemBtn_00).
                     * (The old gauge-part ring is retired: the stamina ring is drawn with picture panes, RT1..) */
 #define APPEND_ALL 1   /* 1 = append every part (only the first one gets listed by the
                         * engine); 0 = parts 1.. repurpose filler parts (froze the game) */
@@ -220,11 +220,14 @@ static int tbl_add(u8 *root, u32 off, const char *name, void *desc, u64 hash) {
  * each sampler is {u32 flags, u32 pad, u64 texture name}. The texture is looked up by name in the layout
  * archive's texture file when the layout is built. This adds a deep copy of material `src` (its bytes up to the
  * next material, internal pointers rebased) whose first sampler names `tex`; returns its index or -1. */
-static int add_material(u8 *root, const u8 *r, u32 src, const char *tex) {
+static int add_material_sz(u8 *root, const u8 *r, u32 src, const char *tex, u32 last_size);
+static int add_material(u8 *root, const u8 *r, u32 src, const char *tex) { return add_material_sz(root, r, src, tex, 0); }
+/* tex = 0 keeps the texture; last_size = byte size of `src` when it is the last material (no next one to measure) */
+static int add_material_sz(u8 *root, const u8 *r, u32 src, const char *tex, u32 last_size) {
     u32 n = w(root, 0x138), on = w(r, 0x138);
     const u64 *arr = (const u64 *)q(root, 0x130), *oarr = (const u64 *)q(r, 0x130);
-    if (!arr || !oarr || src + 1 >= on || n > 256) return -1;
-    u64 a = oarr[src], e = oarr[src + 1];
+    if (!arr || !oarr || src >= on || (src + 1 >= on && !last_size) || n > 256) return -1;
+    u64 a = oarr[src], e = src + 1 < on ? oarr[src + 1] : a + last_size;
     if (e <= a || e - a > 0x400) return -1;
     u32 sz = (u32)(e - a);
     u8 *m = pool_clone((const void *)a, sz);
@@ -238,13 +241,37 @@ static int add_material(u8 *root, const u8 *r, u32 src, const char *tex) {
     if (sl < (u64)m || sl >= (u64)m + sz) return -1;
     u64 sp = *(u64 *)sl;
     if (sp < (u64)m || sp + 16 > (u64)m + sz) return -1;
-    *(u64 *)(sp + 8) = (u64)tex;
+    if (tex) *(u64 *)(sp + 8) = (u64)tex;
     memcpy(na, arr, n * 8);
     na[n] = (u64)m;
     *(u64 *)(root + 0x130) = (u64)na;
     *(u32 *)(root + 0x138) = n + 1;
     return (int)n;
 }
+
+/* Our buttons' nested Pa_ReplaceIcon_00: the shadow pane (where the button is drawn) gets a copy of the ICON
+ * pane's material (material 1, 0xF0 bytes, a different shader variant) instead of the shadow material, which
+ * draws its texture washed out and translucent. Stock item boxes keep the stock asset. */
+u32 g_repicon_dbg[2];   /* private copies handed out, prepares seen while armed */
+static u8 *build_repicon(const u8 *r) {
+    int si = name_index(r, 0x40, "P_ReplaceIconSh_00");
+    u32 nb = w(r, 0x58);
+    if (si < 0 || nb > 64 || w(r, 0x138) != 2) return 0;
+    u8 *root = pool_clone(r, 0x228);
+    if (!root) return 0;
+    int mi = add_material_sz(root, r, 1, 0, 0xF0);
+    if (mi < 0) return 0;
+    u64 *descs = pool_alloc(nb * 8);
+    u8 *d = pool_clone((const void *)((const u64 *)q(r, 0x48))[si], 0x88);
+    if (!descs || !d) return 0;
+    memcpy(descs, (const void *)q(r, 0x48), nb * 8);
+    *(u32 *)(d + 0x14) = (u32)mi;
+    descs[si] = (u64)d;
+    *(u64 *)(root + 0x48) = (u64)descs;
+    g_repicon_dbg[0]++;
+    return root;
+}
+static u32 g_repicon_armed;
 
 /* Current design: ONE appended part (stamina gauge, the layout takes exactly one) and
  * the slot parts are four stock filler parts turned into item buttons in place: same
@@ -432,7 +459,10 @@ void *hud_prepare(void *handle, u8 *config) {
         for (int i = 0; i < 15; i++) { d[i] = inst[i]; d[16 + i] = asset[i]; }
     }
     u32 kind = str_eq(asset, "PlayerStatus_00") ? 1 : 0;
-    /* appended parts (slot buttons) use the stock asset unchanged: only PlayerStatus_00 itself is replaced */
+    /* one of our slot buttons: its nested Pa_ReplaceIcon_00 is built next and gets the private copy */
+    for (u32 k = 0; !kind && k < PART_N; k++)
+        if (str_eq(inst, part_name(k))) { g_repicon_armed = 1; return config; }
+    if (!kind && g_repicon_armed && str_eq(asset, "PaReplaceIcon_00")) { g_repicon_armed = 0; g_repicon_dbg[1]++; kind = 2; }
     if (!kind) return config;
     u8 *rep = 0;
     u32 i;
@@ -440,7 +470,7 @@ void *hud_prepare(void *handle, u8 *config) {
         if (g_res[i].src == r && g_res[i].kind == kind) { rep = g_res[i].copy; break; }
     if (i == g_res_n) {
         if (g_res_n == 140) return config;
-        rep = kind == 1 ? build_root(r) : build_gauge(r, kind - 2);
+        rep = kind == 1 ? build_root(r) : build_repicon(r);
         if (!rep) return config;
         g_res[i].src = r; g_res[i].copy = rep; g_res[i].kind = kind;
         g_res_n++;
@@ -975,15 +1005,20 @@ static const char *slot_anim_name(u32 i) {
     case 8: return "UnSelect"; case 9: return "Decide"; default: return "Assign";
     }
 }
-typedef struct { u64 part, anim[SA_N], rec, rep, ctrl; u32 icon_set; int shown_item; } SlotBtn;
+typedef struct { u64 part, anim[SA_N], rec, rep, ctrl, hide[9], ic, sh; u32 icon_set; int shown_item; } SlotBtn;
 static SlotBtn g_sb[PART_N];
 u64 g_sb_dbg[PART_N];       /* part object per button (diagnostic) */
 u32 g_sb_anim[PART_N];      /* bit i = anim i found */
 u64 g_sb_rif[PART_N][2];    /* nested Pa_ReplaceIcon_00 frame, its layout (diagnostic) */
 /* item per button (the game's item index, as passed to the equip call main+0x1211C00); -1 = empty */
-int g_sb_item[PART_N] = {3, 1, 2, 30};   /* test: boomerang, nuts, bombs, bow */
+/* parts 0..3: the buttons (our textures, drawn by the icon pane: full colour), parts 4..7: the items on them.
+ * (The icon's shadow pane cannot carry the button: it draws only the texture's shape in a fixed shadow tone.) */
+int g_sb_item[PART_N] = {-1, -1, -1, -1, 3, 1, 2, 30};   /* test: boomerang, nuts, bombs, bow */
 char g_sb_name_dbg[PART_N][32];   /* actor name resolved for each button (diagnostic) */
-char g_sb_force[PART_N][32] = {{1}};   /* test: texture name forced on a button (first byte 1 = none) */
+/* texture name forced on a part (first byte <= 1 = none): the button backgrounds (tools/make_buttons.py) */
+char g_sb_force[PART_N][32] = {"OotBtnS_L", "OotBtnS_X", "OotBtnS_R", "OotBtnS_ZR", {1}, {1}, {1}, {1}};
+/* button texture behind each slot's icon (UI/Tex/IconSh/<name>, tools/make_buttons.py) */
+char g_sb_btn[PART_N][24] = {{0}};
 /* ItemPattern = how the icon of each item is framed in the button (scale / offset); frame 0 draws it oversized.
  * Measured on the stock item box (docs/RE-NOTES.md, "Item index -> ItemPattern icon frame"); others use 6. */
 static float item_pattern(int item) {
@@ -1004,11 +1039,33 @@ static const char *item_name(int item) {
     return nm && nm[0] ? nm : 0;
 }
 /* around the stock item box (top right): above, left, below, right-above; layout units, root-relative */
-float g_sb_pos[PART_N][2] = {{1170.0f, 600.0f}, {930.0f, 773.0f}, {1170.0f, 946.0f}, {1410.0f, 600.0f}};
+/* Classic's default arrangement, top right: top row L X R, middle row (Y) (A) ZR, bottom (B) */
+float g_sb_pos[PART_N][2] = {{1096.0f, 837.0f}, {1326.0f, 837.0f}, {1557.0f, 837.0f}, {1672.0f, 669.0f},
+                             {1096.0f, 837.0f}, {1326.0f, 837.0f}, {1557.0f, 837.0f}, {1672.0f, 669.0f}};
 float g_sb_scale = 0.62f;
+u32 g_sb_big_items = 1;
+/* per-part scale: buttons, then items (Classic draws the item bigger than its button) */
+float g_sb_sc[PART_N] = {0.40f, 0.40f, 0.40f, 0.40f, 0.36f, 0.36f, 0.36f, 0.36f};
+u32 g_sb_hide_stock = 1;   /* hide the game's own item box and its page dots: the replica replaces them */
+static u64 g_stock_box_rec, g_stock_dots_rec;
 /* animation frame forced on every button each frame, per animation (-1 = leave it); see slot_anim_name() */
 float g_sb_animf[SA_N] = {-1.0f, -1.0f, -1.0f, -1.0f, -1.0f, -1.0f, -1.0f, -1.0f, -1.0f, -1.0f, -1.0f};
 static volatile u32 g_sb_busy;
+/* pane record of a pane inside a part's own layout */
+static u64 part_child(u64 part, const char *name) {
+    u64 cl = ptr(part, 0x80);
+    const u8 *r = cl ? (const u8 *)ptr(cl, 0xF8) : 0;
+    if (!r) return 0;
+    int i = name_index(r, 0x20, name);
+    return i < 0 ? 0 : ptr(cl, 0x100) + (u64)i * 0xB0;
+}
+static const char *hide_name(u32 i) {   /* the item box's own frame, glyph and count: not used by our buttons */
+    switch (i) {
+    case 0: return "P_HUDBg_00"; case 1: return "P_HUDDeco_01"; case 2: return "P_HUDBgSh_00";
+    case 3: return "T_Assign_00"; case 4: return "P_ShortcutBg_01"; case 5: return "P_ShortcutDeco_02";
+    case 6: return "P_ShortcutBgSh_01"; case 7: return "P_CursorGlowDecide_00"; default: return "N_Num_00";
+    }
+}
 /* Item icons: the game's own icon setup (main+0x33B7DA0, used for the Agony Stone icon) is called with a small
  * stand-in "widget" whose +0x20 is our button part. It finds the part's Pa_ReplaceIcon_00, allocates and inits an
  * icon controller (main+0xA37320, hook 11 captures it) whose +0x30 / +0x38 are the icon / shadow texture
@@ -1020,6 +1077,7 @@ u64 g_sb_ctrl_dbg[PART_N];
 void hud_icon_ctrl_init(u64 ctrl) { if (g_ctrl_capture) g_ctrl_captured = ctrl; }
 u64 g_hud_heap;   /* heap passed to the PlayerStatus HUD init (main+0x33F5D20, hook 12) */
 static u64 g_sb_ctrl[PART_N];
+u32 g_sb_ctrl_max = PART_N;
 /* Hook 12 (entry of the PlayerStatus HUD init, x0 HUD object, x1 heap): the layout and our parts exist, and the
  * heap still accepts allocations (it does not afterwards), so the icon controllers are built here. */
 static void hud_slots_init(u64 hud, u64 heap) {
@@ -1027,6 +1085,7 @@ static void hud_slots_init(u64 hud, u64 heap) {
     u64 frame = hud ? ptr(hud, 0x28) : 0;
     for (u32 k = 0; k < PART_N; k++) {
         g_sb_ctrl[k] = 0;
+        if (k >= g_sb_ctrl_max) continue;   /* bisect: how many controllers the HUD init accepts */
         u64 p = frame ? (u64)find_part((void *)frame, part_name(k)) : 0;
         if (!p || !heap) continue;
         for (u32 i = 0; i < 12; i++) g_sb_widget[k][i] = 0;
@@ -1038,13 +1097,15 @@ static void hud_slots_init(u64 hud, u64 heap) {
         g_sb_ctrl_dbg[k] = MARK | g_sb_ctrl[k];
     }
 }
-static void set_icon(SlotBtn *b, const char *name) {
+static void set_icon_btn(SlotBtn *b, const char *name, const char *btn);
+static void set_icon(SlotBtn *b, const char *name) { set_icon_btn(b, name, 0); }
+static void set_icon_btn(SlotBtn *b, const char *name, const char *btn) {
     if (!b->ctrl) return;
     u64 r1 = ptr(b->ctrl, 0x30), r2 = ptr(b->ctrl, 0x38);
     char sh[40]; u32 n = 0;
     while (name[n] && n < 32) { sh[n] = name[n]; n++; }
     sh[n] = '_'; sh[n + 1] = 'S'; sh[n + 2] = 'h'; sh[n + 3] = 0;
-    const char *a = name, *c = sh;
+    const char *a = name, *c = btn ? btn : sh;
     g_sb_busy = 1;
     if (r1) tex_replace((void *)r1, &a, 0);
     if (r2) tex_replace((void *)r2, &c, 0);
@@ -1052,6 +1113,14 @@ static void set_icon(SlotBtn *b, const char *name) {
 }
 static void slots_update(u64 frame) {
     if (g_sb_busy) return;
+    if (!g_stock_box_rec) g_stock_box_rec = pane_record(frame, "Pa_SelectItem_00");
+    if (!g_stock_dots_rec) g_stock_dots_rec = pane_record(frame, "N_Shortcut_00");
+    for (u32 i = 0; i < 2 && g_sb_hide_stock; i++) {
+        u64 r = i ? g_stock_dots_rec : g_stock_box_rec;
+        if (!r) continue;
+        *(float *)(r + 0x60) = 0.0f; *(float *)(r + 0x64) = 0.0f;
+        *(u32 *)r |= 0x6F;
+    }
     for (u32 k = 0; k < PART_N; k++) {
         SlotBtn *b = &g_sb[k];
         if (!b->part) {
@@ -1072,14 +1141,32 @@ static void slots_update(u64 frame) {
                 g_sb_rif[k][1] = MARK | (rif ? ptr(rif, 0x80) : 0);
                 /* its texture replacer (the object the game's HUD gives the item's icon name to) */
                 b->rep = rif ? ptr(rif, 0x6A8) : 0;
+                b->ic = rif ? part_child(rif, "P_ReplaceIcon_00") : 0;     /* item icon pane */
+                b->sh = rif ? part_child(rif, "P_ReplaceIconSh_00") : 0;   /* its shadow pane: our button */
                 b->icon_set = 0;
                 b->ctrl = g_sb_ctrl[k];   /* built during the HUD init (hud_slots_init) */
             }
             b->rec = pane_record(frame, part_name(k));
+            for (u32 i = 0; i < 9; i++) b->hide[i] = part_child(p, hide_name(i));
             b->part = p;
         }
-        if (b->rec) place(b->rec, g_sb_pos[k][0], g_sb_pos[k][1], g_sb_scale, g_sb_scale, 0.0f);
-        if (b->anim[0]) set_frame((void *)b->anim[0], item_pattern(g_sb_item[k]));   /* ItemPattern: icon framing */
+        if (b->rec) place(b->rec, g_sb_pos[k][0], g_sb_pos[k][1], g_sb_sc[k], g_sb_sc[k], 0.0f);
+        /* ItemPattern = icon framing. Frame 0 shows the full picture: buttons, and items drawn big and even
+         * like Classic (item_pattern() keeps the stock box's per-item framing for a smaller style) */
+        if (b->anim[0]) set_frame((void *)b->anim[0], g_sb_item[k] < 0 || g_sb_big_items ? 0.0f : item_pattern(g_sb_item[k]));
+        if (b->sh) {   /* the button behind the icon: full colour, opaque, centred on the icon (no shadow offset) */
+            tint_rec(b->sh, 1.0f, 1.0f, 1.0f, 1.0f);
+            if (b->ic) {
+                *(float *)(b->sh + 0x6C) = *(float *)(b->ic + 0x6C);
+                *(float *)(b->sh + 0x70) = *(float *)(b->ic + 0x70);
+            }
+            *(u32 *)b->sh |= 0x6F;
+        }
+        for (u32 i = 0; i < 9; i++)
+            if (b->hide[i] && (i < 8 || g_sb_item[k] < 0)) {   /* the count stays on the icon parts */
+                *(float *)(b->hide[i] + 0x60) = 0.0f; *(float *)(b->hide[i] + 0x64) = 0.0f;
+                *(u32 *)b->hide[i] |= 0x6F;
+            }
         for (u32 i = 0; i < SA_N; i++)
             if (g_sb_animf[i] >= 0.0f && b->anim[i]) set_frame((void *)b->anim[i], g_sb_animf[i]);
         /* icon of the button's item (only when it changes) */
@@ -1092,11 +1179,11 @@ static void slots_update(u64 frame) {
             b->icon_set = 1;
             b->shown_item = g_sb_item[k];
             for (u32 i = 0; i < 31; i++) { g_sb_name_dbg[k][i] = nm ? nm[i] : 0; if (nm && !nm[i]) break; }
-            if (nm) set_icon(b, nm);
+            if (nm) set_icon_btn(b, nm, g_sb_btn[k][0] ? g_sb_btn[k] : 0);
         }
     }
 }
-static void slots_reset(void) { for (u32 k = 0; k < PART_N; k++) g_sb[k].part = 0; }
+static void slots_reset(void) { for (u32 k = 0; k < PART_N; k++) g_sb[k].part = 0; g_stock_box_rec = 0; g_stock_dots_rec = 0; }
 
 u32 hud_frame_count(void) { return g_tick; }
 static void hud_frame(void) {

@@ -55,8 +55,12 @@ def dump(ver, sbs, crc, names) -> bytes:
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("out", help="mod romfs folder to write into")
+    ap.add_argument("--vanilla-raw", help="an already decompressed vanilla table (e.g. build/rsizetable.bin)")
     args = ap.parse_args()
-    raw = zstandard.ZstdDecompressor().decompressobj().decompress(VANILLA.read_bytes())
+    if args.vanilla_raw:
+        raw = Path(args.vanilla_raw).read_bytes()
+    else:
+        raw = zstandard.ZstdDecompressor().decompressobj().decompress(VANILLA.read_bytes())
     ver, sbs, crc, names = load(raw)
     for path, extra in GROW.items():
         key = zlib.crc32(path.encode())

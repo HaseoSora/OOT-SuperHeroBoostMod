@@ -128,7 +128,8 @@ These projects are development references and tools; their code is not bundled w
 
 ## AI assistance
 
-Part of the development was carried out with AI assistance: Anthropic Claude and DeepSeek.
+AI assistants (Anthropic Claude and DeepSeek) were used for parts of the coding, reverse engineering and testing.
+I orchestrated the work, tested the results and adjusted them until they worked.
 
 ## License
 

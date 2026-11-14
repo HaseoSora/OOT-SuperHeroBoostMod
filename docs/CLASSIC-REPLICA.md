@@ -58,3 +58,25 @@ button frames, letters and backgrounds.
 
 Open questions to settle in phase 1: the item index -> ItemPattern table for every item (ours covers 15), how the
 game shows ammo for bombs / arrows / seeds on an item button (StockNum vs a separate pane), and magic cost display.
+
+## Phase 1 results (Nov 14)
+
+- **Appended item-button parts work.** Four clones of the stock item box (`Pa_SelectItem_00`, asset `PaItemBtn_00`)
+  appended to PlayerStatus_00 (common desc `+0x40 = 0xFFFF`, `+0x42` = part index, like the old gauge parts) are
+  created, found by `find_part`, have all 11 animations (ItemPattern, StockNum, NumMax, NumMin, IsInvalid, Type,
+  ItemChange, Select, UnSelect, Decide, Assign) and draw, with a clean log. `PART_N = 4`, `slots_update()` in hud.c.
+- **Item icons are textures loaded by name at runtime.** `PaItemBtn_00` contains the part `Pa_ReplaceIcon_00`,
+  whose two panes (icon + shadow) use the placeholder texture `FBLayout_00_ASTC4x4`. The HUD replaces it with
+  `UI/Tex/Icon/<Item_Name>.bntx.zs` (129 icons in the dump: `Item_Boomerang`, `Item_Bomb`, `Item_DekuNut`, ...) and
+  `UI/Tex/IconSh/<name>_Sh`. ItemPattern alone shows a placeholder (a button-glyph "L").
+- **How the game sets an icon** (stock HUD at main+0x33B7E80, same pattern used by Classic's module):
+  1. allocate a 0x40-byte icon controller, set its vtable (`[main+0x4C973B0] + 0x10`) and fields, link it into
+     the part's list, zero `+0x30` / `+0x38`;
+  2. `main+0xA37320(controller, part)` creates the texture replacers for the part's icon and shadow panes at
+     `controller+0x30` / `+0x38` (it allocates through the engine heap, 0x58 bytes each);
+  3. `main+0xA73920(controller->+0x30, &"Item_X", 0)` and `main+0xA73920(controller->+0x38, &"Item_X_Sh", 0)`.
+- Calling `main+0xA73920` on the object found at `nested ReplaceIcon frame + 0x6A8` recursed until the stack
+  overflowed (game frozen): that object is not a ready replacer. The direct call is kept behind
+  `SLOT_ICON_DIRECT 0`.
+- Next step: reproduce step 1-2 exactly (read the full stock sequence from main+0x33B7E80 and the controller
+  layout), then step 3 with our own names.

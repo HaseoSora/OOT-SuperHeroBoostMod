@@ -31,6 +31,7 @@ extern char MAIN_SCHED_VT[];
 extern void *find_part(void *node, const char *name);
 extern void *find_anim(void *part, const char *name);
 extern void set_frame(void *anim, float frame);
+extern void tex_replace(void *replacer, const char **name, int flag);   /* main+0xA73920 */
 extern void *memcpy(void *d, const void *s, unsigned long n);
 extern long set_text(void *pane, const void *ref, int zero);   /* stock text-pane setter (main+0x439520) */
 extern char GAMEDATA_MGR[];                                      /* main+0x4E842A8: GameData manager pointer slot */
@@ -53,7 +54,8 @@ static const char CIRCLE_TEX[] = "Circle64_00";
  * parts 1..4 are the slot circles: the gauge's fill texture is replaced by the
  * stock Circle64_00 and the gauge is kept full, so it draws a tinted circle. The
  * art is a placeholder until the real assets arrive. */
-#define PART_N 0   /* gauge-part ring retired: the stamina ring is now drawn with picture panes (RT1..) */
+#define PART_N 4   /* Classic replica slot buttons: clones of the stock item box Pa_SelectItem_00 (asset PaItemBtn_00).
+                    * (The old gauge-part ring is retired: the stamina ring is drawn with picture panes, RT1..) */
 #define APPEND_ALL 1   /* 1 = append every part (only the first one gets listed by the
                         * engine); 0 = parts 1.. repurpose filler parts (froze the game) */
 #define SLOT_N 4
@@ -250,7 +252,7 @@ static u8 *build_root(const u8 *r) {
     if (name_index(r, 0x20, g_pinames[0]) >= 0) { g_hud_dbg[9] = MARK | 1; return 0; }
     u32 nc = w(r, 0x38), np = w(r, 0xD8);
     if (nc > 128 || np > 128) { g_hud_dbg[9] = MARK | 2; return 0; }
-    int mci = name_index(r, 0x20, "Pa_MpGauge_00"), mpi = name_index(r, 0xC0, "Pa_MpGauge_00");
+    int mci = name_index(r, 0x20, "Pa_SelectItem_00"), mpi = name_index(r, 0xC0, "Pa_SelectItem_00");
     if (mci < 0 || mpi < 0) { g_hud_dbg[9] = MARK | 3; return 0; }
     u8 *root = pool_clone(r, 0x228);
     u8 *first = pool_clone((const void *)((const u64 *)q(r, 0x28))[0], 68);
@@ -267,10 +269,9 @@ static u8 *build_root(const u8 *r) {
         *(u32 *)(cdk[k] + 64) = 0x7FFFF;
         cdk[k][56] |= 1;
         *(unsigned short *)(cdk[k] + 0x42) = (unsigned short)(np + k);
-        *(float *)(cdk[k] + 16) = RING_SIZE;
-        *(float *)(cdk[k] + 20) = RING_SIZE;
-        *(float *)(cdk[k] + 28) = g_part_x[0];
-        *(float *)(cdk[k] + 32) = g_part_y[0];
+        /* keeps the stock item box's scale; placed at runtime (slots_update) */
+        *(float *)(cdk[k] + 28) = -600.0f + 300.0f * (float)k;
+        *(float *)(cdk[k] + 32) = 0.0f;
         *(u32 *)(pdk[k] + 64) = nc + k;               /* part -> index of its pane */
     }
     *(u32 *)(first + 52) = nc + PART_TOT + PIC_N + TXT_N;
@@ -428,9 +429,7 @@ void *hud_prepare(void *handle, u8 *config) {
         for (int i = 0; i < 15; i++) { d[i] = inst[i]; d[16 + i] = asset[i]; }
     }
     u32 kind = str_eq(asset, "PlayerStatus_00") ? 1 : 0;
-    if (!kind)
-        for (u32 k = 0; k < PART_N; k++)
-            if (str_eq(inst, part_name(k))) { kind = 2 + k; break; }   /* gauge copy for part k */
+    /* appended parts (slot buttons) use the stock asset unchanged: only PlayerStatus_00 itself is replaced */
     if (!kind) return config;
     u8 *rep = 0;
     u32 i;
@@ -963,6 +962,71 @@ static void ring_update(void) {
     ring_draw(RT2, RF2, RING2_DOTS, g_rs2, g_rc2, G[1], G[3], u2, f2, on, rgb);
 }
 
+/* ---- Classic replica: slot item buttons (appended PaItemBtn_00 parts) ----
+ * Phase 1 test: bind the parts, place them, show a fixed icon per button through the stock ItemPattern animation. */
+#define SA_N 11
+static const char *slot_anim_name(u32 i) {
+    switch (i) {
+    case 0: return "ItemPattern"; case 1: return "StockNum"; case 2: return "NumMax"; case 3: return "NumMin";
+    case 4: return "IsInvalid"; case 5: return "Type"; case 6: return "ItemChange"; case 7: return "Select";
+    case 8: return "UnSelect"; case 9: return "Decide"; default: return "Assign";
+    }
+}
+typedef struct { u64 part, anim[SA_N], rec, rep; u32 icon_set; } SlotBtn;
+static SlotBtn g_sb[PART_N];
+u64 g_sb_dbg[PART_N];       /* part object per button (diagnostic) */
+u32 g_sb_anim[PART_N];      /* bit i = anim i found */
+u64 g_sb_rif[PART_N][2];    /* nested Pa_ReplaceIcon_00 frame, its layout (diagnostic) */
+/* icon per button: name of a texture in UI/Tex/Icon (the game's own item icons) */
+char g_sb_icon_name[PART_N][32] = {"Item_Boomerang", "Item_DekuNut", "Item_Bomb", "Item_Arrow_Fire"};
+float g_sb_pos[PART_N][2] = {{-600.0f, 0.0f}, {-300.0f, 0.0f}, {0.0f, 0.0f}, {300.0f, 0.0f}};
+float g_sb_scale = 0.85f;
+static volatile u32 g_sb_busy;
+#define SLOT_ICON_DIRECT 0
+static void slots_update(u64 frame) {
+    if (g_sb_busy) return;
+    for (u32 k = 0; k < PART_N; k++) {
+        SlotBtn *b = &g_sb[k];
+        if (!b->part) {
+            u64 p = (u64)find_part((void *)frame, part_name(k));
+            g_sb_dbg[k] = MARK | p;
+            if (!p) continue;
+            u64 none = (u64)find_anim((void *)p, "__no_such_anim__");
+            u32 mask = 0;
+            for (u32 i = 0; i < SA_N; i++) {
+                u64 a = (u64)find_anim((void *)p, slot_anim_name(i));
+                b->anim[i] = (a && a != none) ? a : 0;
+                if (b->anim[i]) mask |= 1u << i;
+            }
+            g_sb_anim[k] = 0x10000000u | mask;
+            {   /* the nested icon part and its layout (diagnostic: where the texture replacers live) */
+                u64 rif = (u64)find_part((void *)p, "Pa_ReplaceIcon_00");
+                g_sb_rif[k][0] = MARK | rif;
+                g_sb_rif[k][1] = MARK | (rif ? ptr(rif, 0x80) : 0);
+                /* its texture replacer (the object the game's HUD gives the item's icon name to) */
+                b->rep = rif ? ptr(rif, 0x6A8) : 0;
+                b->icon_set = 0;
+            }
+            b->rec = pane_record(frame, part_name(k));
+            b->part = p;
+        }
+        if (b->rec) place(b->rec, g_sb_pos[k][0], g_sb_pos[k][1], g_sb_scale, g_sb_scale, 0.0f);
+        /* DISABLED: the object at rif+0x6A8 is not what tex_replace expects (the game first builds a 0x40-byte
+         * icon controller with main+0xA37320(controller, part), which creates the icon / shadow replacers at
+         * controller+0x30 / +0x38; calling tex_replace directly recursed until the stack overflowed).
+         * See docs/CLASSIC-REPLICA.md, "Item icons". */
+        if (SLOT_ICON_DIRECT && b->rep && !b->icon_set && !g_sb_busy) {
+            /* tex_replace can run the frame hook again (re-entry): mark first, and never nest */
+            const char *nm = g_sb_icon_name[k];
+            b->icon_set = 1;
+            g_sb_busy = 1;
+            tex_replace((void *)b->rep, &nm, 0);
+            g_sb_busy = 0;
+        }
+    }
+}
+static void slots_reset(void) { for (u32 k = 0; k < PART_N; k++) g_sb[k].part = 0; }
+
 u32 hud_frame_count(void) { return g_tick; }
 static void hud_frame(void) {
     g_hud_dbg[1] = MARK | ++g_tick;
@@ -984,6 +1048,7 @@ static void hud_frame(void) {
         g_tired = (g_tick / 480) & 1;   /* demo: alternate green / yellow */
     }
     ring_update();
+    slots_update(g_frame_node);
 }
 /* -------- observation of the stock item box (to learn icon frames) -------- */
 #define FL_N 24
@@ -1057,6 +1122,7 @@ void hud_on_code(u32 id, void *a0, void *a1, void *a2, void *regs) {
         g_frame_node = 0;
         for (u32 i = 0; i < SEG_N; i++) { g_seg[i].bar = 0; g_seg[i].init = 0; }
         plates_reset();
+        slots_reset();
         g_hud_dbg[0] = MARK | g_mp;
     } else if (id == 0) {
         if (a0 && *(u64 *)a0 == (u64)MAIN_SCHED_VT) hud_frame();

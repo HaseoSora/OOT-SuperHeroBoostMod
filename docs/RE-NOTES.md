@@ -242,3 +242,9 @@ Consequence: only site 3 sees gameplay input. The four classic slot sites
   `Sequence_IsChildhood` = 1 while Link is a child; `IsGet.<actor name>` = the item is owned.
   `core/gd_index.h` (tools/gen_gd_index.py) holds their indices for GameDataList.Product.110.
 - `PlayerStatus.AssignableItem.Child` / `.Adult` (Enum) are the game's own item box (ZR) per age.
+- The item box (ZR) per age is `PlayerStatus.AssignableItem.Child` / `.Adult` (Enum table k = 6, 0x38-byte
+  records, live value at +0x1C = murmur3 of the value name). Writing "Empty" there empties the box and the HUD
+  follows. The value -> item actor comes from RSDB `PouchActorInfo` (`AssignableItem` column), in
+  `core/gd_index.h` (`GD_ACTOR_BOX`). The HUD controller path (+0x150 -> +0x1F0 -> +0x38) is not reliable
+  for the box name (garbage in some saves); it is only the fallback now.
+- In the pause menu, A sets the box only when the menu closes (GameData unchanged until then).

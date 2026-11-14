@@ -72,6 +72,9 @@ void hud_menu_zr(int item); /* core/hud.c: show an item on ZR now */
 void hud_menu_off(void);    /* core/hud.c: not on the Items tab: hide the assign legend */
 static int g_menu_a_item = -1, g_menu_a_wait;
 static int g_paused;        /* + pressed in gameplay: the pause menu is up */
+
+static int g_box_pending = -2;   /* the item box gets this when gameplay is back: an item, -1 empty, -2 nothing */
+void hud_box_empty(int child);   /* core/hud.c */
 static u32 g_run, g_run_frame;
 u32 hud_frame_count(void);  /* core/hud.c */
 #define BTN_PLUS 0x0400ull   /* A pressed on this item: did the game put it in its box? */   /* core/hud.c: keep showing the ZR item while a slot item borrows the item box */
@@ -196,8 +199,14 @@ void classic_slots_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_re
             if (!(pressed & MENU_BTN[s])) continue;
             int it = hud_menu_item();
             if (it < 0) continue;
-            for (int o = 0; o < SLOT_ZR; o++) if (o != s && g_assign[o] == it) g_assign[o] = g_assign[s];
-            g_assign[s] = it;
+            int old = g_assign[s];
+            if (old == it) g_assign[s] = -1;   /* the same button again: unassign (the button works as normal) */
+            else {
+                /* each item on one button only: the one that had it gets this button's old item (ZR too) */
+                for (int o = 0; o < SLOT_ZR; o++) if (o != s && g_assign[o] == it) g_assign[o] = old;
+                if (it == g_zr_item) { g_zr_item = old; g_box_pending = old; hud_menu_zr(old); }
+                g_assign[s] = it;
+            }
             g_cl_dbg[3]++;
             hud_menu_decide();
         }
@@ -205,7 +214,11 @@ void classic_slots_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_re
         if (pressed & BTN_A) { g_menu_a_item = hud_menu_item(); g_menu_a_wait = 20; }
         if (g_menu_a_wait > 0) {
             g_menu_a_wait--;
-            if (g_menu_a_item >= 0 && hud_menu_decided()) { g_zr_item = g_menu_a_item; hud_menu_zr(g_menu_a_item); g_menu_a_wait = 0; }
+            if (g_menu_a_item >= 0 && hud_menu_decided()) {   /* the game took it: a button that had it gets the old box item */
+                int it = g_menu_a_item, old = g_zr_item != it ? g_zr_item : -1;
+                for (int o = 0; o < SLOT_ZR; o++) if (g_assign[o] == it) g_assign[o] = old;
+                g_zr_item = it; g_box_pending = -2; hud_menu_zr(it); g_menu_a_wait = 0;
+            }
         }
         for (int s = 0; s < SLOT_ZR; s++) hud_slot_item((u32)s, g_assign[s]);   /* show a swap at once */
         hud_menu_tick();
@@ -232,11 +245,26 @@ void classic_slots_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_re
         return;
     }
 
+    /* A swap with ZR made in the menu: the game's item box takes the button's old item (or empties) now that
+     * gameplay is back (in the menu the game sets the box from its own selection when it closes). */
+    if (g_box_pending != -2 && !g_paused) {
+        if (g_borrowed) { g_borrowed = 0; hud_zr_hold(0); }
+        if (g_box_pending >= 0) equip_now(g_box_pending);
+        else { int ch = hud_is_child(); if (ch >= 0) hud_box_empty(ch); }
+        g_zr_item = g_box_pending;
+        g_box_pending = -2;
+    }
+
     /* What the game has in its item box. While a slot item borrows it, a different item there means the player
      * picked a new one (R selector / pause menu): that becomes the ZR item and nothing is put back. */
     int box = hud_zr_item();
     if (!g_borrowed) {
-        if (box >= 0) g_zr_item = box;
+        /* a new item in the box (selector, menu, an older save): the button that also had it gets the box's old
+         * item, so no item sits on two buttons */
+        if (box != g_zr_item) {
+            if (box >= 0) for (int s = 0; s < SLOT_ZR; s++) if (g_assign[s] == box) g_assign[s] = g_zr_item;
+            g_zr_item = box;
+        }
     } else if (g_phase == PH_IDLE && box >= 0 && box != g_borrow_item && box != g_saved) {
         g_borrowed = 0; g_zr_item = box; hud_zr_hold(0);
     }

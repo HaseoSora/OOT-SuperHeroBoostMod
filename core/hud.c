@@ -1237,12 +1237,21 @@ static int g_zr_index = -1;
 int hud_zr_item(void) { return g_zr_index; }
 static int g_zr_hold;
 void hud_zr_hold(int hold) { g_zr_hold = hold; }   /* features/classic_slots: a slot item borrows the item box */
+static int box_item(void);
 static void zr_mirror(void) {
     u64 part = g_sb[0].part;   /* any of our bound parts: [part + 0x28] is the PlayerStatus frame it lives in */
     u64 fr = part ? ptr(part, 0x28) : 0;
     u64 ctl = fr ? ptr(fr, 0x150) : 0;
     u64 rp = ctl ? ptr(ctl, 0x1F0) : 0;
     const char *nm = rp ? (const char *)ptr(rp, 0x38) : 0;
+    /* the box from GameData (PlayerStatus.AssignableItem.<age>); the HUD's own icon name is the fallback */
+    int bi = box_item();
+    if (bi == -1) {   /* empty */
+        g_zr_name[0] = 0; g_zr_index = -1;
+        if (!g_zr_hold) g_sb_force[10][0] = 1;   /* hidden */
+        return;
+    }
+    if (bi >= 0) nm = item_name(bi);
     if (!nm || (u64)nm < 0x10000 || (nm[0] != 'I' && nm[0] != 'W' && nm[0] != 'A')) return;   /* Item_/Weapon_/Armor_ */
     /* 1. always track the box: name and item index */
     if (!str_eq(g_zr_name, nm)) {
@@ -1322,6 +1331,44 @@ static u32 mmh3(const char *a, const char *b) {   /* murmur3_32(a + b, seed 0): 
 }
 /* Link is a child (Sequence_IsChildhood): 1 / 0, -1 = GameData not there */
 int hud_is_child(void) { return gd_bool(GD_IS_CHILDHOOD); }
+/* The game's item box (ZR) for Link's age, from GameData: the item index, -1 empty, -2 unknown (no GameData, or a
+ * value no item maps to, like the 2nd..5th bottle). Value hash -> actor name hash via GD_ACTOR_BOX. */
+static u32 box_value(void) {
+    int ch = gd_bool(GD_IS_CHILDHOOD);
+    u64 mgr = *(u64 *)GAMEDATA_MGR;
+    if (ch < 0 || !mgr) return 0;
+    u32 cnt = *(volatile u32 *)(mgr + 8 + 0x60 * 6 + 8);
+    u64 rec = *(volatile u64 *)(mgr + 8 + 0x60 * 6 + 0x10);
+    u32 i = ch ? GD_BOX_CHILD : GD_BOX_ADULT;
+    return rec && i < cnt ? *(volatile u32 *)(rec + (u64)i * 0x38 + 0x1C) : 0;
+}
+static u32 g_item_box[64];   /* cached box value of each item index + 1 bit: 0 = not looked up, 1 = none */
+static u32 item_box_value(int it) {
+    if (!g_item_box[it]) {
+        const char *nm = item_name(it);
+        u32 h = nm ? mmh3("", nm) : 0, lo = 0, hi = GD_ACTOR_BOX_N;
+        while (lo < hi) { u32 mid = (lo + hi) / 2; if (GD_ACTOR_BOX[mid][0] < h) lo = mid + 1; else hi = mid; }
+        g_item_box[it] = nm && lo < GD_ACTOR_BOX_N && GD_ACTOR_BOX[lo][0] == h ? GD_ACTOR_BOX[lo][1] : 1;
+    }
+    return g_item_box[it];
+}
+static int box_item(void) {
+    u32 v = box_value();
+    if (!v) return -2;
+    if (v == GD_EMPTY_HASH) return -1;
+    for (int it = 0; it < 64; it++) if (item_box_value(it) == v) return it;
+    return -2;
+}
+/* Empty the game's item box (ZR): PlayerStatus.AssignableItem.Child / .Adult (Enum table k = 6, 0x38-byte records,
+ * live value at +0x1C = the hash of the value name) = "Empty". The HUD box follows. */
+void hud_box_empty(int child) {
+    u64 mgr = *(u64 *)GAMEDATA_MGR;
+    if (!mgr) return;
+    u32 cnt = *(volatile u32 *)(mgr + 8 + 0x60 * 6 + 8);
+    u64 rec = *(volatile u64 *)(mgr + 8 + 0x60 * 6 + 0x10);
+    u32 i = child ? GD_BOX_CHILD : GD_BOX_ADULT;
+    if (rec && i < cnt) *(volatile u32 *)(rec + (u64)i * 0x38 + 0x1C) = GD_EMPTY_HASH;
+}
 /* the player has the item (IsGet.<item's actor name>): 1 / 0; 1 also when the item has no IsGet flag */
 static u32 g_own_idx[64];   /* cached Bool index + 1; 0xFFFFFFFF = no flag */
 int hud_item_owned(int item) {
@@ -1365,10 +1412,11 @@ int hud_menu_decided(void) {
     return a && ptr(a, 0) != a;
 }
 /* the game put an item in its box from the menu (A): show it on ZR now (the HUD box catches up on close) */
-void hud_menu_zr(int item) {
-    const char *nm = item_name(item);
-    if (!nm || g_zr_hold) return;
+void hud_menu_zr(int item) {   /* -1: empty */
+    if (g_zr_hold) return;
     char *dst = g_sb_force[10];
+    const char *nm = item >= 0 ? item_name(item) : 0;
+    if (!nm) { dst[0] = 1; dst[1] = 0; return; }
     u32 i;
     for (i = 0; i < 30 && nm[i]; i++) dst[i] = nm[i];
     dst[i] = 0;

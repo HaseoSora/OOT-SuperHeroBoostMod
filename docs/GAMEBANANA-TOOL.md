@@ -8,6 +8,8 @@ GameBanana classifies third-party programs as Tools; the Mods file must stay fre
 **Tagline:** Configure and install Super Hero Boost: profiles, stamina, difficulty, HUD, item buttons and optional
 world changes from one window.
 
+**Version:** 0.2.1
+
 ## Summary
 
 SuperHeroBoostConfig is the companion app for **Super Hero Boost**, a gameplay and HUD module for the *Ocarina of
@@ -50,7 +52,7 @@ programs may show a generic false positive. The source, the build script and the
 ## Files
 
 - `SuperHeroBoostConfig.exe`
-  SHA-256: `17cbcf09debeaf8660274fe2e5690ed44ad2687b1f34bbc58999886bff1091ca`
+  SHA-256: `974c64fabdb9ebc897ccea95f23f46e9bba72c8a36f5e862cbf9d66e785463ff`
 
 The module payload is inside the executable; the app does not download anything.
 

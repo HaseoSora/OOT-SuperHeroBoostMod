@@ -1,0 +1,108 @@
+Super Hero Boost is a gameplay and HUD module for the Ocarina of Time remake (update v131072).
+
+WHAT YOU ARE DOWNLOADING
+The file in the Files tab is SuperHeroBoost-0.2.1-presets.zip: the mod itself, with all 11 profiles of the companion app ready to install in an emulator. It contains no executable. The configuration app is a separate download (see "Installation app" below); it is not in the Files tab.
+
+Every feature in this mod is optional. The installation app sets up the module once, and each system below has its own on/off switch, so you can use only what you want — with everything off, the game plays like vanilla. The Recommended profile turns everything on; change any option and the profile switches to Custom. Options take effect when you press Install again: for emulators nothing is recompiled and no file is edited by hand. (Longshot is different; see the Longshot section.)
+
+STAMINA (optional)
+- Can be turned off completely: no costs, no ring, no locks.
+- Four styles: Hardcore (every action costs), Combat only, Sprint only, or Advanced (choose which actions cost).
+- Exhaustion and regeneration, with individual costs for rolling, jumping, attacking, shooting, sprinting and shield blocking.
+- Stamina ring next to Link, drawn with the game's own textures.
+
+DIFFICULTY (optional)
+- Enemy health and damage taken multipliers from x1 to x3 (x1 is vanilla).
+- No heart drops: dropped hearts become green rupees. Installed as a separate optional file; if it is not available, the app installs everything else and shows a note.
+
+MOVEMENT (optional)
+- Configurable sprint speed (+25% by default).
+
+HUD (optional, one switch per element)
+- Always-visible rupee counter and clock (off / 12 h / 24 h) with the game's native plate look.
+- Per-area counter for Gold Skulltulas and heart pieces, for example SKULL 3/8  COR 0/2. It reads the save's persistent key set, so the count survives leaving and re-entering an area.
+
+BUTTONS (optional)
+- B, L, R and ZR item buttons on the HUD, assignable from the pause menu's Items tab with X / L / R / A.
+- Switch, PlayStation and Xbox button styles.
+- Extended layout (B, L, R, ZR, X, Y, A and the sword) or simple layout (only the assignable buttons, with B centred).
+- L as an item button or as the game's own item selector.
+- Songbook autoplay: select a learned song in the native songbook (ZL) and Link plays it with its effect. Learned songs only, not the Scarecrow's Song.
+
+WORLD CHANGES (optional, each with its own switch)
+- The three Great Fairy magic rewards are reordered: Hyrule Castle (child) gives Nayru's Love, Death Mountain Crater gives the magic spin attack and Desert Colossus gives double magic.
+- Farore's Wind warp points can be placed outdoors.
+- Known bug: press up and down a couple of times before the teleport menu responds.
+
+PROFILES (optional shortcuts)
+- Recommended, Base, Hero Mode, Hero + Stamina, Hero Explorer, Super Hero, Ultra Hero, Survival, World changes and two beta combinations, plus a fully custom setup.
+
+BETA (optional, experimental, off unless you turn them on)
+- Enemy duplication (Option A): clones generic enemy placements and doubles field auto-spawn counts. Bosses, minibosses and scripted enemies are excluded.
+- Enemy speed x2: speeds up movement, animation and attack cadence. Some enemies or attacks may not change or may desync.
+- They install extra romfs files and can break puzzles, quests or performance. Back up your save and test one at a time.
+
+REQUIREMENTS
+- The game on update v131072.
+- An emulator that loads mods from its user/load folder, or a Longshot installation.
+- Close the game before installing and back up your saves.
+
+EMULATOR - QUICK INSTALL (PRESETS ZIP)
+1. Download SuperHeroBoost-0.2.1-presets.zip from the Files tab and extract it.
+2. Open the folder of the profile you want (01 Recommended, 02 Base, 03 Hero Mode, ...).
+3. Copy its 00-Super-Hero-Boost folder into user/load/0400486024DEC000 (merge it if that folder already exists).
+4. Start the game.
+Only one profile can be installed at a time: they all use the same folder name, so replace the previous one.
+
+EMULATOR - CUSTOM SETTINGS (APP)
+1. Download SuperHeroBoostConfig.exe from GitHub Releases:
+   https://github.com/kuribox/OOT-SuperHeroBoostMod/releases
+   It is also published in the Tools section of this game. The module is bundled inside the app: you do not need Python.
+2. Close the game.
+3. On the game profile, choose a preset (Recommended turns everything on) or adjust each section by hand: Stamina, Difficulty, HUD, Modifications.
+4. Choose your emulator folder: the one that contains "user" (the app also detects a custom load_directory).
+5. Press Install. It creates 00-Super-Hero-Boost inside user/load/0400486024DEC000 and patches the configuration you selected.
+6. Start the game.
+
+LONGSHOT (use the app)
+The presets zip is for emulators only. Longshot is a static recompilation: it ignores exefs mods by design, so the module has to be built into the game. Use the installation app, which you can download from GitHub Releases:
+https://github.com/kuribox/OOT-SuperHeroBoostMod/releases
+
+1. Download and run SuperHeroBoostConfig.exe.
+2. Select the Longshot target.
+3. Point it at your Longshot folder and, if it is not detected automatically, at the builder's tools folder (LongshotBuilder/tools).
+4. Choose the profile/options you want and press Rebuild game. The app patches the game's main, copies the module to .longshot_exefs, installs the chosen romfs options and runs the builder's update with progress, log and cancel.
+5. The first build takes 25-45 minutes. Later code changes are incremental (about 5 minutes); profile, HUD and romfs changes need no rebuild.
+6. Uninstall restores the original bin/longshot.exe, image.bin and .longshot_exefs/main.
+
+Hookshot is not tested yet. It is the same kind of static recompilation and uses the same builder and nx2/make_game.py --update, so it may work, but I have not verified it and cannot confirm how compatible it is.
+
+IN GAME
+- Item buttons: pause menu -> Items tab, highlight an item and press X to put it on B, L on L and R on R. The game's own ZR box still works with A.
+- Songbook: pick a learned song in the native songbook (ZL) and Link plays it with its effect.
+- HUD: rupees and clock stay visible; under them you get the Gold Skulltula and heart-piece counter of the current area.
+- Stamina: the ring next to Link shows what is left; it refills when you stop.
+- To remove the mod, press Uninstall in the app (or delete the 00-Super-Hero-Boost folder).
+
+INSTALLATION APP
+- GUI for Windows, macOS and Linux (Python 3.10+ with Tkinter), and a command-line mode.
+- Profiles, per-section settings, install and uninstall.
+- Translations: Spanish, English, Portuguese, French, German and Italian.
+- From 0.2.1 the app checks GitHub Releases on startup and offers to download a newer version. On Windows it can replace itself and restart; if the folder is read-only, it shows where the new file was saved.
+- The app saves your settings automatically, but changes only reach the game after pressing Install again.
+
+COMPATIBILITY
+- Emulators: tested and working on lichii and Fritchii.
+- Longshot: supported and tested. Use the app to rebuild the game.
+- Hookshot: not tested yet.
+- Real hardware: not tested.
+
+CREDITS
+- Kuribox - creator: module, HUD, stamina system, item buttons and companion app.
+- Anthropic (Claude) - AI software used as an assistant for coding, reverse engineering and testing.
+- DeepSeek - AI software used as an assistant for coding, reverse engineering and testing.
+- Kabosune / oot-remake-modding - modding documentation and help.
+- platinumagpie / oot-remake-devtool - development tools used during research and testing.
+
+REPOSITORY
+https://github.com/kuribox/OOT-SuperHeroBoostMod

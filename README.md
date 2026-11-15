@@ -3,7 +3,7 @@
 Gameplay module for the console remake (update **v131072**) and its cross-platform configuration app
 **SuperHeroBoostConfig**.
 
-Current release: **0.2.0**, with support for the **Longshot** static recompilation.
+Current release: **0.2.1**, with support for the **Longshot** static recompilation and an automatic update check.
 
 The mod adds stamina, difficulty scaling, an expanded HUD and extra item buttons, all configurable without
 recompiling anything. The app patches the prebuilt module and copies the files the game needs. The module, the HUD,

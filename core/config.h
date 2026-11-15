@@ -33,7 +33,7 @@ typedef struct {
     unsigned char bm_l_mode;         /* buttonMapping L: 0 assignable, 2 the game's item selector */
     unsigned char quick_boots;       /* reserved: quick select is not part of this build */
     unsigned char quick_mask;        /* reserved (keeps the config layout) */
-    unsigned char hud_collectibles; /* beta: per-area Skulltula / heart-piece counter */
+    unsigned char hud_collectibles; /* per-area Skulltula / heart-piece counter */
     signed short hud_x[4];          /* installer: x of the rupee, clock, skull and heart blocks (-32768 = off) */
     unsigned char reserved[18];
 } ShbConfig;

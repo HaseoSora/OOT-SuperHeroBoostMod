@@ -56,11 +56,11 @@ class Settings:
     songbook: bool = True            # play a learned song by selecting it in the native songbook
     quick_boots: bool = False        # reserved: quick select lives on its own branch
     quick_mask: bool = False         # reserved (config bytes 25/26, always 0 here)
-    hud_collectibles: bool = False   # beta: per-area Skulltula / heart-piece counter
+    hud_collectibles: bool = False   # per-area Skulltula / heart-piece counter
     enemy_double: bool = False       # beta: install the duplicated-enemy romfs mod
     enemy_speed: bool = False        # beta: install the x2 enemy animation/movement/cadence romfs mod
-    great_fairy: bool = False        # beta: reorder the three Great Fairy magic rewards
-    farore_outdoor: bool = False     # beta: allow Farore's Wind points outside dungeons
+    great_fairy: bool = False        # reorder the three Great Fairy magic rewards
+    farore_outdoor: bool = False     # allow Farore's Wind points outside dungeons
     button_mapping: bool = True      # buttonMapping: our own item buttons B / L / R / ZR on the HUD
     button_style: str = "switch"     # one of BUTTON_STYLES
     bm_simple: bool = False          # simple layout: only the assignable buttons (no A / X / Y)

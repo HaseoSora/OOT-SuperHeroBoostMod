@@ -63,9 +63,9 @@ def cli(argv) -> int:
     ap.add_argument("--no-songbook", action="store_true", help="disable playing songs from the native songbook")
     ap.add_argument("--enemy-double", action="store_true", help="beta: duplicate generic enemies (romfs)")
     ap.add_argument("--enemy-speed", action="store_true", help="beta: accelerate enemy animation/movement/cadence (romfs)")
-    ap.add_argument("--great-fairy", action="store_true", help="beta: reorder the three Great Fairy magic rewards (romfs)")
-    ap.add_argument("--farore-outdoor", action="store_true", help="beta: allow Farore's Wind points outside dungeons (romfs)")
-    ap.add_argument("--hud-collectibles", action="store_true", help="beta: per-area Skulltula / heart-piece counter")
+    ap.add_argument("--great-fairy", action="store_true", help="reorder the three Great Fairy magic rewards (romfs)")
+    ap.add_argument("--farore-outdoor", action="store_true", help="allow Farore's Wind points outside dungeons (romfs)")
+    ap.add_argument("--hud-collectibles", action="store_true", help="per-area Skulltula / heart-piece counter")
     ap.add_argument("--off", default=None, help="advanced: comma list of jump,attack,sprint,block,shoot,roll to disable")
     ap.add_argument("--combat-only", action="store_true", default=None)
     ap.add_argument("--name", default=I.MOD_NAME)
@@ -692,14 +692,13 @@ def gui() -> None:
         label(body, L("enemy_beta_note"), size=9, color=AMBER, bg=PANEL).pack(anchor="w", pady=(8, 0))
 
         body = card(parent, L("world_beta_title"), L("world_beta_desc"))
-        label(body, L("beta_warning"), size=9, color=RED, bold=True, bg=PANEL).pack(anchor="w", pady=(0, 6))
         label(body, L("great_fairy"), size=10, color=ACCENT, bold=True, bg=PANEL).pack(anchor="w")
         check(body, L("great_fairy_on"), great_fairy).pack(anchor="w")
         label(body, L("great_fairy_desc"), size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=(20, 0), pady=(0, 8))
         label(body, L("farore"), size=10, color=ACCENT, bold=True, bg=PANEL).pack(anchor="w")
         check(body, L("farore_on"), farore_outdoor).pack(anchor="w")
         label(body, L("farore_desc"), size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=(20, 0))
-        label(body, L("world_beta_note"), size=9, color=AMBER, bg=PANEL).pack(anchor="w", pady=(8, 0))
+        label(body, L("farore_note"), size=9, color=AMBER, bg=PANEL).pack(anchor="w", padx=(20, 0), pady=(4, 0))
 
     def build_about(parent):
         body = card(parent, L("about_title"))

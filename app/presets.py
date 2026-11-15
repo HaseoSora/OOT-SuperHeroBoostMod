@@ -31,7 +31,7 @@ class Profile:
     hud_clock: bool
     clock_24h: bool
     songbook: bool
-    hud_collectibles: bool       # beta: per-area collectible counter
+    hud_collectibles: bool       # per-area collectible counter
     enemy_double: bool           # beta options: a named profile starts with them off
     enemy_speed: bool
     great_fairy: bool

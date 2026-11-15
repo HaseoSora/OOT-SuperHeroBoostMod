@@ -979,7 +979,7 @@ static void plates_hide(u64 frame) {
         if (rec) place(rec, g_hudp[0], g_hudp[2], 0.0f, 0.0f, 0.0f);
     }
 }
-/* ---- per-area collectibles (beta) ----
+/* ---- per-area collectibles ----
  * Sequence_CurrentBanc is String64 record 31 (same layout as the equipment slots): the live string is at
  * +0x74 of a 0x108-byte record. The generated table has the Bool-table indexes of the Gold
  * Skulltula flags and of the HeartPieceAnchor_GameDataPath flags for every Banc.

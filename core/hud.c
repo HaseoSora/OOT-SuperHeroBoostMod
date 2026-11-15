@@ -124,8 +124,9 @@ static void *pool_clone(const void *src, u32 n) {
 
 static u64 q(const void *p, u32 off) { return *(const u64 *)((const u8 *)p + off); }
 static u32 w(const void *p, u32 off) { return *(const u32 *)((const u8 *)p + off); }
+static int vptr(u64 p);
 static int str_eq(const char *a, const char *b) {
-    if (!a || !b) return 0;
+    if (!vptr((u64)a) || !vptr((u64)b)) return 0;
     for (u32 i = 0; i < 96; i++) {
         if (a[i] != b[i]) return 0;
         if (!a[i]) return 1;
@@ -134,7 +135,7 @@ static int str_eq(const char *a, const char *b) {
 }
 
 /* name table at root+table: names[], descs[], hashes[], count at +24 */
-static int vptr(u64 p) { return p >= 0x10000ULL && p < 0x10000000000ULL; }
+static int vptr(u64 p) { return p >= 0x10000ULL && p < 0x60000000000ULL; }
 static int name_index(const u8 *root, u32 table, const char *name) {
     if (!root || !name || !vptr((u64)root)) return -1;
     u32 n = w(root, table + 24);
@@ -2059,13 +2060,13 @@ u32 g_st_n = 0x10000000u;
  * pane T_GuideA_00 through the set-text-by-name call (frame in x22, pane name in x21). */
 static void hud_on_settext(u64 pane, const u64 *ref, u64 lr, const u64 *regs) {
     extern char __base[];
-    if (!ref || lr >= (u64)__base) return;   /* our own texts */
+    if (!ref || !vptr((u64)ref) || !regs || !vptr((u64)regs) || lr >= (u64)__base) return;   /* our own texts */
     const char *s = (const char *)ref[0];
     u32 len = (u32)ref[1];
-    if (!s) return;
+    if (!s || !vptr((u64)s)) return;
     {
         const char *nm = (const char *)regs[0xF0 / 8];
-        if (nm && (u64)nm > 0x10000 && str_eq(nm, "T_GuideA_00")) {
+        if (nm && vptr((u64)nm) && str_eq(nm, "T_GuideA_00")) {
             g_aguide_frame = regs[0xF8 / 8];
             u32 i;
             for (i = 0; i < len && i < 47 && s[i]; i++) g_aguide_text[i] = s[i];
@@ -2080,8 +2081,8 @@ static void hud_on_settext(u64 pane, const u64 *ref, u64 lr, const u64 *regs) {
     const char *nm = (const char *)regs[0xF0 / 8];
     u64 fp = regs[0];
     for (u32 i = 0; i < 24; i++) g_st_log[k].nm[i] = 0;
-    if (nm && (u64)nm > 0x10000) for (u32 i = 0; i < 23 && nm[i]; i++) g_st_log[k].nm[i] = nm[i];
-    g_st_log[k].lr2 = fp ? *(u64 *)(fp + 8) : 0;
+    if (nm && vptr((u64)nm)) for (u32 i = 0; i < 23 && nm[i]; i++) g_st_log[k].nm[i] = nm[i];
+    g_st_log[k].lr2 = (fp && vptr(fp)) ? *(u64 *)(fp + 8) : 0;
 }
 /* Our parts on the Items page get their icon controllers at the end of the page build (main+0xF78BA8, hook 15:
  * x19 = the page panel, its +0x20 the page frame; x20 = the build heap), right after the game's own cells got
@@ -2154,12 +2155,13 @@ void hud_on_code(u32 id, void *a0, void *a1, void *a2, void *regs) {
     if (id == 20) { hud_on_settext((u64)a0, (const u64 *)a1, *(u64 *)((u8 *)regs + 0x08), (const u64 *)regs); return; }
     if (id == 4) {   /* part instance creation: log the pane index being instantiated */
         u64 layout = (u64)a1, pane = (u64)a2;
-        u64 arr = layout ? ptr(layout, 0x100) : 0;
+        if (!vptr(layout)) return;
+        u64 arr = ptr(layout, 0x100);
         const u8 *lr = layout ? (const u8 *)ptr(layout, 0xF8) : 0;
         if (!lr || !str_eq((const char *)q(lr, 0x18), "PlayerStatus_00")) return;
         {   /* child frame object the caller prepared: x0 -> [x0+8] -> [0]; null = creation failed */
             u64 o = (u64)a0, c = 0;
-            if (o && ptr(o, 8)) c = ptr(ptr(o, 8), 0);
+            if (o && vptr(o) && vptr(ptr(o, 8))) c = ptr(ptr(o, 8), 0);
             g_inst_child[(g_inst_n - 0x10000000u) % 32] = c;
         }
         INST_LOG[(g_inst_n - 0x10000000u) % 32] = arr ? (u32)((pane - arr) / 0xB0) : 0xFFFFFFFFu;

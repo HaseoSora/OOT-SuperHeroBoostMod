@@ -138,8 +138,7 @@ I orchestrated the work, tested the results and adjusted them until they worked.
 
 ## License
 
-Licensed under the **Apache License, Version 2.0**. See [LICENSE](LICENSE).
+Licensed under the **MIT License**. See [LICENSE](LICENSE).
 
 You can use, modify, redistribute and build on this project, including commercially, as long as you keep the
-copyright and license notices and state the changes you made. The license also includes an express grant of patent
-rights and does not grant any trademark rights.
+copyright and license notices.

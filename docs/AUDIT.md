@@ -80,7 +80,7 @@ They are not distributed, but they should be documented:
 
 ## Licence
 
-The project is released under the **Apache License, Version 2.0** (see [LICENSE](../LICENSE)). It allows use,
-modification and redistribution, including commercial use, provided the copyright and licence notices are kept and
-changes are stated. This audit does not change that licence; it only records what is original and what is third-party.
-Third-party development tools keep their own licences.
+The project is released under the **MIT License** (see [LICENSE](../LICENSE)). It allows use, modification and
+redistribution, including commercial use, provided the copyright and licence notices are kept. This audit does not
+change that licence; it only records what is original and what is third-party. Third-party development tools keep
+their own licences.

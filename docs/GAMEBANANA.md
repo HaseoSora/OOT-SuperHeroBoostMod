@@ -60,22 +60,29 @@ from your own game files.
 
 ## Download
 
-- **`SuperHeroBoost-0.2.0-mod.zip`** — the mod itself, **no executable inside**.
-  SHA-256: `c2817d883417264e85507f5ad666190aa53e36b7b78541e609791de45f6c3954`
-- The companion app **SuperHeroBoostConfig** is not uploaded here. It is on the project's
-  [Releases page](https://github.com/kuribox/OOT-SuperHeroBoostMod/releases) (Windows `.exe`; the source runs on
-  Windows, macOS and Linux with Python 3.10+).
+Choose **one** file. Each is the mod itself, **no executable inside**:
 
-The zip contains the prebuilt module (recommended code profile: hardcore stamina, enemy HP 150%, damage 200%, HUD
-with rupees / clock / collectibles, songbook and Switch-style item buttons) and its button textures. The optional
-world changes, no-heart-drop and beta enemy mods need the companion app because they are generated from your own
-game files.
+| File | Profile | SHA-256 |
+| --- | --- | --- |
+| `SuperHeroBoost-0.2.0-recommended.zip` | Hardcore stamina, enemy HP 150%, damage 200%, HUD, songbook and item buttons | `14734ae29057326db5d75e7afbda793c9c2b21568e17c91d2fd66c4e608a1efe` |
+| `SuperHeroBoost-0.2.0-base.zip` | Vanilla difficulty, no stamina, HUD, songbook and item buttons | `921c6052a5e1fb9a641676ecd234bdf66cbbeefcf1e361a3a1803a5358c0107d` |
+| `SuperHeroBoost-0.2.0-hero.zip` | Hero Mode scaling, no stamina, HUD, songbook and item buttons | `45eb3f72e73bace56dbdbd3055c64d199b18cd8a802ebeb5117a4b62715ae767` |
+| `SuperHeroBoost-0.2.0-survival.zip` | Hardcore stamina, enemy HP 200%, damage 200%, HUD, songbook and item buttons | `58ad6a1433a88f63d54d24b2afdc1c97e21f98638cee785ecf40a11beb3dafdd` |
+
+All four use the Switch button style and include the module, the IPS patch and the button textures. The optional
+world changes, no-heart-drop and beta enemy mods are generated from your own game files and are not part of these
+downloads.
+
+The companion app **SuperHeroBoostConfig** is a third-party program, so it belongs in the game's **Tools** section
+(https://gamebanana.com/tools/games/7534), not in the Mods file. Source and binaries are also on the project's
+[Releases page](https://github.com/kuribox/OOT-SuperHeroBoostMod/releases). Use it to install any other combination
+or to add the options above.
 
 ## How to use
 
 1. **Requirements**: the game on update **v131072** and an emulator that loads mods from `user/load`. Close the game
    before installing and back up your saves.
-2. Download **`SuperHeroBoost-0.2.0-mod.zip`** and extract it.
+2. Download **one** of the `SuperHeroBoost-0.2.0-*.zip` files and extract it.
 3. Copy the **`00-Super-Hero-Boost`** folder into `user/load/0400486024DEC000` (the folder that contains your
    mods; merge it if it already exists).
 4. Start the game.

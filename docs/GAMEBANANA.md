@@ -70,6 +70,14 @@ profile you pick.
   detects).
 - Close the game before installing or uninstalling. Back up your save.
 
+## Compatibility
+
+- **Emulators only for now.** The mod has not been tested on real hardware, so please use an emulator that loads
+  mods from its `user/load` folder.
+- Tested and working on **lichii** and **Fritchii**.
+- **Hookshot**: not working yet. I have not managed to get the mod running there so far, so it is not supported
+  for now.
+
 ## Links
 
 - Source and issues: https://github.com/kuribox/OOT-SuperHeroBoostMod

@@ -134,12 +134,18 @@ static int str_eq(const char *a, const char *b) {
 }
 
 /* name table at root+table: names[], descs[], hashes[], count at +24 */
+static int vptr(u64 p) { return p >= 0x10000ULL && p < 0x10000000000ULL; }
 static int name_index(const u8 *root, u32 table, const char *name) {
+    if (!root || !name || !vptr((u64)root)) return -1;
     u32 n = w(root, table + 24);
     if (n > 512) return -1;
     const u64 *names = (const u64 *)q(root, table);
-    for (u32 i = 0; i < n; i++)
-        if (str_eq((const char *)names[i], name)) return (int)i;
+    if (!names || !vptr((u64)names)) return -1;
+    for (u32 i = 0; i < n; i++) {
+        u64 p = names[i];
+        if (!vptr(p)) continue;          /* a layout being rebuilt can hold a freed name */
+        if (str_eq((const char *)p, name)) return (int)i;
+    }
     return -1;
 }
 
@@ -660,6 +666,7 @@ static void observe_stock_box(u64 parent);
 
 static u64 g_mp;
 static u64 g_frame_node;
+static u32 g_hud_ready;     /* the PlayerStatus HUD for this gauge is built (id 12 ran) */
 static float g_value = 50.0f, g_cap = 100.0f, g_show = 1.0f;
 static float g_last_value = -1.0f, g_last_cap = -1.0f, g_last_show = -1.0f;
 static u32 g_test_mode = 1;
@@ -690,11 +697,13 @@ static u64 ptr(u64 p, u32 off) { return *(u64 *)(p + off); }
 
 static u64 pane_record(u64 frame, const char *name) {
     u64 layout = ptr(frame, 0x80);
-    if (!layout) return 0;
+    if (!layout || !vptr(layout)) return 0;
     const u8 *r = (const u8 *)ptr(layout, 0xF8);
-    if (!r) return 0;
+    if (!r || !vptr((u64)r)) return 0;
     int i = name_index(r, 0x20, name);
-    return i < 0 ? 0 : ptr(layout, 0x100) + (u64)i * 0xB0;
+    u64 arr = ptr(layout, 0x100);
+    if (i < 0 || !arr || !vptr(arr)) return 0;
+    return arr + (u64)i * 0xB0;
 }
 
 static void set_pane_show(u64 pane, float scale_y) {
@@ -1940,6 +1949,7 @@ static void slots_reset(void) {
 u32 hud_frame_count(void) { return g_tick; }
 static void hud_frame(void) {
     g_hud_dbg[1] = MARK | ++g_tick;
+    if (!g_hud_ready) return;      /* the layout is being rebuilt: its name table may still be freed */
     if (!g_mp) return;
     if (!g_frame_node) {
         u64 owner = ptr(g_mp, 0x18);
@@ -2101,7 +2111,7 @@ void hud_on_code(u32 id, void *a0, void *a1, void *a2, void *regs) {
         hud_icon_ctrl_init((u64)a0);
         return;
     }                  /* icon controller init */
-    if (id == 12) { hud_slots_init((u64)a0, (u64)a1); return; }             /* PlayerStatus HUD init: build icon controllers */
+    if (id == 12) { hud_slots_init((u64)a0, (u64)a1); g_hud_ready = 1; return; }  /* PlayerStatus HUD init: build icon controllers */
     if (id == 18) {   /* nn::fs::OpenFile(handle, path, mode) */
         const char *path = (const char *)a1;
         if (button_mapping_on_open && path) button_mapping_on_open(path, (int)(u64)a2);
@@ -2131,6 +2141,7 @@ void hud_on_code(u32 id, void *a0, void *a1, void *a2, void *regs) {
     if (id == 1) {
         g_mp = (u64)a0;
         g_frame_node = 0;
+        g_hud_ready = 0;           /* the new HUD's layout is still being built */
         for (u32 i = 0; i < SEG_N; i++) { g_seg[i].bar = 0; g_seg[i].init = 0; }
         plates_reset();
         slots_reset();

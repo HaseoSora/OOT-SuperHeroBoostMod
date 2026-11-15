@@ -74,6 +74,14 @@ To remove the mod, press **Uninstall** in the app or delete the `00-Super-Hero-B
 
 Prebuilt binaries are not published in this repository yet; build the app from source with the steps below.
 
+### Longshot and Hookshot
+
+Hookshot and Longshot are static recompilations, not emulators: they translate the game to native code and ignore
+`exefs` mods by design. The romfs files work from `<game>/mods/Super-Hero-Boost/romfs`, but the module (HUD,
+stamina, item buttons, collectible counter) has to be built into the game. The app has a **Hookshot / Longshot**
+target that patches the game's exefs, installs the chosen romfs options and runs the builder's update with a progress
+bar (25-45 minutes the first time; reversible). See [docs/LONGSHOT.md](docs/LONGSHOT.md).
+
 ### Button mapping controls
 
 - In the pause menu's **Items** tab, with an item highlighted: **X** assigns it to **B**, **L** to **L**, **R** to
@@ -116,6 +124,7 @@ python tools/build_app.py        # release/SuperHeroBoostConfig[.exe|.app]
 - [docs/APP.md](docs/APP.md): app, profiles and options.
 - [docs/BUTTON-MAPPING.md](docs/BUTTON-MAPPING.md): button mapping design.
 - [docs/RE-NOTES.md](docs/RE-NOTES.md): reverse-engineering notes.
+- [docs/LONGSHOT.md](docs/LONGSHOT.md): installing the mod in Hookshot and Longshot (static recompilations).
 - [docs/AUDIT.md](docs/AUDIT.md): code and third-party material audit.
 
 ## Credits

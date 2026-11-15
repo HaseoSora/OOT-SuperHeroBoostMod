@@ -9,6 +9,7 @@ Related documents:
 - [RE-NOTES.md](RE-NOTES.md): reverse-engineering findings (addresses, formats, what worked and what did not).
 - [APP.md](APP.md): the configuration app.
 - [BUTTON-MAPPING.md](BUTTON-MAPPING.md): button mapping design (buttonMapping).
+- [LONGSHOT.md](LONGSHOT.md): installing in Hookshot/Longshot (static recompilations).
 
 ---
 

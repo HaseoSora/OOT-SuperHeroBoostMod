@@ -146,3 +146,19 @@ not redistribute that table. `tools/make_romfs_opts.py` generates it from the us
 the dump folder, or `SHB_ROMFS`), and `make_release.py` keeps an existing `app/payload/romfs_opts` when
 rebuilding. That file is only needed at build time: the release payload already includes the generated copy, so users
 do not need a dump. If the file is missing, the app installs everything else and shows a note.
+
+## Longshot and Hookshot
+
+The app can install into a static recompilation too. Pick **Hookshot / Longshot** in the Installation card and choose
+the game folder (the one with `bin/longshot.exe` and `.longshot_exefs`).
+
+- The first install (or **Rebuild game**) runs the builder's update with a progress bar: 25–45 minutes, the game must
+  be closed. The builder is detected from the launcher; pick its folder (the one with `tools/nx2/make_game.py`) if it
+  is not.
+- Once the game is built, **Install** only applies the profile, the configuration block and the selected romfs files
+  (seconds, no rebuild). Use **Rebuild game** after an app/mod update.
+- **Uninstall** restores the original executable, image and `main` from `<game>/.shb-backup` and removes the mod.
+- The builder's `exefs` patches are not applied at run time (the game is compiled ahead of time), so the module must
+  be built in; this is what the app does. See [LONGSHOT.md](LONGSHOT.md).
+
+`tools/install_longshot.py` is the same procedure for scripts and CI.

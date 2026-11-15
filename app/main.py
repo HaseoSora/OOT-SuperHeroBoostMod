@@ -1,8 +1,9 @@
 """Super Hero Boost - configuration and installer window.
 
-The mod is prebuilt and reads its options when the game loads; this app only
-edits those options, remembers them and installs the mod into the emulator.
-It does not compile anything.
+The mod is prebuilt and reads its options when the game loads; this app edits
+those options, remembers them and installs the mod into an emulator or into a
+Hookshot/Longshot recompiled game (the latter rebuilds the game, with a progress
+bar).
 
 Headless use (tests):
     SuperHeroBoostConfig --cli --emu <folder> [--profile hero] [--preset 2] ...
@@ -10,12 +11,15 @@ Headless use (tests):
 import argparse
 import json
 import os
+import queue
 import sys
+import threading
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import installer as I  # noqa: E402
 import paths  # noqa: E402
+import recomp as R  # noqa: E402
 from i18n import LANGS, tr, system_lang  # noqa: E402
 from presets import (DEFAULT_PROFILE, KEYS, PROFILES, PROFILE_KEYS,  # noqa: E402
                      STAMINA_MODES, defaults, profile_values)
@@ -259,6 +263,10 @@ def gui() -> None:
 
     lang = tk.StringVar(value=cfg.get("lang") if cfg.get("lang") in LANGS else system_lang())
     emu = tk.StringVar(value=cfg.get("emu", ""))
+    target = tk.StringVar(value=cfg.get("target") if cfg.get("target") in ("emulator", "recomp") else "emulator")
+    recomp_path = tk.StringVar(value=cfg.get("recomp", ""))
+    recomp_builder = tk.StringVar(value=cfg.get("recomp_builder", ""))
+    busy = {"on": False}
     profile = tk.StringVar(value=cfg.get("profile") if cfg.get("profile") in PROFILE_KEYS else "custom")
     bmap = tk.BooleanVar(value=bool(cfg.get("button_mapping", True)))
     # button style, layout and L mode: personal choices, not part of a profile
@@ -310,6 +318,8 @@ def gui() -> None:
                     arrowcolor=ACCENT, bordercolor=BORDER, lightcolor=PANEL, darkcolor=PANEL,
                     selectbackground=PANEL2, selectforeground=TEXT)
     style.map("SHB.TCombobox", fieldbackground=[("readonly", PANEL2)], foreground=[("readonly", TEXT)])
+    style.configure("SHB.Horizontal.TProgressbar", troughcolor=PANEL2, background=ACCENT,
+                    bordercolor=BORDER, lightcolor=ACCENT, darkcolor=ACCENT, thickness=14)
     root.option_add("*TCombobox*Listbox.background", PANEL2)
     root.option_add("*TCombobox*Listbox.foreground", TEXT)
     root.option_add("*TCombobox*Listbox.selectBackground", ACCENT_DARK)
@@ -469,6 +479,7 @@ def gui() -> None:
     def remember():
         return save_cfg({
             "lang": lang.get(), "emu": emu.get(), "profile": profile.get(),
+            "target": target.get(), "recomp": recomp_path.get(), "recomp_builder": recomp_builder.get(),
             "button_mapping": bmap.get(), "button_style": bstyle.get(), "bm_simple": bsimple.get(),
             "bm_l_mode": blmode.get(),
             "stamina": stamina.get(), "songbook": songbook.get(),
@@ -488,13 +499,179 @@ def gui() -> None:
         e = emu.get().strip()
         return I.find_mods_dir(Path(e).expanduser()) if e else None
 
+    def ok_recomp():
+        p = recomp_path.get().strip()
+        return R.find_game(Path(p).expanduser()) if p else None
+
+    # ---- progress: the build runs in a thread and a queue brings updates to the window ----
+    q = queue.Queue()
+
+    def poll():
+        try:
+            while True:
+                fn = q.get_nowait()
+                try:
+                    fn()
+                except Exception:
+                    pass
+        except queue.Empty:
+            pass
+        root.after(80, poll)
+
+    def append_log(line):
+        w = ui.get("log")
+        if w is None:
+            return
+        w.config(state="normal")
+        w.insert("end", line + "\n")
+        if int(w.index("end-1c").split(".")[0]) > 400:
+            w.delete("1.0", "100.0")
+        w.see("end")
+        w.config(state="disabled")
+
+    def clear_log():
+        w = ui.get("log")
+        if w is not None:
+            w.config(state="normal")
+            w.delete("1.0", "end")
+            w.config(state="disabled")
+
+    def set_busy(on):
+        busy["on"] = on
+        for w in ui.get("lock", []):
+            try:
+                w.config(state="disabled" if on else "normal")
+            except Exception:
+                pass
+        for key in ("install", "uninstall", "rebuild"):
+            w = ui.get(key)
+            if w is not None:
+                w.config(state="disabled" if on else "normal")
+        c = ui.get("cancel")
+        if c is not None:
+            if on:
+                c.pack(side="right", padx=(8, 0))
+            else:
+                c.pack_forget()
+        if on and ui.get("_scroll") is not None:
+            # The build's bar and log are at the bottom of the Installation card: show them.
+            root.after(60, lambda: ui["_scroll"].canvas.yview_moveto(1.0))
+        if not on:
+            refresh()
+
+    def update_progress(frac, text, stage):
+        frac = max(0.0, min(1.0, frac))
+        bar = ui.get("bar")
+        if bar is not None:
+            bar["value"] = frac
+        lab = ui.get("prog_label")
+        if lab is not None:
+            lab.config(text=L("recomp_progress", p=int(frac * 100)))
+        if stage:
+            key = "recomp_stage_" + stage
+            st = L(key)
+            status.set(text if st == key else st)
+
+    def recomp_done(r):
+        set_busy(False)
+        remember()
+        status.set(L("ready"))
+        msg = L("recomp_done") if r.rebuilt else L("recomp_applied")
+        for k, arg in r.notes:
+            msg += "\n\n" + L("n_" + k, a=arg)
+        messagebox.showinfo(L("recomp_done_title"), msg)
+        refresh()
+
+    def recomp_error(ex):
+        set_busy(False)
+        status.set("")
+        if isinstance(ex, I.InstallError):
+            if ex.key == "recomp_cancelled":
+                status.set(L("recomp_cancelled"))
+                messagebox.showinfo(L("recomp_cancel"), L("recomp_cancelled"))
+            else:
+                messagebox.showerror(L("err_title"), L("e_" + ex.key, a=ex.arg))
+        else:
+            messagebox.showerror(L("err_title"), str(ex))
+        refresh()
+
+    def run_recomp():
+        game = ok_recomp()
+        if game is None:
+            messagebox.showerror(L("err_title"), L("e_recomp_no_game", a=recomp_path.get()))
+            return
+        if not messagebox.askyesno(L("recomp_confirm_title"), L("recomp_confirm")):
+            return
+        set_busy(True)
+        clear_log()
+        if ui.get("bar") is not None:
+            ui["bar"]["value"] = 0
+        status.set(L("recomp_stage_start"))
+        snap = settings()
+        builder = recomp_builder.get().strip() or None
+
+        def worker():
+            try:
+                r = R.install(game, snap, rebuild=True, builder_path=builder,
+                              progress=lambda f, t, s: q.put(lambda f=f, t=t, s=s: update_progress(f, t, s)),
+                              log=lambda line: q.put(lambda line=line: append_log(line)))
+                q.put(lambda r=r: recomp_done(r))
+            except Exception as ex:
+                q.put(lambda ex=ex: recomp_error(ex))
+
+        threading.Thread(target=worker, daemon=True).start()
+
     # ---- actions ----
     def browse():
         d = filedialog.askdirectory(title=L("emu_hint"))
         if d:
             emu.set(d)
 
+    def browse_recomp():
+        d = filedialog.askdirectory(title=L("recomp_hint"))
+        if d:
+            recomp_path.set(d)
+
+    def browse_builder():
+        d = filedialog.askdirectory(title=L("recomp_builder_hint"))
+        if d:
+            recomp_builder.set(d)
+
+    def on_target(*_):
+        if not ui.get("sections"):
+            return
+        rec = target.get() == "recomp"
+        if "emu_frame" in ui:
+            ui["emu_frame"].pack_forget()
+            ui["recomp_frame"].pack_forget()
+            (ui["recomp_frame"] if rec else ui["emu_frame"]).pack(fill="x")
+        status.set("")
+        refresh()
+        autosave()
+
+    def do_recomp_install():
+        game = ok_recomp()
+        if game is None:
+            messagebox.showerror(L("err_title"), L("e_recomp_no_game", a=recomp_path.get()))
+            return
+        try:
+            if R.is_built(game):
+                R.apply_settings(game, settings())
+                remember()
+                status.set(L("ready"))
+                messagebox.showinfo(L("done_title"), L("recomp_applied"))
+                refresh()
+            else:
+                run_recomp()
+        except I.InstallError as ex:
+            messagebox.showerror(L("err_title"), L("e_" + ex.key, a=ex.arg))
+        except Exception as ex:
+            messagebox.showerror(L("err_title"), str(ex))
+
     def do_install():
+        if target.get() == "recomp":
+            do_recomp_install()
+            return
         try:
             status.set(L("working"))
             root.update_idletasks()
@@ -513,6 +690,24 @@ def gui() -> None:
             messagebox.showerror(L("err_title"), str(ex))
 
     def do_remove():
+        if target.get() == "recomp":
+            game = ok_recomp()
+            if game is None:
+                status.set(L("nothing"))
+                return
+            if not messagebox.askyesno(L("uninstall"), L("recomp_remove_confirm")):
+                return
+            if R.game_running():
+                messagebox.showerror(L("err_title"), L("e_recomp_running"))
+                return
+            try:
+                ok = R.uninstall(game)
+            except Exception as ex:
+                messagebox.showerror(L("err_title"), str(ex))
+                return
+            status.set(L("uninstalled") if ok else L("nothing"))
+            refresh()
+            return
         e = emu.get().strip()
         status.set(L("uninstalled") if e and I.uninstall(Path(e).expanduser()) else L("nothing"))
 
@@ -535,14 +730,35 @@ def gui() -> None:
         for w in ui.get("bm", []):
             w.config(state="normal" if on else "disabled")
         ui["note"].config(text="" if stam else L("stamina_off_note"), fg=AMBER)
+        rec = target.get() == "recomp"
         mods = ok_emu()
-        ui["install"].config(state="normal" if mods else "disabled")
-        ui["mods"].config(text=L("mods_found", a=mods) if mods else L("mods_missing"),
-                          fg=ACCENT if mods else DIM)
-        if not mods and not status.get():
-            status.set(L("pick_emu"))
-        if mods and status.get() == L("pick_emu"):
-            status.set("")
+        if rec:
+            game = ok_recomp()
+            built = bool(game) and R.is_built(game)
+            if "recomp_status" in ui:
+                ui["recomp_status"].config(text=L("recomp_found", a=game) if game else L("recomp_missing"),
+                                           fg=ACCENT if game else DIM)
+            if "recomp_note" in ui:
+                ui["recomp_note"].config(
+                    text=L("recomp_built") if built else (L("recomp_not_built") if game else ""),
+                    fg=DIM if built else AMBER)
+            if "rebuild" in ui:
+                ui["rebuild"].config(state="normal" if game and not busy["on"] else "disabled")
+            ui["install"].config(text=L("recomp_apply") if built else L("recomp_install"),
+                                 state="normal" if game and not busy["on"] else "disabled")
+            if not game and not status.get():
+                status.set(L("recomp_missing"))
+        else:
+            ui["install"].config(text=L("install"),
+                                 state="normal" if mods and not busy["on"] else "disabled")
+            if "rebuild" in ui:
+                ui["rebuild"].config(state="disabled")
+            ui["mods"].config(text=L("mods_found", a=mods) if mods else L("mods_missing"),
+                              fg=ACCENT if mods else DIM)
+            if not mods and not status.get():
+                status.set(L("pick_emu"))
+            if mods and status.get() == L("pick_emu"):
+                status.set("")
         token = profile.get().replace("-", "_")
         ui["profile_desc"].config(text=L("p_" + token + "_d") if profile.get() in PROFILES
                                   else L("p_custom_d"))
@@ -583,18 +799,78 @@ def gui() -> None:
         ui["reapply"].pack(anchor="w", pady=(8, 0))
 
         body = card(parent, L("install_title"), L("install_desc"))
-        row = tk.Frame(body, bg=PANEL)
+        trow = tk.Frame(body, bg=PANEL)
+        trow.pack(fill="x", pady=(0, 8))
+        label(trow, L("target") + ":", size=10, color=ACCENT, bold=True).pack(side="left", padx=(0, 10))
+        trefs = []
+        for val, key in (("emulator", "target_emu"), ("recomp", "target_recomp")):
+            r = radio(trow, L(key), target, val, cmd=on_target)
+            r.pack(side="left", padx=(0, 16))
+            trefs.append(r)
+
+        ef = tk.Frame(body, bg=PANEL)
+        ui["emu_frame"] = ef
+        row = tk.Frame(ef, bg=PANEL)
         row.pack(fill="x")
-        entry = tk.Entry(row, textvariable=emu, bg=PANEL2, fg=TEXT, insertbackground=ACCENT, relief="flat",
-                         font=(FAM, 10), highlightthickness=1, highlightbackground=BORDER,
-                         highlightcolor=ACCENT)
-        entry.pack(side="left", fill="x", expand=True, ipady=4)
-        button(row, L("browse"), browse).pack(side="left", padx=(8, 0))
-        label(body, L("emu_hint"), size=9, color=DIM, bg=PANEL).pack(anchor="w", pady=(5, 0))
-        ui["mods"] = label(body, "", size=9, color=DIM, bg=PANEL)
+        entry_emu = tk.Entry(row, textvariable=emu, bg=PANEL2, fg=TEXT, insertbackground=ACCENT, relief="flat",
+                             font=(FAM, 10), highlightthickness=1, highlightbackground=BORDER,
+                             highlightcolor=ACCENT)
+        entry_emu.pack(side="left", fill="x", expand=True, ipady=4)
+        b_emu = button(row, L("browse"), browse)
+        b_emu.pack(side="left", padx=(8, 0))
+        label(ef, L("emu_hint"), size=9, color=DIM, bg=PANEL).pack(anchor="w", pady=(5, 0))
+        ui["mods"] = label(ef, "", size=9, color=DIM, bg=PANEL)
         ui["mods"].pack(anchor="w", pady=(2, 0))
-        label(body, L("install_hint"), size=9, color=AMBER, bg=PANEL).pack(anchor="w", pady=(6, 0))
-        label(body, L("autosave"), size=9, color=DIM, bg=PANEL).pack(anchor="w", pady=(2, 0))
+        label(ef, L("install_hint"), size=9, color=AMBER, bg=PANEL).pack(anchor="w", pady=(6, 0))
+        label(ef, L("autosave"), size=9, color=DIM, bg=PANEL).pack(anchor="w", pady=(2, 0))
+
+        rf = tk.Frame(body, bg=PANEL)
+        ui["recomp_frame"] = rf
+        row = tk.Frame(rf, bg=PANEL)
+        row.pack(fill="x")
+        entry_rec = tk.Entry(row, textvariable=recomp_path, bg=PANEL2, fg=TEXT, insertbackground=ACCENT,
+                             relief="flat", font=(FAM, 10), highlightthickness=1,
+                             highlightbackground=BORDER, highlightcolor=ACCENT)
+        entry_rec.pack(side="left", fill="x", expand=True, ipady=4)
+        b_rec = button(row, L("browse"), browse_recomp)
+        b_rec.pack(side="left", padx=(8, 0))
+        label(rf, L("recomp_hint"), size=9, color=DIM, bg=PANEL).pack(anchor="w", pady=(5, 0))
+        ui["recomp_status"] = label(rf, "", size=9, color=DIM, bg=PANEL)
+        ui["recomp_status"].pack(anchor="w", pady=(2, 0))
+        brow = tk.Frame(rf, bg=PANEL)
+        brow.pack(fill="x", pady=(8, 0))
+        label(brow, L("recomp_builder") + ":", size=9, color=DIM, bg=PANEL).pack(side="left", padx=(0, 8))
+        entry_builder = tk.Entry(brow, textvariable=recomp_builder, bg=PANEL2, fg=TEXT, insertbackground=ACCENT,
+                                 relief="flat", font=(FAM, 9), highlightthickness=1,
+                                 highlightbackground=BORDER, highlightcolor=ACCENT)
+        entry_builder.pack(side="left", fill="x", expand=True, ipady=3)
+        b_builder = button(brow, L("browse"), browse_builder)
+        b_builder.pack(side="left", padx=(8, 0))
+        label(rf, L("recomp_builder_hint"), size=9, color=DIM, bg=PANEL).pack(anchor="w", pady=(2, 0))
+        ui["recomp_note"] = label(rf, "", size=9, color=AMBER, bg=PANEL)
+        ui["recomp_note"].pack(anchor="w", pady=(8, 0))
+        prow = tk.Frame(rf, bg=PANEL)
+        prow.pack(fill="x", pady=(10, 2))
+        ui["bar"] = ttk.Progressbar(prow, style="SHB.Horizontal.TProgressbar", mode="determinate",
+                                    maximum=1.0, value=0)
+        ui["bar"].pack(side="left", fill="x", expand=True)
+        ui["prog_label"] = label(prow, L("recomp_progress", p=0), size=9, color=DIM, bg=PANEL)
+        ui["prog_label"].pack(side="left", padx=(10, 0))
+        label(rf, L("recomp_log"), size=9, color=DIM, bg=PANEL).pack(anchor="w", pady=(6, 2))
+        ui["log"] = tk.Text(rf, height=6, bg=PANEL2, fg=DIM, insertbackground=ACCENT, relief="flat",
+                            font=(FAM, 8), highlightthickness=1, highlightbackground=BORDER,
+                            state="disabled", wrap="none")
+        ui["log"].pack(fill="x")
+        brow2 = tk.Frame(rf, bg=PANEL)
+        brow2.pack(fill="x", pady=(8, 0))
+        ui["rebuild"] = button(brow2, L("recomp_rebuild"), run_recomp)
+        ui["rebuild"].pack(side="left")
+        ui["cancel"] = button(brow2, L("recomp_cancel"), lambda: R.cancel())
+        ui["lock"] = trefs + [entry_emu, b_emu, entry_rec, b_rec, entry_builder, b_builder]
+        if target.get() == "recomp":
+            rf.pack(fill="x")
+        else:
+            ef.pack(fill="x")
 
     def build_stamina(parent):
         body = card(parent, L("stamina_title"), L("stamina_desc"))
@@ -809,8 +1085,8 @@ def gui() -> None:
         tk.Label(ft, textvariable=status, bg=BG, fg=ACCENT, font=(FAM, 9, "italic"), anchor="w").pack(side="left")
         ui["install"] = button(ft, L("install"), do_install, primary=True)
         ui["install"].pack(side="right")
-        button(ft, L("uninstall"), do_remove).pack(side="right", padx=(0, 8))
-        ui["install"].config(state="normal" if ok_emu() else "disabled")
+        ui["uninstall"] = button(ft, L("uninstall"), do_remove)
+        ui["uninstall"].pack(side="right", padx=(0, 8))
 
     def show_section(key):
         state["section"] = key
@@ -856,8 +1132,11 @@ def gui() -> None:
               nodrop, rupees, clock_mode, *costs.values()):
         v.trace_add("write", autosave)
     emu.trace_add("write", lambda *_: (status.set(""), refresh()))
+    recomp_path.trace_add("write", lambda *_: (status.set(""), refresh()))
+    recomp_builder.trace_add("write", autosave)
 
     render()
+    root.after(80, poll)
     root.protocol("WM_DELETE_WINDOW", lambda: (remember(), root.destroy()))
     root.mainloop()
 

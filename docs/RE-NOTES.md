@@ -12,6 +12,18 @@ its configured `LoadDir` (see the `load_directory` entry in `qt-config.ini`).
 - Our module is linked at `0x4F80000` (main-relative), so offsets in the IPS and
   in `bl`/`b` targets are main-relative. This matches the emulator.
 
+## Static recompilations (Hookshot and Longshot)
+
+- They are not emulators: `bin/longshot.exe` is the game built as native code, and `image.bin` holds the guest image.
+  `host/mods.c` ignores `exefs` patches by design and only reads `mods/<name>/romfs`.
+- The builder's module order is `rtld, main, subsdk0..subsdk9, sdk`, page aligned. Adding our `subsdk9` to
+  `.longshot_exefs` places it at `main + 0x4F80000` (0x84FA0000 with main at 0x80020000), which is the module's link
+  base.
+- Verified with the builder's lift: subsdk9 72 functions, 100% translated, 0 untranslated; the image contains the
+  config block at `0x84FB2010`. `hos_image.c` leaves subsdk9 out of the DT_INIT list (init 0), which is fine: the
+  hooks enter its code directly.
+- Installing means rebuilding (`nx2/make_game.py --update`), not copying files. See [LONGSHOT.md](LONGSHOT.md).
+
 ## NSO for subsdk9 (fixed in F0)
 
 - The loader needs the compressed sizes at `0x60/0x64/0x68` set to the raw

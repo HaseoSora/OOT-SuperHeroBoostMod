@@ -54,26 +54,42 @@ def _profile(key, *, button_mapping=True, stamina=True, mode=0, costs=(True,) * 
 
 
 PROFILES = {
-    # Everything on: Hero Mode difficulty, hardcore stamina, HUD and buttonMapping.
-    "recommended": _profile("recommended", enemy_hp=150, damage=200, no_heart_drop=True),
+    # Everything on: Hero Mode difficulty, hardcore stamina, HUD, buttonMapping and the world changes.
+    "recommended": _profile("recommended", enemy_hp=150, damage=200, no_heart_drop=True,
+                            hud_collectibles=True, great_fairy=True, farore_outdoor=True),
     # Vanilla difficulty, but with the pack's HUD and extra buttons.
-    "base": _profile("base", stamina=False),
+    "base": _profile("base", stamina=False, hud_collectibles=True),
     # Hero Mode: x1.5 enemy health, x2 damage, no hearts.
-    "hero": _profile("hero", stamina=False, enemy_hp=150, damage=200, no_heart_drop=True),
+    "hero": _profile("hero", stamina=False, enemy_hp=150, damage=200, no_heart_drop=True,
+                     hud_collectibles=True),
     # Hero Mode plus stamina on every action.
-    "hero-stamina": _profile("hero-stamina", enemy_hp=150, damage=200, no_heart_drop=True),
+    "hero-stamina": _profile("hero-stamina", enemy_hp=150, damage=200, no_heart_drop=True,
+                             hud_collectibles=True),
     # Hero Mode with stamina only on sprint.
     "hero-explorer": _profile("hero-explorer", mode=2, enemy_hp=150, damage=200, no_heart_drop=True,
-                              costs=(False, False, True, False, False, False)),
+                              hud_collectibles=True, costs=(False, False, True, False, False, False)),
     # Higher difficulty tiers.
-    "super-hero": _profile("super-hero", enemy_hp=200, damage=300, no_heart_drop=True),
-    "ultra-hero": _profile("ultra-hero", enemy_hp=300, damage=300, no_heart_drop=True),
+    "super-hero": _profile("super-hero", enemy_hp=200, damage=300, no_heart_drop=True,
+                           hud_collectibles=True),
+    "ultra-hero": _profile("ultra-hero", enemy_hp=300, damage=300, no_heart_drop=True,
+                           hud_collectibles=True),
     # Endurance run: no heart drops and hardcore stamina, but x2 instead of x3.
-    "survival": _profile("survival", enemy_hp=200, damage=200, no_heart_drop=True),
+    "survival": _profile("survival", enemy_hp=200, damage=200, no_heart_drop=True,
+                         hud_collectibles=True),
+    # Only the world changes (Great Fairy rewards + Farore's Wind outdoors) on vanilla difficulty.
+    "world": _profile("world", stamina=False, hud_collectibles=True, great_fairy=True,
+                      farore_outdoor=True),
+    # Beta options: the two enemy mods on top of the vanilla game.
+    "beta-enemies": _profile("beta-enemies", stamina=False, hud_collectibles=True,
+                             enemy_double=True, enemy_speed=True),
+    # Beta options: everything on, enemy mods included.
+    "beta-all": _profile("beta-all", enemy_hp=150, damage=200, no_heart_drop=True,
+                         hud_collectibles=True, great_fairy=True, farore_outdoor=True,
+                         enemy_double=True, enemy_speed=True),
 }
 
 PROFILE_KEYS = ("recommended", "base", "hero", "hero-stamina", "hero-explorer", "super-hero", "ultra-hero",
-                "survival", "custom")
+                "survival", "world", "beta-enemies", "beta-all", "custom")
 DEFAULT_PROFILE = "recommended"
 
 

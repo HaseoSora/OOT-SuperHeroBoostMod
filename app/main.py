@@ -178,11 +178,23 @@ class ScrollArea:
         self.bar.pack(side="right", fill="y")
         self.inner = tk.Frame(self.canvas, bg=bg)
         self._win = self.canvas.create_window((0, 0), window=self.inner, anchor="nw")
-        self.inner.bind("<Configure>", lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all")))
-        self.canvas.bind("<Configure>", lambda e: self.canvas.itemconfigure(self._win, width=e.width))
+        self.inner.bind("<Configure>", lambda e: self.refresh())
+        self.canvas.bind("<Configure>", self._resize)
         self.canvas.bind_all("<MouseWheel>", self._wheel)
         self.canvas.bind_all("<Button-4>", self._wheel)
         self.canvas.bind_all("<Button-5>", self._wheel)
+
+    def _resize(self, event):
+        self.canvas.itemconfigure(self._win, width=event.width)
+        self.refresh()
+
+    def refresh(self):
+        """Recalculate the scrollable region (call it after showing another section)."""
+        try:
+            self.inner.update_idletasks()
+            self.canvas.configure(scrollregion=self.canvas.bbox("all"))
+        except Exception:
+            pass
 
     def destroy(self):
         for seq in ("<MouseWheel>", "<Button-4>", "<Button-5>"):
@@ -193,13 +205,32 @@ class ScrollArea:
         self.frame.destroy()
 
     def _wheel(self, event):
+        # only scroll when the pointer is over this area (bind_all is global)
+        try:
+            x, y = event.x_root, event.y_root
+            widget = self.frame.winfo_containing(x, y)
+        except Exception:
+            widget = None
+        if widget is not None:
+            w = widget
+            inside = False
+            while w is not None:
+                if w is self.frame or w is self.canvas:
+                    inside = True
+                    break
+                w = getattr(w, "master", None)
+            if not inside:
+                return
+        bbox = self.canvas.bbox("all")
+        if not bbox or bbox[3] - bbox[1] <= self.canvas.winfo_height():
+            return
         if getattr(event, "num", None) == 4:
             step = -1
         elif getattr(event, "num", None) == 5:
             step = 1
         else:
             step = -1 if getattr(event, "delta", 0) > 0 else 1
-        self.canvas.yview_scroll(step, "units")
+        self.canvas.yview_scroll(step * 3, "units")
 
 
 def gui() -> None:
@@ -700,9 +731,17 @@ def gui() -> None:
         label(body, L("farore_desc"), size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=(20, 0))
         label(body, L("farore_note"), size=9, color=AMBER, bg=PANEL).pack(anchor="w", padx=(20, 0), pady=(4, 0))
 
+    def open_github():
+        import webbrowser
+        webbrowser.open("https://github.com/kuribox/OOT-SuperHeroBoostMod")
+
     def build_about(parent):
         body = card(parent, L("about_title"))
         label(body, L("about_body"), size=10, bg=PANEL).pack(anchor="w")
+        link = tk.Label(body, text=L("about_link"), bg=PANEL, fg=ACCENT, cursor="hand2",
+                        font=(FAM, 9, "underline"), anchor="w", justify="left")
+        link.pack(anchor="w", pady=(8, 0))
+        link.bind("<Button-1>", lambda e: open_github())
         label(body, L("audit"), size=9, color=DIM, bg=PANEL).pack(anchor="w", pady=(6, 0))
 
     # ---- shell ----
@@ -778,6 +817,7 @@ def gui() -> None:
         for k, f in ui["sections"].items():
             f.pack_forget()
         ui["sections"][key].pack(fill="x", padx=4, pady=(4, 0))
+        ui["_scroll"].refresh()
         ui["_scroll"].canvas.yview_moveto(0)
         for k, b in ui["nav"].items():
             b.config(bg=PANEL if k == key else SIDEBAR, fg=ACCENT if k == key else TEXT)

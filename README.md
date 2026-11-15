@@ -12,7 +12,8 @@ the textures and the app are original work: no third-party mod is bundled or dow
 ### Gameplay
 
 - **Complete profiles**: Recommended (everything on), Base, Hero Mode, Hero + Stamina, Hero Explorer, Super Hero,
-  Ultra Hero and Survival. They set difficulty, stamina and sprint in one step; changing any option afterwards
+  Ultra Hero, Survival, World changes and the two beta combinations (duplicated + fast enemies, everything). They set
+  difficulty, stamina, the HUD, the world changes and the beta mods in one step; changing any option afterwards
   switches the profile to **Custom**.
 - **Stamina** with four styles: hardcore (everything costs), combat only, sprint only and advanced (choose which
   actions cost). Includes exhaustion and regeneration, and costs for rolling, jumping, attacking, shooting,
@@ -24,6 +25,14 @@ the textures and the app are original work: no third-party mod is bundled or dow
 - **Always-visible clock and rupee counter**, with the game's native look and 12/24-hour format.
 - **Songbook autoplay**: selecting a learned song in the native songbook (ZL) makes the hero play it and trigger
   its effect. Learned songs only; not the Scarecrow's Song.
+- **Area collectibles counter**: a native-style plate below the clock with the Gold Skulltulas and heart pieces of
+  the current area (for example `SKULL 3/8  COR 0/2`). The Skulltulas are read from the save's persistent key set, so
+  the count no longer resets when you leave and re-enter an area; heart pieces without a map anchor (some
+  chests/minigames) are not counted yet.
+- **World changes**: reorders the three Great Fairy magic rewards (Hyrule Castle child gives **Nayru's Love**, Death
+  Mountain Crater the **magic spin attack** and Desert Colossus **double magic**) and allows placing **Farore's Wind**
+  warp points outside dungeons. Each fountain keeps her own model and dialogue; the Din fairy's overview still
+  describes the original order. Known bug: press up and down a couple of times before the teleport menu responds.
 - **Own button mapping** (`buttonMapping`):
   - **B, L, R and ZR** item buttons on the HUD, assignable from the **Items** tab of the pause menu.
   - **Switch / PlayStation / Xbox** button styles.
@@ -40,21 +49,14 @@ the textures and the app are original work: no third-party mod is bundled or dow
 
 ### Beta
 
-These options are **experimental**: some are code features, others install extra romfs files. They can break
-puzzles, quests or performance. Back up your save and test one at a time.
+These options are **experimental**: they install extra romfs files. They can break puzzles, quests or performance.
+Back up your save and test one at a time. The two beta profiles (*Beta: duplicated + fast enemies* and *Beta:
+everything*) turn them on together with the rest of the configuration.
 
 - **Enemy duplication (Option A)**: clones generic enemy placements in the map data and doubles field auto-spawn
   counts. Bosses, minibosses and scripted enemies are excluded.
 - **Enemy speed ×2**: speeds up movement, animation and attack cadence. Some enemies or attacks may not change or
   may desync.
-- **Quick select**: hold D-pad **down** to pick the boots (Kokiri / Iron / Hover) or **up** to pick a mask, choose
-  with Left/Right and release to equip, without opening the menu. A short tap keeps the normal behaviour.
-- **Area collectibles counter**: a native-style plate below the clock with the Gold Skulltulas and heart pieces of
-  the current area (for example `SKULL 3/8  COR 1/2`). Heart pieces without a map anchor (some chests/minigames) are
-  not counted yet.
-- **World changes**: reorders the three Great Fairy magic rewards (Hyrule Castle child → Nayru's Love, Death
-  Mountain Crater → magic spin attack, Desert Colossus → double magic) and allows placing Farore's Wind points
-  outside dungeons. The Din fairy's overview dialogue still describes the original order.
 
 ## Usage
 
@@ -90,7 +92,7 @@ python app/main.py --cli --emu "EMULATOR_PATH" --profile recommended --bm-l sele
 
 `--profile` applies a complete profile; individual flags override it. `--list-profiles` shows the list.
 
-The Great Fairy beta rewrites event flows with the `evfl` library (`pip install evfl`); if it is not installed,
+The Great Fairy mod rewrites event flows with the `evfl` library (`pip install evfl`); if it is not installed,
 `make_release.py` warns and keeps the previously generated files.
 
 ## Building

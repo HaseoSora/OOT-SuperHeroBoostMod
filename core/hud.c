@@ -1171,7 +1171,7 @@ static void plates_update(u64 frame) {
             else tint_rec(rec, P[15], P[15], P[15], P[11]);
         }
         u64 icn = g_pic_rec[PIC_COLL + 8 + sec2];
-        place(icn, (float)bi - 140.0f, BY, 0.52f, 0.52f, 0.0f);
+        place(icn, (float)bi + P[5], BY, P[6], P[6], 0.0f);
         tint_rec(icn, 1.0f, 1.0f, 1.0f, 1.0f);
     }
     /* rupee icon */

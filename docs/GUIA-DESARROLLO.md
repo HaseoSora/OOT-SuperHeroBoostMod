@@ -137,6 +137,12 @@ reads them every frame (`g_shbcfg`). **Fields are only appended at the end** (us
 | 38 | `button_style` (0 Switch, 1 Xbox, 2 PlayStation) | Button style |
 | 39 | `bm_simple` | Simple layout (assignable buttons only) |
 | 40 | `bm_l_mode` (0 item, 2 the game's item selector) | What the L button does |
+| 41 | `quick_boots` | Boots quick select |
+| 42 | `quick_mask` | Mask quick select |
+| 43 | `hud_collectibles` | Per-area collectible counter |
+| 44-51 | `hud_x[4]` (s16: rupee, clock, skull, heart; -32768 = off) | HUD block placement |
+| 52 | `stamina_bar` (0 ring, 1 Souls-style bar) | Stamina display |
+| 53-71 | reserved | — |
 
 **Adding a new option:** field in `config.h` (taking bytes from `reserved`), default value in `config.c`, write in
 `installer.patch_config` (`f = magic + 16`), field in `installer.Settings`, flag in `main.cli`, control in `main.py`
@@ -212,10 +218,16 @@ shows a note without blocking.
 - Rupees: GameData Int `PlayerStatus.CurrentRupee` (record 962) and wallet capacity (976).
 - Adjustable look: `g_hudp[]` (indices documented in `hud.c`).
 
-### 5.3 Stamina ring
-About 230 overlapping `Circle64_00` panes (48 on the inner ring, 64 on the outer one) that form a continuous tube,
-with a black track behind; the last dot sits at the exact fill angle. It follows the player by projecting his position
-with the camera matrix (`anchor_update`). Look: `g_ringp[]`.
+### 5.3 Stamina ring and bar
+Ring: about 230 overlapping `Circle64_00` panes (48 on the inner ring, 64 on the outer one) that form a continuous
+tube, with a black track behind; the last dot sits at the exact fill angle. It follows the player by projecting his
+position with the camera matrix (`anchor_update`). Look: `g_ringp[]`.
+
+Souls-style bar (`stamina_bar` = 1): four extra `P_ShbPic_` panes using the magic gauge's own textures
+(`MpGaugeBase_00`, `MpGaugeBaseFrame_00`, `MpGaugeCenter_00`, `MpGaugeSh_00`), placed at the top right. The fill keeps
+its left edge fixed, so it drains to the right; blue normally, yellow while recharging from empty. The buttonMapping
+cluster drops 140 units while the bar is active so the two do not overlap. Look: `g_barp[]` (centre, width, height,
+alphas, shadow offset).
 
 ### 5.4 Tuning the look live
 With the game open through `live_check.py --keep` (or `run`), without recompiling:
@@ -292,7 +304,7 @@ from addresses already used by other mods.
 | `build_core.py` | compiles the module and its IPS; generates `hud_names.h` and `dispatch_gen.c` |
 | `make_release.py` / `build_app.py` | app payload / executable |
 | `make_romfs_opts.py` | optional romfs (no heart drops) |
-| `make_enemy_opts.py` | beta: generates the enemy duplication and ×2 speed romfs from the dump |
+| `make_enemy_opts.py` | beta: generates the enemy duplication, the movement/attack pack base + manifest and the three animation folders from the dump |
 | `features/songbook` | native songbook song -> injected notes |
 | `check_no_game_data.py` | checks that git has no dump files or generated payloads |
 | `hook_sites.py` | list of hook sites |

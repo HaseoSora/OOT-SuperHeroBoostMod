@@ -237,18 +237,29 @@ static const u64 g_thash[TXT_N] = {HASH_TXT0, HASH_TXT1, HASH_TXT2, HASH_TXT3, H
 #define RF1 (RT2 + RING2_DOTS)              /* ring 1 fill (+1 end dot) */
 #define RF2 (RF1 + RING1_DOTS + 1)          /* ring 2 fill (+1 end dot) */
 #define PIC_COLL (RF2 + RING2_DOTS + 1)     /* first pane of the collectible plates */
-#define PIC_N (PIC_COLL + 10)               /* skull plate (4), heart plate (4), skull icon, heart icon */
+#define PIC_BAR (PIC_COLL + 10)             /* Souls-style stamina bar: shadow, base, fill, frame */
+#define BAR_SH 0                            /* (relative to PIC_BAR) */
+#define BAR_BASE 1
+#define BAR_FILL 2
+#define BAR_FRAME 3
+#define BAR_N 4
+#define PIC_N (PIC_BAR + BAR_N)
 static char g_pinames[PIC_N][16];           /* "P_ShbPic_000".. filled by pic_names() */
 static const u64 g_pihash[400] = {HASH_PIC_LIST};   /* CityHash64 of "P_ShbPic_000".. (tools/build_core.py) */
 _Static_assert(PIC_N <= 400, "more picture panes than generated hashes");
-#define TEX_N 7
+#define TEX_N 11
 static char g_texn[TEX_N][32] = {"NumBaseSide_00", "NumBaseSide_01", "Nt_RupeeIconNew_00", "Circle64_00",
-                                 "White8_00_BC4L", "MapIconCollectSkullSign_00", "MapIconCollectHeartPiece_00"};
+                                 "White8_00_BC4L", "MapIconCollectSkullSign_00", "MapIconCollectHeartPiece_00",
+                                 "MpGaugeBaseFrame_00", "MpGaugeBase_00", "MpGaugeCenter_00", "MpGaugeSh_00"};
 static const u8 g_pitex0[20] = {0, 0, 1, 1, 0, 0, 1, 1, 2, 3, 4, 4, 4, 4, 4, 4, 4, 4, 3, 3};
 /* pane sizes in layout units (scaled at runtime); ring dots are 100 x 100 */
 static const float g_pic_w0[20] = {1014, 1014, 1014, 1014, 1014, 1014, 1014, 1014, 120, 60, 9, 9, 9, 9, 9, 9, 9, 9, 76, 70};
 static const float g_pic_h0[20] = {160, 160, 160, 160, 160, 160, 160, 160, 120, 60, 26, 26, 26, 26, 26, 26, 26, 26, 76, 70};
 static u32 pic_tex(u32 k) {
+    if (k >= PIC_BAR) {   /* shadow, base, fill, frame */
+        static const u32 t[BAR_N] = {10, 8, 9, 7};
+        return t[k - PIC_BAR];
+    }
     if (k >= PIC_COLL) {
         u32 j = k - PIC_COLL;
         if (j < 8) return ((j & 3u) < 2u) ? 0 : 1;   /* two plates: fill, fill mirrored, edge, edge mirrored */
@@ -257,10 +268,12 @@ static u32 pic_tex(u32 k) {
     return k < 20 ? g_pitex0[k] : 3;
 }
 static float pic_w(u32 k) {
+    if (k >= PIC_BAR) return (k - PIC_BAR) == BAR_SH ? 160.0f : 507.0f;
     if (k >= PIC_COLL) return (k - PIC_COLL) < 8 ? 1014.0f : 128.0f;
     return k < 20 ? g_pic_w0[k] : 100.0f;
 }
 static float pic_h(u32 k) {
+    if (k >= PIC_BAR) return (k - PIC_BAR) == BAR_SH ? 80.0f : 21.0f;
     if (k >= PIC_COLL) return (k - PIC_COLL) < 8 ? 160.0f : 128.0f;
     return k < 20 ? g_pic_h0[k] : 100.0f;
 }
@@ -1371,7 +1384,7 @@ static void ring_update(void) {
     }
     static const float GREEN[3] = {0.30f, 0.85f, 0.25f}, YELLOW[3] = {1.0f, 0.85f, 0.10f};
     const float *rgb = g_tired ? YELLOW : GREEN;
-    u32 on = g_show > 0.5f && g_anchor_ok;
+    u32 on = g_show > 0.5f && g_anchor_ok && !g_shbcfg.stamina_bar;
     /* ring 1: 0..75 stamina; ring 2: 75..150, unlocked up to the capacity */
     float f1 = g_value / 75.0f, f2 = (g_value - 75.0f) / 75.0f, u2 = (g_cap - 75.0f) / 75.0f;
     if (f1 > 1.0f) f1 = 1.0f;
@@ -1383,6 +1396,47 @@ static void ring_update(void) {
     const float *G = g_ringp;
     ring_draw(RT1, RF1, RING1_DOTS, g_rs1, g_rc1, G[0], G[2], 1.0f, f1, on, rgb);
     ring_draw(RT2, RF2, RING2_DOTS, g_rs2, g_rc2, G[1], G[3], u2, f2, on, rgb);
+}
+
+/* ---- Souls-style stamina bar: the magic gauge's own textures ----
+ * Base (empty track), the centre fill (left-anchored, so it drains to the right like the game's magic bar),
+ * a frame on top and a soft drop shadow behind. Blue normally, yellow while recharging from empty.
+ * Tunable live (tools/hud_tune.py bar ...):
+ *  0 centre x, 1 centre y, 2 bar width, 3 bar height scale, 4 base alpha, 5 frame alpha,
+ *  6 shadow alpha, 7 shadow y offset */
+float g_barp[8] = {1560.0f, 930.0f, 520.0f, 1.55f, 0.90f, 1.0f, 0.30f, 5.0f};
+#define BAR_REF_W 507.0f
+#define BAR_REF_H 21.0f
+static void bar_update(void) {
+    for (u32 k = PIC_BAR; k < PIC_N; k++) if (!g_pic_rec[k]) return;
+    const float *B = g_barp;
+    u32 on = g_show > 0.5f && g_shbcfg.stamina_bar && player_active();
+    float s = B[2] / BAR_REF_W, sy = B[3];
+    float cx = B[0], cy = B[1];
+    static const float BLUE[3] = {0.42f, 0.72f, 1.0f}, YELLOW[3] = {1.0f, 0.82f, 0.15f};
+    /* shadow */
+    u64 sh = g_pic_rec[PIC_BAR + BAR_SH];
+    place(sh, cx, cy - B[7], on ? B[2] / 160.0f : 0.0f,
+          on ? sy * BAR_REF_H / 80.0f * 1.6f : 0.0f, 0.0f);
+    tint_rec(sh, 0.0f, 0.0f, 0.0f, B[6]);
+    /* empty track */
+    u64 bs = g_pic_rec[PIC_BAR + BAR_BASE];
+    place(bs, cx, cy, on ? s : 0.0f, on ? sy : 0.0f, 0.0f);
+    tint_rec(bs, 0.55f, 0.68f, 1.0f, B[4]);
+    /* fill, left edge fixed at the bar's left end */
+    float f = g_cap > 0.0f ? g_value / g_cap : 0.0f;
+    if (f < 0.0f) f = 0.0f;
+    if (f > 1.0f) f = 1.0f;
+    float w = B[2] * f;
+    u64 fl = g_pic_rec[PIC_BAR + BAR_FILL];
+    u32 fv = on && f > 0.002f;
+    place(fl, cx - B[2] * 0.5f + w * 0.5f, cy, fv ? w / BAR_REF_W : 0.0f, fv ? sy : 0.0f, 0.0f);
+    const float *rgb = g_tired ? YELLOW : BLUE;
+    tint_rec(fl, rgb[0], rgb[1], rgb[2], 1.0f);
+    /* frame */
+    u64 fr = g_pic_rec[PIC_BAR + BAR_FRAME];
+    place(fr, cx, cy, on ? s : 0.0f, on ? sy : 0.0f, 0.0f);
+    tint_rec(fr, 1.0f, 1.0f, 1.0f, B[5]);
 }
 
 /* ---- buttonMapping: slot item buttons (appended PaItemBtn_00 parts) ----
@@ -1464,6 +1518,7 @@ static void sb_xy(const float *lay, u32 k, int simple, float *x, float *y) {
     }
     *x = SB_CX + (bx - SB_CX) * lay[0] + lay[2];
     *y = SB_CY + (by - SB_CY) * lay[0] + lay[3];
+    if (lay == g_sb_lay && g_shbcfg.stamina_bar) *y -= 140.0f;   /* room for the Souls bar above */
 }
 u32 g_sb_big_items = 1;
 /* per-part scale: buttons, then items (the item is drawn bigger than its button) */
@@ -2018,6 +2073,7 @@ static void hud_frame(void) {
         g_tired = (g_tick / 480) & 1;   /* demo: alternate green / yellow */
     }
     ring_update();
+    bar_update();
     slots_update(g_frame_node);
     slots_labels(g_frame_node);
 }

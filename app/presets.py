@@ -35,25 +35,29 @@ class Profile:
     quick_mask: bool             # hold D-pad up to pick a mask
     hud_collectibles: bool       # per-area collectible counter
     enemy_double: bool           # beta options: a named profile starts with them off
-    enemy_speed: bool
+    enemy_move: int              # 0 off, 1 x1.5, 2 x2, 3 x3
+    enemy_anim: int
+    enemy_attack: int
     great_fairy: bool
     farore_outdoor: bool
+    stamina_bar: bool            # stamina UI: horizontal bar instead of the ring
 
 
 def _profile(key, *, button_mapping=True, stamina=True, mode=0, costs=(True,) * 6, combat_only=False,
              enemy_hp=100, damage=100, no_heart_drop=False, sprint_speed=SPRINT_DEFAULT,
              hud_rupees=True, hud_clock=True, clock_24h=True, songbook=True,
              quick_boots=True, quick_mask=True, hud_collectibles=False,
-             enemy_double=False, enemy_speed=False,
-             great_fairy=False, farore_outdoor=False):
+             enemy_double=False, enemy_move=0, enemy_anim=0, enemy_attack=0,
+             great_fairy=False, farore_outdoor=False, stamina_bar=False):
     return Profile(key=key, button_mapping=button_mapping, stamina=stamina, mode=mode, costs=costs,
                    combat_only=combat_only, enemy_hp=enemy_hp, damage=damage,
                    no_heart_drop=no_heart_drop, sprint_speed=sprint_speed,
                    hud_rupees=hud_rupees, hud_clock=hud_clock, clock_24h=clock_24h,
                    songbook=songbook, quick_boots=quick_boots, quick_mask=quick_mask,
                    hud_collectibles=hud_collectibles,
-                   enemy_double=enemy_double, enemy_speed=enemy_speed,
-                   great_fairy=great_fairy, farore_outdoor=farore_outdoor)
+                   enemy_double=enemy_double, enemy_move=enemy_move, enemy_anim=enemy_anim,
+                   enemy_attack=enemy_attack,
+                   great_fairy=great_fairy, farore_outdoor=farore_outdoor, stamina_bar=stamina_bar)
 
 
 PROFILES = {
@@ -82,13 +86,13 @@ PROFILES = {
     # Only the world changes (Great Fairy rewards + Farore's Wind outdoors) on vanilla difficulty.
     "world": _profile("world", stamina=False, hud_collectibles=True, great_fairy=True,
                       farore_outdoor=True),
-    # Beta options: the two enemy mods on top of the vanilla game.
+    # Beta options: the two enemy mods on top of the vanilla game (all enemy components x2).
     "beta-enemies": _profile("beta-enemies", stamina=False, hud_collectibles=True,
-                             enemy_double=True, enemy_speed=True),
+                             enemy_double=True, enemy_move=2, enemy_anim=2, enemy_attack=2),
     # Beta options: everything on, enemy mods included.
     "beta-all": _profile("beta-all", enemy_hp=150, damage=200, no_heart_drop=True,
                          hud_collectibles=True, great_fairy=True, farore_outdoor=True,
-                         enemy_double=True, enemy_speed=True),
+                         enemy_double=True, enemy_move=2, enemy_anim=2, enemy_attack=2),
 }
 
 PROFILE_KEYS = ("recommended", "base", "hero", "hero-stamina", "hero-explorer", "super-hero", "ultra-hero",
@@ -102,7 +106,8 @@ def defaults() -> dict:
                 enemy_hp=100, damage=100, no_heart_drop=False, sprint_speed=SPRINT_DEFAULT,
                 hud_rupees=True, hud_clock=True, clock_24h=True, songbook=True,
                 quick_boots=True, quick_mask=True, hud_collectibles=False,
-                enemy_double=False, enemy_speed=False, great_fairy=False, farore_outdoor=False)
+                enemy_double=False, enemy_move=0, enemy_anim=0, enemy_attack=0,
+                great_fairy=False, farore_outdoor=False, stamina_bar=False)
 
 
 def profile_values(key: str) -> dict:
@@ -116,4 +121,6 @@ def profile_values(key: str) -> dict:
                 hud_rupees=p.hud_rupees, hud_clock=p.hud_clock, clock_24h=p.clock_24h,
                 songbook=p.songbook, quick_boots=p.quick_boots, quick_mask=p.quick_mask,
                 hud_collectibles=p.hud_collectibles, enemy_double=p.enemy_double,
-                enemy_speed=p.enemy_speed, great_fairy=p.great_fairy, farore_outdoor=p.farore_outdoor)
+                enemy_move=p.enemy_move, enemy_anim=p.enemy_anim, enemy_attack=p.enemy_attack,
+                great_fairy=p.great_fairy, farore_outdoor=p.farore_outdoor,
+                stamina_bar=p.stamina_bar)

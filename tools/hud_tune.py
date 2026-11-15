@@ -24,7 +24,7 @@ from lichii import DebugClient, HostMemory, lichii_pids  # noqa: E402
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from live_check import PORT, log_addr, symbols  # noqa: E402
 
-SIZES = {"g_hudp": 22, "g_ringp": 8}   # float arrays in core/hud.c
+SIZES = {"g_hudp": 22, "g_ringp": 8, "g_barp": 8}   # float arrays in core/hud.c
 
 
 def connect():

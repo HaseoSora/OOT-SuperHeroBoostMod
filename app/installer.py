@@ -6,6 +6,7 @@ import re
 import shutil
 import struct
 import sys
+import zstandard
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -17,6 +18,9 @@ BUTTON_STYLES = ("switch", "playstation", "xbox")   # buttonMapping button art (
 STYLE_BYTE = {"switch": 0, "xbox": 1, "playstation": 2}
 L_MODES = ("assign", "selector")           # buttonMapping L: an item slot or the game's item selector
 L_MODE_VALUES = {"assign": 0, "selector": 2}
+ENEMY_LEVELS = (0, 1, 2, 3)                # enemy speed: off, x1.5, x2, x3
+ENEMY_FACTORS = {1: 1.5, 2: 2.0, 3: 3.0}
+ENEMY_ANIM_DIR = {1: "enemy_anim_x15", 2: "enemy_anim_x2", 3: "enemy_anim_x3"}
 # HUD row: hud.c draws the 1014-unit plates at 0.46 (rupee, clock) and 0.42 (the two collectible plates), so the
 # installer can pack the enabled blocks with the same gap between plate edges (layout units, root-relative).
 HUD_X0 = -1518
@@ -58,13 +62,17 @@ class Settings:
     quick_mask: bool = False         # hold D-pad up to pick a mask
     hud_collectibles: bool = False   # per-area Skulltula / heart-piece counter
     enemy_double: bool = False       # beta: install the duplicated-enemy romfs mod
-    enemy_speed: bool = False        # beta: install the x2 enemy animation/movement/cadence romfs mod
+    enemy_speed: bool = False        # deprecated: old boolean maps to all three components at x2
+    enemy_move: int = 0              # enemy movement speed: 0 off, 1 x1.5, 2 x2, 3 x3
+    enemy_anim: int = 0              # enemy animation playback: same levels
+    enemy_attack: int = 0            # enemy attack cadence: same levels
     great_fairy: bool = False        # reorder the three Great Fairy magic rewards
     farore_outdoor: bool = False     # allow Farore's Wind points outside dungeons
     button_mapping: bool = True      # buttonMapping: our own item buttons B / L / R / ZR on the HUD
     button_style: str = "switch"     # one of BUTTON_STYLES
     bm_simple: bool = False          # simple layout: only the assignable buttons (no A / X / Y)
     bm_l_mode: str = "assign"        # one of L_MODES
+    stamina_bar: bool = False        # stamina UI: horizontal Souls-style bar instead of the ring
 
     def to_dict(self): return dict(self.__dict__)
 
@@ -199,7 +207,72 @@ def patch_config(nso: bytes, s: Settings) -> bytes:
         if i + 1 < len(slots):
             x += (HUD_PLATE_W[block] + HUD_PLATE_W[slots[i + 1]]) * 0.5 + HUD_GAP
     struct.pack_into("<4h", b, f + 28, *pos)
+    b[f + 36] = int(s.stamina_bar)
     return bytes(b)
+
+
+# ---------- enemy speed components ----------
+def enemy_levels(s: Settings) -> tuple[int, int, int]:
+    """Selected movement / animation / attack levels. The old enemy_speed bool means all three x2."""
+    levels = tuple(max(0, min(3, int(v))) for v in (s.enemy_move, s.enemy_anim, s.enemy_attack))
+    if s.enemy_speed and not any(levels):
+        return (2, 2, 2)
+    return levels
+
+
+def _copy_tree(src: Path, dst: Path) -> bool:
+    if not src.exists():
+        return False
+    shutil.copytree(src, dst, dirs_exist_ok=True)
+    return True
+
+
+def install_enemy_mods(romfs: Path, s: Settings, payload: Path | None = None) -> list[tuple[str, str]]:
+    """Install the selected enemy-speed components (patched base packs + one animation folder)."""
+    move, anim, attack = enemy_levels(s)
+    if not (move or anim or attack):
+        return []
+    opts = (payload or resource_dir()) / "romfs_opts"
+    notes: list[tuple[str, str]] = []
+    missing = False
+
+    if move or attack:
+        base = opts / "enemy_speed_base"
+        manifest_path = opts / "enemy_speed_manifest.json"
+        dictionary_path = opts / "enemy_speed_pack.zsdic"
+        if not (base.is_dir() and manifest_path.exists() and dictionary_path.exists()):
+            missing = True
+        else:
+            try:
+                manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+                dictionary = zstandard.ZstdCompressionDict(dictionary_path.read_bytes())
+                move_scale = ENEMY_FACTORS.get(move, 1.0)
+                attack_scale = 1.0 / ENEMY_FACTORS[attack] if attack else 1.0
+                for pack in manifest.get("packs", []):
+                    fields = pack.get("fields", [])
+                    if not any((f.get("k") == "m" and move) or (f.get("k") == "a" and attack) for f in fields):
+                        continue
+                    raw = (base / pack["path"]).read_bytes()
+                    data = bytearray(zstandard.ZstdDecompressor(dict_data=dictionary).decompress(
+                        raw, max_output_size=200_000_000))
+                    for f in fields:
+                        scale = move_scale if f.get("k") == "m" else attack_scale
+                        if scale != 1.0:
+                            struct.pack_into("<f", data, int(f["o"]), float(f["v"]) * scale)
+                    out = zstandard.ZstdCompressor(dict_data=dictionary).compress(bytes(data))
+                    dst = romfs / Path(pack["path"])
+                    dst.parent.mkdir(parents=True, exist_ok=True)
+                    dst.write_bytes(out)
+            except (OSError, ValueError, KeyError, zstandard.ZstdError):
+                missing = True
+
+    if anim:
+        if not _copy_tree(opts / ENEMY_ANIM_DIR[anim], romfs):
+            missing = True
+
+    if missing:
+        notes.append(("enemy_speed_missing", ""))
+    return notes
 
 
 # ---------- install ----------
@@ -252,7 +325,7 @@ def install(emu: Path, s: Settings, name: str = MOD_NAME) -> Result:
             # rest of the installation just because this optional file was not built.
             res.notes.append(("no_heart_drop_missing", ""))
 
-    for opt, enabled in (("enemy_double", s.enemy_double), ("enemy_speed", s.enemy_speed),
+    for opt, enabled in (("enemy_double", s.enemy_double),
                          ("farore_outdoor", s.farore_outdoor),
                          ("great_fairy", s.great_fairy)):
         if not enabled:
@@ -262,6 +335,7 @@ def install(emu: Path, s: Settings, name: str = MOD_NAME) -> Result:
             shutil.copytree(src, target / "romfs", dirs_exist_ok=True)
         else:
             res.notes.append((opt + "_missing", ""))
+    res.notes.extend(install_enemy_mods(target / "romfs", s, pay.parent))
 
     conflicts = other_exefs_mods(mods, {name})
     if conflicts:

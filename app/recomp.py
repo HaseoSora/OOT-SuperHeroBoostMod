@@ -294,11 +294,12 @@ def install_romfs(game: Path, s: I.Settings) -> tuple[int, list]:
         copy(pay / "button_romfs" / "common")
     if s.no_heart_drop and not copy(pay / "romfs_opts" / "no_heart_drop"):
         notes.append(("no_heart_drop_missing", ""))
-    for opt, enabled in (("enemy_double", s.enemy_double), ("enemy_speed", s.enemy_speed),
+    for opt, enabled in (("enemy_double", s.enemy_double),
                          ("farore_outdoor", s.farore_outdoor),
                          ("great_fairy", s.great_fairy)):
         if enabled and not copy(pay / "romfs_opts" / opt):
             notes.append((opt + "_missing", ""))
+    notes.extend(I.install_enemy_mods(target, s, pay))
     if copied:
         (target.parent / ".super-hero-boost").write_text(
             json.dumps({"variant": "recomp", **s.to_dict()}, indent=1))

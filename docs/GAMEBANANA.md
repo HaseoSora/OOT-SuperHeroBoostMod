@@ -22,7 +22,7 @@ from your own game files.
 - Four styles: hardcore (every action costs), combat only, sprint only, or advanced (choose which actions cost).
 - Exhaustion and regeneration, with individual costs for rolling, jumping, attacking, shooting, sprinting and
   blocking with the shield.
-- Stamina ring next to Link, drawn with the game's own textures.
+- Stamina ring next to Link or a Souls-style bar at the top right, both drawn with the game's own textures.
 
 **Difficulty**
 - Enemy health and damage taken multipliers (x1 to x3).
@@ -62,7 +62,7 @@ from your own game files.
 
 **Beta (optional, generated from your own game files)**
 - Enemy duplication (Option A).
-- Enemy speed x2.
+- Enemy speed: movement, animation and attack cadence, each off / x1.5 / x2 / x3.
 
 ## Download
 
@@ -92,7 +92,8 @@ Farore, no-heart-drop, enemy duplication/speed). Pick one; only one profile can 
    - **Songbook**: pick a learned song in the native songbook (**ZL**) and Link plays it with its effect.
    - **HUD**: rupees and clock stay visible; under them you get the Gold Skulltula and heart-piece counter of the
      current area.
-   - **Stamina**: the ring next to Link shows what is left; it refills when you stop.
+   - **Stamina**: the ring next to Link (or the top-right bar, if you pick that in the app) shows what is left; it
+     refills when you stop.
 6. To change options, use the app: pick a profile or tune each section and press **Install** over the same folder.
    To remove the mod, delete `00-Super-Hero-Boost`.
 

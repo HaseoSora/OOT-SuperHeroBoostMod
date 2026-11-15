@@ -20,7 +20,8 @@ The module, the HUD, the textures and the app are original work: no third-party 
 - **Stamina** with four styles: hardcore (everything costs), combat only, sprint only and advanced (choose which
   actions cost). Includes exhaustion and regeneration, and costs for rolling, jumping, attacking, shooting,
   sprinting and blocking with the shield.
-- **Stamina ring** next to the player, drawn with the game's own textures.
+- **Stamina display**: a ring next to the player or a Souls-style horizontal bar at the top right, both drawn with
+  the game's own textures.
 - **Sprint speed** configurable (default +25%).
 - **Enemy health** and **damage taken** multipliers (×1 to ×3).
 - **No heart drops**: hearts dropped by enemies become green rupees instead.
@@ -71,8 +72,8 @@ everything*) turn them on together with the rest of the configuration.
 
 - **Enemy duplication (Option A)**: clones generic enemy placements in the map data and doubles field auto-spawn
   counts. Bosses, minibosses and scripted enemies are excluded.
-- **Enemy speed ×2**: speeds up movement, animation and attack cadence. Some enemies or attacks may not change or
-  may desync.
+- **Enemy speed**: three independent components (movement, animation playback and attack cadence), each off, ×1.5,
+  ×2 or ×3. Some enemies or attacks may not change or may desync.
 
 ## Usage
 

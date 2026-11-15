@@ -248,6 +248,26 @@ Consequence: only site 3 sees gameplay input. The four item-button slot sites
   samplers in one material); using it as a fill would need the ui shader's combiner/threshold settings.
 - Live tuning: tools/hud_tune.py set <i>=<v> --sym g_ringp (radii, thickness, border, track alpha/brightness).
 
+## Souls-style stamina bar (magic gauge textures)
+- The magic gauge's own Common textures work as ordinary picture panes with the `P_SubItemBg_00` textured material:
+  `MpGaugeBase_00` (507x21 BC7, empty track), `MpGaugeBaseFrame_00` (507x21 BC4, frame), `MpGaugeCenter_00`
+  (1024x43 BC7, fill) and `MpGaugeSh_00` (160x80 BC4, soft shadow). Four panes after the collectible plates.
+- The fill keeps its left edge fixed (`x = left + width*fill/2`, `scale_x = width*fill/507`), so it drains to the
+  right like the game's magic bar. Tint blue normally, yellow while `g_tired` (recharging from empty).
+- `stamina_bar` in the config block selects it; the ring is hidden with the same flag and the buttonMapping HUD drops
+  140 layout units so the two clusters do not overlap. Look: `g_barp[]`, tunable with
+  `tools/hud_tune.py set <i>=<v> --sym g_barp`.
+
+## Enemy speed components (beta romfs mod)
+- Three independent options (movement, animation playback, attack cadence), each off / x1.5 / x2 / x3.
+- Movement and attack are floats in the enemy `.pack.zs` (Byml): movement in `BSA/MovementParam` walk/run/dash fields,
+  attack in `Game/BSA/ActionSeqContainer` timeouts/intervals and `GameBalance/AttackInterval` tables. The same pack
+  usually holds both, so the payload ships the 89 original packs once plus a JSON manifest of float offsets; the app
+  patches the chosen multipliers and recompresses at install time with the shipped `pack.zsdic`.
+- Animation is the FrameController playback rate at `body+0x04` in the `ASB ` element array; the payload ships three
+  ready-made `AS/Enemy_*.root.asb.zs` folders. Bosses, minibosses and scripted actors are excluded.
+- Old `enemy_speed` boolean profiles still work: they map to all three components at x2.
+
 ## Songbook (native song list) - Nov 14
 
 - The remake's songbook is the native one opened with ZL (and the pause-menu song list). It shows only learned songs.

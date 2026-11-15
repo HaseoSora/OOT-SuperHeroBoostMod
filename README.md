@@ -155,8 +155,9 @@ These projects are development references and tools; their code is not bundled w
 
 ## AI assistance
 
-AI assistants (Anthropic Claude and DeepSeek) were used for parts of the coding, reverse engineering and testing.
-I orchestrated the work, tested the results and adjusted them until they worked.
+AI assistants were used for parts of the coding, reverse engineering and testing: **Anthropic Claude**
+(https://www.anthropic.com) and **DeepSeek** (https://www.deepseek.com). I orchestrated the work, tested the results
+and adjusted them until they worked.
 
 ## License
 

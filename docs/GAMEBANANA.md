@@ -11,10 +11,10 @@
 
 ## Summary
 
-Super Hero Boost is a gameplay and HUD module for the *Ocarina of Time* remake (update **v131072**). It is
-configured with an application: no recompiling, no manual file editing, and a one-click install into your
-emulator's mod folder. Stamina, difficulty, the HUD, the extra buttons and the optional world changes are all
-switches in the app, and the installer patches the module with the profile you pick.
+Super Hero Boost is a gameplay and HUD module for the *Ocarina of Time* remake (update **v131072**). Stamina,
+difficulty, the HUD and the extra buttons are switches in a companion app, and the installer patches the module with
+the profile you pick: no recompiling, no manual file editing. The optional world changes and beta mods are generated
+from your own game files.
 
 ## Features
 
@@ -58,33 +58,38 @@ switches in the app, and the installer patches the module with the profile you p
 - Enemy duplication (Option A).
 - Enemy speed x2.
 
-**Companion app**
-- GUI for Windows, macOS and Linux (Python 3.10+ with Tkinter) and a command-line mode.
-- Translations: Spanish, English, Portuguese, French, German and Italian.
+## Download
+
+- **`SuperHeroBoost-0.2.0-mod.zip`** — the mod itself, **no executable inside**.
+  SHA-256: `c2817d883417264e85507f5ad666190aa53e36b7b78541e609791de45f6c3954`
+- The companion app **SuperHeroBoostConfig** is not uploaded here. It is on the project's
+  [Releases page](https://github.com/kuribox/OOT-SuperHeroBoostMod/releases) (Windows `.exe`; the source runs on
+  Windows, macOS and Linux with Python 3.10+).
+
+The zip contains the prebuilt module (recommended code profile: hardcore stamina, enemy HP 150%, damage 200%, HUD
+with rupees / clock / collectibles, songbook and Switch-style item buttons) and its button textures. The optional
+world changes, no-heart-drop and beta enemy mods need the companion app because they are generated from your own
+game files.
 
 ## How to use
 
-1. **Requirements**: the game on update **v131072** and an emulator that loads mods from its `user/load` folder.
-   Close the game before installing and back up your saves.
-2. Download **`SuperHeroBoostConfig.exe`** from the
-   [Releases page](https://github.com/kuribox/OOT-SuperHeroBoostMod/releases) and run it (Windows). The module is
-   bundled inside the app: you do not need Python.
-3. On **Game profile** pick a preset (Recommended turns everything on) or tune each section by hand: Stamina,
-   Difficulty, HUD, Modifications.
-4. Choose your emulator folder: the one that contains `user` (the app also finds a custom `load_directory`).
-5. Press **Install**. It creates `00-Super-Hero-Boost` inside `user/load/0400486024DEC000` and patches the
-   configuration you selected.
-6. Start the game.
-7. In game:
+1. **Requirements**: the game on update **v131072** and an emulator that loads mods from `user/load`. Close the game
+   before installing and back up your saves.
+2. Download **`SuperHeroBoost-0.2.0-mod.zip`** and extract it.
+3. Copy the **`00-Super-Hero-Boost`** folder into `user/load/0400486024DEC000` (the folder that contains your
+   mods; merge it if it already exists).
+4. Start the game.
+5. In game:
    - **Item buttons**: open the pause menu, go to the **Items** tab, highlight an item and press **X** to put it
      on **B**, **L** on **L** and **R** on **R**. The game's own **ZR** box still works with **A**.
    - **Songbook**: pick a learned song in the native songbook (**ZL**) and Link plays it with its effect.
    - **HUD**: rupees and clock stay visible; under them you get the Gold Skulltula and heart-piece counter of the
      current area.
    - **Stamina**: the ring next to Link shows what is left; it refills when you stop.
-8. To remove it, press **Uninstall** in the app (or delete the `00-Super-Hero-Boost` folder).
+6. To change options, use the app: pick a profile or tune each section and press **Install** over the same folder.
+   To remove the mod, delete `00-Super-Hero-Boost`.
 
-The app saves your settings automatically, but changes only reach the game after pressing **Install** again.
+The app saves your settings automatically, but changes only reach the game after pressing **Install**.
 
 ## Requirements
 
@@ -95,13 +100,33 @@ The app saves your settings automatically, but changes only reach the game after
 
 ## Compatibility
 
-- **Emulators only for now.** The mod has not been tested on real hardware, so please use an emulator that loads
-  mods from its `user/load` folder.
-- Tested and working on **lichii** and **Fritchii**.
-- **Hookshot**: not working yet. I have not managed to get the mod running there so far, so it is not supported
-  for now.
+- **Emulators: tested** on **lichii** and **Fritchii**.
+- **Longshot: supported and tested** since 0.2.0. Longshot is a static recompilation, so the module has to be built
+  into the game: the app's **Longshot** target rebuilds it and installs the profile and romfs options (25-45 minutes
+  the first time; later code changes are incremental and profile/romfs changes need no rebuild).
+- **Hookshot: expected to work, not tested yet.** It uses the same builder and `nx2/make_game.py --update`; the app
+  accepts its `HookshotBuilder/tools` folder.
+- Real hardware: not tested.
+
+## Credits
+
+Add these to GameBanana's **Credits** module (the AI software providers are required by the AI content policy):
+
+- **Kuribox** — creator: module, HUD, stamina system, item buttons and companion app —
+  https://github.com/kuribox
+- **Anthropic (Claude)** — AI software used as an assistant for coding, reverse engineering and testing —
+  https://www.anthropic.com
+- **DeepSeek** — AI software used as an assistant for coding, reverse engineering and testing —
+  https://www.deepseek.com
+- **Kabosune / oot-remake-modding** — modding documentation and help —
+  https://github.com/Kabosune/oot-remake-modding
+- **platinumagpie / oot-remake-devtool** — development tools used during research and testing —
+  https://github.com/platinumagpie/oot-remake-devtool
+
+The AI software was used as an assistant; the design, direction, integration and testing are the author's.
 
 ## Links
 
 - Source and issues: https://github.com/kuribox/OOT-SuperHeroBoostMod
+- App downloads: https://github.com/kuribox/OOT-SuperHeroBoostMod/releases
 - Cover art: `docs/portada.png` (1920x1080) and `docs/portada-mini.jpg` (640x480, for the listing thumbnail).

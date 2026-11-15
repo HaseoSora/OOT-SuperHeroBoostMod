@@ -11,11 +11,10 @@
 
 ## Summary
 
-Super Hero Boost is a gameplay and HUD module for the *Ocarina of Time* remake (update **v131072**) plus a
-companion app, **SuperHeroBoostConfig**, that writes the configuration for you: no recompiling, no manual file
-editing, and a one-click install into your emulator's mod folder. Stamina, difficulty, the HUD, the extra buttons
-and the optional world changes are all switches in the app, and the installer patches the prebuilt module with the
-profile you pick.
+Super Hero Boost is a gameplay and HUD module for the *Ocarina of Time* remake (update **v131072**). It is
+configured with an application: no recompiling, no manual file editing, and a one-click install into your
+emulator's mod folder. Stamina, difficulty, the HUD, the extra buttons and the optional world changes are all
+switches in the app, and the installer patches the module with the profile you pick.
 
 ## Features
 

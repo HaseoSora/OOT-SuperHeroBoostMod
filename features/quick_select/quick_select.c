@@ -43,6 +43,15 @@ static u32 g_last_frame;
 u32 g_qs_dbg[8] = {0x10000000u, 0, 0, 0, 0, 0, 0, 0};   /* calls, max hold, switches, cur, ok, what, kind, buttons */
 char g_qs_cur[64];
 static char g_mask_last[64];   /* the mask to come back to when leaving the Lens of Truth */
+static char g_qs_lbl[16];      /* feedback shown in the clock plate after a switch */
+static u32 g_qs_lbl_until;
+
+static void label(const char *s, u32 frames) {
+    u32 i = 0;
+    for (; i < 15u && s[i]; i++) g_qs_lbl[i] = s[i];
+    g_qs_lbl[i] = 0;
+    g_qs_lbl_until = hud_frame_count() + frames;
+}
 
 static int same(const char *a, const char *b) {
     u32 i = 0;
@@ -104,12 +113,14 @@ static u32 toggle_boots(void) {
     if (same(cur, NAME_HEAVY)) {
         if (!hud_owns_name(NAME_HOVER)) return 0;
         gd_set_string(18u, NAME_HOVER);
+        label("HOVER", 90u);
     } else if (same(cur, NAME_HOVER)) {
         if (!hud_owns_name(NAME_HEAVY)) return 0;
         gd_set_string(18u, NAME_HEAVY);
+        label("HIERRO", 90u);
     } else {                                      /* default (Kokiri) boots: go to iron, else hover */
-        if (hud_owns_name(NAME_HEAVY)) gd_set_string(18u, NAME_HEAVY);
-        else if (hud_owns_name(NAME_HOVER)) gd_set_string(18u, NAME_HOVER);
+        if (hud_owns_name(NAME_HEAVY)) { gd_set_string(18u, NAME_HEAVY); label("HIERRO", 90u); }
+        else if (hud_owns_name(NAME_HOVER)) { gd_set_string(18u, NAME_HOVER); label("HOVER", 90u); }
         else return 0;
     }
     return 1;
@@ -123,18 +134,24 @@ static u32 toggle_mask(void) {
     if (same(cur, NAME_LENS)) {
         if (!g_mask_last[0] || !hud_owns_name(g_mask_last)) return 0;
         gd_set_string(20u, g_mask_last);
+        label("MASCARA", 90u);
         return 1;
     }
     if (!hud_owns_name(NAME_LENS)) return 0;
     if (cur[0]) copy64(g_mask_last, cur);         /* remember the mask we are wearing */
     gd_set_string(20u, NAME_LENS);
+    label("LENTES", 90u);
     return 1;
 }
 
-/* No selector text: the HUD clock keeps showing the time. */
+/* What the clock plate shows for a moment after a switch. */
 int quick_select_text(char *b, u32 cap) {
-    (void)b; (void)cap;
-    return 0;
+    if (!g_qs_lbl[0]) return 0;
+    if ((int)(hud_frame_count() - g_qs_lbl_until) >= 0) { g_qs_lbl[0] = 0; return 0; }
+    u32 i = 0;
+    while (g_qs_lbl[i] && i + 1u < cap) { b[i] = g_qs_lbl[i]; i++; }
+    b[i] = 0;
+    return (int)i;
 }
 
 void quick_select_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_result) {

@@ -22,6 +22,8 @@ The app only:
 | `app/main.py` | window, navigation and `--cli` mode |
 | `app/presets.py` | complete game profiles |
 | `app/installer.py` | install logic and config patching |
+| `app/updater.py` | GitHub Releases update check, download and self-replace |
+| `app/version.py` | project version (shown in the window and used by the release tools) |
 | `app/paths.py` | portable/per-user settings paths (Windows, macOS, Linux) |
 | `app/i18n.py` | texts in en / es / pt / fr / de / it |
 
@@ -85,10 +87,29 @@ dropped hearts become green rupees (the optional romfs file; see the note below)
   - **Farore's Wind outdoors**: allows placing Farore's Wind warp points outside dungeons. The real forbidden areas
     inside dungeons (for example the FireTemple areas) stay blocked. It is a patched event flow, installed as a romfs
     file. **Known bug**: press up and down a couple of times before the teleport menu responds.
-- **About**: credits and the material/third-party notice.
+- **About**: credits, the material/third-party notice and **Check for updates**.
 
 The bottom bar always shows the install state and the **Install / Uninstall** buttons. Changes are saved
 automatically (250 ms debounce).
+
+## Updates
+
+On startup the app asks GitHub for the latest release of
+[OOT-SuperHeroBoostMod](https://github.com/kuribox/OOT-SuperHeroBoostMod/releases/latest) in a background thread. If
+the tag is newer than `app/version.py`, a bar appears under the header with **Download / Later**; it is also
+available as **Check for updates** in *About*.
+
+- The download is the release asset for the platform (`SuperHeroBoostConfig.exe` on Windows). It is written to a
+  `.part` file, its SHA-256 is checked against the asset digest from the GitHub API (when present), and only then
+  renamed.
+- A frozen Windows build in a writable folder replaces itself: a small detached PowerShell script waits for the app
+  to exit, copies the new executable over the old one and starts it again. If the folder is read-only (for example
+  `Program Files`), or the app runs from source, the file is saved to
+  `%LOCALAPPDATA%\SuperHeroBoostConfig\updates` and the app shows its path.
+- A network error or a rate limit never blocks the window: the automatic check is silent, and only the manual
+  **Check for updates** shows a message.
+
+The updater is only active in the GUI (`--cli` does not check), and it needs no GitHub account or token.
 
 ## Command line
 

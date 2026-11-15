@@ -46,6 +46,8 @@ the textures and the app are original work: no third-party mod is bundled or dow
 
 - GUI for Windows, macOS and Linux (Python 3.10+ with Tkinter).
 - Profiles, per-section settings, install and uninstall into the emulator's mod folder.
+- Checks GitHub Releases on startup and offers to download a newer version; on Windows it replaces itself and
+  restarts.
 - Translations in Spanish, English, Portuguese, French, German and Italian.
 - Command-line mode to install the same configuration without opening the window.
 

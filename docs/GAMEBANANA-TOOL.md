@@ -29,6 +29,8 @@ programs may show a generic false positive. The source, the build script and the
 - Optional world changes (Great Fairy rewards, Farore outdoors) and beta enemy options, generated from your own game
   files.
 - Install and uninstall into the emulator's `user/load/0400486024DEC000` folder.
+- Checks GitHub Releases on startup, shows a download bar when a newer version exists and, on Windows, replaces
+  itself and restarts (the SHA-256 of the downloaded asset is verified when GitHub provides it).
 - Longshot target: patches `main`, copies the module to `.longshot_exefs`, installs the romfs options and runs the
   builder's update with progress, log and cancel. **Hookshot** uses the same builder and procedure but is not tested
   yet.

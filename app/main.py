@@ -20,6 +20,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import installer as I  # noqa: E402
 import paths  # noqa: E402
 import recomp as R  # noqa: E402
+import updater as U  # noqa: E402
 from i18n import LANGS, tr, system_lang  # noqa: E402
 from presets import (DEFAULT_PROFILE, KEYS, PROFILES, PROFILE_KEYS,  # noqa: E402
                      STAMINA_MODES, defaults, profile_values)
@@ -305,7 +306,7 @@ def gui() -> None:
     status = tk.StringVar(value="")
     guard = {"on": False}
     ui = {"nav": {}, "sections": {}}
-    state = {"section": "install"}
+    state = {"section": "install", "update": None, "update_dismissed": "", "update_checking": False}
 
     L = lambda key, **kw: tr(lang.get(), key, **kw)  # noqa: E731
 
@@ -518,6 +519,118 @@ def gui() -> None:
         except queue.Empty:
             pass
         root.after(80, poll)
+
+    # ---- updates: GitHub Releases check, download and self-replace ----
+    def show_update_bar():
+        info = state.get("update")
+        bar = ui.get("update_bar")
+        if not info or bar is None or state.get("update_dismissed") == info.version:
+            return
+        ui["update_label"].config(text=L("update_banner", v=info.version, cur=VERSION))
+        bar.pack(side="top", fill="x", pady=(8, 0))
+
+    def dismiss_update():
+        info = state.get("update")
+        if info:
+            state["update_dismissed"] = info.version
+        bar = ui.get("update_bar")
+        if bar is not None:
+            bar.pack_forget()
+
+    def check_done(info, err, manual):
+        state["update_checking"] = False
+        if err is not None:
+            if manual:
+                status.set("")
+                messagebox.showwarning(L("update_failed"), parent=root)
+            return
+        if info is None:
+            if manual:
+                status.set("")
+                messagebox.showinfo(L("update_latest", v=VERSION), parent=root)
+            return
+        state["update"] = info
+        state["update_dismissed"] = ""
+        show_update_bar()
+        if manual:
+            status.set("")
+            if messagebox.askyesno(L("update_check"), L("update_banner", v=info.version, cur=VERSION), parent=root):
+                download_update()
+
+    def check_updates(manual=False):
+        if state["update_checking"]:
+            return
+        state["update_checking"] = True
+        if manual:
+            status.set(L("update_checking"))
+
+        def work():
+            try:
+                info, err = U.check(VERSION), None
+            except Exception as e:
+                info, err = None, e
+            q.put(lambda i=info, e=err: check_done(i, e, manual))
+        threading.Thread(target=work, daemon=True).start()
+
+    def download_update():
+        info = state.get("update")
+        if info is None:
+            return
+        if not info.asset_url:
+            U.open_releases()
+            return
+        try:
+            dest, self_update = U.update_path(info.version)
+        except Exception:
+            messagebox.showerror(L("update_error"), parent=root)
+            return
+
+        win = tk.Toplevel(root)
+        win.title(L("update_download"))
+        win.configure(bg=BG)
+        win.transient(root)
+        win.resizable(False, False)
+        win.geometry("440x120")
+        lbl = tk.Label(win, text=L("update_downloading", p=0), bg=BG, fg=TEXT, font=(FAM, 10), anchor="w")
+        lbl.pack(fill="x", padx=16, pady=(16, 8))
+        bar = ttk.Progressbar(win, style="SHB.Horizontal.TProgressbar", mode="determinate", maximum=100)
+        bar.pack(fill="x", padx=16)
+        win.protocol("WM_DELETE_WINDOW", lambda: None)
+        win.grab_set()
+        last = [-1]
+
+        def progress(done, total):
+            pct = int(done * 100 / total) if total else -1
+            if pct == last[0]:
+                return
+            last[0] = pct
+            q.put(lambda p=pct: (bar.configure(value=max(0, p)),
+                                 lbl.configure(text=L("update_downloading", p=max(0, p)))))
+
+        def finished(path):
+            win.grab_release()
+            win.destroy()
+            if self_update and U.apply_and_restart(path):
+                messagebox.showinfo(L("update_ready"), parent=root)
+                root.after(250, root.destroy)
+            else:
+                messagebox.showinfo(L("update_manual", a=str(path)), parent=root)
+                U.reveal(path)
+
+        def failed():
+            win.grab_release()
+            win.destroy()
+            messagebox.showerror(L("update_error"), parent=root)
+
+        def work():
+            try:
+                U.download(info, dest, progress)
+            except Exception:
+                q.put(failed)
+                return
+            q.put(lambda: finished(dest))
+
+        threading.Thread(target=work, daemon=True).start()
 
     def append_log(line):
         w = ui.get("log")
@@ -1029,6 +1142,10 @@ def gui() -> None:
     def build_about(parent):
         body = card(parent, L("about_title"))
         label(body, f"Super Hero Boost {VERSION}", size=10, color=ACCENT, bold=True, bg=PANEL).pack(anchor="w")
+        upd = tk.Label(body, text=L("update_check"), bg=PANEL, fg=ACCENT, cursor="hand2",
+                       font=(FAM, 9, "underline"), anchor="w", justify="left")
+        upd.pack(anchor="w", pady=(2, 0))
+        upd.bind("<Button-1>", lambda e: check_updates(manual=True))
         label(body, L("about_body"), size=10, bg=PANEL).pack(anchor="w")
         link = tk.Label(body, text=L("about_link"), bg=PANEL, fg=ACCENT, cursor="hand2",
                         font=(FAM, 9, "underline"), anchor="w", justify="left")
@@ -1040,7 +1157,9 @@ def gui() -> None:
     def build_header(shell):
         hd = tk.Frame(shell, bg=BG)
         hd.pack(fill="x", padx=18, pady=(14, 8))
-        left = tk.Frame(hd, bg=BG)
+        row = tk.Frame(hd, bg=BG)
+        row.pack(fill="x")
+        left = tk.Frame(row, bg=BG)
         left.pack(side="left", fill="x", expand=True)
         brand = tk.Frame(left, bg=BG)
         brand.pack(anchor="w")
@@ -1051,7 +1170,7 @@ def gui() -> None:
         names.pack(side="left")
         tk.Label(names, text="Super Hero Boost", bg=BG, fg=ACCENT, font=(DISPLAY, 24, "bold")).pack(anchor="w")
         tk.Label(names, text=L("subtitle"), bg=BG, fg=DIM, font=(FAM, 10)).pack(anchor="w")
-        right = tk.Frame(hd, bg=BG)
+        right = tk.Frame(row, bg=BG)
         right.pack(side="right")
         ui["profile_badge"] = tk.Label(right, text="", bg=BG, fg=ACCENT, font=(FAM, 10, "bold"))
         ui["profile_badge"].grid(row=0, column=0, sticky="e", padx=(0, 18))
@@ -1060,6 +1179,15 @@ def gui() -> None:
         lcb.current(list(LANGS).index(lang.get()) if lang.get() in LANGS else 0)
         lcb.grid(row=0, column=2)
         lcb.bind("<<ComboboxSelected>>", lambda e: change_lang(list(LANGS)[lcb.current()]))
+        ui["update_bar"] = tk.Frame(hd, bg=PANEL2, highlightbackground=BORDER, highlightthickness=1)
+        ui["update_label"] = tk.Label(ui["update_bar"], text="", bg=PANEL2, fg=TEXT, font=(FAM, 9),
+                                      anchor="w", justify="left", wraplength=560)
+        ui["update_label"].pack(side="left", fill="x", expand=True, padx=(12, 8), pady=7)
+        button(ui["update_bar"], L("update_download"), download_update, primary=True).pack(
+            side="right", padx=(0, 8), pady=5)
+        button(ui["update_bar"], L("update_later"), dismiss_update).pack(side="right", padx=(0, 6), pady=5)
+        if state.get("update"):
+            show_update_bar()
 
     def change_lang(code):
         lang.set(code)
@@ -1157,6 +1285,7 @@ def gui() -> None:
 
     render()
     root.after(80, poll)
+    root.after(1800, lambda: check_updates(manual=False))
     root.protocol("WM_DELETE_WINDOW", lambda: (remember(), root.destroy()))
     root.mainloop()
 

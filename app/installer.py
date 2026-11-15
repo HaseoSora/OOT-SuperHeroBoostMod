@@ -54,8 +54,8 @@ class Settings:
     hud_clock: bool = False
     clock_24h: bool = False
     songbook: bool = True            # play a learned song by selecting it in the native songbook
-    quick_boots: bool = False        # reserved: quick select lives on its own branch
-    quick_mask: bool = False         # reserved (config bytes 25/26, always 0 here)
+    quick_boots: bool = False        # beta: hold D-pad down to pick the boots
+    quick_mask: bool = False         # beta: hold D-pad up to pick a mask
     hud_collectibles: bool = False   # per-area Skulltula / heart-piece counter
     enemy_double: bool = False       # beta: install the duplicated-enemy romfs mod
     enemy_speed: bool = False        # beta: install the x2 enemy animation/movement/cadence romfs mod

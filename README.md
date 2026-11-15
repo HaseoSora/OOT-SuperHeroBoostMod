@@ -5,9 +5,9 @@ Gameplay module for the console remake (update **v131072**) and its cross-platfo
 
 Current release: **0.2.1**, with support for the **Longshot** static recompilation and an automatic update check.
 
-The mod adds stamina, difficulty scaling, an expanded HUD and extra item buttons, all configurable without
-recompiling anything. The app patches the prebuilt module and copies the files the game needs. The module, the HUD,
-the textures and the app are original work: no third-party mod is bundled or downloaded.
+The mod adds stamina, difficulty scaling, an expanded HUD, extra item buttons and beta boots/mask quick select, all
+configurable without recompiling anything. The app patches the prebuilt module and copies the files the game needs.
+The module, the HUD, the textures and the app are original work: no third-party mod is bundled or downloaded.
 
 ## Features
 
@@ -42,10 +42,22 @@ the textures and the app are original work: no third-party mod is bundled or dow
     B centred and L / R / ZR repositioned so there are no gaps).
   - **L button modes**: item or the game's item selector.
 
+### Quick select (beta)
+
+- **D-pad Down**: switch between the **Iron Boots** and **Hover Boots** without opening the pause menu. From the
+  default boots it picks the first of the two you own.
+- **D-pad Up**: switch between the **Lens of Truth** and the **mask** you were wearing.
+- Only items in your inventory are used. The change is applied immediately through the game's own equip request,
+  not just written to the save.
+- A short tap keeps the game's normal D-pad behaviour.
+- Off by default: enable each selector in the app's **Quick select (beta)** section. Experimental; back up your
+  save before using it.
+
 ### Configuration app
 
 - GUI for Windows, macOS and Linux (Python 3.10+ with Tkinter).
 - Profiles, per-section settings, install and uninstall into the emulator's mod folder.
+- **Quick select (beta)**: boots and mask switching from the D-pad.
 - Checks GitHub Releases on startup and offers to download a newer version; on Windows it replaces itself and
   restarts.
 - Translations in Spanish, English, Portuguese, French, German and Italian.
@@ -111,9 +123,11 @@ See [docs/LONGSHOT.md](docs/LONGSHOT.md) for the details.
 python app/main.py --cli --emu "EMULATOR_PATH" --profile recommended
 python app/main.py --cli --emu "EMULATOR_PATH" --profile hero-explorer --button-style switch --bm-simple
 python app/main.py --cli --emu "EMULATOR_PATH" --profile recommended --bm-l selector
+python app/main.py --cli --emu "EMULATOR_PATH" --profile recommended --quick-boots --quick-mask
 ```
 
-`--profile` applies a complete profile; individual flags override it. `--list-profiles` shows the list.
+`--profile` applies a complete profile; individual flags override it. `--list-profiles` shows the list. The
+`--quick-boots` / `--quick-mask` flags turn on the beta D-pad selectors.
 
 The Great Fairy mod rewrites event flows with the `evfl` library (`pip install evfl`); if it is not installed,
 `make_release.py` warns and keeps the previously generated files.

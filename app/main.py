@@ -67,6 +67,8 @@ def cli(argv) -> int:
                     help="button mapping: L is an item button (assign) or the game's item selector")
     ap.add_argument("--no-stamina", action="store_true")
     ap.add_argument("--no-songbook", action="store_true", help="disable playing songs from the native songbook")
+    ap.add_argument("--quick-boots", action="store_true", help="beta: hold D-pad down to pick boots")
+    ap.add_argument("--quick-mask", action="store_true", help="beta: hold D-pad up to pick a mask")
     ap.add_argument("--enemy-double", action="store_true", help="beta: duplicate generic enemies (romfs)")
     ap.add_argument("--enemy-speed", action="store_true", help="beta: accelerate enemy animation/movement/cadence (romfs)")
     ap.add_argument("--great-fairy", action="store_true", help="reorder the three Great Fairy magic rewards (romfs)")
@@ -119,6 +121,10 @@ def cli(argv) -> int:
         s.stamina = False
     if a.no_songbook:
         s.songbook = False
+    if a.quick_boots:
+        s.quick_boots = True
+    if a.quick_mask:
+        s.quick_mask = True
     if a.enemy_double:
         s.enemy_double = True
     if a.enemy_speed:
@@ -277,6 +283,8 @@ def gui() -> None:
     blmode = tk.StringVar(value=cfg.get("bm_l_mode") if cfg.get("bm_l_mode") in I.L_MODES else "assign")
     stamina = tk.BooleanVar(value=bool(cfg.get("stamina", True)))
     songbook = tk.BooleanVar(value=bool(cfg.get("songbook", True)))
+    quick_boots = tk.BooleanVar(value=bool(cfg.get("quick_boots", False)))
+    quick_mask = tk.BooleanVar(value=bool(cfg.get("quick_mask", False)))
     hud_collectibles = tk.BooleanVar(value=bool(cfg.get("hud_collectibles", False)))
     enemy_double = tk.BooleanVar(value=bool(cfg.get("enemy_double", False)))
     enemy_speed = tk.BooleanVar(value=bool(cfg.get("enemy_speed", False)))
@@ -390,6 +398,8 @@ def gui() -> None:
         bmap.set(v["button_mapping"])
         stamina.set(v["stamina"])
         songbook.set(v["songbook"])
+        quick_boots.set(v["quick_boots"])
+        quick_mask.set(v["quick_mask"])
         hud_collectibles.set(v["hud_collectibles"])
         mode.set(STAMINA_MODES[v["mode"]])
         for k, val in zip(KEYS, v["costs"]):
@@ -428,7 +438,7 @@ def gui() -> None:
         refresh()
         autosave()
 
-    for var in (bmap, stamina, songbook, hud_collectibles,
+    for var in (bmap, stamina, songbook, quick_boots, quick_mask, hud_collectibles,
                 enemy_double, enemy_speed,
                 great_fairy, farore_outdoor, mode,
                 combat, hp, dmg, speed, nodrop,
@@ -468,6 +478,7 @@ def gui() -> None:
     def settings():
         return I.Settings(button_mapping=bmap.get(), button_style=bstyle.get(), bm_simple=bsimple.get(),
                           bm_l_mode=blmode.get(), stamina=stamina.get(), songbook=songbook.get(),
+                          quick_boots=quick_boots.get(), quick_mask=quick_mask.get(),
                           hud_collectibles=hud_collectibles.get(),
                           enemy_double=enemy_double.get(), enemy_speed=enemy_speed.get(),
                           great_fairy=great_fairy.get(), farore_outdoor=farore_outdoor.get(),
@@ -485,6 +496,7 @@ def gui() -> None:
             "button_mapping": bmap.get(), "button_style": bstyle.get(), "bm_simple": bsimple.get(),
             "bm_l_mode": blmode.get(),
             "stamina": stamina.get(), "songbook": songbook.get(),
+            "quick_boots": quick_boots.get(), "quick_mask": quick_mask.get(),
             "hud_collectibles": hud_collectibles.get(),
             "enemy_double": enemy_double.get(), "enemy_speed": enemy_speed.get(),
             "great_fairy": great_fairy.get(), "farore_outdoor": farore_outdoor.get(),
@@ -1075,6 +1087,16 @@ def gui() -> None:
         label(body, L("hud_collectibles_desc"), size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=(20, 0))
         label(body, L("hud_note"), size=9, color=DIM, bg=PANEL).pack(anchor="w", pady=(8, 0))
         build_buttons(parent)
+        build_quick_select(parent)
+
+    def build_quick_select(parent):
+        body = card(parent, L("quick_title"), L("quick_desc"))
+        label(body, L("quick_warning"), size=9, color=RED, bold=True, bg=PANEL).pack(anchor="w", pady=(0, 6))
+        check(body, L("quick_boots_on"), quick_boots).pack(anchor="w")
+        label(body, L("quick_boots_desc"), size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=(20, 0), pady=(0, 8))
+        check(body, L("quick_mask_on"), quick_mask).pack(anchor="w")
+        label(body, L("quick_mask_desc"), size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=(20, 0))
+        label(body, L("quick_note"), size=9, color=AMBER, bg=PANEL).pack(anchor="w", pady=(8, 0))
 
     def build_buttons(parent):
         body = card(parent, L("buttons_title"), L("buttons_desc"))
@@ -1274,7 +1296,7 @@ def gui() -> None:
     elif profile.get() != "custom":
         apply_profile(profile.get(), save=False)
 
-    for v in (emu, bmap, bstyle, bsimple, blmode, stamina, songbook, hud_collectibles,
+    for v in (emu, bmap, bstyle, bsimple, blmode, stamina, songbook, quick_boots, quick_mask, hud_collectibles,
               enemy_double,
               enemy_speed, great_fairy, farore_outdoor, mode, combat, hp, dmg, speed,
               nodrop, rupees, clock_mode, *costs.values()):

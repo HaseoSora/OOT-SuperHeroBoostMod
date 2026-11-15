@@ -62,6 +62,7 @@ FEATURE_INPUT_HANDLERS = {
     "probe": ["probe_on_input"],
     "stamina": ["stamina_on_input"],
     "songbook": ["songbook_on_input"],
+    "quick_select": ["quick_select_on_input"],
     "button_mapping": ["button_mapping_on_input"],
 }
 FEATURE_SLOT_HANDLERS = {

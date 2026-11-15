@@ -1,0 +1,76 @@
+# GameBanana listing
+
+**Title:** Super Hero Boost
+
+**Tagline:** More than a HUD — stamina, Hero Mode difficulty, extra item buttons and world changes, all configurable from a desktop app.
+
+**Alternative taglines**
+
+- Stamina, Hero Mode scaling, an always-visible HUD and your own item buttons.
+- A complete gameplay and HUD overhaul you can configure without touching a single file.
+
+## Summary
+
+Super Hero Boost is a gameplay and HUD module for the *Ocarina of Time* remake (update **v131072**) plus a
+companion app, **SuperHeroBoostConfig**, that writes the configuration for you: no recompiling, no manual file
+editing, and a one-click install into your emulator's mod folder. Stamina, difficulty, the HUD, the extra buttons
+and the optional world changes are all switches in the app, and the installer patches the prebuilt module with the
+profile you pick.
+
+## Features
+
+**Stamina**
+- Four styles: hardcore (every action costs), combat only, sprint only, or advanced (choose which actions cost).
+- Exhaustion and regeneration, with individual costs for rolling, jumping, attacking, shooting, sprinting and
+  blocking with the shield.
+- Stamina ring next to Link, drawn with the game's own textures.
+
+**Difficulty**
+- Enemy health and damage taken multipliers (x1 to x3).
+- No heart drops: hearts become green rupees.
+
+**Movement**
+- Configurable sprint speed (+25% by default).
+
+**HUD**
+- Always-visible rupee counter and clock (off / 12 h / 24 h) with the game's native plate look.
+- Per-area counter for Gold Skulltulas and heart pieces. It reads the save's persistent key set, so the count
+  survives leaving and re-entering an area.
+
+**Buttons**
+- B, L, R and ZR item buttons on the HUD, assignable from the pause menu's Items tab by pressing X / L / R.
+- Switch, PlayStation and Xbox button styles.
+- Extended layout (B, L, R, ZR, X, Y, A and the sword) or simple layout (only the assignable buttons, with B
+  centred).
+- L as an item button or as the game's own item selector.
+- Songbook autoplay: pick a learned song in the native songbook (ZL) and Link plays it with its effect.
+
+**World changes**
+- The three Great Fairy magic rewards are reordered: Hyrule Castle (child) gives **Nayru's Love**, Death Mountain
+  Crater gives the **magic spin attack** and Desert Colossus gives **double magic**.
+- **Farore's Wind** warp points can be placed outdoors.
+- Known bug: press up and down a couple of times before the teleport menu responds.
+
+**Profiles**
+- Recommended, Base, Hero Mode, Hero + Stamina, Hero Explorer, Super Hero, Ultra Hero, Survival, World changes and
+  two beta combinations, plus a fully custom setup.
+
+**Beta (optional, generated from your own game files)**
+- Enemy duplication (Option A).
+- Enemy speed x2.
+
+**Companion app**
+- GUI for Windows, macOS and Linux (Python 3.10+ with Tkinter) and a command-line mode.
+- Translations: Spanish, English, Portuguese, French, German and Italian.
+
+## Requirements
+
+- The game, update **v131072**.
+- An emulator that loads mods from `user/load/0400486024DEC000` (or a custom load folder, which the app also
+  detects).
+- Close the game before installing or uninstalling. Back up your save.
+
+## Links
+
+- Source and issues: https://github.com/kuribox/OOT-SuperHeroBoostMod
+- Cover art: `docs/portada.png` (1920x1080) and `docs/portada-mini.jpg` (640x480, for the listing thumbnail).

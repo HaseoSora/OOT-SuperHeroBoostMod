@@ -31,8 +31,8 @@ class Profile:
     hud_clock: bool
     clock_24h: bool
     songbook: bool
-    quick_boots: bool            # beta: hold D-pad down to pick boots
-    quick_mask: bool             # beta: hold D-pad up to pick a mask
+    quick_boots: bool            # hold D-pad down to pick boots
+    quick_mask: bool             # hold D-pad up to pick a mask
     hud_collectibles: bool       # per-area collectible counter
     enemy_double: bool           # beta options: a named profile starts with them off
     enemy_speed: bool
@@ -43,7 +43,7 @@ class Profile:
 def _profile(key, *, button_mapping=True, stamina=True, mode=0, costs=(True,) * 6, combat_only=False,
              enemy_hp=100, damage=100, no_heart_drop=False, sprint_speed=SPRINT_DEFAULT,
              hud_rupees=True, hud_clock=True, clock_24h=True, songbook=True,
-             quick_boots=False, quick_mask=False, hud_collectibles=False,
+             quick_boots=True, quick_mask=True, hud_collectibles=False,
              enemy_double=False, enemy_speed=False,
              great_fairy=False, farore_outdoor=False):
     return Profile(key=key, button_mapping=button_mapping, stamina=stamina, mode=mode, costs=costs,
@@ -101,7 +101,7 @@ def defaults() -> dict:
     return dict(button_mapping=True, stamina=True, mode=0, costs=(True,) * 6, combat_only=False,
                 enemy_hp=100, damage=100, no_heart_drop=False, sprint_speed=SPRINT_DEFAULT,
                 hud_rupees=True, hud_clock=True, clock_24h=True, songbook=True,
-                quick_boots=False, quick_mask=False, hud_collectibles=False,
+                quick_boots=True, quick_mask=True, hud_collectibles=False,
                 enemy_double=False, enemy_speed=False, great_fairy=False, farore_outdoor=False)
 
 

@@ -8,7 +8,7 @@ GameBanana classifies third-party programs as Tools; the Mods file must stay fre
 **Tagline:** Configure and install Super Hero Boost: profiles, stamina, difficulty, HUD, item buttons and optional
 world changes from one window.
 
-**Version:** 0.2.1
+**Version:** 0.3.0
 
 ## Summary
 
@@ -26,6 +26,7 @@ programs may show a generic false positive. The source, the build script and the
   changes, two beta combinations and a fully custom setup.
 - Stamina style and per-action costs, enemy HP/damage multipliers, sprint speed, no-heart-drop.
 - HUD: rupees, clock (12/24 h) and per-area collectible counter.
+- Quick select (normal feature): hold D-pad Down/Up to switch boots/masks; the named profiles include it.
 - Button mapping: B / L / R / ZR, Switch / PlayStation / Xbox styles, extended or simple layout, L in item or
   selector mode, songbook autoplay.
 - Optional world changes (Great Fairy rewards, Farore outdoors) and beta enemy options, generated from your own game
@@ -52,7 +53,7 @@ programs may show a generic false positive. The source, the build script and the
 ## Files
 
 - `SuperHeroBoostConfig.exe`
-  SHA-256: `974c64fabdb9ebc897ccea95f23f46e9bba72c8a36f5e862cbf9d66e785463ff`
+  SHA-256: `6d6d9fd74c04650830e24271c2ae81c42debb42a983d936f369e616be81b2c93`
 
 The module payload is inside the executable; the app does not download anything.
 

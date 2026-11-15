@@ -67,8 +67,8 @@ def cli(argv) -> int:
                     help="button mapping: L is an item button (assign) or the game's item selector")
     ap.add_argument("--no-stamina", action="store_true")
     ap.add_argument("--no-songbook", action="store_true", help="disable playing songs from the native songbook")
-    ap.add_argument("--quick-boots", action="store_true", help="beta: hold D-pad down to pick boots")
-    ap.add_argument("--quick-mask", action="store_true", help="beta: hold D-pad up to pick a mask")
+    ap.add_argument("--quick-boots", action="store_true", help="hold D-pad down to switch boots")
+    ap.add_argument("--quick-mask", action="store_true", help="hold D-pad up to switch masks")
     ap.add_argument("--enemy-double", action="store_true", help="beta: duplicate generic enemies (romfs)")
     ap.add_argument("--enemy-speed", action="store_true", help="beta: accelerate enemy animation/movement/cadence (romfs)")
     ap.add_argument("--great-fairy", action="store_true", help="reorder the three Great Fairy magic rewards (romfs)")
@@ -1091,7 +1091,6 @@ def gui() -> None:
 
     def build_quick_select(parent):
         body = card(parent, L("quick_title"), L("quick_desc"))
-        label(body, L("quick_warning"), size=9, color=RED, bold=True, bg=PANEL).pack(anchor="w", pady=(0, 6))
         check(body, L("quick_boots_on"), quick_boots).pack(anchor="w")
         label(body, L("quick_boots_desc"), size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=(20, 0), pady=(0, 8))
         check(body, L("quick_mask_on"), quick_mask).pack(anchor="w")

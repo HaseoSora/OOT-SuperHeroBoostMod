@@ -1546,10 +1546,11 @@ void hud_zr_hold(int hold) { g_zr_hold = hold; }   /* features/button_mapping: a
 static int box_item(void);
 static void zr_mirror(void) {
     u64 part = g_sb[0].part;   /* any of our bound parts: [part + 0x28] is the PlayerStatus frame it lives in */
-    u64 fr = part ? ptr(part, 0x28) : 0;
-    u64 ctl = fr ? ptr(fr, 0x150) : 0;
-    u64 rp = ctl ? ptr(ctl, 0x1F0) : 0;
-    const char *nm = rp ? (const char *)ptr(rp, 0x38) : 0;
+    u64 fr = vptr(part) ? ptr(part, 0x28) : 0;
+    u64 ctl = vptr(fr) ? ptr(fr, 0x150) : 0;
+    u64 rp = vptr(ctl) ? ptr(ctl, 0x1F0) : 0;
+    const char *nm = vptr(rp) ? (const char *)ptr(rp, 0x38) : 0;
+    if (nm && !vptr((u64)nm)) nm = 0;
     /* the box from GameData (PlayerStatus.AssignableItem.<age>); the HUD's own icon name is the fallback */
     int bi = box_item();
     if (bi == -1) {   /* empty */
@@ -1582,7 +1583,7 @@ static void zr_mirror(void) {
  * clear while a menu covers it (pause ...), measured stable across pause / resume: then nothing of ours is touched
  * and our buttons do not act. */
 static u64 g_ps_frame;
-int hud_ingame(void) { return !g_ps_frame || (*(volatile u32 *)(g_ps_frame + 0x1A4) & 0x20000u) != 0; }
+int hud_ingame(void) { return !vptr(g_ps_frame) || (*(volatile u32 *)(g_ps_frame + 0x1A4) & 0x20000u) != 0; }
 /* Pause menu, Items tab: its caption panel (hooked at main+0x2CBD20) has byte +0x28 == 2 only while that tab is
  * open, and the highlighted cell's item index at +0x90 (our item numbering). The cell is owned when its
  * pattern frame ([[entry+0x48]+0x20]+0x18, entry = the panel's list +0x78 / count +0x70 whose +0xE8 is the
@@ -1999,6 +2000,7 @@ u32 hud_frame_count(void) { return g_tick; }
 static void hud_frame(void) {
     g_hud_dbg[1] = MARK | ++g_tick;
     if (!g_mp || (int)(g_tick - g_ready_at) < 0) return;
+    if (!vptr(g_frame_node)) g_frame_node = 0;
     if (!g_frame_node) {
         u64 owner = ptr(g_mp, 0x18);
         if (!owner) return;

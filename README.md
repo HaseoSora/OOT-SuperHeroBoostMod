@@ -3,9 +3,9 @@
 Gameplay module for the console remake (update **v131072**) and its cross-platform configuration app
 **SuperHeroBoostConfig**.
 
-Current release: **0.2.1**, with support for the **Longshot** static recompilation and an automatic update check.
+Current release: **0.3.0**, with boots/mask quick select, support for the **Longshot** static recompilation and an automatic update check.
 
-The mod adds stamina, difficulty scaling, an expanded HUD, extra item buttons and beta boots/mask quick select, all
+The mod adds stamina, difficulty scaling, an expanded HUD, extra item buttons and boots/mask quick select, all
 configurable without recompiling anything. The app patches the prebuilt module and copies the files the game needs.
 The module, the HUD, the textures and the app are original work: no third-party mod is bundled or downloaded.
 
@@ -42,7 +42,7 @@ The module, the HUD, the textures and the app are original work: no third-party 
     B centred and L / R / ZR repositioned so there are no gaps).
   - **L button modes**: item or the game's item selector.
 
-### Quick select (beta)
+### Quick select
 
 - **D-pad Down**: switch between the **Iron Boots** and **Hover Boots** without opening the pause menu. From the
   default boots it picks the first of the two you own.
@@ -50,14 +50,14 @@ The module, the HUD, the textures and the app are original work: no third-party 
 - Only items in your inventory are used. The change is applied immediately through the game's own equip request,
   not just written to the save.
 - A short tap keeps the game's normal D-pad behaviour.
-- Off by default: enable each selector in the app's **Quick select (beta)** section. Experimental; back up your
-  save before using it.
+- The named profiles (including **Recommended**) turn it on; each selector can still be disabled in the app's
+  **Quick select** section. It writes the game's equipment live, so keep a save backup.
 
 ### Configuration app
 
 - GUI for Windows, macOS and Linux (Python 3.10+ with Tkinter).
 - Profiles, per-section settings, install and uninstall into the emulator's mod folder.
-- **Quick select (beta)**: boots and mask switching from the D-pad.
+- **Quick select**: boots and mask switching from the D-pad.
 - Checks GitHub Releases on startup and offers to download a newer version; on Windows it replaces itself and
   restarts.
 - Translations in Spanish, English, Portuguese, French, German and Italian.

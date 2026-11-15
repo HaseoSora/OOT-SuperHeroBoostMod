@@ -44,6 +44,12 @@ from your own game files.
 - L as an item button or as the game's own item selector.
 - Songbook autoplay: pick a learned song in the native songbook (ZL) and Link plays it with its effect.
 
+**Quick select**
+- Hold **D-pad Down** to switch between the **Iron Boots** and **Hover Boots**; hold **D-pad Up** to switch between
+  the **Lens of Truth** and the **mask** you were wearing.
+- Only items in your inventory are used, and the game's equipment is applied immediately.
+- Every profile and every preset includes it.
+
 **World changes**
 - The three Great Fairy magic rewards are reordered: Hyrule Castle (child) gives **Nayru's Love**, Death Mountain
   Crater gives the **magic spin attack** and Desert Colossus gives **double magic**.
@@ -60,7 +66,7 @@ from your own game files.
 
 ## Download
 
-- **`SuperHeroBoost-0.2.1-presets.zip`** — one zip with **all 11 profiles of the app**, each ready to install.
+- **`SuperHeroBoost-0.3.0-presets.zip`** — one zip with **all 11 profiles of the app**, each ready to install.
   **No executable inside.** The build prints its SHA-256; publish the hash of the file you upload.
 - The companion app **SuperHeroBoostConfig** is a third-party program, so it belongs in the game's **Tools** section
   (https://gamebanana.com/tools/games/7534), not in the Mods file. Source and binaries are also on the project's
@@ -75,7 +81,7 @@ Farore, no-heart-drop, enemy duplication/speed). Pick one; only one profile can 
 
 1. **Requirements**: the game on update **v131072** and an emulator that loads mods from `user/load`. Close the game
    before installing and back up your saves.
-2. Download **`SuperHeroBoost-0.2.1-presets.zip`** and extract it.
+2. Download **`SuperHeroBoost-0.3.0-presets.zip`** and extract it.
 3. Open the folder of the profile you want (`01 Recommended`, `02 Base`, …) and copy its
    **`00-Super-Hero-Boost`** folder into `user/load/0400486024DEC000` (the folder that contains your mods; merge
    it if it already exists). Install one profile at a time.

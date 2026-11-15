@@ -1,7 +1,7 @@
 Super Hero Boost is a gameplay and HUD module for the Ocarina of Time remake (update v131072).
 
 WHAT YOU ARE DOWNLOADING
-The file in the Files tab is SuperHeroBoost-0.2.1-presets.zip: the mod itself, with all 11 profiles of the companion app ready to install in an emulator. It contains no executable. The configuration app is a separate download (see "Installation app" below); it is not in the Files tab.
+The file in the Files tab is SuperHeroBoost-0.3.0-presets.zip: the mod itself, with all 11 profiles of the companion app ready to install in an emulator. Every profile includes the boots/mask quick select. It contains no executable. The configuration app is a separate download (see "Installation app" below); it is not in the Files tab.
 
 Every feature in this mod is optional. The installation app sets up the module once, and each system below has its own on/off switch, so you can use only what you want — with everything off, the game plays like vanilla. The Recommended profile turns everything on; change any option and the profile switches to Custom. Options take effect when you press Install again: for emulators nothing is recompiled and no file is edited by hand. (Longshot is different; see the Longshot section.)
 
@@ -29,6 +29,11 @@ BUTTONS (optional)
 - L as an item button or as the game's own item selector.
 - Songbook autoplay: select a learned song in the native songbook (ZL) and Link plays it with its effect. Learned songs only, not the Scarecrow's Song.
 
+QUICK SELECT
+- Hold D-pad Down to switch between the Iron Boots and Hover Boots; hold D-pad Up to switch between the Lens of Truth and the mask you were wearing.
+- Only items in your inventory are used, and the game's equipment is applied immediately.
+- Included in every named profile and in every preset of this download.
+
 WORLD CHANGES (optional, each with its own switch)
 - The three Great Fairy magic rewards are reordered: Hyrule Castle (child) gives Nayru's Love, Death Mountain Crater gives the magic spin attack and Desert Colossus gives double magic.
 - Farore's Wind warp points can be placed outdoors.
@@ -48,7 +53,7 @@ REQUIREMENTS
 - Close the game before installing and back up your saves.
 
 EMULATOR - QUICK INSTALL (PRESETS ZIP)
-1. Download SuperHeroBoost-0.2.1-presets.zip from the Files tab and extract it.
+1. Download SuperHeroBoost-0.3.0-presets.zip from the Files tab and extract it.
 2. Open the folder of the profile you want (01 Recommended, 02 Base, 03 Hero Mode, ...).
 3. Copy its 00-Super-Hero-Boost folder into user/load/0400486024DEC000 (merge it if that folder already exists).
 4. Start the game.
@@ -82,11 +87,13 @@ IN GAME
 - Songbook: pick a learned song in the native songbook (ZL) and Link plays it with its effect.
 - HUD: rupees and clock stay visible; under them you get the Gold Skulltula and heart-piece counter of the current area.
 - Stamina: the ring next to Link shows what is left; it refills when you stop.
+- Quick select: hold D-pad Down for boots or Up for masks; release/tap normally keeps the game's behaviour.
 - To remove the mod, press Uninstall in the app (or delete the 00-Super-Hero-Boost folder).
 
 INSTALLATION APP
 - GUI for Windows, macOS and Linux (Python 3.10+ with Tkinter), and a command-line mode.
 - Profiles, per-section settings, install and uninstall.
+- Quick select card: boots and mask switching from the D-pad.
 - Translations: Spanish, English, Portuguese, French, German and Italian.
 - From 0.2.1 the app checks GitHub Releases on startup and offers to download a newer version. On Windows it can replace itself and restart; if the folder is read-only, it shows where the new file was saved.
 - The app saves your settings automatically, but changes only reach the game after pressing Install again.

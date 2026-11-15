@@ -1,4 +1,4 @@
-/* Quick select (beta): hold D-pad Down / Up to toggle equipment without the pause menu.
+/* Quick select: hold D-pad Down / Up to toggle equipment without the pause menu.
  *
  *   Down: iron boots ("Armor_Adult_HeavyBoot")  <-> hover boots ("Armor_Adult_HoverBoot")
  *   Up:   the mask Link is wearing              <-> the Lens of Truth ("Armor_GlassTruth")

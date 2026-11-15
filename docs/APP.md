@@ -63,7 +63,7 @@ dropped hearts become green rupees (the optional romfs file; see the note below)
   speed.
 - **Difficulty**: enemy health, damage taken, heart drops.
 - **HUD & buttons**: rupee counter, clock (**off / 12 h / 24 h**, one selector), button mapping (on/off), button
-  style (Switch / PlayStation / Xbox), layout (extended / simple) and L mode (item / selector).
+  style (Switch / PlayStation / Xbox), layout (extended / simple), L mode (item / selector) and **Quick select**.
 - **Area collectibles counter**: adds a third native-style plate below the rupee/clock row with the
   Gold Skulltulas and heart pieces of the current Banc, for example `SKULL 3/8  COR 1/2`. It reads the live
   `HeartPieceAnchor_GameDataPath` flags, `Sequence_CurrentBanc` and, for the Skulltulas, the save's persistent
@@ -91,6 +91,19 @@ dropped hearts become green rupees (the optional romfs file; see the note below)
 
 The bottom bar always shows the install state and the **Install / Uninstall** buttons. Changes are saved
 automatically (250 ms debounce).
+
+## Quick select
+
+The **HUD & buttons** section has a **Quick select** card. It enables the module's D-pad switches:
+
+- **Boots**: hold D-pad Down to alternate between the Iron Boots and Hover Boots (from the default boots it picks
+  the first one you own).
+- **Mask**: hold D-pad Up to alternate between the Lens of Truth and the mask you were wearing.
+- Only items in your inventory are used. The module calls the game's own equip request, so the change is applied
+  immediately; writing the String64 alone only affects the next load.
+- A short tap keeps the game's normal D-pad behaviour.
+- The named profiles turn both on; uncheck them here to use a profile without quick select. It writes the live
+  equipment, so keep a save backup.
 
 ## Updates
 

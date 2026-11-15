@@ -39,6 +39,7 @@ def settings_for(key: str) -> I.Settings:
         enemy_hp=v["enemy_hp"], damage=v["damage"],
         no_heart_drop=v["no_heart_drop"], sprint_speed=v["sprint_speed"],
         hud_rupees=v["hud_rupees"], hud_clock=v["hud_clock"], clock_24h=v["clock_24h"],
+        quick_boots=v["quick_boots"], quick_mask=v["quick_mask"],
         hud_collectibles=v["hud_collectibles"],
         enemy_double=v["enemy_double"], enemy_speed=v["enemy_speed"],
         great_fairy=v["great_fairy"], farore_outdoor=v["farore_outdoor"],
@@ -114,6 +115,10 @@ def main() -> None:
             lines.append(f"- {folder}  ({size / 1024 / 1024:.1f} MB)")
             lines.append(f"  {desc}")
         lines += [
+            "",
+            "QUICK SELECT",
+            "------------",
+            "Every profile includes the boots/mask quick select: hold D-pad Down for boots or Up for masks.",
             "",
             "CUSTOM SETTINGS",
             "---------------",

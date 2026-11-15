@@ -3,6 +3,8 @@
 Gameplay module for the console remake (update **v131072**) and its cross-platform configuration app
 **SuperHeroBoostConfig**.
 
+Current release: **0.2.0**, with support for the **Longshot** static recompilation.
+
 The mod adds stamina, difficulty scaling, an expanded HUD and extra item buttons, all configurable without
 recompiling anything. The app patches the prebuilt module and copies the files the game needs. The module, the HUD,
 the textures and the app are original work: no third-party mod is bundled or downloaded.
@@ -72,15 +74,26 @@ everything*) turn them on together with the rest of the configuration.
 
 To remove the mod, press **Uninstall** in the app or delete the `00-Super-Hero-Boost` folder.
 
-Prebuilt binaries are not published in this repository yet; build the app from source with the steps below.
+Prebuilt binaries are published on the [Releases](https://github.com/kuribox/OOT-SuperHeroBoostMod/releases) page;
+you can also build the app from source with the steps below.
 
 ### Longshot and Hookshot
 
 Hookshot and Longshot are static recompilations, not emulators: they translate the game to native code and ignore
 `exefs` mods by design. The romfs files work from `<game>/mods/Super-Hero-Boost/romfs`, but the module (HUD,
-stamina, item buttons, collectible counter) has to be built into the game. The app has a **Hookshot / Longshot**
-target that patches the game's exefs, installs the chosen romfs options and runs the builder's update with a progress
-bar (25-45 minutes the first time; reversible). See [docs/LONGSHOT.md](docs/LONGSHOT.md).
+stamina, item buttons, collectible counter) has to be built into the game.
+
+- **Longshot: supported and tested.** The app's **Longshot** target patches the game's `main`, copies the module to
+  `.longshot_exefs`, installs the chosen romfs options and runs the builder's update with a progress bar. Verified
+  with builder `v3.0.0-rc.3`: the game boots, starts a save, and the HUD, stamina, item buttons and collectible
+  counter work. The first build takes 25-45 minutes; later code changes are incremental (~5 minutes) and
+  profile/romfs-only changes need no rebuild. It is reversible with **Uninstall**.
+- **Hookshot: expected to work, not tested yet.** It ships the same builder and the same
+  `nx2/make_game.py --update`; point the app's target (or `tools/install_longshot.py --builder`) at its
+  `HookshotBuilder/tools` folder. The procedure is otherwise identical, but it has not been verified on a real
+  Hookshot build.
+
+See [docs/LONGSHOT.md](docs/LONGSHOT.md) for the details.
 
 ### Button mapping controls
 

@@ -24,6 +24,8 @@ from i18n import LANGS, tr, system_lang  # noqa: E402
 from presets import (DEFAULT_PROFILE, KEYS, PROFILES, PROFILE_KEYS,  # noqa: E402
                      STAMINA_MODES, defaults, profile_values)
 
+VERSION = "0.2.0"
+
 
 # ---------------------------------------------------------------- settings file
 def load_cfg() -> dict:
@@ -251,7 +253,7 @@ def gui() -> None:
 
     cfg = load_cfg()
     root = tk.Tk()
-    root.title("Super Hero Boost")
+    root.title(f"Super Hero Boost {VERSION}")
     root.configure(bg=BG)
     root.geometry("1060x740")
     root.minsize(920, 620)
@@ -1027,6 +1029,7 @@ def gui() -> None:
 
     def build_about(parent):
         body = card(parent, L("about_title"))
+        label(body, f"Super Hero Boost {VERSION}", size=10, color=ACCENT, bold=True, bg=PANEL).pack(anchor="w")
         label(body, L("about_body"), size=10, bg=PANEL).pack(anchor="w")
         link = tk.Label(body, text=L("about_link"), bg=PANEL, fg=ACCENT, cursor="hand2",
                         font=(FAM, 9, "underline"), anchor="w", justify="left")

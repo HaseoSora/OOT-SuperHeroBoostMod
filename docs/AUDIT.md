@@ -1,7 +1,9 @@
 # Code and third-party material audit
 
 Review of the files tracked by the project. Goal: the module, HUD, stamina, app and installer are original work, and no
-game material is redistributed nor third-party trademarks used in the product.
+game material is versioned in the repository nor third-party trademarks used in the product. The optional romfs files
+that the released app installs (patched event flows, actor data and resource tables) are generated from the user's own
+dump by the tools in `tools/`; they are not part of the repository.
 
 ## Summary
 
@@ -12,7 +14,7 @@ game material is redistributed nor third-party trademarks used in the product.
 | `tools/` (build, tests, analysis) | Original, except the listed dependencies | No | OK |
 | Switch / PlayStation / Xbox button textures | Original | Yes | Drawn in code by `tools/make_buttons.py` |
 | CityHash64 algorithm | Public Google algorithm | Only the code that implements it | Own implementation; no Google code copied |
-| Game code and materials | Original game | No | Only read from the user's dump at runtime |
+| Game code and materials | Original game | Not in the repository | Only read from the user's dump at runtime; the app's optional romfs files are generated from it locally |
 | Development tools (LLVM, PyInstaller, lz4, zbic, devtool, emulator) | Third parties | No | Development dependencies, not part of the product |
 
 ## Original code

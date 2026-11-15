@@ -118,11 +118,6 @@ python tools/build_app.py        # release/SuperHeroBoostConfig[.exe|.app]
 - [docs/RE-NOTES.md](docs/RE-NOTES.md): reverse-engineering notes.
 - [docs/AUDIT.md](docs/AUDIT.md): code and third-party material audit.
 
-## Notice
-
-No game code, text, textures or any other game material is redistributed. The mod reads the user's own dump at
-runtime and only bundles its own module and its own art. You need your own legal copy of the game to use it.
-
 ## Credits
 
 Module, HUD, stamina system, button mapping (with its textures) and app: original work by Kuribox.

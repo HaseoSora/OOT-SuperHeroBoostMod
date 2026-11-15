@@ -18,9 +18,13 @@ BUTTON_STYLES = ("switch", "playstation", "xbox")   # buttonMapping button art (
 STYLE_BYTE = {"switch": 0, "xbox": 1, "playstation": 2}
 L_MODES = ("assign", "selector")           # buttonMapping L: an item slot or the game's item selector
 L_MODE_VALUES = {"assign": 0, "selector": 2}
-ENEMY_LEVELS = (0, 1, 2, 3)                # enemy speed: off, x1.5, x2, x3
-ENEMY_FACTORS = {1: 1.5, 2: 2.0, 3: 3.0}
-ENEMY_ANIM_DIR = {1: "enemy_anim_x15", 2: "enemy_anim_x2", 3: "enemy_anim_x3"}
+ENEMY_LEVELS = (0, 10, 11, 4, 1, 5, 2, 6, 3, 7, 8, 9)   # display order: off, x0.5 .. x6
+ENEMY_FACTORS = {1: 1.5, 2: 2.0, 3: 3.0, 4: 1.25, 5: 1.75, 6: 2.5, 7: 4.0, 8: 5.0, 9: 6.0,
+                 10: 0.5, 11: 0.75}
+ENEMY_ANIM_DIR = {1: "enemy_anim_x15", 2: "enemy_anim_x2", 3: "enemy_anim_x3",
+                  4: "enemy_anim_x125", 5: "enemy_anim_x175", 6: "enemy_anim_x25",
+                  7: "enemy_anim_x4", 8: "enemy_anim_x5", 9: "enemy_anim_x6",
+                  10: "enemy_anim_x05", 11: "enemy_anim_x075"}
 # HUD row: hud.c draws the 1014-unit plates at 0.46 (rupee, clock) and 0.42 (the two collectible plates), so the
 # installer can pack the enabled blocks with the same gap between plate edges (layout units, root-relative).
 HUD_X0 = -1518
@@ -214,7 +218,8 @@ def patch_config(nso: bytes, s: Settings) -> bytes:
 # ---------- enemy speed components ----------
 def enemy_levels(s: Settings) -> tuple[int, int, int]:
     """Selected movement / animation / attack levels. The old enemy_speed bool means all three x2."""
-    levels = tuple(max(0, min(3, int(v))) for v in (s.enemy_move, s.enemy_anim, s.enemy_attack))
+    levels = tuple(int(v) if int(v) in ENEMY_FACTORS else 0
+                   for v in (s.enemy_move, s.enemy_anim, s.enemy_attack))
     if s.enemy_speed and not any(levels):
         return (2, 2, 2)
     return levels

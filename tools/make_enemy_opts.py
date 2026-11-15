@@ -32,8 +32,12 @@ ROMFS = Path(os.environ.get("SHB_ROMFS", r"F:\switch2\Longshot\romfs"))
 OUT = ROOT / "app" / "payload" / "romfs_opts"
 DICT_CACHE = ROOT / "build" / "enemy_opts_dicts"
 RESTBL_REL = "System/Resource/ResourceSizeTable.Product.111.Nin_Ounce_NVN2.rsizetable.zs"
-FACTORS = {1: 1.5, 2: 2.0, 3: 3.0}
-ANIM_DIR = {1: "enemy_anim_x15", 2: "enemy_anim_x2", 3: "enemy_anim_x3"}
+FACTORS = {1: 1.5, 2: 2.0, 3: 3.0, 4: 1.25, 5: 1.75, 6: 2.5, 7: 4.0, 8: 5.0, 9: 6.0,
+           10: 0.5, 11: 0.75}
+ANIM_DIR = {1: "enemy_anim_x15", 2: "enemy_anim_x2", 3: "enemy_anim_x3",
+            4: "enemy_anim_x125", 5: "enemy_anim_x175", 6: "enemy_anim_x25",
+            7: "enemy_anim_x4", 8: "enemy_anim_x5", 9: "enemy_anim_x6",
+            10: "enemy_anim_x05", 11: "enemy_anim_x075"}
 BASE_DIR = "enemy_speed_base"
 MANIFEST = OUT / "enemy_speed_manifest.json"
 PACK_DICT = OUT / "enemy_speed_pack.zsdic"
@@ -238,7 +242,7 @@ def duplicate_banc(path, rng, size_changes):
         name = g.v
         if not name.startswith("Enemy_") or any(x in name for x in BLOCK):
             continue
-        if a.get("Links") is not None or a.get("Name") is not None:
+        if a.get("Links") is not None:
             continue
         c = copy.deepcopy(a)
         h = new_hash(rng, used)
@@ -246,11 +250,14 @@ def duplicate_banc(path, rng, size_changes):
         ph = c.get("Phive")
         if ph is not None and ph.get("Placement") is not None:
             ph["Placement"]["ID"] = byml.Val(byml.T_U64, h)
-        c["SRTHash"] = byml.Val(byml.T_UINT, rng.getrandbits(32))
+        # same spatial cell as the original (the clone is only a couple of metres away), otherwise the game can
+        # cull it with the wrong cell and it never appears
+        if a.get("SRTHash") is not None:
+            c["SRTHash"] = byml.Val(byml.T_UINT, a["SRTHash"].v)
         tr = c.get("Translate")
         if tr is not None and len(tr) == 3:
-            tr[0] = byml.Val(byml.T_FLOAT, tr[0].v + 1.5)
-            tr[2] = byml.Val(byml.T_FLOAT, tr[2].v + 1.5)
+            tr[0] = byml.Val(byml.T_FLOAT, tr[0].v + 2.5)
+            tr[2] = byml.Val(byml.T_FLOAT, tr[2].v + 2.5)
         add.append(c)
     if not add:
         return None
@@ -294,10 +301,10 @@ def edit_autoplace(path, size_changes):
     return out
 
 
-def update_restbl(size_changes):
+def update_restbl(size_changes, base_path=None):
     if not size_changes:
         return None
-    p = ROMFS / RESTBL_REL
+    p = Path(base_path) if base_path else (ROMFS / RESTBL_REL)
     data = bytearray(zstandard.ZstdDecompressor().decompress(p.read_bytes(), max_output_size=20_000_000))
     n = struct.unpack_from("<I", data, 0x0E)[0]
     base = 0x16
@@ -386,7 +393,10 @@ def main():
                                     "packs": packs}, separators=(",", ":")), encoding="utf-8")
     PACK_DICT.write_bytes(DICTS["pack.zsdic"])
 
-    table = update_restbl(size_changes)
+    # Start from the buttonMapping size table when it exists (it carries the bigger UI budget): the installed
+    # enemy_double table overwrites it, so it must keep both changes.
+    button_table = ROOT / "app" / "payload" / "button_romfs" / "common" / RESTBL_REL
+    table = update_restbl(size_changes, button_table if button_table.exists() else None)
     if table:
         dst = OUT / "enemy_double" / RESTBL_REL
         dst.parent.mkdir(parents=True, exist_ok=True)

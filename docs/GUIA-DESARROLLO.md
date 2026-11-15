@@ -306,7 +306,7 @@ from addresses already used by other mods.
 | `build_core.py` | compiles the module and its IPS; generates `hud_names.h` and `dispatch_gen.c` |
 | `make_release.py` / `build_app.py` | app payload / executable |
 | `make_romfs_opts.py` | optional romfs (no heart drops) |
-| `make_enemy_opts.py` | beta: generates the enemy duplication, the movement/attack pack base + manifest and the three animation folders from the dump |
+| `make_enemy_opts.py` | beta: generates the enemy duplication, the movement/attack pack base + manifest and the eleven animation folders from the dump |
 | `features/songbook` | native songbook song -> injected notes |
 | `check_no_game_data.py` | checks that git has no dump files or generated payloads |
 | `hook_sites.py` | list of hook sites |

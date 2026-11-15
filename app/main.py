@@ -71,12 +71,12 @@ def cli(argv) -> int:
     ap.add_argument("--quick-mask", action="store_true", help="hold D-pad up to switch masks")
     ap.add_argument("--enemy-double", action="store_true", help="beta: duplicate generic enemies (romfs)")
     ap.add_argument("--enemy-speed", action="store_true", help="deprecated: enemy movement/animation/attack at x2")
-    ap.add_argument("--enemy-move", type=int, choices=range(4), default=None,
-                    help="enemy movement: 0 off, 1 x1.5, 2 x2, 3 x3")
-    ap.add_argument("--enemy-anim", type=int, choices=range(4), default=None,
-                    help="enemy animation: 0 off, 1 x1.5, 2 x2, 3 x3")
-    ap.add_argument("--enemy-attack", type=int, choices=range(4), default=None,
-                    help="enemy attack cadence: 0 off, 1 x1.5, 2 x2, 3 x3")
+    ap.add_argument("--enemy-move", type=int, choices=I.ENEMY_LEVELS, default=None,
+                    help="enemy movement: 0 off, 1 x1.5, 2 x2, 3 x3, 4 x1.25, 5 x1.75 (see the app for the rest)")
+    ap.add_argument("--enemy-anim", type=int, choices=I.ENEMY_LEVELS, default=None,
+                    help="enemy animation: same levels as --enemy-move")
+    ap.add_argument("--enemy-attack", type=int, choices=I.ENEMY_LEVELS, default=None,
+                    help="enemy attack cadence: same levels as --enemy-move")
     ap.add_argument("--stamina-bar", action="store_true", help="draw stamina as a segmented horizontal bar instead of the ring")
     ap.add_argument("--great-fairy", action="store_true", help="reorder the three Great Fairy magic rewards (romfs)")
     ap.add_argument("--farore-outdoor", action="store_true", help="allow Farore's Wind points outside dungeons (romfs)")
@@ -1181,7 +1181,7 @@ def gui() -> None:
         label(body, L("enemy_speed"), size=10, color=ACCENT, bold=True, bg=PANEL).pack(anchor="w")
         row = tk.Frame(body, bg=PANEL)
         row.pack(fill="x", pady=(2, 0))
-        names = [L("enemy_off"), "×1.5", "×2", "×3"]
+        names = [L("enemy_off") if l == 0 else "×%g" % I.ENEMY_FACTORS[l] for l in I.ENEMY_LEVELS]
         for col, (key, var) in enumerate((("enemy_move", enemy_move), ("enemy_anim", enemy_anim),
                                           ("enemy_attack", enemy_attack))):
             label(row, L(key) + ":", size=10, bg=PANEL).grid(row=0, column=col * 2, sticky="w", padx=(0, 6))

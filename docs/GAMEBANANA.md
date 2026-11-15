@@ -62,7 +62,7 @@ from your own game files.
 
 **Beta (optional, generated from your own game files)**
 - Enemy duplication (Option A).
-- Enemy speed: movement, animation and attack cadence, each off / x1.5 / x2 / x3.
+- Enemy speed: movement, animation and attack cadence, each with eleven multipliers from x0.5 to x6 (plus off).
 
 ## Download
 

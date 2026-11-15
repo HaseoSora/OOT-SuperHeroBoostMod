@@ -72,8 +72,8 @@ everything*) turn them on together with the rest of the configuration.
 
 - **Enemy duplication (Option A)**: clones generic enemy placements in the map data and doubles field auto-spawn
   counts. Bosses, minibosses and scripted enemies are excluded.
-- **Enemy speed**: three independent components (movement, animation playback and attack cadence), each off, ×1.5,
-  ×2 or ×3. Some enemies or attacks may not change or may desync.
+- **Enemy speed**: three independent components (movement, animation playback and attack cadence), each with eleven
+  multipliers from ×0.5 to ×6 (plus off). Some enemies or attacks may not change or may desync.
 
 ## Usage
 

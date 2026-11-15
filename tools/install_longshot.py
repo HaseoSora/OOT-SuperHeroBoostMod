@@ -295,11 +295,11 @@ if __name__ == "__main__":
     ap.add_argument("--romfs", help="an installed mod's romfs folder to copy (an emulator install)")
     ap.add_argument("--button-style", choices=BUTTON_STYLES, default="switch")
     ap.add_argument("--option", action="append", choices=ROMFS_OPTS, default=[], help="optional romfs feature")
-    ap.add_argument("--enemy-move", type=int, choices=range(4), default=0,
+    ap.add_argument("--enemy-move", type=int, choices=I.ENEMY_LEVELS, default=0,
                     help="enemy movement: 0 off, 1 x1.5, 2 x2, 3 x3")
-    ap.add_argument("--enemy-anim", type=int, choices=range(4), default=0,
+    ap.add_argument("--enemy-anim", type=int, choices=I.ENEMY_LEVELS, default=0,
                     help="enemy animation: 0 off, 1 x1.5, 2 x2, 3 x3")
-    ap.add_argument("--enemy-attack", type=int, choices=range(4), default=0,
+    ap.add_argument("--enemy-attack", type=int, choices=I.ENEMY_LEVELS, default=0,
                     help="enemy attack cadence: 0 off, 1 x1.5, 2 x2, 3 x3")
     ap.add_argument("--config-only", action="store_true", help="patch the module and image.bin; no rebuild")
     ap.add_argument("--no-build", action="store_true", help="only patch the exefs and copy the romfs")

@@ -263,7 +263,9 @@ Consequence: only site 3 sees gameplay input. The four item-button slot sites
   boots/masks/Navi/ocarina) always moves down 60 layout units while the bar is shown so it does not touch the bar.
 
 ## Enemy speed components (beta romfs mod)
-- Three independent options (movement, animation playback, attack cadence), each off / x1.5 / x2 / x3.
+- Three independent options (movement, animation playback, attack cadence), each with eleven multipliers from x0.5 to
+  x6 (plus off). The animation payload ships one pre-generated folder per multiplier; movement and attack are patched
+  from the manifest at install time.
 - Movement and attack are floats in the enemy `.pack.zs` (Byml): movement in `BSA/MovementParam` walk/run/dash fields,
   attack in `Game/BSA/ActionSeqContainer` timeouts/intervals and `GameBalance/AttackInterval` tables. The same pack
   usually holds both, so the payload ships the 89 original packs once plus a JSON manifest of float offsets; the app
@@ -313,14 +315,16 @@ Consequence: only site 3 sees gameplay input. The four item-button slot sites
 Both mods are generated from the user's own dump by `tools/make_enemy_opts.py`; nothing is redistributed.
 
 - **Duplication (Option A)**: `Banc/*.bcett.byml.zs` keeps an `Actors` array; a generic `Enemy_*` entry is
-  cloned with a new `Hash`, its `Phive/Placement/ID` set to the same value, a new `SRTHash` and a small
-  `Translate` offset. Entries with `Links`/`Name` and every boss/miniboss/scripted actor are skipped.
+  cloned with a new `Hash`, its `Phive/Placement/ID` set to the same value, the **same `SRTHash`** (same spatial cell,
+  so the game does not cull it with a wrong cell) and a small `Translate` offset. Entries with `Links` and every
+  boss/miniboss/scripted actor are skipped; a plain `Name` is kept (it is a debug label).
   `Scene/Component/AutoPlacementMgrParam/*.bgyml` doubles `CreateActorCountMin/MaxAtOnce` and
   `MinExistActorCountToCreate`, and halves `IntervalToCreateFrame*`. Rewritten BYMLs grow, so
   `System/Resource/ResourceSizeTable...rsizetable.zs` is patched by CRC32 (`binascii.crc32` of the
-  path without `.zs`) to the new uncompressed size.
-- **Speed ×2**: `Pack/Actor/Enemy_*.pack.zs` scales `BSA/MovementParam` (`Walk/Run/Dash/Escape/Special/Strafe/
-  LiftWalk/WalkBackwards`) by 2, and halves `GameBalance/AttackInterval/*` plus the explicit
+  path without `.zs`) to the new uncompressed size. When the buttonMapping payload exists, the enemy table starts
+  from that one so it keeps the bigger UI budget (the installed enemy table overwrites it).
+- **Speed levels**: `Pack/Actor/Enemy_*.pack.zs` scales `BSA/MovementParam` (`Walk/Run/Dash/Escape/Special/Strafe/
+  LiftWalk/WalkBackwards`) by the chosen factor, and divides `GameBalance/AttackInterval/*` plus the explicit
   `ActionSeqContainer` cooldown fields. `AttackIntervalRatio` is **not** touched: it multiplies the
   global interval table, so scaling both would give ×4.
 - **Animation**: `AS/Enemy_*.root.asb.zs` (ASB, magic `ASB `): header `0x14` = element count, `0x18` =

@@ -35,8 +35,17 @@ typedef struct {
     unsigned char quick_mask;        /* hold D-pad up to pick a mask */
     unsigned char hud_collectibles; /* per-area Skulltula / heart-piece counter */
     signed short hud_x[4];          /* installer: x of the rupee, clock, skull and heart blocks (-32768 = off) */
-    unsigned char stamina_bar;      /* 0 = ring around the player, 1 = Souls-style horizontal bar */
-    unsigned char reserved[17];
+    unsigned char stamina_bar;      /* 0 = ring around the player, 1 = segmented horizontal bar */
+    unsigned char bar_pad;          /* alignment */
+    signed short bar_width;         /* bar width in layout units (0 = default, matches the magic gauge) */
+    signed short bar_height;        /* bar height in layout units (0 = default) */
+    signed short bar_dx;            /* horizontal offset from the default position under the magic gauge */
+    signed short bar_dy;            /* vertical offset from the default position under the magic gauge */
+    signed short bar_hud_dy;        /* how far the D-pad guide cross moves down while the bar is shown */
+    unsigned char bar_color[3];     /* RGB of the filled segments (linear; 0,0,0 = default yellow) */
+    unsigned char bar_tired_color[3]; /* RGB while recharging from empty (linear; 0,0,0 = default red) */
+    unsigned char bar_move_hud;     /* 1 = move the D-pad guide cross down to make room */
+    unsigned char reserved[1];
 } ShbConfig;
 
 extern volatile ShbConfig g_shbcfg;

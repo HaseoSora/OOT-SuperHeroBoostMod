@@ -237,29 +237,25 @@ static const u64 g_thash[TXT_N] = {HASH_TXT0, HASH_TXT1, HASH_TXT2, HASH_TXT3, H
 #define RF1 (RT2 + RING2_DOTS)              /* ring 1 fill (+1 end dot) */
 #define RF2 (RF1 + RING1_DOTS + 1)          /* ring 2 fill (+1 end dot) */
 #define PIC_COLL (RF2 + RING2_DOTS + 1)     /* first pane of the collectible plates */
-#define PIC_BAR (PIC_COLL + 10)             /* Souls-style stamina bar: shadow, base, fill, frame */
-#define BAR_SH 0                            /* (relative to PIC_BAR) */
+#define PIC_BAR (PIC_COLL + 10)             /* stamina bar: outline, empty track, then the segments */
+#define BAR_OUT 0                           /* (relative to PIC_BAR) */
 #define BAR_BASE 1
-#define BAR_FILL 2
-#define BAR_FRAME 3
-#define BAR_N 4
+#define BAR_SEG0 2
+#define BAR_SEG 16
+#define BAR_N (BAR_SEG0 + BAR_SEG)
 #define PIC_N (PIC_BAR + BAR_N)
 static char g_pinames[PIC_N][16];           /* "P_ShbPic_000".. filled by pic_names() */
 static const u64 g_pihash[400] = {HASH_PIC_LIST};   /* CityHash64 of "P_ShbPic_000".. (tools/build_core.py) */
 _Static_assert(PIC_N <= 400, "more picture panes than generated hashes");
-#define TEX_N 11
+#define TEX_N 7
 static char g_texn[TEX_N][32] = {"NumBaseSide_00", "NumBaseSide_01", "Nt_RupeeIconNew_00", "Circle64_00",
-                                 "White8_00_BC4L", "MapIconCollectSkullSign_00", "MapIconCollectHeartPiece_00",
-                                 "MpGaugeBaseFrame_00", "MpGaugeBase_00", "MpGaugeCenter_00", "MpGaugeSh_00"};
+                                 "White8_00_BC4L", "MapIconCollectSkullSign_00", "MapIconCollectHeartPiece_00"};
 static const u8 g_pitex0[20] = {0, 0, 1, 1, 0, 0, 1, 1, 2, 3, 4, 4, 4, 4, 4, 4, 4, 4, 3, 3};
 /* pane sizes in layout units (scaled at runtime); ring dots are 100 x 100 */
 static const float g_pic_w0[20] = {1014, 1014, 1014, 1014, 1014, 1014, 1014, 1014, 120, 60, 9, 9, 9, 9, 9, 9, 9, 9, 76, 70};
 static const float g_pic_h0[20] = {160, 160, 160, 160, 160, 160, 160, 160, 120, 60, 26, 26, 26, 26, 26, 26, 26, 26, 76, 70};
 static u32 pic_tex(u32 k) {
-    if (k >= PIC_BAR) {   /* shadow, base, fill, frame */
-        static const u32 t[BAR_N] = {10, 8, 9, 7};
-        return t[k - PIC_BAR];
-    }
+    if (k >= PIC_BAR) return 4;   /* flat white panes: the bar draws its own segments in a solid colour */
     if (k >= PIC_COLL) {
         u32 j = k - PIC_COLL;
         if (j < 8) return ((j & 3u) < 2u) ? 0 : 1;   /* two plates: fill, fill mirrored, edge, edge mirrored */
@@ -268,12 +264,12 @@ static u32 pic_tex(u32 k) {
     return k < 20 ? g_pitex0[k] : 3;
 }
 static float pic_w(u32 k) {
-    if (k >= PIC_BAR) return (k - PIC_BAR) == BAR_SH ? 160.0f : 507.0f;
+    if (k >= PIC_BAR) return 100.0f;   /* bar panes are scaled from a 100-unit base */
     if (k >= PIC_COLL) return (k - PIC_COLL) < 8 ? 1014.0f : 128.0f;
     return k < 20 ? g_pic_w0[k] : 100.0f;
 }
 static float pic_h(u32 k) {
-    if (k >= PIC_BAR) return (k - PIC_BAR) == BAR_SH ? 80.0f : 21.0f;
+    if (k >= PIC_BAR) return 100.0f;
     if (k >= PIC_COLL) return (k - PIC_COLL) < 8 ? 160.0f : 128.0f;
     return k < 20 ? g_pic_h0[k] : 100.0f;
 }
@@ -1024,9 +1020,11 @@ static const float RAY_DY[8] = {1.0f, 0.70711f, 0.0f, -0.70711f, -1.0f, -0.70711
 u32 g_hud_show[2] = {0x10000000u, 0x10000000u};   /* clock, rupees: 1 = drawn this frame */
 static u64 g_pic_rec[PIC_N];
 static u32 g_plates_shown;
+static void bar_reset(void);
 /* the layout was rebuilt: drop cached pane records and force the texts to be set again */
 static void plates_reset(void) {
     for (u32 k = 0; k < PIC_N; k++) g_pic_rec[k] = 0;
+    bar_reset();
     for (u32 f = 0; f < FLD_N; f++) { g_tlast[f][0] = (char)0xFF; g_tpend[f] = 0; g_tfront[f] = 0; }
     g_plates_shown = 0;
 }
@@ -1398,45 +1396,107 @@ static void ring_update(void) {
     ring_draw(RT2, RF2, RING2_DOTS, g_rs2, g_rc2, G[1], G[3], u2, f2, on, rgb);
 }
 
-/* ---- Souls-style stamina bar: the magic gauge's own textures ----
- * Base (empty track), the centre fill (left-anchored, so it drains to the right like the game's magic bar),
- * a frame on top and a soft drop shadow behind. Blue normally, yellow while recharging from empty.
- * Tunable live (tools/hud_tune.py bar ...):
- *  0 centre x, 1 centre y, 2 bar width, 3 bar height scale, 4 base alpha, 5 frame alpha,
- *  6 shadow alpha, 7 shadow y offset */
-float g_barp[8] = {1560.0f, 930.0f, 520.0f, 1.55f, 0.90f, 1.0f, 0.30f, 5.0f};
-#define BAR_REF_W 507.0f
-#define BAR_REF_H 21.0f
-static void bar_update(void) {
+/* ---- stamina bar, directly under the magic gauge ----
+ * One flat pane per segment over a clean dark strip; when stamina goes down whole segments disappear and only
+ * the boundary segment shrinks, so nothing is squashed. Yellow normally, red while recharging from empty.
+ * Position and size default to the magic gauge's row (768 x 32 layout units, left edge aligned with it).
+ *  0 centre x, 1 top y, 2 width, 3 height (layout units; live tuning with tools/hud_tune.py) */
+float g_barp[4] = {-1362.0f, 772.0f, 768.0f, 32.0f};
+#define BAR_UNIT 100.0f
+/* the D-pad guide cross (boots / masks / Navi / ocarina, the game's own part) moves down to make room */
+static u64 g_cross_rec;
+static float g_cross_base, g_cross_last;
+static u32 g_cross_applied;
+static void bar_reset(void) { g_cross_rec = 0; g_cross_base = g_cross_last = 0.0f; g_cross_applied = 0; }
+static void cross_shift(u64 frame, u32 on, float dy) {
+    if (!on || dy <= 0.0f) {
+        if (g_cross_applied && g_cross_rec) {
+            *(float *)(g_cross_rec + 0x70) = g_cross_base;
+            *(u32 *)g_cross_rec |= 0x6F;
+            g_cross_applied = 0;
+            g_cross_last = g_cross_base;
+        }
+        return;
+    }
+    if (!g_cross_rec) {
+        g_cross_rec = pane_record(frame, "Pa_GuideCross_00");
+        if (!g_cross_rec) return;
+        g_cross_base = *(float *)(g_cross_rec + 0x70);
+        g_cross_last = g_cross_base;
+    }
+    float y = *(float *)(g_cross_rec + 0x70);
+    if (!g_cross_applied || y != g_cross_last) {   /* the game rewrote it: take that as the new base */
+        g_cross_base = y;
+        g_cross_applied = 1;
+    }
+    float ny = g_cross_base - dy;                  /* layout Y grows up: subtract to move down */
+    if (y != ny) {
+        *(float *)(g_cross_rec + 0x70) = ny;
+        *(u32 *)g_cross_rec |= 0x6F;
+    }
+    g_cross_last = ny;
+}
+static void bar_update(u64 frame) {
     for (u32 k = PIC_BAR; k < PIC_N; k++) if (!g_pic_rec[k]) return;
     const float *B = g_barp;
-    u32 on = g_show > 0.5f && g_shbcfg.stamina_bar && player_active();
-    float s = B[2] / BAR_REF_W, sy = B[3];
-    float cx = B[0], cy = B[1];
-    static const float BLUE[3] = {0.42f, 0.72f, 1.0f}, YELLOW[3] = {1.0f, 0.82f, 0.15f};
-    /* shadow */
-    u64 sh = g_pic_rec[PIC_BAR + BAR_SH];
-    place(sh, cx, cy - B[7], on ? B[2] / 160.0f : 0.0f,
-          on ? sy * BAR_REF_H / 80.0f * 1.6f : 0.0f, 0.0f);
-    tint_rec(sh, 0.0f, 0.0f, 0.0f, B[6]);
-    /* empty track */
-    u64 bs = g_pic_rec[PIC_BAR + BAR_BASE];
-    place(bs, cx, cy, on ? s : 0.0f, on ? sy : 0.0f, 0.0f);
-    tint_rec(bs, 0.55f, 0.68f, 1.0f, B[4]);
-    /* fill, left edge fixed at the bar's left end */
+    u32 on = g_shbcfg.stamina_bar && g_shbcfg.stamina_enabled && player_active();
+    float full = g_shbcfg.bar_width > 0 ? (float)g_shbcfg.bar_width : B[2];
+    float h = g_shbcfg.bar_height > 0 ? (float)g_shbcfg.bar_height : B[3];
+    /* capacity grows with the hearts (75 at 3 hearts, 150 at 20): the bar grows to the right from half to the
+     * full width, and the number of visible segments follows it (16 at full capacity, like the magic gauge) */
+    float grow = g_cap / 150.0f;
+    if (grow < 0.5f) grow = 0.5f;
+    if (grow > 1.0f) grow = 1.0f;
+    float w = full * grow;
+    u32 n = (u32)((float)BAR_SEG * grow + 0.5f);
+    if (n < 1) n = 1;
+    if (n > BAR_SEG) n = BAR_SEG;
+    float left = B[0] + (float)g_shbcfg.bar_dx - full * 0.5f;
+    float cx = left + w * 0.5f;
+    float cy = B[1] + (float)g_shbcfg.bar_dy - h * 0.5f;
+    /* colour: linear config bytes; yellow normally, red while recharging from empty */
+    static const float YELLOW[3] = {1.000f, 0.552f, 0.000f}, RED[3] = {1.000f, 0.027f, 0.027f};
+    float rgb[3] = {YELLOW[0], YELLOW[1], YELLOW[2]};
+    if (g_shbcfg.bar_color[0] | g_shbcfg.bar_color[1] | g_shbcfg.bar_color[2]) {
+        rgb[0] = (float)g_shbcfg.bar_color[0] / 255.0f;
+        rgb[1] = (float)g_shbcfg.bar_color[1] / 255.0f;
+        rgb[2] = (float)g_shbcfg.bar_color[2] / 255.0f;
+    }
+    float tired[3] = {RED[0], RED[1], RED[2]};
+    if (g_shbcfg.bar_tired_color[0] | g_shbcfg.bar_tired_color[1] | g_shbcfg.bar_tired_color[2]) {
+        tired[0] = (float)g_shbcfg.bar_tired_color[0] / 255.0f;
+        tired[1] = (float)g_shbcfg.bar_tired_color[1] / 255.0f;
+        tired[2] = (float)g_shbcfg.bar_tired_color[2] / 255.0f;
+    }
+    const float *fillrgb = g_tired ? tired : rgb;
+    /* clean dark strip + one flat pane per segment: when stamina goes down whole segments disappear and only
+     * the boundary segment shrinks, so no texture is ever squashed */
+    u64 out = g_pic_rec[PIC_BAR + BAR_OUT];
+    place(out, cx, cy, on ? (w + 4.0f) / BAR_UNIT : 0.0f, on ? (h + 4.0f) / BAR_UNIT : 0.0f, 0.0f);
+    tint_rec(out, 0.004f, 0.004f, 0.006f, 0.90f);
+    u64 base = g_pic_rec[PIC_BAR + BAR_BASE];
+    place(base, cx, cy, on ? w / BAR_UNIT : 0.0f, on ? h / BAR_UNIT : 0.0f, 0.0f);
+    tint_rec(base, 0.010f, 0.011f, 0.015f, 0.88f);
     float f = g_cap > 0.0f ? g_value / g_cap : 0.0f;
     if (f < 0.0f) f = 0.0f;
     if (f > 1.0f) f = 1.0f;
-    float w = B[2] * f;
-    u64 fl = g_pic_rec[PIC_BAR + BAR_FILL];
-    u32 fv = on && f > 0.002f;
-    place(fl, cx - B[2] * 0.5f + w * 0.5f, cy, fv ? w / BAR_REF_W : 0.0f, fv ? sy : 0.0f, 0.0f);
-    const float *rgb = g_tired ? YELLOW : BLUE;
-    tint_rec(fl, rgb[0], rgb[1], rgb[2], 1.0f);
-    /* frame */
-    u64 fr = g_pic_rec[PIC_BAR + BAR_FRAME];
-    place(fr, cx, cy, on ? s : 0.0f, on ? sy : 0.0f, 0.0f);
-    tint_rec(fr, 1.0f, 1.0f, 1.0f, B[5]);
+    float gap = 4.0f;
+    float sw = (w - gap * (float)(n - 1)) / (float)n;
+    if (sw < 1.0f) sw = 1.0f;
+    float lit = f * (float)n;
+    for (u32 i = 0; i < BAR_SEG; i++) {
+        u64 rec = g_pic_rec[PIC_BAR + BAR_SEG0 + i];
+        float part = i < n ? lit - (float)i : 0.0f;
+        if (part > 1.0f) part = 1.0f;
+        if (part < 0.0f) part = 0.0f;
+        float fw = sw * part;
+        u32 show = on && fw > 0.5f;
+        place(rec, left + (sw + gap) * (float)i + fw * 0.5f, cy,
+              show ? fw / BAR_UNIT : 0.0f, show ? h / BAR_UNIT : 0.0f, 0.0f);
+        if (show) tint_rec(rec, fillrgb[0], fillrgb[1], fillrgb[2], 1.0f);
+    }
+    /* the game's D-pad guide cross moves down while the bar is on screen */
+    cross_shift(frame, on && g_shbcfg.bar_move_hud, (float)g_shbcfg.bar_hud_dy);
 }
 
 /* ---- buttonMapping: slot item buttons (appended PaItemBtn_00 parts) ----
@@ -1518,7 +1578,6 @@ static void sb_xy(const float *lay, u32 k, int simple, float *x, float *y) {
     }
     *x = SB_CX + (bx - SB_CX) * lay[0] + lay[2];
     *y = SB_CY + (by - SB_CY) * lay[0] + lay[3];
-    if (lay == g_sb_lay && g_shbcfg.stamina_bar) *y -= 140.0f;   /* room for the Souls bar above */
 }
 u32 g_sb_big_items = 1;
 /* per-part scale: buttons, then items (the item is drawn bigger than its button) */
@@ -2073,7 +2132,7 @@ static void hud_frame(void) {
         g_tired = (g_tick / 480) & 1;   /* demo: alternate green / yellow */
     }
     ring_update();
-    bar_update();
+    bar_update(g_frame_node);
     slots_update(g_frame_node);
     slots_labels(g_frame_node);
 }

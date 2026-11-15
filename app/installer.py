@@ -72,7 +72,15 @@ class Settings:
     button_style: str = "switch"     # one of BUTTON_STYLES
     bm_simple: bool = False          # simple layout: only the assignable buttons (no A / X / Y)
     bm_l_mode: str = "assign"        # one of L_MODES
-    stamina_bar: bool = False        # stamina UI: horizontal Souls-style bar instead of the ring
+    stamina_bar: bool = False        # stamina UI: segmented horizontal bar instead of the ring
+    bar_color: str = "#FFC400"       # filled segments, #RRGGBB (yellow)
+    bar_tired_color: str = "#FF2D2D" # while recharging from empty, #RRGGBB (red)
+    bar_width: int = 768             # layout units (matches the magic gauge by default)
+    bar_height: int = 32             # layout units (matches the magic gauge by default)
+    bar_dx: int = 0                  # offset from the default position under the magic gauge
+    bar_dy: int = 0
+    bar_move_hud: bool = True        # move the D-pad guide cross down while the bar is shown
+    bar_hud_dy: int = 60             # how far (layout units)
 
     def to_dict(self): return dict(self.__dict__)
 
@@ -208,7 +216,38 @@ def patch_config(nso: bytes, s: Settings) -> bytes:
             x += (HUD_PLATE_W[block] + HUD_PLATE_W[slots[i + 1]]) * 0.5 + HUD_GAP
     struct.pack_into("<4h", b, f + 28, *pos)
     b[f + 36] = int(s.stamina_bar)
+    # bar look (offset 53: reserved padding, then five s16, then the colours and flags)
+    r, g, bl = bar_rgb(s.bar_color)
+    tr, tg, tb = bar_rgb(s.bar_tired_color, (0xFF, 0x2D, 0x2D))
+    clamp = lambda v, lo, hi: max(lo, min(hi, int(v)))
+    b[f + 37] = 0
+    struct.pack_into("<hhhhh", b, f + 38,
+                     clamp(s.bar_width, 0, 2000), clamp(s.bar_height, 0, 240),
+                     clamp(s.bar_dx, -2000, 2000), clamp(s.bar_dy, -2000, 2000),
+                     clamp(s.bar_hud_dy, 0, 600))
+    b[f + 48], b[f + 49], b[f + 50] = r, g, bl
+    b[f + 51], b[f + 52], b[f + 53] = tr, tg, tb
+    b[f + 54] = int(s.bar_move_hud)
+    b[f + 55] = 0
     return bytes(b)
+
+
+def bar_rgb(value: str, default: tuple[int, int, int] = (0xFF, 0xC4, 0x00)) -> tuple[int, int, int]:
+    """'#RRGGBB' (or 'RRGGBB') to linear bytes; `default` when the value is missing or invalid.
+    The module tints with these values, and the engine converts back to sRGB when it draws, so the colour
+    matches the one picked in the app."""
+    try:
+        t = str(value).lstrip("#")
+        if len(t) != 6:
+            raise ValueError
+        rgb = [int(t[i:i + 2], 16) for i in (0, 2, 4)]
+    except (TypeError, ValueError):
+        rgb = list(default)
+    out = []
+    for c in rgb:
+        s = c / 255.0
+        out.append(round(255.0 * (s / 12.92 if s <= 0.04045 else ((s + 0.055) / 1.055) ** 2.4)))
+    return out[0], out[1], out[2]
 
 
 # ---------- enemy speed components ----------

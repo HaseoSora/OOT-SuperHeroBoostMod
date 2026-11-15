@@ -20,8 +20,8 @@ The module, the HUD, the textures and the app are original work: no third-party 
 - **Stamina** with four styles: hardcore (everything costs), combat only, sprint only and advanced (choose which
   actions cost). Includes exhaustion and regeneration, and costs for rolling, jumping, attacking, shooting,
   sprinting and blocking with the shield.
-- **Stamina display**: a ring next to the player or a Souls-style horizontal bar at the top right, both drawn with
-  the game's own textures.
+- **Stamina display**: a ring next to the player or a segmented bar under the magic gauge (yellow, red while
+  recharging), with the bar's colour, size and position adjustable.
 - **Sprint speed** configurable (default +25%).
 - **Enemy health** and **damage taken** multipliers (×1 to ×3).
 - **No heart drops**: hearts dropped by enemies become green rupees instead.

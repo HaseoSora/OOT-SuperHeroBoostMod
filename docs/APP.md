@@ -61,8 +61,15 @@ display on the ring, and the enemy speed components off.
 - **Home**: profile list (the only profile selector), explanation of the active profile, emulator folder and install
   status.
 - **Stamina**: on/off, stamina style, what costs stamina (the checkboxes update automatically for each style), sprint
-  speed and the stamina display (ring around the hero or a Souls-style horizontal bar at the top right).
+  speed and the stamina display (ring around the hero, or a segmented bar under the magic gauge with its colour,
+  size, position and the D-pad HUD offset adjustable).
 - **Difficulty**: enemy health, damage taken, heart drops.
+- **Enemies**: two beta tools, generated from the user's dump at build time and installed as extra romfs files:
+  - **Duplicate enemies (Option A)**: clones generic enemy placements in `Banc` and doubles field auto-spawn counts.
+    Bosses, minibosses and scripted enemies are excluded.
+  - **Enemy speed**: movement, animation playback and attack cadence, each off / ×1.5 / ×2 / ×3. Some enemies or
+    attacks may not change, or may desync.
+  They can break puzzles, quests or performance. Back up the save and test one at a time.
 - **HUD & buttons**: rupee counter, clock (**off / 12 h / 24 h**, one selector), button mapping (on/off), button
   style (Switch / PlayStation / Xbox), layout (extended / simple), L mode (item / selector) and **Quick select**.
 - **Area collectibles counter**: adds a third native-style plate below the rupee/clock row with the
@@ -72,14 +79,7 @@ display on the ring, and the enemy speed components off.
   The heart count only includes pieces that the game associates with a map anchor; some chest/minigame pieces
   without one are not counted yet.
 - **Miscellaneous**: Songbook autoplay (select a learned song in the game's native songbook with ZL and it plays
-  automatically, effect included; not the Scarecrow's Song) and two
-  **beta** toggles:
-  - **Duplicate enemies (Option A)**: clones generic enemy placements in `Banc` and doubles field auto-spawn counts.
-    Bosses, minibosses and scripted enemies are excluded.
-  - **Enemy speed**: movement, animation playback and attack cadence, each off / ×1.5 / ×2 / ×3. Some enemies or
-    attacks may not change, or may desync.
-  Both beta mods are generated from the user's dump at build time and installed as extra romfs files. They are not
-  part of the normal payload and can break puzzles, quests or performance. Back up the save and test one at a time.
+  automatically, effect included; not the Scarecrow's Song).
 - **World changes**, inside *Miscellaneous*:
   - **Great Fairy rewards**: the three magic rewards are reordered. Hyrule Castle (child) gives **Nayru's Love**,
     Death Mountain Crater gives the **magic spin attack**, and Desert Colossus gives **double magic**. Each fountain

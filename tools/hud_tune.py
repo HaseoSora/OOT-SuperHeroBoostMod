@@ -24,7 +24,7 @@ from lichii import DebugClient, HostMemory, lichii_pids  # noqa: E402
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from live_check import PORT, log_addr, symbols  # noqa: E402
 
-SIZES = {"g_hudp": 22, "g_ringp": 8, "g_barp": 8}   # float arrays in core/hud.c
+SIZES = {"g_hudp": 22, "g_ringp": 8, "g_barp": 4}   # float arrays in core/hud.c
 
 
 def connect():
@@ -73,16 +73,21 @@ def main() -> int:
             import time
             time.sleep(0.4)
             shot(c, a.shot, a.crop)
-    elif a.cmd == "cfg":   # cfg rupees=1 clock=1 clock24=0: switch the HUD options in the running game
-        offs = {"rupees": 30, "clock": 31, "clock24": 32}   # ShbConfig field offsets (core/config.h)
+    elif a.cmd == "cfg":   # cfg rupees=1 bar=1 bar_seg=12 bar_w=760: switch options in the running game
+        offs = {"stamina": (16, "b"), "rupees": (30, "b"), "clock": (31, "b"), "clock24": (32, "b"),
+                "bar": (52, "b"), "bar_w": (54, "h"), "bar_h": (56, "h"), "bar_dx": (58, "h"),
+                "bar_dy": (60, "h"), "bar_hud_dy": (62, "h"), "bar_r": (64, "b"), "bar_g": (65, "b"),
+                "bar_b": (66, "b"), "bar_tr": (67, "b"), "bar_tg": (68, "b"), "bar_tb": (69, "b"),
+                "bar_move": (70, "b")}   # ShbConfig (core/config.h)
         pids = lichii_pids()
         hm = HostMemory(pids[0])
         hm.calibrate(c, [base])
         cfg = base + syms["g_shbcfg"]
         for kv in a.args:
             k, v = kv.split("=")
-            hm.write(cfg + offs[k], bytes([int(v)]))
-        print("g_shbcfg", bytes(c.read(cfg, 40)).hex())
+            off, fmt = offs[k]
+            hm.write(cfg + off, struct.pack("<" + fmt, int(v)))
+        print("g_shbcfg", bytes(c.read(cfg, 72)).hex())
     elif a.cmd == "shot":
         shot(c, a.args[0] if a.args else "build/tune.png", a.crop)
     elif a.cmd == "dbg":

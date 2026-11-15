@@ -248,15 +248,21 @@ Consequence: only site 3 sees gameplay input. The four item-button slot sites
   samplers in one material); using it as a fill would need the ui shader's combiner/threshold settings.
 - Live tuning: tools/hud_tune.py set <i>=<v> --sym g_ringp (radii, thickness, border, track alpha/brightness).
 
-## Souls-style stamina bar (magic gauge textures)
-- The magic gauge's own Common textures work as ordinary picture panes with the `P_SubItemBg_00` textured material:
-  `MpGaugeBase_00` (507x21 BC7, empty track), `MpGaugeBaseFrame_00` (507x21 BC4, frame), `MpGaugeCenter_00`
-  (1024x43 BC7, fill) and `MpGaugeSh_00` (160x80 BC4, soft shadow). Four panes after the collectible plates.
-- The fill keeps its left edge fixed (`x = left + width*fill/2`, `scale_x = width*fill/507`), so it drains to the
-  right like the game's magic bar. Tint blue normally, yellow while `g_tired` (recharging from empty).
-- `stamina_bar` in the config block selects it; the ring is hidden with the same flag and the buttonMapping HUD drops
-  140 layout units so the two clusters do not overlap. Look: `g_barp[]`, tunable with
-  `tools/hud_tune.py set <i>=<v> --sym g_barp`.
+## Segmented stamina bar under the magic gauge
+- The magic gauge's fill texture is green, so tinting it (blue, amber...) turns it muddy; the bar therefore draws
+  its own **flat segments** (`White8_00_BC4L` tinted from the config) over a clean dark strip, with one pane per
+  segment. It uses **16 segments**, the same maximum as the magic gauge, so the separators line up with it. When
+  stamina drops, whole segments disappear and only the boundary segment shrinks: no texture is ever squashed.
+- Capacity grows with the hearts (75 at 3 hearts, 150 at 20), so the bar grows to the right from half to full width
+  and the visible segments go from 8 to 16; the left edge stays under the magic gauge.
+- Default size and position match the magic gauge: 768 x 32 layout units, left edge aligned with it and placed just
+  below it (`g_barp[]`, tunable with `tools/hud_tune.py`). The app can override width, height and X/Y offsets.
+- Yellow normally, red while recharging from empty (`g_tired`, which the stamina core keeps set until the bar is
+  full again). Both colours are picked in the app and stored as **linear** RGB bytes in the config block (the engine
+  converts to sRGB when drawing, so the app colour matches the screen).
+- `stamina_bar` selects it; the ring is hidden with the same flag. The game's D-pad guide cross (`Pa_GuideCross_00`,
+  boots/masks/Navi/ocarina) moves down while the bar is shown so it does not touch the bar; the app controls whether
+  and how far (`bar_move_hud` / `bar_hud_dy`).
 
 ## Enemy speed components (beta romfs mod)
 - Three independent options (movement, animation playback, attack cadence), each off / x1.5 / x2 / x3.

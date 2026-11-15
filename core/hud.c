@@ -38,6 +38,7 @@ extern void item_actor_name(void *mgr, const char **out, u64 item);     /* main+
 extern char ITEM_MGR_SLOT[], ITEM_NAME_DEFAULT[];
 extern void *memcpy(void *d, const void *s, unsigned long n);
 extern long set_text(void *pane, const void *ref, int zero);   /* stock text-pane setter (main+0x439520) */
+__attribute__((weak)) int quick_select_text(char *b, u32 cap);   /* features/quick_select */
 extern char GAMEDATA_MGR[];                                      /* main+0x4E842A8: GameData manager pointer slot */
 
 #if __has_include("../build/collectibles_data.h")
@@ -1251,8 +1252,11 @@ static void plates_update(u64 frame) {
     static const float GREEN[3] = {0.38f, 0.95f, 0.25f};
     /* text panes are centre-aligned: P[7] is the centre of the text area (right of the icon) */
     float ty = P[8];
-    {   /* clock */
+    {   /* clock (or the quick-select text while it is open) */
         char b[16]; u32 n = 0;
+        if (quick_select_text && quick_select_text(b, sizeof b)) {
+            put_text(frame, 0, b, (float)bxc + P[7], BY + ty, show_c, WHITE);
+        } else {
         int h = sec / 3600, m = (sec / 60) % 60, hh = h;
         if (!g_shbcfg.clock_24h) { hh = h % 12; if (!hh) hh = 12; }
         if (g_shbcfg.clock_24h || hh >= 10) b[n++] = (char)('0' + hh / 10);
@@ -1261,6 +1265,7 @@ static void plates_update(u64 frame) {
         if (!g_shbcfg.clock_24h) { b[n++] = ' '; b[n++] = h < 12 ? 'A' : 'P'; b[n++] = 'M'; }
         b[n] = 0;
         put_text(frame, 0, b, (float)bxc + P[7], BY + ty, show_c, WHITE);
+        }
     }
     {   /* rupees: GameData Int table (k = 2), records 0x28 bytes, live value at +0x1C.
          * 962 = PlayerStatus.CurrentRupee, 976 = wallet capacity (member "Rupee" of the ammo/rupee caps). */
@@ -1699,6 +1704,15 @@ int hud_menu_item(void) {
     return a && *(volatile float *)(a + 0x18) != 0.0f ? idx : -1;
 }
 /* the player owns an equipment item (IsGet.<actor name>): 1 / 0; unknown flag = not owned */
+int hud_owns_name(const char *actor) {
+    u32 h = mmh3("IsGet.", actor), lo = 0, hi = GD_ISGET_N;
+    while (lo < hi) {
+        u32 mid = (lo + hi) / 2;
+        if (GD_ISGET[mid][0] < h) lo = mid + 1; else hi = mid;
+    }
+    if (lo < GD_ISGET_N && GD_ISGET[lo][0] == h) return gd_bool(GD_ISGET[lo][1]) > 0;
+    return 0;
+}
 /* The cell's Decide animation: what the game plays when A puts an item in its box. main+0x2D0FE0 plays an
  * animation from its start (no sound); main+0x3772100 is what A does on a cell: the cell's button object
  * (widget +0xE8) plays Decide through its own animation list, at speed 1, with the menu's sound. A playing animation is linked in its

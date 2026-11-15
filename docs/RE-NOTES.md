@@ -28,6 +28,11 @@ its configured `LoadDir` (see the `load_directory` entry in `qt-config.ini`).
   name-table entries in `name_index`/`pane_record`. (An extra HUD-init gate was tried and removed: it could leave the
   HUD off when the two init hooks ran in the other order; the pointer checks alone fix the crash without touching the
   normal drawing path.)
+- The same stale layout also reaches the **game's** `find_part`/`ui_find_sub`, which do not check the names. The module
+  now repairs invalid name slots (replacing them with a valid empty name) before those calls and waits two frames after
+  a HUD init. The module text grew to `0x10000`, shifting the `sdk` by one page: that build recompiled 71 of 479
+  chunks (stable chunk boundaries + object cache); later code changes that keep the same text size only recompile the
+  module chunks.
 
 ## NSO for subsdk9 (fixed in F0)
 

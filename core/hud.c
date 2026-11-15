@@ -149,6 +149,39 @@ static int name_index(const u8 *root, u32 table, const char *name) {
     return -1;
 }
 
+/* The game's find_part()/ui_find_sub() walk the same name table without checks: a layout being rebuilt can hold a
+ * freed name and the game dereferences it. Repair those slots with a valid empty name before handing the layout to
+ * the game, and give the layout a couple of frames after a HUD init to settle. */
+extern u64 ui_owner_layout(u64 pane);
+extern u64 ui_find_sub(const char *name, u64 part, u64 *out);
+static u64 ptr(u64 p, u32 off);
+static char g_empty_name[1];
+static int layout_repair(u64 layout) {
+    if (!vptr(layout)) return 0;
+    u64 r = ptr(layout, 0xF8);
+    if (!vptr(r)) return 0;
+    u32 n = w((const void *)r, 0x38);
+    if (n > 512) return 0;
+    u64 names = q((const void *)r, 0x20);
+    if (!vptr(names)) return 0;
+    u64 *a = (u64 *)names;
+    for (u32 i = 0; i < n; i++)
+        if (!vptr(a[i])) a[i] = (u64)g_empty_name;
+    return 1;
+}
+static u64 find_part_safe(void *node_p, const char *name) {
+    u64 node = (u64)node_p;
+    if (!vptr(node)) return 0;
+    int ok = layout_repair(ptr(node, 0x80));
+    if (layout_repair(ui_owner_layout(node + 0x40))) ok = 1;
+    return ok ? (u64)find_part(node_p, name) : 0;
+}
+static u64 ui_find_sub_safe(const char *name, u64 part, u64 *out) {
+    if (!vptr(part)) return 0;
+    if (!layout_repair(ui_owner_layout(part + 0x40))) return 0;
+    return ui_find_sub(name, part, out);
+}
+
 /* -------- step 1: PlayerStatus metadata with extra parts -------- */
 static void extend_pools(u8 *root, u32 add);
 /* Test (multi-part): grow the per-type pools at the end of the root header
@@ -666,6 +699,7 @@ static void observe_stock_box(u64 parent);
 
 static u64 g_mp;
 static u64 g_frame_node;
+static u32 g_ready_at;      /* g_tick after a HUD init at which drawing may resume (the layout settles) */
 static float g_value = 50.0f, g_cap = 100.0f, g_show = 1.0f;
 static float g_last_value = -1.0f, g_last_cap = -1.0f, g_last_show = -1.0f;
 static u32 g_test_mode = 1;
@@ -742,7 +776,7 @@ static void bind_segs(u64 parent) {
     for (u32 k = 0; k < SEG_N; k++) {
         Seg *s = &g_seg[k];
         if (s->bar) { ok++; continue; }
-        u64 bar = (u64)find_part((void *)parent, part_name(k));
+        u64 bar = (u64)find_part_safe((void *)parent, part_name(k));
         if (!bar) continue;
         u64 none = (u64)find_anim((void *)bar, "__no_such_anim__");
         u64 ratio = (u64)find_anim((void *)bar, "GaugeRatio");
@@ -1469,7 +1503,7 @@ static void hud_slots_init(u64 hud, u64 heap) {
     for (u32 k = 0; k < PART_N; k++) {
         g_sb_ctrl[k] = 0;
         if (k >= g_sb_ctrl_max) continue;   /* bisect: how many controllers the HUD init accepts */
-        u64 p = frame ? (u64)find_part((void *)frame, part_name(k)) : 0;
+        u64 p = frame ? (u64)find_part_safe((void *)frame, part_name(k)) : 0;
         if (!p || !heap) continue;
         for (u32 i = 0; i < 12; i++) g_sb_widget[k][i] = 0;
         g_sb_widget[k][4] = p;                       /* widget+0x20 = our button part */
@@ -1727,7 +1761,7 @@ static void slots_draw(SlotBtn *set, const u64 *ctrls, u64 frame, const float *l
     for (u32 k = 0; k < PART_N; k++) {
         SlotBtn *b = &set[k];
         if (!b->part) {
-            u64 p = (u64)find_part((void *)frame, part_name(k));
+            u64 p = (u64)find_part_safe((void *)frame, part_name(k));
             if (main_set) g_sb_dbg[k] = MARK | p; else g_mb_dbg[k] = MARK | p;
             if (!p) continue;
             u64 none = (u64)find_anim((void *)p, "__no_such_anim__");
@@ -1739,7 +1773,7 @@ static void slots_draw(SlotBtn *set, const u64 *ctrls, u64 frame, const float *l
             }
             if (main_set) g_sb_anim[k] = 0x10000000u | mask;
             {   /* the nested icon part: its icon pane and its shadow pane (where our button is drawn) */
-                u64 rif = (u64)find_part((void *)p, "Pa_ReplaceIcon_00");
+                u64 rif = (u64)find_part_safe((void *)p, "Pa_ReplaceIcon_00");
                 if (main_set) { g_sb_rif[k][0] = MARK | rif; g_sb_rif[k][1] = MARK | (rif ? ptr(rif, 0x80) : 0); }
                 b->rep = rif ? ptr(rif, 0x6A8) : 0;
                 b->ic = rif ? part_child(rif, "P_ReplaceIcon_00") : 0;
@@ -1948,7 +1982,7 @@ static void slots_reset(void) {
 u32 hud_frame_count(void) { return g_tick; }
 static void hud_frame(void) {
     g_hud_dbg[1] = MARK | ++g_tick;
-    if (!g_mp) return;
+    if (!g_mp || (int)(g_tick - g_ready_at) < 0) return;
     if (!g_frame_node) {
         u64 owner = ptr(g_mp, 0x18);
         if (!owner) return;
@@ -1980,7 +2014,7 @@ static float g_last_tagged[3] = {-1e9f, -1e9f, -1e9f};
 
 static void observe_stock_box(u64 parent) {
     if (g_stock_pat) return;
-    u64 box = (u64)find_part((void *)parent, "Pa_SelectItem_00");
+    u64 box = (u64)find_part_safe((void *)parent, "Pa_SelectItem_00");
     g_stock_dbg[0] = MARK | box;
     if (!box) return;
     g_stock_pat = (u64)find_anim((void *)box, "ItemPattern");
@@ -2059,7 +2093,7 @@ extern u64 ui_find_sub(const char *name, u64 part, u64 *out);
 extern u64 ui_owner_layout(u64 pane);
 static int icon_list_ok(u64 part) {
     u64 sub = 0;
-    if (!ui_find_sub("Pa_ReplaceIcon_00", part, &sub) || !sub) return 0;
+    if (!ui_find_sub_safe("Pa_ReplaceIcon_00", part, &sub) || !sub) return 0;
     u64 lay = ui_owner_layout(sub + 0x40);
     if (!lay) return 0;
     u64 n = ptr(lay, 0x130);
@@ -2076,11 +2110,11 @@ static u64 g_mb_ctrl_frame;
 u32 g_mb_ctrl_dbg[3];   /* controllers built, failed, parts whose list was not ready */
 static void hud_menu_ctrl_init(u64 fr, u64 heap) {
     if (!BTNMAP || !fr || !heap || fr == g_mb_ctrl_frame) return;
-    if (!find_part((void *)fr, part_name(0))) return;   /* not the page that carries our parts (build_menu) */
+    if (!find_part_safe((void *)fr, part_name(0))) return;   /* not the page that carries our parts (build_menu) */
     g_mb_ctrl_frame = fr;
     for (u32 k = 0; k < PART_N; k++) {
         g_mb_ctrl[k] = 0;
-        u64 p = (u64)find_part((void *)fr, part_name(k));
+        u64 p = (u64)find_part_safe((void *)fr, part_name(k));
         if (!p) continue;
         if (!icon_list_ok(p)) { g_mb_ctrl_dbg[2]++; continue; }
         for (u32 i = 0; i < 12; i++) g_mb_widget[k][i] = 0;
@@ -2109,7 +2143,7 @@ void hud_on_code(u32 id, void *a0, void *a1, void *a2, void *regs) {
         hud_icon_ctrl_init((u64)a0);
         return;
     }                  /* icon controller init */
-    if (id == 12) { hud_slots_init((u64)a0, (u64)a1); return; }  /* PlayerStatus HUD init: build icon controllers */
+    if (id == 12) { hud_slots_init((u64)a0, (u64)a1); g_ready_at = g_tick + 2; return; }  /* PlayerStatus HUD init: build icon controllers */
     if (id == 18) {   /* nn::fs::OpenFile(handle, path, mode) */
         const char *path = (const char *)a1;
         if (button_mapping_on_open && path) button_mapping_on_open(path, (int)(u64)a2);
@@ -2139,6 +2173,7 @@ void hud_on_code(u32 id, void *a0, void *a1, void *a2, void *regs) {
     if (id == 1) {
         g_mp = (u64)a0;
         g_frame_node = 0;
+        g_ready_at = g_tick + 2;
         for (u32 i = 0; i < SEG_N; i++) { g_seg[i].bar = 0; g_seg[i].init = 0; }
         plates_reset();
         slots_reset();

@@ -67,7 +67,7 @@ External paths used by the tools (on this PC, all configurable through environme
   folder with `clang`, `ld.lld`, `llvm-objcopy`, `llvm-size` and `llvm-nm`).
 - Original `main` (read-only, to verify hooks and disassemble): `F:\project\oot\data\stock-exefs\main`
   (`SHB_STOCK_MAIN`).
-- romfs dump: `F:\switch2\Longshot\romfs` (`SHB_ROMFS`).
+- romfs dump: your dump folder (`SHB_ROMFS`).
 - Debug server client and BYML/GameData readers (development only): `SHB_DEVTOOL`.
 - zstd dictionary of the UI archive: `F:\project\oot\data\zsdic1.bin`
 
@@ -178,7 +178,7 @@ the speed argument.
 - Sequences derived from `GameParameter/MelodyScoreBook/Default.game__ocarina__MelodyScoreBook.bgyml` (12 entries).
 
 ### 4.5 No heart drops (romfs)
-`tools/make_romfs_opts.py` generates, from the game's own dump (`F:\switch2\Longshot\romfs` or `SHB_ROMFS`),
+`tools/make_romfs_opts.py` generates, from the game's own dump (`SHB_ROMFS`, your dump folder),
 `GameParameter/DropGlobalParam/...` with `DropGlobalParam.HpActor` (the actor that drops as a "heart") pointing to the
 green rupee. It is only needed at build time: the payload/release already includes the generated file, so the end user
 does not need the dump. The app copies that romfs if the option is enabled; if it is missing, it installs the rest and

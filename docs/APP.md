@@ -143,6 +143,6 @@ To build the payload on Linux too, install `clang`, `lld` and the LLVM binutils,
 
 The "no hearts" option changes a game data table (`DropGlobalParam`) through romfs; it is not code. The repository does
 not redistribute that table. `tools/make_romfs_opts.py` generates it from the user's own game dump (this project uses
-`F:\switch2\Longshot\romfs`, or `SHB_ROMFS`), and `make_release.py` keeps an existing `app/payload/romfs_opts` when
+the dump folder, or `SHB_ROMFS`), and `make_release.py` keeps an existing `app/payload/romfs_opts` when
 rebuilding. That file is only needed at build time: the release payload already includes the generated copy, so users
 do not need a dump. If the file is missing, the app installs everything else and shows a note.

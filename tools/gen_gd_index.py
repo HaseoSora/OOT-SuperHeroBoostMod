@@ -18,7 +18,7 @@ sys.path.insert(0, str(DEVTOOL))
 import gamedata  # noqa: E402
 import catalog  # noqa: E402
 
-ROMFS = Path(r"F:/switch2/Longshot/romfs")
+ROMFS = Path(os.environ.get("SHB_ROMFS", "romfs"))
 
 OUT = Path(__file__).resolve().parent.parent / "core" / "gd_index.h"
 

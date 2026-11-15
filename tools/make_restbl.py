@@ -15,8 +15,8 @@ from pathlib import Path
 
 import zstandard
 
-VANILLA = Path(r"F:\switch2\Longshot\romfs\System\Resource"
-               r"\ResourceSizeTable.Product.111.Nin_Ounce_NVN2.rsizetable.zs")
+VANILLA = (Path(os.environ.get("SHB_ROMFS", "romfs")) / "System" / "Resource"
+           / "ResourceSizeTable.Product.111.Nin_Ounce_NVN2.rsizetable.zs")
 NAME = VANILLA.name
 
 # path -> extra bytes

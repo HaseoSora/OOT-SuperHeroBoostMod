@@ -68,7 +68,7 @@ def main():
         raw = gamedata.RomFS(str(ROMFS)).read(str(Path(gdl).relative_to(ROMFS)).replace("\\", "/"))
         tree = byml.Byml(raw).tree()
         bool_index = {v(e["Hash"]): i for i, e in enumerate(tree["Data"]["Bool"])}
-        dic = Path(os.environ.get("SHB_BCETT_DICT", r"C:\Users\Kuri\AppData\Local\Temp\opencode\bcett.byml.zsdic"))
+        dic = Path(os.environ.get("SHB_BCETT_DICT", str(ROOT / "build" / "bcett.byml.zsdic")))
         if not dic.exists():
             # Extract it from the game's own ZsDic.pack.zs if available.
             zstd = zstandard.ZstdDecompressor()

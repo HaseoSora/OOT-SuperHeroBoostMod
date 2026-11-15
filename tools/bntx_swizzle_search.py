@@ -5,7 +5,7 @@ from bntx_probe import load, textures
 from bntx_decode import bc4_block
 from PIL import Image
 
-b = load(r'F:\switch2\Longshot\romfs\UI\Layout2Archive\Common.Product.100.Nin_Ounce_NVN2.bntx.zs')
+b = load(sys.argv[1])
 def get(name):
     t=[t for t in textures(b) if t[0]==name][0]
     o=t[-1]; mip0=struct.unpack_from('<Q',b,o+0x70)[0]; off=struct.unpack_from('<Q',b,mip0)[0]

@@ -997,6 +997,7 @@ static void plates_hide(u64 frame) {
 static u64 g_kset_arr;      /* first key (after the entry header) */
 static u32 g_kset_n;        /* keys in the entry */
 static u32 g_kset_refreshes;
+static u32 g_kset_age;      /* frames since the key set was last read */
 static u64 g_kset_buf;      /* save image the cache was built from */
 static u64 g_picked[128];   /* keys collected this session */
 static u32 g_picked_n;
@@ -1035,8 +1036,11 @@ static void kset_refresh(void) {
     }
     g_kset_dbg[5] = MARK + seen;
     if (!buf) return;
-    if (buf == g_kset_buf && g_kset_arr) return;     /* same save image: cache is good */
-    g_kset_buf = buf; g_kset_arr = 0; g_kset_n = 0;
+    /* The save is reloaded in place when another slot is loaded (same buffer address), so the key
+     * set is re-read now and then; between reloads the cached array is used. */
+    if (buf == g_kset_buf && g_kset_arr && ++g_kset_age < 45u) return;
+    g_kset_age = 0;
+    g_kset_buf = buf; g_kset_arr = 0;
     g_kset_dbg[0] = MARK + buf;
     g_kset_dbg[4] = MARK + ++g_kset_refreshes;
     u32 data_off = *(volatile u32 *)(buf + 8), np = (data_off - 0x20u) / 8u;
@@ -1047,7 +1051,7 @@ static void kset_refresh(void) {
         break;
     }
     g_kset_dbg[1] = MARK + off;
-    if (off < data_off || off > data_off + 0x200000u) return;
+    if (off < data_off || off > data_off + 0x200000u) { g_kset_n = 0; return; }
     const unsigned char *p = (const unsigned char *)buf + (u64)off + 8ull;
     u64 prev = 0;
     u32 n = 0;
@@ -1056,6 +1060,7 @@ static void kset_refresh(void) {
         if (!v || v <= prev) break;
         prev = v;
     }
+    if (n < g_kset_n) g_picked_n = 0;                /* another save (fewer keys): drop this session's list */
     g_kset_arr = (u64)p; g_kset_n = n;
     g_kset_dbg[2] = MARK + n;
 }
@@ -1080,12 +1085,15 @@ static int collect_counts(u32 *sd, u32 *st, u32 *hd, u32 *ht) {
     *sd = *st = *hd = *ht = 0;
     char stage[40];
     if (!collect_stage(stage, sizeof stage)) return 0;
+    /* some area loads use "Folder/Area" (HyruleField/HyruleField_Child): compare the area part only */
+    const char *name = stage;
+    for (u32 i = 0; stage[i]; i++) if (stage[i] == '/') name = stage + i + 1;
     kset_refresh();
     for (u32 i = 0; i < COLLECT_STAGES; i++) {
         const unsigned char *r = g_collect_table + (u64)i * 48ull;
         int hit = 0;
         for (u32 j = 0; j < 40; j++) {
-            if (r[j] != (unsigned char)stage[j]) break;
+            if (r[j] != (unsigned char)name[j]) break;
             if (!r[j]) { hit = 1; break; }
         }
         if (!hit) continue;

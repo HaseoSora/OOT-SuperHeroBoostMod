@@ -980,7 +980,7 @@ static int world_seconds(void) {
      * day count in the high 32 bits, seconds of the day in the low 32 bits. */
     int gd = -1, wo = -1;
     u64 mgr = *(u64 *)GAMEDATA_MGR;
-    if (mgr) {
+    if (vptr(mgr)) {
         u32 cnt = *(u32 *)(mgr + 8 + 0x60 * 24 + 8);
         u64 rec = *(u64 *)(mgr + 8 + 0x60 * 24 + 0x10);
         if (rec && cnt >= 6) gd = (int)(*(u64 *)(rec + 5 * 0x30 + 0x20) & 0xFFFFFFFFu);
@@ -1068,12 +1068,12 @@ static int picked_has(u64 h) {
 }
 static void kset_refresh(void) {
     u64 mgr = *(volatile u64 *)GAMEDATA_MGR;
-    if (!mgr) return;
+    if (!vptr(mgr)) return;
     u64 buf = 0;
     u32 seen = 0;
     for (u32 i = 0; i < 8; i++) {                    /* save descriptor array at +0xE00 */
         u64 p = *(volatile u64 *)(mgr + 0xe00ull + (u64)i * 0x80ull);
-        if (!p) continue;
+        if (!vptr(p)) continue;                      /* stale/freed slot: the manager array can hold garbage */
         u32 magic = *(volatile u32 *)p, d = *(volatile u32 *)(p + 8);
         if (magic == 0x01020304u && d > 0x20u && d < 0x100000u) { seen++; if (!buf) buf = p; }
     }
@@ -1109,11 +1109,11 @@ static void kset_refresh(void) {
 }
 static u32 collect_stage(char *out, u32 cap) {
     u64 mgr = *(u64 *)GAMEDATA_MGR;
-    if (!mgr) return 0;
+    if (!vptr(mgr)) return 0;
     u64 tab = mgr + 8 + 0x60 * 16;                 /* String64 table */
     u32 cnt = *(u32 *)(tab + 8);
     u64 rec = *(u64 *)(tab + 0x10);
-    if (!rec || cnt <= 31) return 0;
+    if (!vptr(rec) || cnt <= 31) return 0;
     const char *s = (const char *)(rec + 31ull * 0x108ull + 0x74ull);
     u32 n = 0;
     while (s[n] && n + 1 < cap) { out[n] = s[n]; n++; }
@@ -1121,7 +1121,7 @@ static u32 collect_stage(char *out, u32 cap) {
     return n;
 }
 static u32 collect_bool(u64 recs, u32 count, u32 idx) {
-    if (!recs || idx >= count) return 0;
+    if (!vptr(recs) || idx >= count) return 0;
     return *(volatile unsigned char *)(recs + (u64)idx * 0x18ull + 0x16ull) != 0;
 }
 static int collect_counts(u32 *sd, u32 *st, u32 *hd, u32 *ht) {
@@ -1143,7 +1143,7 @@ static int collect_counts(u32 *sd, u32 *st, u32 *hd, u32 *ht) {
         u32 so = (u32)r[40] | ((u32)r[41] << 8), sn = r[42];
         u32 ho = (u32)r[44] | ((u32)r[45] << 8), hn = r[46];
         u64 mgr = *(u64 *)GAMEDATA_MGR;
-        if (!mgr) return 0;
+        if (!vptr(mgr)) return 0;
         u32 cnt = *(u32 *)(mgr + 8 + 8);           /* Bool table */
         u64 recs = *(u64 *)(mgr + 8 + 0x10);
         for (u32 k = 0; k < sn && so + k < COLLECT_FLAGS; k++) {
@@ -1266,7 +1266,7 @@ static void plates_update(u64 frame) {
          * 962 = PlayerStatus.CurrentRupee, 976 = wallet capacity (member "Rupee" of the ammo/rupee caps). */
         int cur = 0, mx = 200;
         u64 mgr = *(u64 *)GAMEDATA_MGR;
-        if (mgr) {
+        if (vptr(mgr)) {
             u32 cnt = *(u32 *)(mgr + 8 + 0x60 * 2 + 8);
             u64 rec = *(u64 *)(mgr + 8 + 0x60 * 2 + 0x10);
             if (rec && cnt >= 977) { cur = *(int *)(rec + 962 * 0x28 + 0x1C); mx = *(int *)(rec + 976 * 0x28 + 0x1C); }
@@ -1603,10 +1603,10 @@ static u64 menu_cell_widget(void) {
 /* ---- GameData Bool flags (table 0: records of 0x18 bytes in GameDataList order, live value at +0x16) ---- */
 static int gd_bool(u32 idx) {
     u64 mgr = *(u64 *)GAMEDATA_MGR;
-    if (!mgr) return -1;
+    if (!vptr(mgr)) return -1;
     u32 cnt = *(volatile u32 *)(mgr + 8 + 8);
     u64 rec = *(volatile u64 *)(mgr + 8 + 0x10);
-    if (!rec || idx >= cnt) return -1;
+    if (!vptr(rec) || idx >= cnt) return -1;
     return *(volatile u8 *)(rec + (u64)idx * 0x18 + 0x16) != 0;
 }
 static u32 mmh3(const char *a, const char *b) {   /* murmur3_32(a + b, seed 0): GameData name hashes */
@@ -1637,7 +1637,7 @@ int hud_is_child(void) { return gd_bool(GD_IS_CHILDHOOD); }
 static u32 box_value(void) {
     int ch = gd_bool(GD_IS_CHILDHOOD);
     u64 mgr = *(u64 *)GAMEDATA_MGR;
-    if (ch < 0 || !mgr) return 0;
+    if (ch < 0 || !vptr(mgr)) return 0;
     u32 cnt = *(volatile u32 *)(mgr + 8 + 0x60 * 6 + 8);
     u64 rec = *(volatile u64 *)(mgr + 8 + 0x60 * 6 + 0x10);
     u32 i = ch ? GD_BOX_CHILD : GD_BOX_ADULT;
@@ -1664,7 +1664,7 @@ static int box_item(void) {
  * live value at +0x1C = the hash of the value name) = "Empty". The HUD box follows. */
 void hud_box_empty(int child) {
     u64 mgr = *(u64 *)GAMEDATA_MGR;
-    if (!mgr) return;
+    if (!vptr(mgr)) return;
     u32 cnt = *(volatile u32 *)(mgr + 8 + 0x60 * 6 + 8);
     u64 rec = *(volatile u64 *)(mgr + 8 + 0x60 * 6 + 0x10);
     u32 i = child ? GD_BOX_CHILD : GD_BOX_ADULT;
@@ -1731,13 +1731,13 @@ void hud_menu_zr(int item) {   /* -1: empty */
  * part: the Y button shows the sword. */
 static void equip_mirror(u32 idx, u32 part) {
     u64 mgr = *(u64 *)GAMEDATA_MGR;
-    if (!mgr) return;
+    if (!vptr(mgr)) return;
     u32 cnt = *(u32 *)(mgr + 8 + 0x60 * 16 + 8);
     u64 rec = *(u64 *)(mgr + 8 + 0x60 * 16 + 0x10);
-    if (!rec || cnt <= idx) return;
+    if (!vptr(rec) || cnt <= idx) return;
     u64 r = rec + (u64)idx * 0x108;
     const char *s = *(const char **)(r + 0x68);
-    if (!s) s = (const char *)(r + 0x74);
+    if (!vptr((u64)s)) s = (const char *)(r + 0x74);
     char *dst = g_sb_force[part];
     if (!s[0] || s[0] != 'W') { dst[0] = 1; return; }   /* none: hidden (a later one sets it again) */
     if (str_eq(dst, s)) return;

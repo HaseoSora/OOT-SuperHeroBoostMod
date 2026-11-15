@@ -28,18 +28,22 @@ its configured `LoadDir` (see the `load_directory` entry in `qt-config.ini`).
   name-table entries in `name_index`/`pane_record`. (An extra HUD-init gate was tried and removed: it could leave the
   HUD off when the two init hooks ran in the other order; the pointer checks alone fix the crash without touching the
   normal drawing path.)
-- The same stale layout also reaches the **game's** `find_part`/`ui_find_sub`, which do not check the names. The module
-  now repairs invalid name slots (replacing them with a valid empty name) before those calls and waits two frames after
-  a HUD init. The module text grew to `0x10000`, shifting the `sdk` by one page: that build recompiled 71 of 479
-  chunks (stable chunk boundaries + object cache); later code changes that keep the same text size only recompile the
-  module chunks.
+- The Longshot save-start crash was a **stale save-descriptor slot**: `kset_refresh()` walks the GameData manager's
+  8 save descriptors at `mgr+0xE00 + i*0x80` and read `magic` from each non-null pointer. In Longshot slot 5 held
+  `0x6a4cff8b47b` (7.3 TB) and the dereference faulted. The earlier backtrace mapping was wrong: the top guest LR
+  `0x84FA6940` is the return address after `bl hud_frame` in `hud_on_code`, not the pause-menu init. The crash is now
+  fixed by range-checking every GameData pointer (`mgr`, save slots, table records, String64 values) with the 6 TB
+  `vptr` before dereferencing; the emulator's heap is below 1 TB and is unaffected.
 - The valid-pointer range must cover **Longshot's** heap and stack (4.4-4.8 TB); the emulator's is below 1 TB. The first
-  1 TB limit made the repair reject valid names, and the id-4 diagnostic compared the bad 7.3 TB name. 6 TB accepts
-  the valid pointers and rejects `0x6a4cff8b47b`; `str_eq` and `hud_on_settext` validate their pointers too.
-  Keeping the module text at `0x10000` made the following build recompile **14 of 479** chunks (4:56 in all).
-- The pause-menu icon init calls the game's `ui_find_sub`, which walks the layout hung from `part+0x80`; the safe
-  wrapper now repairs that layout and the icon's sub layout too (repairing only the owner left the bad name). The
-  `icon_list_ok` check repairs both before `icon_widget_init`.
+  1 TB limit made the layout repair reject valid names, and the id-4 diagnostic compared the bad 7.3 TB name. 6 TB
+  accepts the valid pointers and rejects `0x6a4cff8b47b`; `str_eq` and `hud_on_settext` validate their pointers too.
+  Keeping the module text at `0x10000` made the following builds recompile **14 of 479** chunks (~5 min).
+- The stale layout also reaches the **game's** `find_part`/`ui_find_sub`, which do not check the names. The module
+  repairs invalid name slots (replacing them with a valid empty name) before those calls and waits two frames after
+  a HUD init; `ui_find_sub_safe`/`icon_list_ok` repair both `part+0x80` and the owner layout. These checks are
+  defensive (they did not cause the crash above) and stay for the emulator and Longshot.
+- The module text grew to `0x10000` when the first guards were added, shifting the `sdk` by one page: that build
+  recompiled 71 of 479 chunks. Later code changes that keep the same text size only recompile the module chunks.
 
 ## NSO for subsdk9 (fixed in F0)
 

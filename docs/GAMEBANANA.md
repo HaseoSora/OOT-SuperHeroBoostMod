@@ -63,6 +63,30 @@ profile you pick.
 - GUI for Windows, macOS and Linux (Python 3.10+ with Tkinter) and a command-line mode.
 - Translations: Spanish, English, Portuguese, French, German and Italian.
 
+## How to use
+
+1. **Requirements**: the game on update **v131072** and an emulator that loads mods from its `user/load` folder.
+   Close the game before installing and back up your saves.
+2. Download **`SuperHeroBoostConfig.exe`** from the
+   [Releases page](https://github.com/kuribox/OOT-SuperHeroBoostMod/releases) and run it (Windows). The module is
+   bundled inside the app: you do not need Python.
+3. On **Game profile** pick a preset (Recommended turns everything on) or tune each section by hand: Stamina,
+   Difficulty, HUD, Modifications.
+4. Choose your emulator folder: the one that contains `user` (the app also finds a custom `load_directory`).
+5. Press **Install**. It creates `00-Super-Hero-Boost` inside `user/load/0400486024DEC000` and patches the
+   configuration you selected.
+6. Start the game.
+7. In game:
+   - **Item buttons**: open the pause menu, go to the **Items** tab, highlight an item and press **X** to put it
+     on **B**, **L** on **L** and **R** on **R**. The game's own **ZR** box still works with **A**.
+   - **Songbook**: pick a learned song in the native songbook (**ZL**) and Link plays it with its effect.
+   - **HUD**: rupees and clock stay visible; under them you get the Gold Skulltula and heart-piece counter of the
+     current area.
+   - **Stamina**: the ring next to Link shows what is left; it refills when you stop.
+8. To remove it, press **Uninstall** in the app (or delete the `00-Super-Hero-Boost` folder).
+
+The app saves your settings automatically, but changes only reach the game after pressing **Install** again.
+
 ## Requirements
 
 - The game, update **v131072**.

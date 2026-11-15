@@ -3,6 +3,8 @@ __pycache__/
 *.pyc
 data/
 *.png
+!docs/*.png
+!docs/capturas/*.png
 *.bin
 *.o
 *.elf

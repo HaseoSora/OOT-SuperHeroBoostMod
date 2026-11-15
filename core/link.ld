@@ -33,6 +33,8 @@ SECTIONS
     STOCK3B = 0x3C42804;
     STOCK4 = 0x3C42830;
     SLOTFN = 0x1211C00;
+    equip_request = 0xA7ACD0;  /* (pouch, name_ref, kind, arg3): the game's equipment request, as the pause menu makes it */
+    equip_refresh = 0x33AC230; /* (pouch, name_ref, 1): apply/refresh after the request */
     RES_FRAME = 0x2B30DE4;
     RES_MP = 0x33BDCE4;
     RES_UI = 0x43A6FC;

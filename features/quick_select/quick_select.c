@@ -32,6 +32,9 @@
 #define NAME_LENS  "Armor_GlassTruth"
 
 extern char GAMEDATA_MGR[];       /* link.ld: main+0x4E842A8 */
+extern char ITEM_MGR_SLOT[];      /* link.ld: main+0x4C7E0D0 (-> item/equipment manager) */
+extern void equip_request(void *pouch, void *name_ref, u32 kind, u32 arg3);
+extern void equip_refresh(void *pouch, void *name_ref, u32 one);
 u32 hud_frame_count(void);
 int hud_owns_name(const char *actor);   /* core/hud.c: IsGet.<actor> from the live Bool table */
 
@@ -105,6 +108,19 @@ static void copy64(char *dst, const char *src) {
     dst[i] = 0;
 }
 
+/* Apply an equipment name through the game's own equip request (the pause menu's path), instead of
+ * only writing the String64 record: the game rebuilds Link's equipment from the live request. */
+typedef struct { const char *name; u64 len; } NameRef;
+static u32 apply_equip(const char *name) {
+    u64 slot = *(volatile u64 *)ITEM_MGR_SLOT;
+    u64 mgr = slot ? *(volatile u64 *)slot : 0;
+    if (!mgr || !name || !name[0]) return 0;
+    NameRef ref = { name, 64u };
+    equip_request((void *)mgr, &ref, 3u, 0u);
+    equip_refresh((void *)mgr, &ref, 1u);
+    return 1;
+}
+
 /* Down: iron <-> hover boots. Returns 1 when the string was changed. */
 static u32 toggle_boots(void) {
     char cur[64];
@@ -113,15 +129,23 @@ static u32 toggle_boots(void) {
     if (same(cur, NAME_HEAVY)) {
         if (!hud_owns_name(NAME_HOVER)) return 0;
         gd_set_string(18u, NAME_HOVER);
+        apply_equip(NAME_HOVER);
         label("HOVER", 90u);
     } else if (same(cur, NAME_HOVER)) {
         if (!hud_owns_name(NAME_HEAVY)) return 0;
         gd_set_string(18u, NAME_HEAVY);
+        apply_equip(NAME_HEAVY);
         label("HIERRO", 90u);
     } else {                                      /* default (Kokiri) boots: go to iron, else hover */
-        if (hud_owns_name(NAME_HEAVY)) { gd_set_string(18u, NAME_HEAVY); label("HIERRO", 90u); }
-        else if (hud_owns_name(NAME_HOVER)) { gd_set_string(18u, NAME_HOVER); label("HOVER", 90u); }
-        else return 0;
+        if (hud_owns_name(NAME_HEAVY)) {
+            gd_set_string(18u, NAME_HEAVY);
+            apply_equip(NAME_HEAVY);
+            label("HIERRO", 90u);
+        } else if (hud_owns_name(NAME_HOVER)) {
+            gd_set_string(18u, NAME_HOVER);
+            apply_equip(NAME_HOVER);
+            label("HOVER", 90u);
+        } else return 0;
     }
     return 1;
 }
@@ -134,12 +158,14 @@ static u32 toggle_mask(void) {
     if (same(cur, NAME_LENS)) {
         if (!g_mask_last[0] || !hud_owns_name(g_mask_last)) return 0;
         gd_set_string(20u, g_mask_last);
+        apply_equip(g_mask_last);
         label("MASCARA", 90u);
         return 1;
     }
     if (!hud_owns_name(NAME_LENS)) return 0;
     if (cur[0]) copy64(g_mask_last, cur);         /* remember the mask we are wearing */
     gd_set_string(20u, NAME_LENS);
+    apply_equip(NAME_LENS);
     label("LENTES", 90u);
     return 1;
 }

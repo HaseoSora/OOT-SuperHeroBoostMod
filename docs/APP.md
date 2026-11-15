@@ -62,11 +62,7 @@ dropped hearts become green rupees (the optional romfs file; see the note below)
 - **Difficulty**: enemy health, damage taken, heart drops.
 - **HUD & buttons**: rupee counter, clock (**off / 12 h / 24 h**, one selector), button mapping (on/off), button
   style (Switch / PlayStation / Xbox), layout (extended / simple) and L mode (item / selector).
-- **Quick select (beta)**: hold D-pad **down** to toggle Iron Boots <-> Hover Boots, or **up** to toggle the mask
-  Link wears <-> the Lens of Truth; it writes the same PlayerStatus.EquipBoot / PlayerStatus.EquipHeadArmor
-  GameData slots as the pause menu (value and copy, so the gear changes at once) and does nothing when the item
-  is not owned (`IsGet.<actor>`). A short tap keeps the normal behaviour. Experimental: back up the save.
-- **Area collectibles counter (beta)**: adds a third native-style plate below the rupee/clock row with the
+- **Area collectibles counter**: adds a third native-style plate below the rupee/clock row with the
   Gold Skulltulas and heart pieces of the current Banc, for example `SKULL 3/8  COR 1/2`. It reads the live
   `HeartPieceAnchor_GameDataPath` flags, `Sequence_CurrentBanc` and, for the Skulltulas, the save's persistent
   64-bit key set (`Game` / `Bool64bitKey`), so the count no longer resets when you leave and re-enter an area.
@@ -81,14 +77,14 @@ dropped hearts become green rupees (the optional romfs file; see the note below)
     not change, or may desync.
   Both beta mods are generated from the user's dump at build time and installed as extra romfs files. They are not
   part of the normal payload and can break puzzles, quests or performance. Back up the save and test one at a time.
-- **World changes (beta)**, inside *Miscellaneous*:
+- **World changes**, inside *Miscellaneous*:
   - **Great Fairy rewards**: the three magic rewards are reordered. Hyrule Castle (child) gives **Nayru's Love**,
     Death Mountain Crater gives the **magic spin attack**, and Desert Colossus gives **double magic**. Each fountain
     keeps its own Great Fairy and its own dialogue; the reward line is switched to the new power. The Din fairy's
     overview dialogue still describes the original order, so trust the fountain itself.
   - **Farore's Wind outdoors**: allows placing Farore's Wind warp points outside dungeons. The real forbidden areas
     inside dungeons (for example the FireTemple areas) stay blocked. It is a patched event flow, installed as a romfs
-    file.
+    file. **Known bug**: press up and down a couple of times before the teleport menu responds.
 - **About**: credits and the material/third-party notice.
 
 The bottom bar always shows the install state and the **Install / Uninstall** buttons. Changes are saved

@@ -17,7 +17,7 @@ OUT = ROOT / "app" / "payload"
 BUILD_ID = "E0F3CCFAF50065AE4EA01EB5AEB13B1A45DA3348"
 VARIANTS = {"standalone": "0x4F80000"}
 # buttonMapping needs the equip-call hooks too (--slots)
-VARIANT_ARGS = {"standalone": ["--features", "stamina,songbook,button_mapping,quick_select", "--slots"]}
+VARIANT_ARGS = {"standalone": ["--features", "stamina,songbook,button_mapping", "--slots"]}
 
 
 def stage_rupee_ips():

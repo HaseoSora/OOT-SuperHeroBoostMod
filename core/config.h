@@ -31,8 +31,8 @@ typedef struct {
     unsigned char button_style;      /* buttonMapping buttons: 0 Switch, 1 Xbox, 2 PlayStation */
     unsigned char bm_simple;         /* buttonMapping simple layout: only the assignable buttons (no B / A / X / Y) */
     unsigned char bm_l_mode;         /* buttonMapping L: 0 assignable, 2 the game's item selector */
-    unsigned char quick_boots;       /* beta: hold D-pad down to pick the boots */
-    unsigned char quick_mask;        /* beta: hold D-pad up to pick a mask */
+    unsigned char quick_boots;       /* reserved: quick select is not part of this build */
+    unsigned char quick_mask;        /* reserved (keeps the config layout) */
     unsigned char hud_collectibles; /* beta: per-area Skulltula / heart-piece counter */
     signed short hud_x[4];          /* installer: x of the rupee, clock, skull and heart blocks (-32768 = off) */
     unsigned char reserved[18];

@@ -31,8 +31,6 @@ class Profile:
     hud_clock: bool
     clock_24h: bool
     songbook: bool
-    quick_boots: bool            # beta: hold D-pad down to pick boots
-    quick_mask: bool             # beta: hold D-pad up to pick a mask
     hud_collectibles: bool       # beta: per-area collectible counter
     enemy_double: bool           # beta options: a named profile starts with them off
     enemy_speed: bool
@@ -43,15 +41,14 @@ class Profile:
 def _profile(key, *, button_mapping=True, stamina=True, mode=0, costs=(True,) * 6, combat_only=False,
              enemy_hp=100, damage=100, no_heart_drop=False, sprint_speed=SPRINT_DEFAULT,
              hud_rupees=True, hud_clock=True, clock_24h=True, songbook=True,
-             quick_boots=False, quick_mask=False, hud_collectibles=False,
+             hud_collectibles=False,
              enemy_double=False, enemy_speed=False,
              great_fairy=False, farore_outdoor=False):
     return Profile(key=key, button_mapping=button_mapping, stamina=stamina, mode=mode, costs=costs,
                    combat_only=combat_only, enemy_hp=enemy_hp, damage=damage,
                    no_heart_drop=no_heart_drop, sprint_speed=sprint_speed,
                    hud_rupees=hud_rupees, hud_clock=hud_clock, clock_24h=clock_24h,
-                   songbook=songbook, quick_boots=quick_boots, quick_mask=quick_mask,
-                   hud_collectibles=hud_collectibles,
+                   songbook=songbook, hud_collectibles=hud_collectibles,
                    enemy_double=enemy_double, enemy_speed=enemy_speed,
                    great_fairy=great_fairy, farore_outdoor=farore_outdoor)
 
@@ -85,7 +82,7 @@ def defaults() -> dict:
     return dict(button_mapping=True, stamina=True, mode=0, costs=(True,) * 6, combat_only=False,
                 enemy_hp=100, damage=100, no_heart_drop=False, sprint_speed=SPRINT_DEFAULT,
                 hud_rupees=True, hud_clock=True, clock_24h=True, songbook=True,
-                quick_boots=False, quick_mask=False, hud_collectibles=False,
+                hud_collectibles=False,
                 enemy_double=False, enemy_speed=False, great_fairy=False, farore_outdoor=False)
 
 
@@ -98,6 +95,6 @@ def profile_values(key: str) -> dict:
                 combat_only=p.combat_only, enemy_hp=p.enemy_hp, damage=p.damage,
                 no_heart_drop=p.no_heart_drop, sprint_speed=p.sprint_speed,
                 hud_rupees=p.hud_rupees, hud_clock=p.hud_clock, clock_24h=p.clock_24h,
-                songbook=p.songbook, quick_boots=p.quick_boots, quick_mask=p.quick_mask,
+                songbook=p.songbook,
                 hud_collectibles=p.hud_collectibles, enemy_double=p.enemy_double,
                 enemy_speed=p.enemy_speed, great_fairy=p.great_fairy, farore_outdoor=p.farore_outdoor)

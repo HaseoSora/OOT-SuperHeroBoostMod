@@ -880,7 +880,7 @@ _RECOMP = {
         recomp_rebuild="Rebuild game",
         recomp_cancel="Cancel",
         recomp_remove_confirm="Remove the mod and restore the original game executable?",
-        recomp_built="The game already has the mod: Install applies the profile and the romfs files. Use Rebuild game to update the code.",
+        recomp_built="The game already has the mod: Apply settings applies the profile and the romfs files. Use Rebuild game to update the code.",
         recomp_not_built="The game has no mod yet: Install rebuilds it with the builder (25-45 minutes).",
         recomp_confirm_title="Rebuild the game?",
         recomp_confirm="The game will be translated and compiled again with the chosen options. It takes 25-45 minutes and the game must be closed. Continue?",
@@ -919,7 +919,7 @@ _RECOMP = {
         recomp_rebuild="Recompilar juego",
         recomp_cancel="Cancelar",
         recomp_remove_confirm="¿Quitar el mod y restaurar el ejecutable original del juego?",
-        recomp_built="El juego ya tiene el mod: Instalar aplica el perfil y los archivos romfs. Usa Recompilar juego para actualizar el código.",
+        recomp_built="El juego ya tiene el mod: Aplicar ajustes aplica el perfil y los archivos romfs. Usa Recompilar juego para actualizar el código.",
         recomp_not_built="El juego aún no tiene el mod: Instalar lo recompila con el builder (25-45 minutos).",
         recomp_confirm_title="¿Recompilar el juego?",
         recomp_confirm="El juego se traducirá y compilará otra vez con las opciones elegidas. Tarda 25-45 minutos y el juego debe estar cerrado. ¿Continuar?",
@@ -958,7 +958,7 @@ _RECOMP = {
         recomp_rebuild="Recompilar jogo",
         recomp_cancel="Cancelar",
         recomp_remove_confirm="Remover o mod e restaurar o executável original do jogo?",
-        recomp_built="O jogo já tem o mod: Instalar aplica o perfil e os arquivos romfs. Use Recompilar jogo para atualizar o código.",
+        recomp_built="O jogo já tem o mod: Aplicar ajustes aplica o perfil e os arquivos romfs. Use Recompilar jogo para atualizar o código.",
         recomp_not_built="O jogo ainda não tem o mod: Instalar o recompila com o builder (25-45 minutos).",
         recomp_confirm_title="Recompilar o jogo?",
         recomp_confirm="O jogo será traduzido e compilado de novo com as opções escolhidas. Leva 25-45 minutos e o jogo deve estar fechado. Continuar?",
@@ -997,7 +997,7 @@ _RECOMP = {
         recomp_rebuild="Recompiler le jeu",
         recomp_cancel="Annuler",
         recomp_remove_confirm="Retirer le mod et restaurer l'exécutable d'origine du jeu ?",
-        recomp_built="Le jeu a déjà le mod : Installer applique le profil et les fichiers romfs. Utilisez Recompiler le jeu pour mettre le code à jour.",
+        recomp_built="Le jeu a déjà le mod : Appliquer les réglages applique le profil et les fichiers romfs. Utilisez Recompiler le jeu pour mettre le code à jour.",
         recomp_not_built="Le jeu n'a pas encore le mod : Installer le recompile avec le builder (25-45 minutes).",
         recomp_confirm_title="Recompiler le jeu ?",
         recomp_confirm="Le jeu sera traduit et compilé de nouveau avec les options choisies. Cela prend 25-45 minutes et le jeu doit être fermé. Continuer ?",
@@ -1036,7 +1036,7 @@ _RECOMP = {
         recomp_rebuild="Spiel neu bauen",
         recomp_cancel="Abbrechen",
         recomp_remove_confirm="Den Mod entfernen und die originale Spiel-EXE wiederherstellen?",
-        recomp_built="Das Spiel hat den Mod schon: Installieren setzt Profil und RomFS-Dateien. Nutze Spiel neu bauen für neuen Code.",
+        recomp_built="Das Spiel hat den Mod schon: Einstellungen anwenden setzt Profil und RomFS-Dateien. Nutze Spiel neu bauen für neuen Code.",
         recomp_not_built="Das Spiel hat den Mod noch nicht: Installieren baut es mit dem Builder neu (25-45 Minuten).",
         recomp_confirm_title="Spiel neu bauen?",
         recomp_confirm="Das Spiel wird mit den gewählten Optionen erneut übersetzt und kompiliert. Das dauert 25-45 Minuten und das Spiel muss geschlossen sein. Fortfahren?",
@@ -1075,7 +1075,7 @@ _RECOMP = {
         recomp_rebuild="Ricompila gioco",
         recomp_cancel="Annulla",
         recomp_remove_confirm="Rimuovere il mod e ripristinare l'eseguibile originale del gioco?",
-        recomp_built="Il gioco ha già il mod: Installa applica il profilo e i file romfs. Usa Ricompila gioco per aggiornare il codice.",
+        recomp_built="Il gioco ha già il mod: Applica impostazioni applica il profilo e i file romfs. Usa Ricompila gioco per aggiornare il codice.",
         recomp_not_built="Il gioco non ha ancora il mod: Installa lo ricompila con il builder (25-45 minuti).",
         recomp_confirm_title="Ricompilare il gioco?",
         recomp_confirm="Il gioco sarà tradotto e compilato di nuovo con le opzioni scelte. Richiede 25-45 minuti e il gioco deve essere chiuso. Continuare?",
@@ -1103,6 +1103,24 @@ _RECOMP = {
 for _lang, _txt in _BM.items():
     T[_lang].update(_txt)
 for _lang, _txt in _RECOMP.items():
+    T[_lang].update(_txt)
+
+# The builder is autodetected; its entry is only shown as a button (a portable Hookshot builder).
+_RECOMP2 = {
+    "en": dict(recomp_builder_btn="Builder…", recomp_builder_found="Builder: {a}",
+               nav_home="Home", nav_install="Install"),
+    "es": dict(recomp_builder_btn="Builder…", recomp_builder_found="Builder: {a}",
+               nav_home="Inicio", nav_install="Instalar"),
+    "pt": dict(recomp_builder_btn="Builder…", recomp_builder_found="Builder: {a}",
+               nav_home="Início", nav_install="Instalar"),
+    "fr": dict(recomp_builder_btn="Builder…", recomp_builder_found="Builder : {a}",
+               nav_home="Accueil", nav_install="Installer"),
+    "de": dict(recomp_builder_btn="Builder…", recomp_builder_found="Builder: {a}",
+               nav_home="Start", nav_install="Installieren"),
+    "it": dict(recomp_builder_btn="Builder…", recomp_builder_found="Builder: {a}",
+               nav_home="Home", nav_install="Installa"),
+}
+for _lang, _txt in _RECOMP2.items():
     T[_lang].update(_txt)
 
 def tr(lang: str, key: str, **kw) -> str:

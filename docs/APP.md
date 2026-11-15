@@ -149,14 +149,17 @@ do not need a dump. If the file is missing, the app installs everything else and
 
 ## Longshot and Hookshot
 
-The app can install into a static recompilation too. Pick **Hookshot / Longshot** in the Installation card and choose
-the game folder (the one with `bin/longshot.exe` and `.longshot_exefs`).
+The app can install into a static recompilation too. Pick **Hookshot / Longshot** in the **Install** section of the
+sidebar and choose the game folder (the one with `bin/longshot.exe` and `.longshot_exefs`).
 
 - The first install (or **Rebuild game**) runs the builder's update with a progress bar: 25–45 minutes, the game must
   be closed. The builder is detected from the launcher; pick its folder (the one with `tools/nx2/make_game.py`) if it
   is not.
 - Once the game is built, **Install** only applies the profile, the configuration block and the selected romfs files
   (seconds, no rebuild). Use **Rebuild game** after an app/mod update.
+- The actions are in the bottom bar: **Install / Apply settings**, **Rebuild game** and **Uninstall**. The Install
+  section shows the game folder, the detected builder (a **Builder…** button appears only if it is not found) and the
+  progress/log of a rebuild.
 - **Uninstall** restores the original executable, image and `main` from `<game>/.shb-backup` and removes the mod.
 - The builder's `exefs` patches are not applied at run time (the game is compiled ahead of time), so the module must
   be built in; this is what the app does. See [LONGSHOT.md](LONGSHOT.md).

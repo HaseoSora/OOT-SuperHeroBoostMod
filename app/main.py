@@ -543,14 +543,15 @@ def gui() -> None:
                 w.config(state="disabled" if on else "normal")
             except Exception:
                 pass
-        for key in ("install", "uninstall", "rebuild"):
+        for key in ("install", "uninstall", "rebuild", "builder_btn"):
             w = ui.get(key)
             if w is not None:
                 w.config(state="disabled" if on else "normal")
         c = ui.get("cancel")
         if c is not None:
             if on:
-                c.pack(side="right", padx=(8, 0))
+                if not c.winfo_manager():
+                    c.pack(side="right", padx=(8, 0))
             else:
                 c.pack_forget()
         if on and ui.get("_scroll") is not None:
@@ -602,6 +603,7 @@ def gui() -> None:
             return
         if not messagebox.askyesno(L("recomp_confirm_title"), L("recomp_confirm")):
             return
+        show_section("install")
         set_busy(True)
         clear_log()
         if ui.get("bar") is not None:
@@ -669,6 +671,7 @@ def gui() -> None:
             messagebox.showerror(L("err_title"), str(ex))
 
     def do_install():
+        show_section("install")
         if target.get() == "recomp":
             do_recomp_install()
             return
@@ -742,8 +745,29 @@ def gui() -> None:
                 ui["recomp_note"].config(
                     text=L("recomp_built") if built else (L("recomp_not_built") if game else ""),
                     fg=DIM if built else AMBER)
+            if "builder_line" in ui:
+                user = recomp_builder.get().strip()
+                builder = Path(user).expanduser() if user else None
+                if not builder or not (builder / "tools" / "nx2" / "make_game.py").exists():
+                    builder = R.find_builder(game) if game else None
+                ui["builder_line"].config(
+                    text=L("recomp_builder_found", a=builder) if builder else L("recomp_builder_hint"),
+                    fg=DIM if builder else AMBER)
+            else:
+                builder = None
             if "rebuild" in ui:
-                ui["rebuild"].config(state="normal" if game and not busy["on"] else "disabled")
+                if game:
+                    if not ui["rebuild"].winfo_manager():
+                        ui["rebuild"].pack(side="right", padx=(0, 8))
+                    ui["rebuild"].config(state="normal" if not busy["on"] else "disabled")
+                else:
+                    ui["rebuild"].pack_forget()
+            if "builder_btn" in ui:
+                if game and not builder:
+                    if not ui["builder_btn"].winfo_manager():
+                        ui["builder_btn"].pack(side="right", padx=(0, 8))
+                else:
+                    ui["builder_btn"].pack_forget()
             ui["install"].config(text=L("recomp_apply") if built else L("recomp_install"),
                                  state="normal" if game and not busy["on"] else "disabled")
             if not game and not status.get():
@@ -752,7 +776,9 @@ def gui() -> None:
             ui["install"].config(text=L("install"),
                                  state="normal" if mods and not busy["on"] else "disabled")
             if "rebuild" in ui:
-                ui["rebuild"].config(state="disabled")
+                ui["rebuild"].pack_forget()
+            if "builder_btn" in ui:
+                ui["builder_btn"].pack_forget()
             ui["mods"].config(text=L("mods_found", a=mods) if mods else L("mods_missing"),
                               fg=ACCENT if mods else DIM)
             if not mods and not status.get():
@@ -784,7 +810,7 @@ def gui() -> None:
             ui["clock"].current(idx)
 
     # ---- sections ----
-    def build_install(parent):
+    def build_home(parent):
         body = card(parent, L("home_title"), L("home_desc"))
         ui["profile_desc"] = label(body, "", size=10, color=AMBER, bold=True, bg=PANEL)
         ui["profile_desc"].pack(anchor="w", pady=(0, 5))
@@ -798,6 +824,7 @@ def gui() -> None:
         ui["reapply"] = button(body, L("reapply"), lambda: apply_profile(profile.get()))
         ui["reapply"].pack(anchor="w", pady=(8, 0))
 
+    def build_install(parent):
         body = card(parent, L("install_title"), L("install_desc"))
         trow = tk.Frame(body, bg=PANEL)
         trow.pack(fill="x", pady=(0, 8))
@@ -837,16 +864,8 @@ def gui() -> None:
         label(rf, L("recomp_hint"), size=9, color=DIM, bg=PANEL).pack(anchor="w", pady=(5, 0))
         ui["recomp_status"] = label(rf, "", size=9, color=DIM, bg=PANEL)
         ui["recomp_status"].pack(anchor="w", pady=(2, 0))
-        brow = tk.Frame(rf, bg=PANEL)
-        brow.pack(fill="x", pady=(8, 0))
-        label(brow, L("recomp_builder") + ":", size=9, color=DIM, bg=PANEL).pack(side="left", padx=(0, 8))
-        entry_builder = tk.Entry(brow, textvariable=recomp_builder, bg=PANEL2, fg=TEXT, insertbackground=ACCENT,
-                                 relief="flat", font=(FAM, 9), highlightthickness=1,
-                                 highlightbackground=BORDER, highlightcolor=ACCENT)
-        entry_builder.pack(side="left", fill="x", expand=True, ipady=3)
-        b_builder = button(brow, L("browse"), browse_builder)
-        b_builder.pack(side="left", padx=(8, 0))
-        label(rf, L("recomp_builder_hint"), size=9, color=DIM, bg=PANEL).pack(anchor="w", pady=(2, 0))
+        ui["builder_line"] = label(rf, "", size=9, color=DIM, bg=PANEL)
+        ui["builder_line"].pack(anchor="w", pady=(2, 0))
         ui["recomp_note"] = label(rf, "", size=9, color=AMBER, bg=PANEL)
         ui["recomp_note"].pack(anchor="w", pady=(8, 0))
         prow = tk.Frame(rf, bg=PANEL)
@@ -861,12 +880,7 @@ def gui() -> None:
                             font=(FAM, 8), highlightthickness=1, highlightbackground=BORDER,
                             state="disabled", wrap="none")
         ui["log"].pack(fill="x")
-        brow2 = tk.Frame(rf, bg=PANEL)
-        brow2.pack(fill="x", pady=(8, 0))
-        ui["rebuild"] = button(brow2, L("recomp_rebuild"), run_recomp)
-        ui["rebuild"].pack(side="left")
-        ui["cancel"] = button(brow2, L("recomp_cancel"), lambda: R.cancel())
-        ui["lock"] = trefs + [entry_emu, b_emu, entry_rec, b_rec, entry_builder, b_builder]
+        ui["lock"] = trefs + [entry_emu, b_emu, entry_rec, b_rec]
         if target.get() == "recomp":
             rf.pack(fill="x")
         else:
@@ -1054,7 +1068,7 @@ def gui() -> None:
         side = tk.Frame(shell, bg=SIDEBAR, width=190)
         side.pack(side="left", fill="y")
         side.pack_propagate(False)
-        for key, text in (("install", "nav_install"), ("stamina", "nav_stamina"),
+        for key, text in (("home", "nav_home"), ("install", "nav_install"), ("stamina", "nav_stamina"),
                           ("difficulty", "nav_difficulty"), ("hud", "nav_hud"),
                           ("misc", "nav_misc"), ("about", "nav_about")):
             b = tk.Button(side, text=L(text), command=lambda k=key: show_section(k), anchor="w",
@@ -1070,8 +1084,8 @@ def gui() -> None:
         wrap.pack(side="left", fill="both", expand=True, padx=(12, 12), pady=(0, 8))
         scroll = ScrollArea(wrap, BG)
         scroll.frame.pack(fill="both", expand=True)
-        builders = {"install": build_install, "stamina": build_stamina, "difficulty": build_difficulty,
-                    "hud": build_hud, "misc": build_misc, "about": build_about}
+        builders = {"home": build_home, "install": build_install, "stamina": build_stamina,
+                    "difficulty": build_difficulty, "hud": build_hud, "misc": build_misc, "about": build_about}
         for key, fn in builders.items():
             f = tk.Frame(scroll.inner, bg=BG)
             fn(f)
@@ -1087,6 +1101,10 @@ def gui() -> None:
         ui["install"].pack(side="right")
         ui["uninstall"] = button(ft, L("uninstall"), do_remove)
         ui["uninstall"].pack(side="right", padx=(0, 8))
+        # Shown only for a Hookshot/Longshot target (refresh): rebuild, builder and cancel.
+        ui["rebuild"] = button(ft, L("recomp_rebuild"), run_recomp)
+        ui["builder_btn"] = button(ft, L("recomp_builder_btn"), browse_builder)
+        ui["cancel"] = button(ft, L("recomp_cancel"), lambda: R.cancel())
 
     def show_section(key):
         state["section"] = key

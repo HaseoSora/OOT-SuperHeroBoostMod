@@ -1,7 +1,9 @@
 """Build the per-area collectible table used by the HUD counter (beta).
 
 For every Banc file this records:
-  - the Gold Skulltulas in that Banc: their IsGoldSkullDead Bool entry, and
+  - the Gold Skulltulas in that Banc: the actor hash (the key the game keeps in its
+    persistent 64-bit key set, so the count survives leaving and re-entering the area)
+    and the IsGoldSkullDead Bool entry (runtime flag, true right after the pickup), and
   - the heart pieces with a HeartPieceAnchor_GameDataPath: its Bool entry.
 
 The table stores the indexes of those entries in the GameData Bool table, which is
@@ -12,7 +14,8 @@ own dump and written to build/collectibles_data.h (not committed).
 Output format (C):
   COLLECT_STAGES records of 48 bytes:
     char name[40]; u16 skull_off; u8 skull_n; u8 pad; u16 heart_off; u8 heart_n; u8 pad;
-  COLLECT_FLAGS u16 indexes into the live Bool table.
+  COLLECT_FLAGS u16 indexes into the live Bool table (skull flags, then heart flags).
+  COLLECT_FLAGS u64 actor hashes, aligned with the flags: the skull's key, or 0.
 """
 import os
 import sys
@@ -51,7 +54,8 @@ def write_empty(reason):
         f"/* generated collectible table: {reason} */\n"
         "#define COLLECT_STAGES 0\n#define COLLECT_FLAGS 0\n"
         "static const unsigned char g_collect_table[1] = {0};\n"
-        "static const unsigned short g_collect_flags[1] = {0};\n",
+        "static const unsigned short g_collect_flags[1] = {0};\n"
+        "static const unsigned long long g_collect_hash[1] = {0};\n",
         encoding="ascii")
     print("collectibles: empty table (" + reason + ")")
 
@@ -95,7 +99,7 @@ def main():
                 h = int(v(a.get("Hash")))
                 flag = gamedata.mmh(f"IsGoldSkullDead.IsGoldSkullDead_{h}")
                 if flag in bool_index:
-                    skulls.setdefault(key, set()).add(bool_index[flag])
+                    skulls.setdefault(key, set()).add((bool_index[flag], h))
             elif g == "HeartPieceAnchor":
                 dyn = a.get("Dynamic")
                 path = v(dyn.get("HeartPieceAnchor_GameDataPath")) if isinstance(dyn, byml.BDict) else None
@@ -106,6 +110,7 @@ def main():
 
     keys = sorted(set(skulls) | set(hearts))
     flags = []
+    hashes = []
     records = bytearray()
     for key in keys:
         sk = sorted(skulls.get(key, ()))
@@ -114,9 +119,11 @@ def main():
             print("collectibles: skipping long stage name", key)
             continue
         skull_off = len(flags)
-        flags.extend(sk)
+        flags.extend(i for i, _ in sk)
+        hashes.extend(h for _, h in sk)
         heart_off = len(flags)
         flags.extend(he)
+        hashes.extend(0 for _ in he)
         rec = bytearray(REC_SIZE)
         name = key.encode()
         rec[:len(name)] = name
@@ -137,6 +144,9 @@ def main():
     lines.append("};")
     lines.append(f"static const unsigned short g_collect_flags[{max(1, len(flags))}] = {{")
     lines.append(",".join(str(x) for x in flags) if flags else "0")
+    lines.append("};")
+    lines.append(f"static const unsigned long long g_collect_hash[{max(1, len(hashes))}] = {{")
+    lines.append(",".join("0x%xull" % h for h in hashes) if hashes else "0")
     lines.append("};")
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text("\n".join(lines) + "\n", encoding="ascii")

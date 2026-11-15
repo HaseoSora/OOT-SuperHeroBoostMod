@@ -48,6 +48,7 @@ extern char GAMEDATA_MGR[];                                      /* main+0x4E842
 #define COLLECT_FLAGS 0
 static const unsigned char g_collect_table[1] = {0};
 static const unsigned short g_collect_flags[1] = {0};
+static const unsigned long long g_collect_hash[1] = {0};
 #endif
 extern char WORLD_MGR[];                                         /* main+0x4E7EAB0: world manager pointer slot */
 int player_active(void);
@@ -57,6 +58,9 @@ int player_active(void);
  * 0 mp controller, 1 frames, 2 bar, 3 ratio, 4 max, 5 trace,
  * 6 root clones, 7 gauge clones, 8 prepare calls, 9 last pane, 10 errors, 11 slots bound */
 u64 g_hud_dbg[12] = {MARK, MARK, MARK, MARK, MARK, MARK, MARK, MARK, MARK, MARK, MARK, MARK};
+/* Diagnostics for the collectible counter (read by tools/live_check.py):
+ * 0 save image pointer, 1 key entry offset, 2 keys found, 3 skulls done/total, 4 refreshes, 5 candidates */
+u64 g_kset_dbg[6] = {MARK, MARK, MARK, MARK, MARK, MARK};
 
 static const char STOCK_TEX[] = "MpGaugeCenter_00";
 static const char FLAT_TEX[] = "White8_00_BC4L";
@@ -979,7 +983,82 @@ static void plates_hide(u64 frame) {
 /* ---- per-area collectibles (beta) ----
  * Sequence_CurrentBanc is String64 record 31 (same layout as quick_select): the live string is at
  * +0x74 of a 0x108-byte record. The generated table has the Bool-table indexes of the Gold
- * Skulltula flags and of the HeartPieceAnchor_GameDataPath flags for every Banc. */
+ * Skulltula flags and of the HeartPieceAnchor_GameDataPath flags for every Banc.
+ *
+ * The Gold Skulltula *flags* are runtime only: the game sets IsGoldSkullDead_<actor> when the
+ * token drops and starts every area load with them false, so counting them alone shows 0 after
+ * leaving and coming back. The durable record is the save's "Game" entry (Bool64bitKey, hash
+ * 0xA3DB7114): a sorted list of 64-bit keys with one key per collected Skulltula. Its live copy
+ * is the loaded progress.sav image, which the manager keeps at +0xE80 (an array of 0x80-byte
+ * save descriptors); the entry is "<header u64><ascending keys><0>" at the offset the save index
+ * gives for that hash. We also remember pickups seen this session so a fresh token still counts
+ * before the image catches up. */
+#define GAME_KEY_HASH 0xa3db7114u
+static u64 g_kset_arr;      /* first key (after the entry header) */
+static u32 g_kset_n;        /* keys in the entry */
+static u32 g_kset_refreshes;
+static u64 g_kset_buf;      /* save image the cache was built from */
+static u64 g_picked[128];   /* keys collected this session */
+static u32 g_picked_n;
+
+static int kset_has(u64 h) {
+    if (!g_kset_arr || !h) return 0;
+    u32 lo = 0, hi = g_kset_n;
+    while (lo < hi) {
+        u32 mid = (lo + hi) >> 1;
+        u64 v = *(volatile u64 *)(g_kset_arr + (u64)mid * 8ull);
+        if (v == h) return 1;
+        if (v < h) lo = mid + 1; else hi = mid;
+    }
+    return 0;
+}
+static void picked_add(u64 h) {
+    if (!h) return;
+    for (u32 i = 0; i < g_picked_n; i++) if (g_picked[i] == h) return;
+    if (g_picked_n < (u32)(sizeof g_picked / sizeof g_picked[0])) g_picked[g_picked_n++] = h;
+}
+static int picked_has(u64 h) {
+    if (!h) return 0;
+    for (u32 i = 0; i < g_picked_n; i++) if (g_picked[i] == h) return 1;
+    return 0;
+}
+static void kset_refresh(void) {
+    u64 mgr = *(volatile u64 *)GAMEDATA_MGR;
+    if (!mgr) return;
+    u64 buf = 0;
+    u32 seen = 0;
+    for (u32 i = 0; i < 8; i++) {                    /* save descriptor array at +0xE00 */
+        u64 p = *(volatile u64 *)(mgr + 0xe00ull + (u64)i * 0x80ull);
+        if (!p) continue;
+        u32 magic = *(volatile u32 *)p, d = *(volatile u32 *)(p + 8);
+        if (magic == 0x01020304u && d > 0x20u && d < 0x100000u) { seen++; if (!buf) buf = p; }
+    }
+    g_kset_dbg[5] = MARK + seen;
+    if (!buf) return;
+    if (buf == g_kset_buf && g_kset_arr) return;     /* same save image: cache is good */
+    g_kset_buf = buf; g_kset_arr = 0; g_kset_n = 0;
+    g_kset_dbg[0] = MARK + buf;
+    g_kset_dbg[4] = MARK + ++g_kset_refreshes;
+    u32 data_off = *(volatile u32 *)(buf + 8), np = (data_off - 0x20u) / 8u;
+    u32 off = 0;
+    for (u32 i = 0; i < np; i++) {
+        if (*(volatile u32 *)(buf + 0x20ull + (u64)i * 8ull) != GAME_KEY_HASH) continue;
+        off = *(volatile u32 *)(buf + 0x24ull + (u64)i * 8ull);
+        break;
+    }
+    g_kset_dbg[1] = MARK + off;
+    if (off < data_off || off > data_off + 0x200000u) return;
+    const unsigned char *p = (const unsigned char *)buf + (u64)off + 8ull;
+    u64 prev = 0;
+    u32 n = 0;
+    for (; n < 8192u; n++) {
+        u64 v = *(volatile u64 *)(p + (u64)n * 8ull);
+        if (!v || v <= prev) break;
+        prev = v;
+    }
+    g_kset_arr = (u64)p; g_kset_n = n;
+    g_kset_dbg[2] = MARK + n;
+}
 static u32 collect_stage(char *out, u32 cap) {
     u64 mgr = *(u64 *)GAMEDATA_MGR;
     if (!mgr) return 0;
@@ -1001,6 +1080,7 @@ static int collect_counts(u32 *sd, u32 *st, u32 *hd, u32 *ht) {
     *sd = *st = *hd = *ht = 0;
     char stage[40];
     if (!collect_stage(stage, sizeof stage)) return 0;
+    kset_refresh();
     for (u32 i = 0; i < COLLECT_STAGES; i++) {
         const unsigned char *r = g_collect_table + (u64)i * 48ull;
         int hit = 0;
@@ -1016,11 +1096,16 @@ static int collect_counts(u32 *sd, u32 *st, u32 *hd, u32 *ht) {
         u32 cnt = *(u32 *)(mgr + 8 + 8);           /* Bool table */
         u64 recs = *(u64 *)(mgr + 8 + 0x10);
         for (u32 k = 0; k < sn && so + k < COLLECT_FLAGS; k++) {
-            *st += 1; *sd += collect_bool(recs, cnt, g_collect_flags[so + k]);
+            u64 h = g_collect_hash[so + k];
+            u32 live = collect_bool(recs, cnt, g_collect_flags[so + k]);
+            if (live) picked_add(h);
+            *st += 1;
+            *sd += (live || kset_has(h) || picked_has(h)) ? 1u : 0u;
         }
         for (u32 k = 0; k < hn && ho + k < COLLECT_FLAGS; k++) {
             *ht += 1; *hd += collect_bool(recs, cnt, g_collect_flags[ho + k]);
         }
+        g_kset_dbg[3] = MARK + ((u64)*sd << 32) + *st;
         return (*st || *ht) ? 1 : 0;
     }
     return 0;

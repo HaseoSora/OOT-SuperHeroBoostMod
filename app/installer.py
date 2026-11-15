@@ -17,6 +17,11 @@ BUTTON_STYLES = ("switch", "playstation", "xbox")   # buttonMapping button art (
 STYLE_BYTE = {"switch": 0, "xbox": 1, "playstation": 2}
 L_MODES = ("assign", "selector")           # buttonMapping L: an item slot or the game's item selector
 L_MODE_VALUES = {"assign": 0, "selector": 2}
+# HUD row: hud.c draws the 1014-unit plates at 0.46 (rupee, clock) and 0.42 (the two collectible plates), so the
+# installer can pack the enabled blocks with the same gap between plate edges (layout units, root-relative).
+HUD_X0 = -1518
+HUD_GAP = 24
+HUD_PLATE_W = (466.4, 466.4, 425.9, 425.9)   # rupee, clock, skulltulas, heart pieces
 
 
 class InstallError(Exception):
@@ -186,9 +191,13 @@ def patch_config(nso: bytes, s: Settings) -> bytes:
     if s.hud_rupees: slots.append(0)
     if s.hud_clock: slots.append(1)
     if s.hud_collectibles: slots += [2, 3]
+    # Pack the enabled blocks left to right with an equal gap between plate edges (a disabled block leaves no hole).
     pos = [-32768] * 4
+    x = float(HUD_X0)
     for i, block in enumerate(slots):
-        pos[block] = -1518 + 490 * i
+        pos[block] = int(round(x))
+        if i + 1 < len(slots):
+            x += (HUD_PLATE_W[block] + HUD_PLATE_W[slots[i + 1]]) * 0.5 + HUD_GAP
     struct.pack_into("<4h", b, f + 28, *pos)
     return bytes(b)
 

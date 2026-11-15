@@ -179,8 +179,9 @@ static u64 find_part_safe(void *node_p, const char *name) {
 }
 static u64 ui_find_sub_safe(const char *name, u64 part, u64 *out) {
     if (!vptr(part)) return 0;
-    if (!layout_repair(ui_owner_layout(part + 0x40))) return 0;
-    return ui_find_sub(name, part, out);
+    int ok = layout_repair(ptr(part, 0x80));
+    if (layout_repair(ui_owner_layout(part + 0x40))) ok = 1;
+    return ok ? ui_find_sub(name, part, out) : 0;
 }
 
 /* -------- step 1: PlayerStatus metadata with extra parts -------- */
@@ -2097,6 +2098,8 @@ static int icon_list_ok(u64 part) {
     if (!ui_find_sub_safe("Pa_ReplaceIcon_00", part, &sub) || !sub) return 0;
     u64 lay = ui_owner_layout(sub + 0x40);
     if (!lay) return 0;
+    layout_repair(lay);
+    layout_repair(ptr(sub, 0x80));
     u64 n = ptr(lay, 0x130);
     for (u32 i = 0; i < 64; i++) {
         if (!n) return 0;

@@ -37,6 +37,9 @@ its configured `LoadDir` (see the `load_directory` entry in `qt-config.ini`).
   1 TB limit made the repair reject valid names, and the id-4 diagnostic compared the bad 7.3 TB name. 6 TB accepts
   the valid pointers and rejects `0x6a4cff8b47b`; `str_eq` and `hud_on_settext` validate their pointers too.
   Keeping the module text at `0x10000` made the following build recompile **14 of 479** chunks (4:56 in all).
+- The pause-menu icon init calls the game's `ui_find_sub`, which walks the layout hung from `part+0x80`; the safe
+  wrapper now repairs that layout and the icon's sub layout too (repairing only the owner left the bad name). The
+  `icon_list_ok` check repairs both before `icon_widget_init`.
 
 ## NSO for subsdk9 (fixed in F0)
 

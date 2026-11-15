@@ -25,8 +25,9 @@ its configured `LoadDir` (see the `load_directory` entry in `qt-config.ini`).
 - Installing means rebuilding (`nx2/make_game.py --update`), not copying files. See [LONGSHOT.md](LONGSHOT.md).
 - HUD crash on a map load (HyruleField_Child): `hud_frame → plates_update → name_index` dereferenced a name pointer
   (`0x6a4cff8b47b`) from a game layout that was being rebuilt (guest LR `0x84FA6D24`). Fixed by range-checking the
-  name-table entries in `name_index`/`pane_record` and by not drawing the HUD until the PlayerStatus HUD init hook
-  (id 12) has run for the current gauge (`g_hud_ready`, cleared by the magic-gauge init, id 1).
+  name-table entries in `name_index`/`pane_record`. (An extra HUD-init gate was tried and removed: it could leave the
+  HUD off when the two init hooks ran in the other order; the pointer checks alone fix the crash without touching the
+  normal drawing path.)
 
 ## NSO for subsdk9 (fixed in F0)
 

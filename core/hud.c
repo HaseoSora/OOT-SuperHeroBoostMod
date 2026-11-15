@@ -666,7 +666,6 @@ static void observe_stock_box(u64 parent);
 
 static u64 g_mp;
 static u64 g_frame_node;
-static u32 g_hud_ready;     /* the PlayerStatus HUD for this gauge is built (id 12 ran) */
 static float g_value = 50.0f, g_cap = 100.0f, g_show = 1.0f;
 static float g_last_value = -1.0f, g_last_cap = -1.0f, g_last_show = -1.0f;
 static u32 g_test_mode = 1;
@@ -1949,7 +1948,6 @@ static void slots_reset(void) {
 u32 hud_frame_count(void) { return g_tick; }
 static void hud_frame(void) {
     g_hud_dbg[1] = MARK | ++g_tick;
-    if (!g_hud_ready) return;      /* the layout is being rebuilt: its name table may still be freed */
     if (!g_mp) return;
     if (!g_frame_node) {
         u64 owner = ptr(g_mp, 0x18);
@@ -2111,7 +2109,7 @@ void hud_on_code(u32 id, void *a0, void *a1, void *a2, void *regs) {
         hud_icon_ctrl_init((u64)a0);
         return;
     }                  /* icon controller init */
-    if (id == 12) { hud_slots_init((u64)a0, (u64)a1); g_hud_ready = 1; return; }  /* PlayerStatus HUD init: build icon controllers */
+    if (id == 12) { hud_slots_init((u64)a0, (u64)a1); return; }  /* PlayerStatus HUD init: build icon controllers */
     if (id == 18) {   /* nn::fs::OpenFile(handle, path, mode) */
         const char *path = (const char *)a1;
         if (button_mapping_on_open && path) button_mapping_on_open(path, (int)(u64)a2);
@@ -2141,7 +2139,6 @@ void hud_on_code(u32 id, void *a0, void *a1, void *a2, void *regs) {
     if (id == 1) {
         g_mp = (u64)a0;
         g_frame_node = 0;
-        g_hud_ready = 0;           /* the new HUD's layout is still being built */
         for (u32 i = 0; i < SEG_N; i++) { g_seg[i].bar = 0; g_seg[i].init = 0; }
         plates_reset();
         slots_reset();

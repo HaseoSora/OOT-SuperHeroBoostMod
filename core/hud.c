@@ -1651,6 +1651,16 @@ int hud_menu_item(void) {
     a = a ? *(volatile u64 *)(a + 0x20) : 0;
     return a && *(volatile float *)(a + 0x18) != 0.0f ? idx : -1;
 }
+/* the player owns an equipment item (IsGet.<actor name>): 1 / 0; unknown flag = not owned */
+int hud_owns_name(const char *actor) {
+    u32 h = mmh3("IsGet.", actor), lo = 0, hi = GD_ISGET_N;
+    while (lo < hi) {
+        u32 mid = (lo + hi) / 2;
+        if (GD_ISGET[mid][0] < h) lo = mid + 1; else hi = mid;
+    }
+    if (lo < GD_ISGET_N && GD_ISGET[lo][0] == h) return gd_bool(GD_ISGET[lo][1]) > 0;
+    return 0;
+}
 /* The cell's Decide animation: what the game plays when A puts an item in its box. main+0x2D0FE0 plays an
  * animation from its start (no sound); main+0x3772100 is what A does on a cell: the cell's button object
  * (widget +0xE8) plays Decide through its own animation list, at speed 1, with the menu's sound. A playing animation is linked in its

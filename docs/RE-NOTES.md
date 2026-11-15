@@ -313,13 +313,32 @@ Both mods are generated from the user's own dump by `tools/make_enemy_opts.py`; 
   `IsGoldSkullDead.IsGoldSkullDead_<hash>`. Those Bool entries are also in the GameDataList's `Bool` section,
   so the live value is the Bool table record at index `position in that section` (stride 0x18, live byte at +0x16).
   114 Gold Skulltula actors map to 100 unique flags (adult/child Banc variants repeat some).
+- **Those flags are runtime only** (Nov 15): the game sets them when the token drops and starts every Banc load
+  with all of them false, so counting them alone reads 0 after leaving an area and coming back (heart flags are
+  real save flags and survive). The durable record is the save entry **`Game`**, type `Bool64bitKey`, hash
+  `0xA3DB7114`: a header u64 (`0x00283696ACC3DD10`), then the collected actor hashes **ascending**, then a 0.
+  Live copy = the loaded `progress.sav` image: `gmd::GameDataMgr` (main+0x4E842A8) holds it in the save
+  descriptor array at **+0xE80** (0x80-byte stride; magic `0x01020304` at +0, data offset u32 at +8). The entry's
+  offset comes from the save index (`(u32 hash, u32 value)` pairs from +0x20 up to that data offset).
+  `hud.c` caches the key array, binary-searches it per Skulltula and also remembers pickups seen this session,
+  so a new token counts at once and still counts after the reload.
 - Heart pieces: `HeartPieceAnchor` actors with `Dynamic.HeartPieceAnchor_GameDataPath` name a Bool flag
   (e.g. `DeathMountain_Enemy_Scrub_Business_HeartPiece_01`); 21 anchors / 16 unique flags. Several
   `Obj_Heart_Piece` actors have anchors with no path (chest/minigame pieces), so the counter currently covers
   only the map-anchored pieces. The rest would need the chest/scene flag source.
 - `tools/make_collectibles.py` scans the Bancs and writes `build/collectibles_data.h` (43 Banc names,
-  135 Bool indexes) before the core build; `hud.c` includes it and reads the Bool table live. If the dump is
-  missing it writes an empty table and the plate stays hidden.
+  135 Bool indexes + the 135 aligned 64-bit actor hashes) before the core build; `hud.c` includes it and reads
+  the Bool table and the save key set live. If the dump is missing it writes an empty table and the plate stays
+  hidden.
+
+## Equipment slots: value **and** copy (Nov 15)
+- The `PlayerStatus.Equip*` String64 records hold three SafeStrings: default (+0x24), **value** (+0x74, pointer
+  at +0x68) and **copy** (+0xC4, pointer at +0xB8). Writing only the value updates the menu icon but Link keeps
+  the gear he had; the apply path needs the copy as well. Writing both makes the change take effect at once
+  (verified with the mask: Bunny -> Lens of Truth removes the ears, back restores them) and keeps the save
+  consistent. `quick_select.c` writes both groups.
+- Ownership for the "only if you have it" rule: `IsGet.<actor name>` in the Bool table, looked up through
+  `core/gd_index.h`'s `GD_ISGET` (hash = murmur3("IsGet." + actor)); `hud_owns_name()` does the lookup.
 ## buttonMapping: per-save assignments (Nov 2026)
 
 - Save files: mount `save:`, `slot_00`..`slot_11/progress.sav` (+ `caption.sav`), `account.sav`, `option.sav`.

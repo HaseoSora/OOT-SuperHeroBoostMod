@@ -62,16 +62,16 @@ dropped hearts become green rupees (the optional romfs file; see the note below)
 - **Difficulty**: enemy health, damage taken, heart drops.
 - **HUD & buttons**: rupee counter, clock (**off / 12 h / 24 h**, one selector), button mapping (on/off), button
   style (Switch / PlayStation / Xbox), layout (extended / simple) and L mode (item / selector).
-- **Quick select (beta)**: hold D-pad **down** to pick the boots (Kokiri / Iron / Hover) or **up** to pick a
-  mask, choose with Left/Right and release to equip. It writes the same PlayerStatus.EquipBoot /
-  PlayerStatus.EquipHeadArmor GameData slots as the pause menu. A short tap keeps the normal behaviour.
-  Experimental: back up the save. Masks are the child head-armour set; the Lens of Truth is a C-item, not a
-  head armour.
+- **Quick select (beta)**: hold D-pad **down** to toggle Iron Boots <-> Hover Boots, or **up** to toggle the mask
+  Link wears <-> the Lens of Truth; it writes the same PlayerStatus.EquipBoot / PlayerStatus.EquipHeadArmor
+  GameData slots as the pause menu (value and copy, so the gear changes at once) and does nothing when the item
+  is not owned (`IsGet.<actor>`). A short tap keeps the normal behaviour. Experimental: back up the save.
 - **Area collectibles counter (beta)**: adds a third native-style plate below the rupee/clock row with the
   Gold Skulltulas and heart pieces of the current Banc, for example `SKULL 3/8  COR 1/2`. It reads the live
-  `IsGoldSkullDead` and `HeartPieceAnchor_GameDataPath` flags and `Sequence_CurrentBanc`. The heart count only
-  includes pieces that the game associates with a map anchor; some chest/minigame pieces without one are not
-  counted yet.
+  `HeartPieceAnchor_GameDataPath` flags, `Sequence_CurrentBanc` and, for the Skulltulas, the save's persistent
+  64-bit key set (`Game` / `Bool64bitKey`), so the count no longer resets when you leave and re-enter an area.
+  The heart count only includes pieces that the game associates with a map anchor; some chest/minigame pieces
+  without one are not counted yet.
 - **Miscellaneous**: Songbook autoplay (select a learned song in the game's native songbook with ZL and it plays
   automatically, effect included; not the Scarecrow's Song) and two
   **beta** toggles:

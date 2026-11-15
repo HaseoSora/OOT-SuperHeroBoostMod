@@ -1,0 +1,125 @@
+name: Build apps
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHONIOENCODING: utf-8
+
+jobs:
+  windows:
+    name: Windows
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Stage the payload
+        run: python tools/ci_payload.py
+      - name: Install PyInstaller
+        run: python -m pip install --upgrade pip pyinstaller zstandard
+      - name: Build
+        run: python tools/build_app.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: app-windows
+          path: release/SuperHeroBoostConfig.exe
+          if-no-files-found: error
+
+  linux:
+    name: Linux
+    # Pinned to 22.04 on purpose: an older glibc makes the binary run on newer distros (Arch, Fedora, ...).
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Tk (system Python already includes the rest)
+        run: sudo apt-get update && sudo apt-get install -y python3-tk python3-pip
+      - name: Stage the payload
+        run: python3 tools/ci_payload.py
+      - name: Install PyInstaller
+        run: python3 -m pip install --user --upgrade pyinstaller zstandard
+      - name: Build
+        run: python3 tools/build_app.py
+      - name: Check the binary
+        run: test -x release/SuperHeroBoostConfig
+      - uses: actions/upload-artifact@v4
+        with:
+          name: app-linux
+          path: release/SuperHeroBoostConfig
+          if-no-files-found: error
+
+  macos:
+    name: macOS
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Stage the payload
+        run: python tools/ci_payload.py
+      - name: Install PyInstaller
+        run: python -m pip install --upgrade pip pyinstaller zstandard
+      - name: Build
+        run: python tools/build_app.py
+      - name: Zip the app bundle
+        run: |
+          if [ -d release/SuperHeroBoostConfig.app ]; then
+            ditto -c -k --sequesterRsrc --keepParent release/SuperHeroBoostConfig.app release/SuperHeroBoostConfig.app.zip
+          else
+            ditto -c -k release/SuperHeroBoostConfig release/SuperHeroBoostConfig.app.zip
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: app-macos
+          path: release/SuperHeroBoostConfig.app.zip
+          if-no-files-found: error
+
+  presets:
+    name: Presets pack
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Tk (build_app imports the window; make_presets does not, but keep the env identical)
+        run: sudo apt-get update && sudo apt-get install -y python3-tk python3-pip
+      - name: Stage the payload
+        run: python3 tools/ci_payload.py
+      - name: Install zstandard
+        run: python3 -m pip install --user --upgrade zstandard
+      - name: Build the presets zip
+        run: python3 tools/make_presets.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: presets
+          path: |
+            release/SuperHeroBoost-*-presets.zip
+            release/SuperHeroBoost-*-presets.zip.sha256
+          if-no-files-found: error
+
+  release:
+    name: Publish release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [windows, linux, macos, presets]
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: List the assets
+        run: ls -l dist
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          fail_on_unmatched_files: true
+          generate_release_notes: true

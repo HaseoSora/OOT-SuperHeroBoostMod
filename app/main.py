@@ -23,8 +23,7 @@ import recomp as R  # noqa: E402
 from i18n import LANGS, tr, system_lang  # noqa: E402
 from presets import (DEFAULT_PROFILE, KEYS, PROFILES, PROFILE_KEYS,  # noqa: E402
                      STAMINA_MODES, defaults, profile_values)
-
-VERSION = "0.2.0"
+from version import VERSION  # noqa: E402
 
 
 # ---------------------------------------------------------------- settings file

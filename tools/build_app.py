@@ -7,6 +7,7 @@ Output:
     Windows  release/SuperHeroBoostConfig.exe
     macOS    release/SuperHeroBoostConfig.app (and a Unix executable inside it)
     Linux    release/SuperHeroBoostConfig
+    all      release/SuperHeroBoost-<version>-presets.zip (every app profile, no executables)
 """
 import os
 import subprocess
@@ -38,3 +39,6 @@ elif sys.platform == "darwin":
 else:
     out = DIST / NAME
 print("built", out)
+
+# A single zip with every profile of the app, ready for a GameBanana Mods upload (no executables).
+subprocess.run([sys.executable, str(ROOT / "tools" / "make_presets.py")], check=True, cwd=ROOT)

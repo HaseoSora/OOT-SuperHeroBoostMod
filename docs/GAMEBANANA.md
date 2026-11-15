@@ -60,31 +60,25 @@ from your own game files.
 
 ## Download
 
-Choose **one** file. Each is the mod itself, **no executable inside**:
+- **`SuperHeroBoost-0.2.0-presets.zip`** — one zip with **all 11 profiles of the app**, each ready to install.
+  **No executable inside.** The build prints its SHA-256; publish the hash of the file you upload.
+- The companion app **SuperHeroBoostConfig** is a third-party program, so it belongs in the game's **Tools** section
+  (https://gamebanana.com/tools/games/7534), not in the Mods file. Source and binaries are also on the project's
+  [Releases page](https://github.com/kuribox/OOT-SuperHeroBoostMod/releases).
 
-| File | Profile | SHA-256 |
-| --- | --- | --- |
-| `SuperHeroBoost-0.2.0-recommended.zip` | Hardcore stamina, enemy HP 150%, damage 200%, HUD, songbook and item buttons | `14734ae29057326db5d75e7afbda793c9c2b21568e17c91d2fd66c4e608a1efe` |
-| `SuperHeroBoost-0.2.0-base.zip` | Vanilla difficulty, no stamina, HUD, songbook and item buttons | `921c6052a5e1fb9a641676ecd234bdf66cbbeefcf1e361a3a1803a5358c0107d` |
-| `SuperHeroBoost-0.2.0-hero.zip` | Hero Mode scaling, no stamina, HUD, songbook and item buttons | `45eb3f72e73bace56dbdbd3055c64d199b18cd8a802ebeb5117a4b62715ae767` |
-| `SuperHeroBoost-0.2.0-survival.zip` | Hardcore stamina, enemy HP 200%, damage 200%, HUD, songbook and item buttons | `58ad6a1433a88f63d54d24b2afdc1c97e21f98638cee785ecf40a11beb3dafdd` |
-
-All four use the Switch button style and include the module, the IPS patch and the button textures. The optional
-world changes, no-heart-drop and beta enemy mods are generated from your own game files and are not part of these
-downloads.
-
-The companion app **SuperHeroBoostConfig** is a third-party program, so it belongs in the game's **Tools** section
-(https://gamebanana.com/tools/games/7534), not in the Mods file. Source and binaries are also on the project's
-[Releases page](https://github.com/kuribox/OOT-SuperHeroBoostMod/releases). Use it to install any other combination
-or to add the options above.
+Inside the zip: `README.txt` plus one numbered folder per profile (`01 Recommended`, `02 Base`, `03 Hero Mode`, …
+`11 Beta - everything`). Every folder contains a `00-Super-Hero-Boost` folder with the module (patched for that
+profile), the IPS patch, the Switch button textures and the optional romfs files that profile uses (Great Fairy,
+Farore, no-heart-drop, enemy duplication/speed). Pick one; only one profile can be installed at a time.
 
 ## How to use
 
 1. **Requirements**: the game on update **v131072** and an emulator that loads mods from `user/load`. Close the game
    before installing and back up your saves.
-2. Download **one** of the `SuperHeroBoost-0.2.0-*.zip` files and extract it.
-3. Copy the **`00-Super-Hero-Boost`** folder into `user/load/0400486024DEC000` (the folder that contains your
-   mods; merge it if it already exists).
+2. Download **`SuperHeroBoost-0.2.0-presets.zip`** and extract it.
+3. Open the folder of the profile you want (`01 Recommended`, `02 Base`, …) and copy its
+   **`00-Super-Hero-Boost`** folder into `user/load/0400486024DEC000` (the folder that contains your mods; merge
+   it if it already exists). Install one profile at a time.
 4. Start the game.
 5. In game:
    - **Item buttons**: open the pause menu, go to the **Items** tab, highlight an item and press **X** to put it

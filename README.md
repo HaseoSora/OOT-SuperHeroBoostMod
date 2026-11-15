@@ -125,11 +125,13 @@ game dump, LLVM (`clang`, `lld`, `llvm-objcopy`, `llvm-size`, `llvm-nm`) and the
 ```bash
 python tools/build_core.py --features stamina,songbook,button_mapping --slots --compat --base 0x4F80000
 python tools/make_release.py     # module + button textures + optional romfs files
-python tools/build_app.py        # release/SuperHeroBoostConfig[.exe|.app]
+python tools/build_app.py        # release/SuperHeroBoostConfig[.exe|.app] + SuperHeroBoost-<version>-presets.zip
 ```
 
-`build_app.py` uses PyInstaller and does not cross-compile: run it on each target OS. The executable is written to
-`release/`. See the development guide for details.
+`build_app.py` uses PyInstaller and does not cross-compile: run it on each target OS. It also writes
+`release/SuperHeroBoost-<version>-presets.zip`, one zip with every app profile as a ready-to-install mod folder (no
+executables), for the GameBanana Mods upload. The executable is written to `release/`. See the development guide
+for details.
 
 ## Documentation
 

@@ -1440,8 +1440,8 @@ static void bar_update(u64 frame) {
     for (u32 k = PIC_BAR; k < PIC_N; k++) if (!g_pic_rec[k]) return;
     const float *B = g_barp;
     u32 on = g_shbcfg.stamina_bar && g_shbcfg.stamina_enabled && player_active();
-    float full = g_shbcfg.bar_width > 0 ? (float)g_shbcfg.bar_width : B[2];
-    float h = g_shbcfg.bar_height > 0 ? (float)g_shbcfg.bar_height : B[3];
+    float full = B[2];
+    float h = B[3];
     /* capacity grows with the hearts (75 at 3 hearts, 150 at 20): the bar grows to the right from half to the
      * full width, and the number of visible segments follows it (16 at full capacity, like the magic gauge) */
     float grow = g_cap / 150.0f;
@@ -1451,24 +1451,12 @@ static void bar_update(u64 frame) {
     u32 n = (u32)((float)BAR_SEG * grow + 0.5f);
     if (n < 1) n = 1;
     if (n > BAR_SEG) n = BAR_SEG;
-    float left = B[0] + (float)g_shbcfg.bar_dx - full * 0.5f;
+    float left = B[0] - full * 0.5f;
     float cx = left + w * 0.5f;
-    float cy = B[1] + (float)g_shbcfg.bar_dy - h * 0.5f;
-    /* colour: linear config bytes; yellow normally, red while recharging from empty */
+    float cy = B[1] - h * 0.5f;
+    /* fixed look: yellow normally, red while recharging from empty (linear values) */
     static const float YELLOW[3] = {1.000f, 0.552f, 0.000f}, RED[3] = {1.000f, 0.027f, 0.027f};
-    float rgb[3] = {YELLOW[0], YELLOW[1], YELLOW[2]};
-    if (g_shbcfg.bar_color[0] | g_shbcfg.bar_color[1] | g_shbcfg.bar_color[2]) {
-        rgb[0] = (float)g_shbcfg.bar_color[0] / 255.0f;
-        rgb[1] = (float)g_shbcfg.bar_color[1] / 255.0f;
-        rgb[2] = (float)g_shbcfg.bar_color[2] / 255.0f;
-    }
-    float tired[3] = {RED[0], RED[1], RED[2]};
-    if (g_shbcfg.bar_tired_color[0] | g_shbcfg.bar_tired_color[1] | g_shbcfg.bar_tired_color[2]) {
-        tired[0] = (float)g_shbcfg.bar_tired_color[0] / 255.0f;
-        tired[1] = (float)g_shbcfg.bar_tired_color[1] / 255.0f;
-        tired[2] = (float)g_shbcfg.bar_tired_color[2] / 255.0f;
-    }
-    const float *fillrgb = g_tired ? tired : rgb;
+    const float *fillrgb = g_tired ? RED : YELLOW;
     /* clean dark strip + one flat pane per segment: when stamina goes down whole segments disappear and only
      * the boundary segment shrinks, so no texture is ever squashed */
     u64 out = g_pic_rec[PIC_BAR + BAR_OUT];
@@ -1495,8 +1483,8 @@ static void bar_update(u64 frame) {
               show ? fw / BAR_UNIT : 0.0f, show ? h / BAR_UNIT : 0.0f, 0.0f);
         if (show) tint_rec(rec, fillrgb[0], fillrgb[1], fillrgb[2], 1.0f);
     }
-    /* the game's D-pad guide cross moves down while the bar is on screen */
-    cross_shift(frame, on && g_shbcfg.bar_move_hud, (float)g_shbcfg.bar_hud_dy);
+    /* the game's D-pad guide cross always moves down while the bar is on screen */
+    cross_shift(frame, on, 60.0f);
 }
 
 /* ---- buttonMapping: slot item buttons (appended PaItemBtn_00 parts) ----

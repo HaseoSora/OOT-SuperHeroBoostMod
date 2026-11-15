@@ -142,16 +142,7 @@ reads them every frame (`g_shbcfg`). **Fields are only appended at the end** (us
 | 43 | `hud_collectibles` | Per-area collectible counter |
 | 44-51 | `hud_x[4]` (s16: rupee, clock, skull, heart; -32768 = off) | HUD block placement |
 | 52 | `stamina_bar` (0 ring, 1 segmented bar) | Stamina display |
-| 53 | padding | — |
-| 54-55 | `bar_width` (s16; 0 = 768) | Bar width at full capacity (20 hearts) |
-| 56-57 | `bar_height` (s16; 0 = 32) | Bar height |
-| 58-59 | `bar_dx` (s16) | Horizontal offset from under the magic gauge |
-| 60-61 | `bar_dy` (s16) | Vertical offset |
-| 62-63 | `bar_hud_dy` (s16) | How far the D-pad guide cross moves down |
-| 64-66 | `bar_color[3]` (linear RGB) | Bar colour (yellow by default) |
-| 67-69 | `bar_tired_color[3]` (linear RGB) | Colour while recharging (red by default) |
-| 70 | `bar_move_hud` | Move the D-pad guide cross down |
-| 71 | reserved | — |
+| 53-71 | reserved | — |
 
 **Adding a new option:** field in `config.h` (taking bytes from `reserved`), default value in `config.c`, write in
 `installer.patch_config` (`f = magic + 16`), field in `installer.Settings`, flag in `main.cli`, control in `main.py`
@@ -234,11 +225,11 @@ position with the camera matrix (`anchor_update`). Look: `g_ringp[]`.
 
 Souls-style bar (`stamina_bar` = 1): aligned with the magic gauge (768 x 32 layout units, left edge under it) and
 split into the same **16 segments** as the magic gauge. It is drawn as flat segments over a dark strip; no texture is
-scaled, so draining removes whole segments and only the boundary one shrinks. Yellow normally, red while recharging
-from empty. Capacity grows with the hearts (75 at 3 hearts, 150 at 20), so the bar grows to the right from half to
-full width and the segment count goes from 8 to 16; the left edge stays under the magic gauge. The game's D-pad guide
-cross moves down while the bar is shown so it does not touch it. The app sets width, height, offsets and both colours;
-the defaults live in `g_barp[]` (centre x, top y, width, height) for live tuning.
+scaled, so draining removes whole segments and only the boundary one shrinks. The look is fixed: yellow normally, red
+while recharging from empty. Capacity grows with the hearts (75 at 3 hearts, 150 at 20), so the bar grows to the right
+from half to full width and the segment count goes from 8 to 16; the left edge stays under the magic gauge. The game's
+D-pad guide cross always moves down 60 units while the bar is shown so it does not touch it. Position and size live in
+`g_barp[]` (centre x, top y, width, height) for live tuning only.
 
 ### 5.4 Tuning the look live
 With the game open through `live_check.py --keep` (or `run`), without recompiling:

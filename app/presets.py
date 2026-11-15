@@ -15,14 +15,6 @@ STAMINA_MODES = ("hardcore", "combat", "sprint", "advanced")   # value written t
 SPRINT_DEFAULT = 125
 
 
-# The bar's look is an install-wide preference (not a profile value), but the app still needs defaults when it
-# builds a Settings object for a profile or for a preset zip.
-BAR_DEFAULTS = {
-    "bar_color": "#FFC400", "bar_tired_color": "#FF2D2D", "bar_width": 768, "bar_height": 32,
-    "bar_dx": 0, "bar_dy": 0, "bar_move_hud": True, "bar_hud_dy": 60,
-}
-
-
 @dataclass(frozen=True)
 class Profile:
     key: str
@@ -115,7 +107,7 @@ def defaults() -> dict:
                 hud_rupees=True, hud_clock=True, clock_24h=True, songbook=True,
                 quick_boots=True, quick_mask=True, hud_collectibles=False,
                 enemy_double=False, enemy_move=0, enemy_anim=0, enemy_attack=0,
-                great_fairy=False, farore_outdoor=False, stamina_bar=False, **BAR_DEFAULTS)
+                great_fairy=False, farore_outdoor=False, stamina_bar=False)
 
 
 def profile_values(key: str) -> dict:
@@ -131,4 +123,4 @@ def profile_values(key: str) -> dict:
                 hud_collectibles=p.hud_collectibles, enemy_double=p.enemy_double,
                 enemy_move=p.enemy_move, enemy_anim=p.enemy_anim, enemy_attack=p.enemy_attack,
                 great_fairy=p.great_fairy, farore_outdoor=p.farore_outdoor,
-                stamina_bar=p.stamina_bar, **BAR_DEFAULTS)
+                stamina_bar=p.stamina_bar)

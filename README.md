@@ -21,7 +21,7 @@ The module, the HUD, the textures and the app are original work: no third-party 
   actions cost). Includes exhaustion and regeneration, and costs for rolling, jumping, attacking, shooting,
   sprinting and blocking with the shield.
 - **Stamina display**: a ring next to the player or a segmented bar under the magic gauge (yellow, red while
-  recharging), with the bar's colour, size and position adjustable.
+  recharging; grows with your hearts).
 - **Sprint speed** configurable (default +25%).
 - **Enemy health** and **damage taken** multipliers (×1 to ×3).
 - **No heart drops**: hearts dropped by enemies become green rupees instead.

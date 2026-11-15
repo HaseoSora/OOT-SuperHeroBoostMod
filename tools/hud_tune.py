@@ -73,12 +73,9 @@ def main() -> int:
             import time
             time.sleep(0.4)
             shot(c, a.shot, a.crop)
-    elif a.cmd == "cfg":   # cfg rupees=1 bar=1 bar_seg=12 bar_w=760: switch options in the running game
+    elif a.cmd == "cfg":   # cfg rupees=1 bar=1: switch options in the running game
         offs = {"stamina": (16, "b"), "rupees": (30, "b"), "clock": (31, "b"), "clock24": (32, "b"),
-                "bar": (52, "b"), "bar_w": (54, "h"), "bar_h": (56, "h"), "bar_dx": (58, "h"),
-                "bar_dy": (60, "h"), "bar_hud_dy": (62, "h"), "bar_r": (64, "b"), "bar_g": (65, "b"),
-                "bar_b": (66, "b"), "bar_tr": (67, "b"), "bar_tg": (68, "b"), "bar_tb": (69, "b"),
-                "bar_move": (70, "b")}   # ShbConfig (core/config.h)
+                "bar": (52, "b")}   # ShbConfig (core/config.h)
         pids = lichii_pids()
         hm = HostMemory(pids[0])
         hm.calibrate(c, [base])

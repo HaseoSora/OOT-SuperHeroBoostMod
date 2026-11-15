@@ -256,13 +256,11 @@ Consequence: only site 3 sees gameplay input. The four item-button slot sites
 - Capacity grows with the hearts (75 at 3 hearts, 150 at 20), so the bar grows to the right from half to full width
   and the visible segments go from 8 to 16; the left edge stays under the magic gauge.
 - Default size and position match the magic gauge: 768 x 32 layout units, left edge aligned with it and placed just
-  below it (`g_barp[]`, tunable with `tools/hud_tune.py`). The app can override width, height and X/Y offsets.
+  below it (`g_barp[]`, tunable with `tools/hud_tune.py` at development time only).
 - Yellow normally, red while recharging from empty (`g_tired`, which the stamina core keeps set until the bar is
-  full again). Both colours are picked in the app and stored as **linear** RGB bytes in the config block (the engine
-  converts to sRGB when drawing, so the app colour matches the screen).
+  full again). The colours are fixed constants.
 - `stamina_bar` selects it; the ring is hidden with the same flag. The game's D-pad guide cross (`Pa_GuideCross_00`,
-  boots/masks/Navi/ocarina) moves down while the bar is shown so it does not touch the bar; the app controls whether
-  and how far (`bar_move_hud` / `bar_hud_dy`).
+  boots/masks/Navi/ocarina) always moves down 60 layout units while the bar is shown so it does not touch the bar.
 
 ## Enemy speed components (beta romfs mod)
 - Three independent options (movement, animation playback, attack cadence), each off / x1.5 / x2 / x3.

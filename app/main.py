@@ -22,7 +22,7 @@ import paths  # noqa: E402
 import recomp as R  # noqa: E402
 import updater as U  # noqa: E402
 from i18n import LANGS, tr, system_lang  # noqa: E402
-from presets import (BAR_DEFAULTS, DEFAULT_PROFILE, KEYS, PROFILES, PROFILE_KEYS,  # noqa: E402
+from presets import (DEFAULT_PROFILE, KEYS, PROFILES, PROFILE_KEYS,  # noqa: E402
                      STAMINA_MODES, defaults, profile_values)
 from version import VERSION  # noqa: E402
 
@@ -78,14 +78,6 @@ def cli(argv) -> int:
     ap.add_argument("--enemy-attack", type=int, choices=range(4), default=None,
                     help="enemy attack cadence: 0 off, 1 x1.5, 2 x2, 3 x3")
     ap.add_argument("--stamina-bar", action="store_true", help="draw stamina as a segmented horizontal bar instead of the ring")
-    ap.add_argument("--bar-color", help="bar colour, RRGGBB (default FFC400)")
-    ap.add_argument("--bar-tired-color", help="colour while recharging from empty, RRGGBB (default FF2D2D)")
-    ap.add_argument("--bar-width", type=int, default=None, help="bar width in layout units (default 760)")
-    ap.add_argument("--bar-height", type=int, default=None, help="bar height in layout units (default 40)")
-    ap.add_argument("--bar-dx", type=int, default=None, help="horizontal offset from under the magic gauge")
-    ap.add_argument("--bar-dy", type=int, default=None, help="vertical offset from under the magic gauge")
-    ap.add_argument("--bar-no-move-hud", action="store_true", help="do not move the D-pad guide cross down")
-    ap.add_argument("--bar-hud-dy", type=int, default=None, help="how far the D-pad guide cross moves down")
     ap.add_argument("--great-fairy", action="store_true", help="reorder the three Great Fairy magic rewards (romfs)")
     ap.add_argument("--farore-outdoor", action="store_true", help="allow Farore's Wind points outside dungeons (romfs)")
     ap.add_argument("--hud-collectibles", action="store_true", help="per-area Skulltula / heart-piece counter")
@@ -123,10 +115,7 @@ def cli(argv) -> int:
                    no_heart_drop=v["no_heart_drop"], sprint_speed=v["sprint_speed"],
                    hud_rupees=v["hud_rupees"], hud_clock=v["hud_clock"], clock_24h=v["clock_24h"],
                    enemy_move=v["enemy_move"], enemy_anim=v["enemy_anim"], enemy_attack=v["enemy_attack"],
-                   stamina_bar=v["stamina_bar"],
-                   bar_color=v["bar_color"], bar_tired_color=v["bar_tired_color"], bar_width=v["bar_width"],
-                   bar_height=v["bar_height"], bar_dx=v["bar_dx"], bar_dy=v["bar_dy"],
-                   bar_move_hud=v["bar_move_hud"], bar_hud_dy=v["bar_hud_dy"])
+                   stamina_bar=v["stamina_bar"])
     if a.preset is not None:
         s.preset = a.preset
     if a.no_button_mapping:
@@ -157,22 +146,6 @@ def cli(argv) -> int:
         s.enemy_attack = a.enemy_attack
     if a.stamina_bar:
         s.stamina_bar = True
-    if a.bar_color:
-        s.bar_color = a.bar_color
-    if a.bar_tired_color:
-        s.bar_tired_color = a.bar_tired_color
-    if a.bar_width is not None:
-        s.bar_width = a.bar_width
-    if a.bar_height is not None:
-        s.bar_height = a.bar_height
-    if a.bar_dx is not None:
-        s.bar_dx = a.bar_dx
-    if a.bar_dy is not None:
-        s.bar_dy = a.bar_dy
-    if a.bar_no_move_hud:
-        s.bar_move_hud = False
-    if a.bar_hud_dy is not None:
-        s.bar_hud_dy = a.bar_hud_dy
     if a.great_fairy:
         s.great_fairy = True
     if a.farore_outdoor:
@@ -327,20 +300,6 @@ def gui() -> None:
     blmode = tk.StringVar(value=cfg.get("bm_l_mode") if cfg.get("bm_l_mode") in I.L_MODES else "assign")
     stamina = tk.BooleanVar(value=bool(cfg.get("stamina", True)))
     stamina_bar = tk.BooleanVar(value=bool(cfg.get("stamina_bar", False)))
-    bar_color = tk.StringVar(value=str(cfg.get("bar_color", BAR_DEFAULTS["bar_color"])).upper())
-    bar_tired_color = tk.StringVar(value=str(cfg.get("bar_tired_color", BAR_DEFAULTS["bar_tired_color"])).upper())
-    def _valid_color(v):
-        return v.startswith("#") and len(v) == 7 and all(c in "0123456789ABCDEF" for c in v[1:])
-    if not _valid_color(bar_color.get()):
-        bar_color.set(BAR_DEFAULTS["bar_color"])
-    if not _valid_color(bar_tired_color.get()):
-        bar_tired_color.set(BAR_DEFAULTS["bar_tired_color"])
-    bar_width = tk.IntVar(value=int(cfg.get("bar_width", BAR_DEFAULTS["bar_width"])))
-    bar_height = tk.IntVar(value=int(cfg.get("bar_height", BAR_DEFAULTS["bar_height"])))
-    bar_dx = tk.IntVar(value=int(cfg.get("bar_dx", BAR_DEFAULTS["bar_dx"])))
-    bar_dy = tk.IntVar(value=int(cfg.get("bar_dy", BAR_DEFAULTS["bar_dy"])))
-    bar_move_hud = tk.BooleanVar(value=bool(cfg.get("bar_move_hud", BAR_DEFAULTS["bar_move_hud"])))
-    bar_hud_dy = tk.IntVar(value=int(cfg.get("bar_hud_dy", BAR_DEFAULTS["bar_hud_dy"])))
     songbook = tk.BooleanVar(value=bool(cfg.get("songbook", True)))
     quick_boots = tk.BooleanVar(value=bool(cfg.get("quick_boots", False)))
     quick_mask = tk.BooleanVar(value=bool(cfg.get("quick_mask", False)))
@@ -441,11 +400,6 @@ def gui() -> None:
         cb.current(values.index(var.get()) if var.get() in values else 0)
         return cb
 
-    def slider(parent, var, lo, hi, width=210):
-        return tk.Scale(parent, from_=lo, to=hi, orient="horizontal", variable=var, showvalue=True,
-                        bg=PANEL, fg=TEXT, troughcolor=PANEL2, activebackground=ACCENT,
-                        highlightthickness=0, bd=0, sliderlength=14, length=width, font=(FAM, 9))
-
     def emblem(canvas, cx, cy, size):
         """Three golden triangles: the pack's emblem (no game assets or text)."""
         h = size * 0.866
@@ -517,17 +471,6 @@ def gui() -> None:
                 rupees, clock_mode, *costs.values()):
         var.trace_add("write", on_setting_change)
 
-    def bar_swatch_update(*_):
-        for key, var in (("bar_swatch", bar_color), ("bar_tired_swatch", bar_tired_color)):
-            w = ui.get(key)
-            if w is not None:
-                try:
-                    w.config(bg=var.get())
-                except Exception:
-                    pass
-    bar_color.trace_add("write", bar_swatch_update)
-    bar_tired_color.trace_add("write", bar_swatch_update)
-
     def on_mode_change(*_):
         """When a named stamina style is chosen, show what it does in the checkbox list."""
         if guard["on"]:
@@ -550,8 +493,6 @@ def gui() -> None:
 
     for var in (bstyle, bsimple, blmode):
         var.trace_add("write", on_pref_change)
-    for var in (bar_color, bar_tired_color, bar_width, bar_height, bar_dx, bar_dy, bar_move_hud, bar_hud_dy):
-        var.trace_add("write", on_pref_change)   # the bar's look is install-wide, not a profile value
     stamina_bar.trace_add("write", on_pref_change)   # display preference: does not switch to Custom
 
     pending = {"id": None}
@@ -570,10 +511,6 @@ def gui() -> None:
                           enemy_double=enemy_double.get(),
                           enemy_move=enemy_move.get(), enemy_anim=enemy_anim.get(),
                           enemy_attack=enemy_attack.get(),
-                          bar_color=bar_color.get(), bar_tired_color=bar_tired_color.get(),
-                          bar_width=bar_width.get(), bar_height=bar_height.get(),
-                          bar_dx=bar_dx.get(), bar_dy=bar_dy.get(),
-                          bar_move_hud=bar_move_hud.get(), bar_hud_dy=bar_hud_dy.get(),
                           great_fairy=great_fairy.get(), farore_outdoor=farore_outdoor.get(),
                           preset=STAMINA_MODES.index(mode.get()),
                           combat_only=combat.get(),
@@ -594,10 +531,6 @@ def gui() -> None:
             "enemy_double": enemy_double.get(),
             "enemy_move": enemy_move.get(), "enemy_anim": enemy_anim.get(),
             "enemy_attack": enemy_attack.get(),
-            "bar_color": bar_color.get(), "bar_tired_color": bar_tired_color.get(),
-            "bar_width": bar_width.get(), "bar_height": bar_height.get(),
-            "bar_dx": bar_dx.get(), "bar_dy": bar_dy.get(),
-            "bar_move_hud": bar_move_hud.get(), "bar_hud_dy": bar_hud_dy.get(),
             "great_fairy": great_fairy.get(), "farore_outdoor": farore_outdoor.get(),
             "stamina_mode": mode.get(),
             "costs": {**{k: costs[k].get() for k in KEYS}, "combat_only": combat.get()},
@@ -946,12 +879,6 @@ def gui() -> None:
         adv = stam and mode.get() == "advanced"
         for w in ui.get("modes", []):
             w.config(state="normal" if stam else "disabled")
-        baron = stam and stamina_bar.get()
-        for w in ui.get("baropts", []):
-            try:
-                w.config(state="normal" if baron else "disabled")
-            except Exception:
-                pass
         for w in ui.get("costs", []):
             w.config(state="normal" if adv else "disabled")
         for key in ("combat", "sprint"):
@@ -1130,53 +1057,6 @@ def gui() -> None:
             r.pack(anchor="w")
             ui.setdefault("modes", []).append(r)
             label(body, L(key + "_d"), size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=(20, 0))
-        # bar look: colour, segments, size and position (only meaningful with the bar selected)
-        opts = tk.Frame(body, bg=PANEL)
-        opts.pack(fill="x", padx=(20, 0), pady=(4, 0))
-        ui["baropts"] = []
-        def color_row(parent, text, var, swatch_key):
-            row = tk.Frame(parent, bg=PANEL)
-            row.pack(fill="x", anchor="w", pady=1)
-            label(row, text + ":", size=9, bg=PANEL).pack(side="left", padx=(0, 6))
-
-            def pick():
-                from tkinter import colorchooser
-                _, hx = colorchooser.askcolor(color=var.get(), title=text)
-                if hx:
-                    var.set(hx.upper())
-
-            b = tk.Button(row, text="…", command=pick, bg=PANEL2, fg=TEXT,
-                          activebackground=ACCENT, activeforeground=BG, relief="flat", bd=0,
-                          font=(FAM, 9), padx=8, pady=1)
-            b.pack(side="left")
-            ui["baropts"].append(b)
-            ui[swatch_key] = tk.Label(row, text="      ", bg=var.get(), bd=1, relief="solid")
-            ui[swatch_key].pack(side="left", padx=(8, 0))
-
-        color_row(opts, L("bar_color"), bar_color, "bar_swatch")
-        color_row(opts, L("bar_tired_color"), bar_tired_color, "bar_tired_swatch")
-        grid = tk.Frame(opts, bg=PANEL)
-        grid.pack(fill="x", anchor="w", pady=(4, 0))
-        specs = (("bar_width", bar_width, 200, 1600),
-                 ("bar_height", bar_height, 8, 120), ("bar_dx", bar_dx, -1200, 1200),
-                 ("bar_dy", bar_dy, -1200, 1200))
-        for i, (key, var, lo, hi) in enumerate(specs):
-            cell = tk.Frame(grid, bg=PANEL)
-            cell.grid(row=i // 2, column=i % 2, sticky="w", padx=(0, 14), pady=1)
-            label(cell, L(key), size=9, bg=PANEL).pack(anchor="w")
-            sc = slider(cell, var, lo, hi)
-            sc.pack(anchor="w")
-            ui["baropts"].append(sc)
-        move = check(grid, L("bar_move_hud"), bar_move_hud)
-        move.grid(row=3, column=0, sticky="w", pady=(4, 0))
-        ui["baropts"].append(move)
-        cell = tk.Frame(grid, bg=PANEL)
-        cell.grid(row=3, column=1, sticky="w", pady=1)
-        label(cell, L("bar_hud_dy"), size=9, bg=PANEL).pack(anchor="w")
-        sc = slider(cell, bar_hud_dy, 0, 300)
-        sc.pack(anchor="w")
-        ui["baropts"].append(sc)
-        label(opts, L("bar_help"), size=8, color=DIM, bg=PANEL, wrap=700).pack(anchor="w", pady=(4, 0))
         ui["note"] = label(parent, "", size=9, color=AMBER, bg=BG, wrap=760)
         ui["note"].pack(anchor="w", padx=10, pady=(0, 6))
 

@@ -44,10 +44,6 @@ def settings_for(key: str) -> I.Settings:
         enemy_double=v["enemy_double"],
         enemy_move=v["enemy_move"], enemy_anim=v["enemy_anim"], enemy_attack=v["enemy_attack"],
         stamina_bar=v["stamina_bar"],
-        bar_color=v["bar_color"], bar_width=v["bar_width"],
-        bar_tired_color=v["bar_tired_color"],
-        bar_height=v["bar_height"], bar_dx=v["bar_dx"], bar_dy=v["bar_dy"],
-        bar_move_hud=v["bar_move_hud"], bar_hud_dy=v["bar_hud_dy"],
         great_fairy=v["great_fairy"], farore_outdoor=v["farore_outdoor"],
         button_style="switch", bm_simple=False, bm_l_mode="assign",
     )

@@ -61,8 +61,8 @@ display on the ring, and the enemy speed components off.
 - **Home**: profile list (the only profile selector), explanation of the active profile, emulator folder and install
   status.
 - **Stamina**: on/off, stamina style, what costs stamina (the checkboxes update automatically for each style), sprint
-  speed and the stamina display (ring around the hero, or a segmented bar under the magic gauge with its colour,
-  size, position and the D-pad HUD offset adjustable).
+  speed and the stamina display (ring around the hero, or a segmented bar under the magic gauge; yellow, red while
+  recharging).
 - **Difficulty**: enemy health, damage taken, heart drops.
 - **Enemies**: two beta tools, generated from the user's dump at build time and installed as extra romfs files:
   - **Duplicate enemies (Option A)**: clones generic enemy placements in `Banc` and doubles field auto-spawn counts.

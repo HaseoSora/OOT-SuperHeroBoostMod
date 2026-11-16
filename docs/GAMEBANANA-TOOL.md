@@ -8,7 +8,7 @@ GameBanana classifies third-party programs as Tools; the Mods file must stay fre
 **Tagline:** Configure and install Super Hero Boost: profiles, stamina, difficulty, HUD, item buttons and optional
 world changes from one window.
 
-**Version:** 0.4.0
+**Version:** 0.5.0
 
 ## Summary
 
@@ -37,7 +37,8 @@ Prebuilt apps: `SuperHeroBoostConfig.exe` (Windows), `SuperHeroBoostConfig-linux
 - Checks GitHub Releases on startup, shows a download bar when a newer version exists and, on Windows, replaces
   itself and restarts (the SHA-256 of the downloaded asset is verified when GitHub provides it).
 - Longshot target: patches `main`, copies the module to `.longshot_exefs`, installs the romfs options and runs the
-  builder's update with progress, log and cancel. **Hookshot** uses the same builder and procedure but is not tested
+  builder's update with progress, log and cancel. It keeps DLSS/FSR, closes a running game on Windows, detects the
+  right builder and supports **Hookshot** (same builder) and **ReLink** (`.relink_exefs`, `bin/relink-game`).
   yet.
 - Command-line mode with the same options.
 - Spanish, English, Portuguese, French, German and Italian.
@@ -55,7 +56,7 @@ Prebuilt apps: `SuperHeroBoostConfig.exe` (Windows), `SuperHeroBoostConfig-linux
 ## Files
 
 - `SuperHeroBoostConfig.exe`
-  SHA-256: `6d6d9fd74c04650830e24271c2ae81c42debb42a983d936f369e616be81b2c93`
+  SHA-256: `73c6d2a2bf25ce5eefce50e4fdb026166851612905d8e04aad9a777416412861`
 
 The module payload is inside the executable; the app does not download anything.
 

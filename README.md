@@ -3,8 +3,37 @@
 Gameplay module for the console remake (update **v131072**) and its cross-platform configuration app
 **SuperHeroBoostConfig**.
 
-Current release: **0.4.0**, with the HUD layouts, exact bottle icons on the item buttons, the expanded enemy
-speed/duplication options and the Longshot Vulkan fallback.
+Current release: **0.5.0**, with the Longshot 0.4.0 crashes fixed, DLSS/FSR kept on rebuild, ReLink support, the
+builder detected for each game on Windows, Linux and macOS, and the manual shield.
+
+### What's new in 0.5.0
+
+- **Longshot 0.4.0 crashes fixed.** 0.4.0 was built with `-Oz`, and LLVM's machine outliner moved the pointer guards
+  into helper functions that return with the condition flags. The Longshot recompiler does not keep those flags
+  across a call, so a null pointer reached the HUD (Longshot crashed reading guest `0x38`/`0x80` while loading a save
+  or an area). The module is now built without the outliner; **rebuild the game once** with 0.5.0 so the new module
+  is baked into `image.bin`.
+- **DLSS and FSR survive a rebuild.** The app reads the launcher's own settings (Longshot/Hookshot `settings.json`
+  and `builds.json`, ReLink `launcher.ini`), points the builder at the DLSS SDK and passes `--fsr` when the game had
+  it. If the game had DLSS and the SDK is missing, it stops with a message instead of silently removing DLSS.
+- **ReLink supported** as a third static recompilation, with its `.relink_exefs`, `bin/relink-game`, builder and
+  `RELINK_*` variables. Longshot, Hookshot and ReLink each use their own builder: the app no longer picks a ReLink or
+  Hookshot builder for a Longshot game.
+- **Builder detection on Linux and macOS** as well as Windows: `%LOCALAPPDATA%` on Windows, `$XDG_DATA_HOME` or
+  `~/.local/share` on Linux, `~/Library/Application Support` on macOS; `bin/longshot` and `bin/relink-game` without
+  `.exe`; the builder's own `tools/python/bin/python3` (or a system `python3`). The builder path is optional in the
+  app and can be changed.
+- **The app closes a running copy of the game** before installing and while the build runs (Windows), instead of
+  failing at about 90% with "Longshot is still running from this folder". It still asks you to close a copy it cannot
+  close (another user or an elevated process).
+- **Manual shield**: ZL follows the game's **Targeting Type**; hold L to guard while the target camera is active;
+  **R3** cancels targeting. While it is enabled, the L item slot is removed from buttonMapping.
+- **Button mapping**: follows the game's **Swap Jump Controls** option; the B item slot moves to X and the Jump
+  label moves to B.
+- **Quick select**: removed the debug text that replaced the clock with HOVER/HIERRO/MASCARA/LENTES; the clock always
+  shows the time.
+- **Install and uninstall**: the backup records every file the install and the rebuild touch (including ReLink files)
+  and restores exactly that; the generated shader and pipeline caches are deleted, not copied.
 
 ### What's new in 0.4.0
 
@@ -14,7 +43,7 @@ speed/duplication options and the Longshot Vulkan fallback.
 - **Bottle icons**: B/L/R and ZR now show the assigned bottle and its exact content: red/green/blue potion, blue
   fire, fish, bug, fairy, milk, half milk, letter, Poe, Big Poe or an empty bottle.
 - **Enemy speed**: movement, animation playback and attack cadence are independent, with eleven multipliers from
-  ×0.5 to ×6 (plus off); the duplicated-enemy placements also work now.
+  x0.5 to x6 (plus off); the duplicated-enemy placements also work now.
 - **Stamina bar**: optional compact segmented bar instead of the ring around Link.
 - **Longshot**: if the builder cannot find Vulkan/VMA headers, the installer reuses the installed
   `longshot_vk.dll`/`.so` instead of failing.
@@ -78,12 +107,11 @@ The module, the HUD, the textures and the app are original work: no third-party 
 
 - **ZL follows the game's Targeting Type option** (System > Options): in **Hold Target**, hold ZL to target; in
   **Toggle Target**, press ZL to toggle.
-- **Hold L** to raise the shield while the target camera is active; with the camera off, L keeps its normal function
-  (item button or selector included).
+- **Hold L** to raise the shield while the target camera is active.
 - **R3** cancels targeting.
 - Optional: it is off by default and can be enabled in the app's **HUD & buttons** section.
-- It reserves **L** only while the target camera is active. In hold mode the physical ZL stays native; in toggle mode
-  the mod synthesises it.
+- While it is enabled, **L is removed from buttonMapping**: its item slot is off, because L is the shield button.
+- In Hold Target the physical ZL stays native; in Toggle Target the mod synthesises it.
 - Independent of the stamina system: the stamina config still applies its own held/hit costs when stamina is on.
 
 ### Configuration app
@@ -117,7 +145,8 @@ everything*) turn them on together with the rest of the configuration.
    `qt-config.ini`.
 5. Press **Install**. The app creates the `00-Super-Hero-Boost` folder with the module, the button textures and the
    optional romfs files, and patches the selected configuration.
-6. Close the game before installing or uninstalling.
+6. Close the game before uninstalling. On Windows the app closes a running game before installing and during
+   a rebuild (it cannot replace a running executable); save your progress first.
 
 To remove the mod, press **Uninstall** in the app or delete the `00-Super-Hero-Boost` folder.
 
@@ -134,21 +163,24 @@ you can also build the app from source with the steps below.
 The Windows build is the only one with a `.exe` extension; the Linux one is a plain executable named with
 `-linux` and the macOS one is a `.dmg` disk image.
 
-### Longshot and Hookshot
+### Longshot, Hookshot and ReLink
 
-Hookshot and Longshot are static recompilations, not emulators: they translate the game to native code and ignore
-`exefs` mods by design. The romfs files work from `<game>/mods/Super-Hero-Boost/romfs`, but the module (HUD,
+Hookshot, Longshot and ReLink are static recompilations, not emulators: they translate the game to native code and
+ignore `exefs` mods by design. The romfs files work from `<game>/mods/Super-Hero-Boost/romfs`, but the module (HUD,
 stamina, item buttons, collectible counter) has to be built into the game.
 
 - **Longshot: supported and tested.** The app's **Longshot** target patches the game's `main`, copies the module to
-  `.longshot_exefs`, installs the chosen romfs options and runs the builder's update with a progress bar. Verified
-  with builder `v3.0.0-rc.3`: the game boots, starts a save, and the HUD, stamina, item buttons and collectible
-  counter work. The first build takes 25-45 minutes; later code changes are incremental (~5 minutes) and
-  profile/romfs-only changes need no rebuild. It is reversible with **Uninstall**.
+  `.longshot_exefs`, installs the chosen romfs options and runs the builder's update with a progress bar. The first
+  build takes 25-45 minutes; later code changes are incremental (~5 minutes) and profile/romfs-only changes need no
+  rebuild. It is reversible with **Uninstall**. 0.5.0 fixes the crashes introduced in 0.4.0: rebuild once.
 - **Hookshot: expected to work, not tested yet.** It ships the same builder and the same
   `nx2/make_game.py --update`; point the app's target (or `tools/install_longshot.py --builder`) at its
-  `HookshotBuilder/tools` folder. The procedure is otherwise identical, but it has not been verified on a real
-  Hookshot build.
+  `HookshotBuilder` folder. The procedure is otherwise identical.
+- **ReLink: supported.** Its game is `bin/relink-game`, its exefs `.relink_exefs` and its builder
+  `%LOCALAPPDATA%\ReLink\versions\<version>\ReLink` (or the Linux/macOS data folder). The same install, rebuild
+  and uninstall steps apply. The install, backup and builder detection are tested; a full ReLink build has not been verified on a real ReLink install yet.
+- The app finds the builder of the game's own flavor on Windows, Linux and macOS, and shows whether it was detected
+  or chosen by hand. `LONGSHOT_BUILDER`, `HOOKSHOT_BUILDER` and `RELINK_BUILDER` override it.
 
 See [docs/LONGSHOT.md](docs/LONGSHOT.md) for the details.
 

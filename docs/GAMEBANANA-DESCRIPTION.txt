@@ -1,15 +1,30 @@
+LONGSHOT / HOOKSHOT - 0.5.0 NOTICE
+There has been a lot of feedback about Longshot problems since 0.4.0: crashes while loading a save or an area,
+a rebuild that stopped near 90% with "Longshot is still running from this folder", DLSS disappearing after a
+rebuild, and the app choosing a ReLink or Hookshot builder for a Longshot game. 0.5.0 is meant to fix all of them.
+The module changed, so rebuild the game once with 0.5.0. If a crash remains, attach logs/longshot_log.txt and the
+new file in bug-reports/.
+
 Super Hero Boost is a gameplay and HUD module for the Ocarina of Time remake (update v131072).
 
 WHAT YOU ARE DOWNLOADING
-The file in the Files tab is SuperHeroBoost-0.4.0-presets.zip: the mod itself, with all 11 profiles of the companion app ready to install in an emulator. Every profile includes the boots/mask quick select. It contains no executable. The configuration app is a separate download (see "Installation app" below); it is not in the Files tab.
+The file in the Files tab is SuperHeroBoost-0.5.0-presets.zip: the mod itself, with all 12 named profiles of the companion app ready to install in an emulator. Every profile includes the boots/mask quick select. It contains no executable. The configuration app is a separate download (see "Installation app" below); it is not in the Files tab.
 
-NEW IN 0.4.0
-- Three HUD layouts: Wide (the four plates), Simple (the four counters at the bottom, no background) and Minimal (rupees and time above the minimap, heart pieces next to the native Skulltula counter on the Minus map).
-- Bottle icons on B/L/R/ZR: the button shows the assigned bottle and its exact content (red, green and blue potions, blue fire, fish, bug, fairy, milk, half milk, letter, Poe, Big Poe, empty).
-- Enemy speed reworked: movement, animation and attack cadence are independent, each with eleven multipliers from x0.5 to x6, and the duplicated-enemy placements work now.
-- Optional compact stamina bar instead of the ring around Link.
-- Longshot: if the builder cannot find its Vulkan/VMA headers, the app reuses the installed longshot_vk library instead of failing.
-- Prebuilt apps for Windows, Linux and macOS, plus the add-on update check.
+NEW IN 0.5.0
+- Longshot 0.4.0 crashes fixed: the module was built with -Oz, whose machine outliner moved the pointer guards into
+  helpers that return with the condition flags; Longshot's recompiler does not keep them, so a null pointer reached
+  the HUD (guest 0x38 / 0x80). The module is now built without the outliner. Rebuild the game once.
+- DLSS and FSR are kept when rebuilding: the app reads the launcher's settings, points the builder at the DLSS SDK
+  and passes --fsr when the game had it. If DLSS was on and the SDK is missing, it stops instead of removing DLSS.
+- ReLink support, plus the right builder for each game (Longshot / Hookshot / ReLink) on Windows, Linux and macOS.
+- The app closes a running copy of the game before and during the build instead of stopping near 90%.
+- Manual shield: ZL follows the game's Targeting Type, hold L to guard while targeting, R3 cancels; while it is
+  enabled, the L item slot is removed from buttonMapping.
+- Button mapping follows Swap Jump Controls (the B item slot moves to X and the Jump label moves to B).
+- Quick select: removed the debug clock text; the clock always shows the time.
+- Backup and uninstall record every file the install and the rebuild touch and restore exactly that (including
+  ReLink files); generated caches are deleted, not copied.
+- 0.4.0 brought the three HUD layouts, the exact bottle icons and the enemy speed/duplication options; they remain.
 
 Every feature in this mod is optional. The installation app sets up the module once, and each system below has its own on/off switch, so you can use only what you want — with everything off, the game plays like vanilla. The Recommended profile turns everything on; change any option and the profile switches to Custom. Options take effect when you press Install again: for emulators nothing is recompiled and no file is edited by hand. (Longshot is different; see the Longshot section.)
 
@@ -60,10 +75,10 @@ BETA (optional, experimental, off unless you turn them on)
 REQUIREMENTS
 - The game on update v131072.
 - An emulator that loads mods from its user/load folder, or a Longshot installation.
-- Close the game before installing and back up your saves.
+- Back up your saves. On Windows the app closes a running game before installing and during a rebuild; save first.
 
 EMULATOR - QUICK INSTALL (PRESETS ZIP)
-1. Download SuperHeroBoost-0.4.0-presets.zip from the Files tab and extract it.
+1. Download SuperHeroBoost-0.5.0-presets.zip from the Files tab and extract it.
 2. Open the folder of the profile you want (01 Recommended, 02 Base, 03 Hero Mode, ...).
 3. Copy its 00-Super-Hero-Boost folder into user/load/0400486024DEC000 (merge it if that folder already exists).
 4. Start the game.
@@ -73,24 +88,28 @@ EMULATOR - CUSTOM SETTINGS (APP)
 1. Download SuperHeroBoostConfig.exe from GitHub Releases:
    https://github.com/kuribox/OOT-SuperHeroBoostMod/releases
    It is also published in the Tools section of this game. The module is bundled inside the app: you do not need Python.
-2. Close the game.
+2. Save your progress. On Windows the app closes the game for you before installing / building.
 3. On the game profile, choose a preset (Recommended turns everything on) or adjust each section by hand: Stamina, Difficulty, HUD, Modifications.
 4. Choose your emulator folder: the one that contains "user" (the app also detects a custom load_directory).
 5. Press Install. It creates 00-Super-Hero-Boost inside user/load/0400486024DEC000 and patches the configuration you selected.
 6. Start the game.
 
-LONGSHOT (use the app)
-The presets zip is for emulators only. Longshot is a static recompilation: it ignores exefs mods by design, so the module has to be built into the game. Use the installation app, which you can download from GitHub Releases:
+LONGSHOT, HOOKSHOT AND RELINK (use the app)
+The presets zip is for emulators only. Static recompilations ignore exefs mods by design, so the module has to be
+built into the game. Use the installation app from GitHub Releases:
 https://github.com/kuribox/OOT-SuperHeroBoostMod/releases
 
-1. Download and run SuperHeroBoostConfig.exe.
-2. Select the Longshot target.
-3. Point it at your Longshot folder and, if it is not detected automatically, at the builder's tools folder (LongshotBuilder/tools).
-4. Choose the profile/options you want and press Rebuild game. The app patches the game's main, copies the module to .longshot_exefs, installs the chosen romfs options and runs the builder's update with progress, log and cancel.
-5. The first build takes 25-45 minutes. Later code changes are incremental (about 5 minutes); profile, HUD and romfs changes need no rebuild.
-6. Uninstall restores the original bin/longshot.exe, image.bin and .longshot_exefs/main.
+1. Download and run SuperHeroBoostConfig.exe (or the Linux / macOS build).
+2. Select the Longshot, Hookshot or ReLink target. The app detects the .longshot_exefs / .hookshot_exefs /
+   .relink_exefs and the builder of that game (LongshotBuilder / HookshotBuilder / ReLink); the builder path is
+   optional and can be changed if it is not detected.
+3. Point it at your game folder, choose the profile / options and press Rebuild game.
+4. The first build takes 25-45 minutes. Later code changes are incremental (about 5 minutes); profile, HUD and romfs
+   changes need no rebuild.
+5. 0.5.0 keeps DLSS / FSR and closes a running copy of the game on Windows so the final swap is not blocked.
+6. Uninstall restores the original bin/longshot.exe, image.bin and exefs/main (and the ReLink files).
 
-Hookshot is not tested yet. It is the same kind of static recompilation and uses the same builder and nx2/make_game.py --update, so it may work, but I have not verified it and cannot confirm how compatible it is.
+0.5.0 fixes the Longshot crashes from 0.4.0. The module is baked into image.bin: rebuild once with 0.5.0.
 
 IN GAME
 - Item buttons: pause menu -> Items tab, highlight an item and press X to put it on B, L on L and R on R. The game's own ZR box still works with A.
@@ -110,8 +129,9 @@ INSTALLATION APP
 
 COMPATIBILITY
 - Emulators: tested and working on lichii and Fritchii.
-- Longshot: supported and tested. Use the app to rebuild the game.
-- Hookshot: not tested yet.
+- Longshot: supported and tested. 0.5.0 fixes the 0.4.0 crashes; rebuild the game once with it.
+- Hookshot: expected to work, not tested yet (same builder and make_game.py --update).
+- ReLink: supported (bin/relink-game, .relink_exefs, RELINK_* variables). Install/backup tested; the full build has not been verified on a real ReLink install yet.
 - Real hardware: not tested.
 
 CREDITS

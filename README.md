@@ -74,12 +74,14 @@ The module, the HUD, the textures and the app are original work: no third-party 
 
 ### Manual shield
 
-- **Press ZL** to toggle the lock-on camera.
-- **Hold L** to raise the shield while the lock-on camera is active; with the camera off, L keeps its normal function
+- **ZL follows the game's Targeting Type option** (System > Options): in **Hold Target**, hold ZL to target; in
+  **Toggle Target**, press ZL to toggle.
+- **Hold L** to raise the shield while the target camera is active; with the camera off, L keeps its normal function
   (item button or selector included).
 - **R3** cancels targeting.
 - Optional: it is off by default and can be enabled in the app's **HUD & buttons** section.
-- It reserves **ZL** during gameplay and **L** only while the lock-on camera is active.
+- It reserves **L** only while the target camera is active. In hold mode the physical ZL stays native; in toggle mode
+  the mod synthesises it.
 - Independent of the stamina system: the stamina config still applies its own held/hit costs when stamina is on.
 
 ### Configuration app

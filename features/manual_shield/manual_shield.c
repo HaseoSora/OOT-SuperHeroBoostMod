@@ -37,6 +37,14 @@ extern u64 get_guard_component(void *);
 extern void native_draw_equipment(void *, u32);
 extern u32 as_int(void *, u32);
 extern u32 as_bool(void *, u32);
+extern char GAMEDATA_MGR[];                                /* main+0x4E842A8: GameData manager pointer */
+extern u32 read_enum(void *, u32 *, void *, u32);          /* main+0x17BF90 */
+
+/* GameData option: System > Options > Targeting Type (base-game enum). */
+#define GD_OPTIONS_STRUCT 0x834d9d9eu
+#define GD_LOCKON_FIELD   0xc713c7dau
+#define LOCKON_HOLD       0x60fc6939u   /* 1627154745 */
+#define LOCKON_TOGGLE     0x212dc0e7u   /* 556646631 */
 
 /* State shared with the assembly wrappers (do not rename). */
 u64 g_ms_state;          /* player state returned by resolve_player (x20/x21 in the guard sites) */
@@ -46,12 +54,14 @@ u8 g_ms_active;          /* manual shield option enabled (read by the wrappers) 
 u8 g_ms_allowed;         /* this frame's guard decision (read by the setter wrapper) */
 u8 g_ms_held;            /* guard request for this frame (L while targeting) */
 u8 g_ms_carrying;        /* Link is carrying/lifting something */
-u8 g_ms_targeting;       /* targeting toggled by a ZL press */
+u8 g_ms_targeting;       /* toggle mode: targeting latched by a ZL press */
 u8 g_ms_zl_raw;          /* physical ZL in the latest input sample */
 u8 g_ms_l_raw;           /* physical L in the latest input sample */
 u8 g_ms_zl_prev;         /* previous frame's physical ZL, for the toggle edge */
 u8 g_ms_prev_l;          /* previous sampled L (diagnostic) */
 u8 g_ms_last_allowed;    /* previous frame's decision, for the shield draw */
+u32 g_ms_toggle_mode = 1;/* 1 = game option Toggle Target, 0 = Hold Target */
+u32 g_ms_target_value = 0xFFFFFFFFu;  /* diagnostic: raw GameData enum value */
 u32 g_ms_tick;           /* scheduler frames (manual_shield_on_frame calls) */
 u32 g_ms_last_tick;      /* tick at the previous gameplay HID read */
 u32 g_ms_stale;          /* gameplay HID reads without a scheduler tick */
@@ -72,6 +82,40 @@ static u32 ms_gameplay_state(void) {
     if (!n || !n[0]) return 0;
     if (n[0] == 'E' && n[1] == 'v' && n[2] == 't') return 0;   /* EvtWait / event camera */
     return 1;
+}
+
+/* Read System > Options > Targeting Type from the live GameData struct. The
+ * manager keeps a hash -> index map for each type (this is the option struct
+ * 0x834d9d9e with the LockOnType enum member). read_enum resolves the member. */
+static void refresh_target_mode(void) {
+    g_ms_target_value = 0xFFFFFFFFu;
+    u64 g = *(volatile u64 *)GAMEDATA_MGR;
+    if (!g) { g_ms_toggle_mode = 1; return; }
+    u32 *map = *(volatile u32 **)(g + 0xC20);
+    u32 slots = *(volatile u32 *)(g + 0xC2C);
+    u32 count = *(volatile u32 *)(g + 0xC10);
+    u8 *entries = *(volatile u8 **)(g + 0xC18);
+    if (!map || !slots || slots > 1048576u || !entries) { g_ms_toggle_mode = 1; return; }
+    u32 start = GD_OPTIONS_STRUCT % slots, at = start;
+    do {
+        if (map[at * 2] == GD_OPTIONS_STRUCT) {
+            u32 index = map[at * 2 + 1];
+            if (index >= count) break;
+            u8 *entry = entries + (u64)index * 32;
+            struct { void *entry; u32 index; u32 active; } d;
+            d.entry = entry;
+            d.index = 0;
+            d.active = *(volatile u32 *)(entry + 24) >= 2;
+            u32 value = LOCKON_TOGGLE;
+            if (!read_enum((void *)g, &value, &d, GD_LOCKON_FIELD)) { g_ms_toggle_mode = 1; return; }
+            g_ms_target_value = value;
+            g_ms_toggle_mode = value == LOCKON_TOGGLE;
+            return;
+        }
+        if (!map[at * 2]) break;
+        at = at + 1 == slots ? 0 : at + 1;
+    } while (at != start);
+    g_ms_toggle_mode = 1;
 }
 
 static u64 current_guard_interface(u64 actor) {
@@ -191,16 +235,25 @@ void manual_shield_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_re
 
     /* L is only ours while the lock-on camera is up (or while we are already
      * guarding). Otherwise it keeps the game's normal behaviour. */
+    u32 toggle = g_ms_toggle_mode;
     u32 guard_active = g_ms_held != 0;
-    u32 target_active = g_ms_targeting != 0 || guard_active || player_state_starts("LockOn");
+    u32 target_active;
+    if (toggle) {
+        /* Our latched target; native LockOn also counts while it exits. */
+        target_active = g_ms_targeting != 0 || guard_active || player_state_starts("LockOn");
+    } else {
+        /* The game itself is in Hold Target: physical ZL is the target. */
+        target_active = zl != 0 || guard_active || player_state_starts("LockOn");
+    }
 
     for (u32 i = 0; i < count; i++) {
         u64 b = hid_get_buttons(&view, i);
-        b &= ~MS_BTN_ZL;                       /* ZL is the mode button: always consumed */
+        if (toggle) b &= ~MS_BTN_ZL;           /* toggle mode: ZL is consumed and re-synthesised */
         if (target_active) b &= ~MS_BTN_L;     /* L guards only with the target camera */
-        /* native ZL is synthesised from our toggle or an active L guard; the
-         * native LockOn state alone must not keep itself alive */
-        if (g_ms_targeting || guard_active) b |= MS_BTN_ZL;
+        /* toggle mode: synth native ZL from our latch or an active L guard; the
+         * native LockOn state alone must not keep itself alive. Hold mode leaves
+         * the physical ZL untouched. */
+        if (toggle && (g_ms_targeting || guard_active)) b |= MS_BTN_ZL;
         hid_set_buttons(&view, i, b);
     }
     g_ms_dbg[0]++;
@@ -224,6 +277,8 @@ void manual_shield_on_frame(void *scheduler) {
         g_ms_zl_prev = 0;
         g_ms_prev_l = 0;
         g_ms_last_allowed = 0;
+        g_ms_toggle_mode = 1;
+        g_ms_target_value = 0xFFFFFFFFu;
         return;
     }
     g_ms_active = 1;
@@ -231,13 +286,21 @@ void manual_shield_on_frame(void *scheduler) {
     g_ms_dbg[6]++;
     g_ms_held = 0;
 
-    /* ZL is the target toggle: one rising edge per press. It runs once per
-     * scheduler frame, so the repeated HID reads cannot toggle it twice. */
+    /* The game's Targeting Type can change in System > Options. Refresh it a
+     * few times per second so the ZL behaviour follows the setting. */
+    if (g_ms_tick == 1u || (g_ms_tick % 10u) == 0u) refresh_target_mode();
+
+    /* Toggle Target: ZL is a latched target toggle (one rising edge per press).
+     * Hold Target: the game itself owns the hold; keep our latch off. */
     if (ms_gameplay_state()) {
         u8 zl = g_ms_zl_raw;
-        if (zl && !g_ms_zl_prev) {
-            g_ms_targeting ^= 1u;
-            g_ms_dbg[3]++;
+        if (g_ms_toggle_mode) {
+            if (zl && !g_ms_zl_prev) {
+                g_ms_targeting ^= 1u;
+                g_ms_dbg[3]++;
+            }
+        } else {
+            g_ms_targeting = 0;
         }
         g_ms_zl_prev = zl;
     } else {
@@ -256,7 +319,9 @@ void manual_shield_on_frame(void *scheduler) {
     if (!actor) return;
     g_ms_carrying = (u8)player_carrying(actor);
     {
-        u32 target_active = g_ms_targeting || player_state_starts("LockOn");
+        u32 target_active = g_ms_toggle_mode
+            ? (g_ms_targeting || player_state_starts("LockOn"))
+            : (g_ms_zl_raw || player_state_starts("LockOn"));
         g_ms_held = (u8)(!g_ms_carrying && g_ms_l_raw && target_active);
     }
     u64 component = get_guard_component((void *)actor);

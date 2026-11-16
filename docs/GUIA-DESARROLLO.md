@@ -194,13 +194,18 @@ the speed argument.
 
 ### 4.5 Manual shield (`features/manual_shield/`)
 - Optional (`manual_shield`); with it off every hook is pass-through and the stock controls stay.
-- Input (site 3): consumes the physical ZL (target toggle) and synthesises native ZL while the target camera is up.
-  **L is let through untouched when the lock-on camera is off** and becomes a guard only while the camera is active.
-  R3 cancels targeting.
-- Frame (code hook 0): `manual_shield_on_frame()` turns a ZL rising edge into the targeting toggle once per
-  scheduler frame (repeated HID reads cannot toggle it twice), caches the player state and AS interface and keeps the
-  native guard flags and AS Bool14 off unless L is held with the camera active. On guard entry it requests the shield
-  draw only (not the sword).
+- **Targeting Type:** `refresh_target_mode()` reads the base-game option live from GameData (struct
+  `0x834d9d9e`, member `0xc713c7da`, via `read_enum` at `main+0x17BF90`, manager at `main+0x4E842A8`). Values:
+  `0x60fc6939` Hold Target, `0x212dc0e7` Toggle Target. It refreshes every 10 scheduler frames.
+- Input (site 3):
+  - **Hold Target:** physical ZL stays native (the game itself holds the target); L is consumed as a guard only while
+    ZL/`LockOn` is active and is passed through when the target camera is off.
+  - **Toggle Target:** physical ZL is consumed, a rising edge latches targeting, and native ZL is synthesised while the
+    latch is on. L is consumed as a guard only while targeting.
+  - R3 cancels targeting in both modes.
+- Frame (code hook 0): `manual_shield_on_frame()` updates the ZL gesture/latch once per scheduler frame (repeated HID
+  reads cannot repeat it), caches the player state and AS interface and keeps the native guard flags and AS Bool14 off
+  unless L is held with the target camera active. On guard entry it requests the shield draw only (not the sword).
 - The guard uses the stock locomotion/animation path: the feature only decides whether the guard is allowed. Busy
   actions (carrying, bow, hookshot, boomerang, horse aim) and a dead/inactive player keep it off. Menus keep their
   normal L/ZL navigation because the input filter only runs during gameplay.
@@ -208,7 +213,7 @@ the speed argument.
   the AS Bool setter (`main+0x37BA100`) and the two target-guard flag stores (`main+0x972E18`, `main+0x97320C`). Their
   wrappers are in `manual_shield.S`; the resume addresses are linker symbols in `core/link.ld`.
 - The base guard/target behaviour comes from REXCRAFT88's Manual Shield 0.1.7 for the same build; Super Hero Boost
-  moves the targeting toggle to ZL and gates the L guard with the lock-on camera.
+  makes ZL follow the game's Hold/Toggle option and gates the L guard with the target camera.
 
 ### 4.6 No heart drops (romfs)
 `tools/make_romfs_opts.py` generates, from the game's own dump (`SHB_ROMFS`, your dump folder),

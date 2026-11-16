@@ -46,6 +46,7 @@ SECTIONS
     set_text = 0x439520;
     WORLD_MGR = 0x4E7EAB0;
     GAMEDATA_MGR = 0x4E842A8;
+    read_enum = 0x17BF90;   /* gmd::readEnum(manager, out, descriptor, field_hash) */
     RES_GUARD0 = 0x27F7D04;
     RES_GUARD1 = 0x27F7F94;
     RES_GUARD2 = 0x27FB0C4;

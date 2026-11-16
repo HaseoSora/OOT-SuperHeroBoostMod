@@ -114,12 +114,12 @@ The **HUD & buttons** section has a **Quick select** card. It enables the module
 
 The **HUD & buttons** section has a **Manual shield** card (off by default):
 
-- **ZL**: press to toggle the lock-on camera.
-- **L**: hold to raise the shield only while the lock-on camera is active; with the camera off it keeps its normal
+- **ZL** follows the game's **System > Options > Targeting Type**: hold to target in **Hold Target**, press to toggle
+  in **Toggle Target**. The mod reads the option live.
+- **L**: hold to raise the shield only while the target camera is active; with the camera off it keeps its normal
   function (item button or selector included).
 - **R3**: cancels targeting.
-- It reserves ZL during gameplay and L only while the lock-on camera is active, so buttonMapping can still use L when
-  the camera is off.
+- It reserves L only while the target camera is active, so buttonMapping can still use L when the camera is off.
 - It is a control preference, not part of a profile, and it works independently of the stamina system.
 
 ## Updates

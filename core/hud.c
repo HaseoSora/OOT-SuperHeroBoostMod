@@ -2129,6 +2129,7 @@ static void slots_draw(SlotBtn *set, const u64 *ctrls, u64 frame, const float *l
             const char *src = !main_set && k == SB_A ? "OotBtnS_Blank" : g_sb_force[k];   /* menu: A unlettered, like X */
             if (g_btn_swap) {
                 if (!g_shbcfg.bm_simple && k == SB_X) src = "OotBtnS_X";        /* extended: X is the item button */
+                else if (!g_shbcfg.bm_simple && k == SB_B) src = "OotBtnS_Blank"; /* extended: B becomes the labelled jump */
                 else if (g_shbcfg.bm_simple && k == SB_B) src = "OotBtnS_X";    /* simple: the centre button is X */
             }
             for (i = 0; i < 31 && src[i]; i++) nm[i] = src[i];
@@ -2299,6 +2300,7 @@ static void slots_labels(u64 frame) {
     float xx, xy, ax, ay;
     sb_xy(g_sb_lay, SB_X, 0, &xx, &xy);
     sb_xy(g_sb_lay, SB_A, 0, &ax, &ay);
+    if (g_btn_swap) sb_xy(g_sb_lay, SB_B, 0, &xx, &xy);   /* B is the jump button: its label moves down */
     g_fld_sc[4] = g_fld_sc[5] = 0.80f * g_sb_lay[1];   /* the labels follow the buttons' size */
     u32 lbl = !g_shbcfg.bm_simple;   /* simple layout: no X / A buttons, so no labels */
     put_text(frame, 4, g_sb_jump_label, xx, xy, lbl, LABEL);

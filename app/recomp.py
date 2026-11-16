@@ -233,20 +233,130 @@ def patch_main(main: Path, ips: Path) -> int:
     return n
 
 
-def backup_once(game: Path) -> Path:
-    exefs = exefs_of(game)
+def _backup_candidates(game: Path, exefs_name: str) -> list[str]:
+    """Every file the install and the builder's finish step can write, replace or remove, as game-relative paths.
+
+    The builder stages BESIDE = longshot.exe, longshot_vk.dll, SDL2.dll, SDL3.dll (+ ffmpeg DLLs) into bin/ (or the
+    game folder without a launcher), writes image.bin and the shader cache, replaces the root launcher and removes
+    the old loose libraries. Our install patches exefs/main and writes exefs/subsdk9."""
+    rels = [
+        "image.bin", "longshot_prepared.bin",
+        "longshot.exe", "hookshot.exe", "hookshot", "longshot",
+        "longshot.map", "longshot-game.exe", "wgpu_native.dll",
+        "cache/longshot_pipelines.bin", "longshot_pipelines.bin",
+        "bin/longshot.exe", "bin/hookshot.exe", "bin/hookshot", "bin/longshot",
+        "bin/longshot_vk.dll", "bin/longshot_vk.so",
+        "bin/SDL2.dll", "bin/SDL3.dll", "bin/libSDL2-2.0.so.0",
+        "bin/wgpu_native.dll", "bin/longshot.map", "bin/longshot-game.exe",
+        f"{exefs_name}/main", f"{exefs_name}/subsdk9",
+    ]
+    for d in (game / "bin", game):
+        if d.is_dir():
+            try:
+                for f in d.iterdir():
+                    if f.is_file() and f.suffix.lower() == ".dll" and f.name.startswith(("av", "sw")):
+                        rel = f.relative_to(game).as_posix()
+                        if rel not in rels:
+                            rels.append(rel)
+            except OSError:
+                pass
+    return rels
+
+
+def backup_once(game: Path, exefs_original: str | None = None) -> Path:
+    """Snapshot, once, every file the install and the rebuild can change.
+
+    Files that exist are copied under `.shb-backup/files/`; files that do not exist are recorded as created by us, so
+    the uninstall deletes them instead of leaving a half-built game. The manifest keeps the first snapshot: installing
+    again never overwrites the originals. Older backups (flat files in `.shb-backup/`) keep working."""
     bak = game / BACKUP
-    bak.mkdir(parents=True, exist_ok=True)
-    pairs = [(exefs / "main", bak / "main")]
-    exe = exe_of(game)
-    if exe:
-        pairs.append((exe, bak / exe.name))
-    pairs += [(game / "image.bin", bak / "image.bin"),
-              (game / "longshot_prepared.bin", bak / "longshot_prepared.bin")]
-    for src, dst in pairs:
-        if src.exists() and not dst.exists():
+    files = bak / "files"
+    files.mkdir(parents=True, exist_ok=True)
+    man_path = bak / "manifest.json"
+    man = None
+    try:
+        data = json.loads(man_path.read_text(encoding="utf-8"))
+        if isinstance(data, dict) and data.get("version") == 2:
+            man = data
+    except (OSError, ValueError):
+        man = None
+    if man is None:
+        man = {"version": 2, "exefs": exefs_original or exefs_of(game).name, "files": []}
+    known = {e.get("path") for e in man.get("files", []) if isinstance(e, dict)}
+    current = exefs_of(game).name          # (the folder may have been renamed to match the builder)
+    for rel in _backup_candidates(game, current):
+        if rel in known:
+            continue
+        src = game / rel
+        entry = {"path": rel}
+        if src.is_file():
+            dst = files / rel
+            dst.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(src, dst)
+            entry["kind"] = "file"
+        else:
+            entry["kind"] = "created"
+        man["files"].append(entry)
+        known.add(rel)
+    man_path.write_text(json.dumps(man, indent=1), encoding="utf-8")
     return bak
+
+
+def _restore_backup(game: Path, bak: Path) -> bool:
+    """Undo everything the snapshot recorded: copy the saved files back and delete the ones that were not there."""
+    restored = False
+    man = None
+    try:
+        data = json.loads((bak / "manifest.json").read_text(encoding="utf-8"))
+        if isinstance(data, dict) and data.get("version") == 2:
+            man = data
+    except (OSError, ValueError):
+        man = None
+    if man is not None:
+        files = bak / "files"
+        for e in man.get("files", []):
+            if not isinstance(e, dict):
+                continue
+            rel = str(e.get("path") or "").replace("\\", "/")
+            if not rel or rel.startswith("/") or ".." in rel.split("/") or ":" in rel:
+                continue
+            dst = game / rel
+            if e.get("kind") == "file":
+                src = files / rel
+                if src.is_file():
+                    dst.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copy2(src, dst)
+                    restored = True
+            else:
+                try:
+                    if dst.is_file():
+                        dst.unlink()
+                        restored = True
+                except OSError:
+                    pass
+        name = man.get("exefs")
+        if name in EXEFS_NAMES:
+            for other in EXEFS_NAMES:
+                p = game / other
+                if other != name and p.exists() and not (game / name).exists():
+                    try:
+                        p.rename(game / name)
+                        restored = True
+                    except OSError:
+                        pass
+    # older backups: flat copies in .shb-backup/ (main, longshot.exe, hookshot, image.bin, longshot_prepared.bin)
+    for src, dst in ((bak / "main", exefs_of(game) / "main"),
+                     (bak / "longshot.exe", game / "bin" / "longshot.exe"),
+                     (bak / "hookshot", game / "bin" / "hookshot"),
+                     (bak / "hookshot.exe", game / "bin" / "hookshot.exe"),
+                     (bak / "image.bin", game / "image.bin"),
+                     (bak / "longshot_prepared.bin", game / "longshot_prepared.bin")):
+        if src.exists():
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(src, dst)
+            restored = True
+    return restored
+
 
 
 def write_module(game: Path, s: I.Settings) -> None:
@@ -488,6 +598,7 @@ def install(game_path, s: I.Settings, rebuild: bool = True, builder_path=None, w
     if game_running():
         raise I.InstallError("recomp_running", str(game))
     builder = None
+    exefs_name = exefs_of(game).name          # (the name the folder had before any rename: restored on uninstall)
     if rebuild:
         builder = Path(builder_path).expanduser() if builder_path else find_builder(game)
         exp = expected_exefs(builder)
@@ -500,7 +611,7 @@ def install(game_path, s: I.Settings, rebuild: bool = True, builder_path=None, w
     ips = payload_dir() / "standalone" / "ours.ips"
     if not ips.exists():
         raise I.InstallError("no_payload", "standalone")
-    backup_once(game)
+    backup_once(game, exefs_name)
     n = patch_main(exefs / "main", ips)
     write_module(game, s)
     copied, notes = install_romfs(game, s)
@@ -524,6 +635,7 @@ def apply_settings(game_path, s: I.Settings) -> Result:
         raise I.InstallError("recomp_running", str(game))
     if not (exefs_of(game) / "subsdk9").exists():
         raise I.InstallError("recomp_needs_build", str(game))
+    backup_once(game)
     write_module(game, s)
     copied, notes = install_romfs(game, s)
     if not write_image(game, s):
@@ -537,17 +649,7 @@ def uninstall(game_path) -> bool:
         return False
     exefs = exefs_of(game)
     bak = game / BACKUP
-    restored = False
-    for src, dst in ((bak / "main", exefs / "main"),
-                     (bak / "longshot.exe", game / "bin" / "longshot.exe"),
-                     (bak / "hookshot", game / "bin" / "hookshot"),
-                     (bak / "hookshot.exe", game / "bin" / "hookshot.exe"),
-                     (bak / "image.bin", game / "image.bin"),
-                     (bak / "longshot_prepared.bin", game / "longshot_prepared.bin")):
-        if src.exists():
-            dst.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(src, dst)
-            restored = True
+    restored = _restore_backup(game, bak)
     for name in ("subsdk9", "subsdk9.bak-longshot"):
         p = exefs / name
         if p.exists():

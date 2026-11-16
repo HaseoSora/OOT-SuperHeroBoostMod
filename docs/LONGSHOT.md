@@ -119,9 +119,17 @@ The romfs side (button textures, Great Fairy, Farore, no heart drops, enemy opti
 
 ## Reverting
 
-`--uninstall` restores `bin/longshot.exe`, `image.bin` and `.longshot_exefs/main` from `<game>/.shb-backup` (made on
-the first install), removes `subsdk9` and deletes `<game>/mods/Super-Hero-Boost`. Nothing has to be recompiled when
-that backup exists.
+The first install snapshots everything the install and the builder's finish step can change into
+`<game>/.shb-backup/`: `files/` holds the original copies and `manifest.json` lists them, plus the files that did not
+exist yet (they are deleted again on uninstall). That covers `exefs/main`, the game executable (`bin/longshot.exe` /
+`bin/hookshot*`), `image.bin`, `longshot_prepared.bin`, the launcher (`longshot.exe` / `hookshot*` in the game
+folder), `bin/longshot_vk.dll` (`.so`), `bin/SDL2.dll`, `bin/SDL3.dll`, the ffmpeg `av*`/`sw*` DLLs, the shader cache
+(`cache/longshot_pipelines.bin`) and `exefs/subsdk9`. The snapshot is made once: installing again never overwrites the
+originals, and the `.longshot_exefs` / `.hookshot_exefs` folder name is recorded so it is renamed back.
+
+`--uninstall` copies those originals back, deletes the files that were not there before (the module, the new libraries,
+the shader cache) and removes `<game>/mods/Super-Hero-Boost`. Backups made by older versions (flat files in
+`.shb-backup/`) are still restored. Nothing has to be recompiled when that backup exists.
 
 ## Hookshot
 

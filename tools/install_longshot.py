@@ -187,20 +187,9 @@ def build_game(game: Path, builder: Path, work: Path | None, jobs: int) -> int:
 # -------------------------------------------------------------------------- files
 
 def backup_once(game: Path, exefs: Path) -> Path:
-    bak = game / BACKUP
-    bak.mkdir(parents=True, exist_ok=True)
-    pairs = [
-        (exefs / "main", bak / "main"),
-        (game / "bin" / "longshot.exe", bak / "longshot.exe"),
-        (game / "bin" / "hookshot", bak / "hookshot"),
-        (game / "bin" / "hookshot.exe", bak / "hookshot.exe"),
-        (game / "image.bin", bak / "image.bin"),
-        (game / "longshot_prepared.bin", bak / "longshot_prepared.bin"),
-    ]
-    for src, dst in pairs:
-        if src.exists() and not dst.exists():
-            print("backing up %s" % src.name, flush=True)
-            shutil.copy2(src, dst)
+    """Snapshot, once, every file the install and the rebuild can change (app/recomp.py does the list)."""
+    bak = R.backup_once(game)
+    print("backup: %s" % bak, flush=True)
     return bak
 
 
@@ -261,30 +250,15 @@ def install_romfs(game: Path, src: Path | None, style: str, opts: set[str], enem
 
 
 def uninstall(game: Path) -> None:
-    exefs = exefs_of(game)
     bak = game / BACKUP
-    for name, dst in (("main", exefs / "main"),
-                      ("longshot.exe", game / "bin" / "longshot.exe"),
-                      ("hookshot", game / "bin" / "hookshot"),
-                      ("hookshot.exe", game / "bin" / "hookshot.exe"),
-                      ("image.bin", game / "image.bin"),
-                      ("longshot_prepared.bin", game / "longshot_prepared.bin")):
-        src = bak / name
-        if src.exists():
-            shutil.copy2(src, dst)
-            print("restored %s" % dst)
-    for name in ("subsdk9", "subsdk9.bak-longshot"):
-        p = exefs / name
-        if p.exists():
-            p.unlink()
-            print("removed .longshot_exefs/%s" % name)
-    mods = game / "mods" / MOD_NAME
-    if mods.exists():
-        shutil.rmtree(mods)
-        print("removed %s" % mods)
-    if not (bak / "longshot.exe").exists() and not (bak / "hookshot").exists() \
-            and not (bak / "hookshot.exe").exists():
-        print("no executable backup: the game still has the mod's code; rebuild the game to remove it.")
+    restored = R.uninstall(game)
+    if restored:
+        print("restored the original files from %s and removed the mod" % bak)
+    else:
+        print("nothing to uninstall (no backup and no mod files)")
+    if not (bak / "files").exists() and not (bak / "longshot.exe").exists() \
+            and not (bak / "hookshot").exists() and not (bak / "hookshot.exe").exists():
+        print("no executable backup: the game still may have the mod's code; rebuild the game to remove it.")
 
 
 # --------------------------------------------------------------------------- main

@@ -1,7 +1,7 @@
 Super Hero Boost is a gameplay and HUD module for the Ocarina of Time remake (update v131072).
 
 WHAT YOU ARE DOWNLOADING
-The file in the Files tab is SuperHeroBoost-0.3.0-presets.zip: the mod itself, with all 11 profiles of the companion app ready to install in an emulator. Every profile includes the boots/mask quick select. It contains no executable. The configuration app is a separate download (see "Installation app" below); it is not in the Files tab.
+The file in the Files tab is SuperHeroBoost-0.4.0-presets.zip: the mod itself, with all 11 profiles of the companion app ready to install in an emulator. Every profile includes the boots/mask quick select. It contains no executable. The configuration app is a separate download (see "Installation app" below); it is not in the Files tab.
 
 Every feature in this mod is optional. The installation app sets up the module once, and each system below has its own on/off switch, so you can use only what you want — with everything off, the game plays like vanilla. The Recommended profile turns everything on; change any option and the profile switches to Custom. Options take effect when you press Install again: for emulators nothing is recompiled and no file is edited by hand. (Longshot is different; see the Longshot section.)
 
@@ -54,7 +54,7 @@ REQUIREMENTS
 - Close the game before installing and back up your saves.
 
 EMULATOR - QUICK INSTALL (PRESETS ZIP)
-1. Download SuperHeroBoost-0.3.0-presets.zip from the Files tab and extract it.
+1. Download SuperHeroBoost-0.4.0-presets.zip from the Files tab and extract it.
 2. Open the folder of the profile you want (01 Recommended, 02 Base, 03 Hero Mode, ...).
 3. Copy its 00-Super-Hero-Boost folder into user/load/0400486024DEC000 (merge it if that folder already exists).
 4. Start the game.

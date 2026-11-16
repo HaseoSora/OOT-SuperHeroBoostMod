@@ -3,7 +3,22 @@
 Gameplay module for the console remake (update **v131072**) and its cross-platform configuration app
 **SuperHeroBoostConfig**.
 
-Current release: **0.3.0**, with boots/mask quick select, support for the **Longshot** static recompilation and an automatic update check.
+Current release: **0.4.0**, with the HUD layouts, exact bottle icons on the item buttons, the expanded enemy
+speed/duplication options and the Longshot Vulkan fallback.
+
+### What's new in 0.4.0
+
+- **Three HUD layouts**: **Wide** (the four native-style plates), **Simple** (the four counters at the bottom,
+  no background) and **Minimal** (rupees + time above the minimap; the area heart-piece counter next to the native
+  Skulltula counter on the **Minus** map).
+- **Bottle icons**: B/L/R and ZR now show the assigned bottle and its exact content: red/green/blue potion, blue
+  fire, fish, bug, fairy, milk, half milk, letter, Poe, Big Poe or an empty bottle.
+- **Enemy speed**: movement, animation playback and attack cadence are independent, with eleven multipliers from
+  ×0.5 to ×6 (plus off); the duplicated-enemy placements also work now.
+- **Stamina bar**: optional compact segmented bar instead of the ring around Link.
+- **Longshot**: if the builder cannot find Vulkan/VMA headers, the installer reuses the installed
+  `longshot_vk.dll`/`.so` instead of failing.
+- **CI**: Windows, Linux and macOS apps and the presets pack build with GitHub Actions.
 
 The mod adds stamina, difficulty scaling, an expanded HUD, extra item buttons and boots/mask quick select, all
 configurable without recompiling anything. The app patches the prebuilt module and copies the files the game needs.

@@ -8,7 +8,7 @@ GameBanana classifies third-party programs as Tools; the Mods file must stay fre
 **Tagline:** Configure and install Super Hero Boost: profiles, stamina, difficulty, HUD, item buttons and optional
 world changes from one window.
 
-**Version:** 0.3.0
+**Version:** 0.4.0
 
 ## Summary
 

@@ -207,14 +207,14 @@ def patch_config(nso: bytes, s: Settings) -> bytes:
     # switches; simple always shows the four elements in one small bar; map shows rupees+time above the
     # minimap and puts the heart counter on the Minus map.
     if mode == "simple":
-        pos = [-1610, -1330, -1050, -800]
+        pos = [-1520, -1270, -1030, -800]
         rupees = clock = collectibles = True
-        sx, sy, ts, isc, plates, maph, hy, ioff, tx = 110, 34, 50, 45, 2, 0, -1030, -120, 0
+        sx, sy, ts, isc, plates, maph, hy, ioff, tx, ioff2 = 100, 48, 50, 45, 0, 0, -1010, -140, 0, -80
     elif mode == "map":
-        pos = [1234, 1434, -32768, -32768]
+        pos = [1454, 1654, -32768, -32768]
         rupees = clock = True
         collectibles = False
-        sx, sy, ts, isc, plates, maph, hy, ioff, tx = 50, 50, 50, 45, 0, 1, -420, -140, 0
+        sx, sy, ts, isc, plates, maph, hy, ioff, tx, ioff2 = 50, 50, 50, 45, 0, 1, -420, -140, 0, -140
     else:
         rupees, clock, collectibles = s.hud_rupees, s.hud_clock, s.hud_collectibles
         slots = []
@@ -228,7 +228,7 @@ def patch_config(nso: bytes, s: Settings) -> bytes:
             pos[block] = int(round(x))
             if i + 1 < len(slots):
                 x += (HUD_PLATE_W[block] + HUD_PLATE_W[slots[i + 1]]) * 0.5 + HUD_GAP
-        sx, sy, ts, isc, plates, maph, hy, ioff, tx = 46, 62, 0, 85, 1, 0, -960, -165, 30
+        sx, sy, ts, isc, plates, maph, hy, ioff, tx, ioff2 = 46, 62, 0, 85, 1, 0, -960, -165, 30, -165
     b[f + 14], b[f + 15] = int(rupees), int(clock)
     b[f + 27] = int(collectibles)
     struct.pack_into("<4h", b, f + 28, *pos)
@@ -238,6 +238,7 @@ def patch_config(nso: bytes, s: Settings) -> bytes:
     b[f + 39], b[f + 40], b[f + 41], b[f + 42] = sx, sy, ts, isc
     b[f + 43], b[f + 44] = plates, maph
     struct.pack_into("<hhh", b, f + 46, hy, ioff, tx)   # struct 62/64/66 (the shorts are 2-byte aligned)
+    struct.pack_into("<h", b, f + 52, ioff2)            # struct 68: clock/collectible icon offset
     return bytes(b)
 
 

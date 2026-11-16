@@ -35,7 +35,7 @@ from your own game files.
 - Always-visible rupee counter and clock (off / 12 h / 24 h) with the game's native plate look.
 - Per-area counter for Gold Skulltulas and heart pieces. It reads the save's persistent key set, so the count
   survives leaving and re-entering an area.
-- Three layouts: **Wide** (four plates), **Simple** (one small bar) and **Map** (rupees and time above the minimap,
+- Three layouts: **Wide** (four plates), **Simple** (the four counters at the bottom, no background) and **Minimal** (rupees and time above the minimap,
   heart pieces next to the native Skulltula counter on the Minus map).
 
 **Buttons**

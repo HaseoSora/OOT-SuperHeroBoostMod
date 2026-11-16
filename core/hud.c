@@ -1269,6 +1269,7 @@ static void plates_update(u64 frame) {
     float tsc = nf && g_shbcfg.hud_tscale ? g_shbcfg.hud_tscale / 100.0f : P[13];
     float isc = nf && g_shbcfg.hud_iscale ? g_shbcfg.hud_iscale / 100.0f : P[6];
     float ioff = nf ? (float)g_shbcfg.hud_ioff : P[5];
+    float ioff2 = nf ? (float)g_shbcfg.hud_ioff2 : P[5];
     float txo = nf ? (float)g_shbcfg.hud_tx : P[7];
     float BY = nf && g_shbcfg.hud_y ? (float)g_shbcfg.hud_y : -960.0f;
     u32 plates = nf ? g_shbcfg.hud_plates : 1;
@@ -1315,7 +1316,7 @@ static void plates_update(u64 frame) {
         int bi = sec2 ? bxh : bxs;
         if (bi == -32768 || !(sec2 ? show_h : show_s)) continue;
         u64 icn = g_pic_rec[PIC_COLL + 8 + sec2];
-        place(icn, (float)bi + ioff, BY, isc, isc, 0.0f);
+        place(icn, (float)bi + ioff2, BY, isc, isc, 0.0f);
         tint_rec(icn, 1.0f, 1.0f, 1.0f, 1.0f);
     }
     if (show_r) {
@@ -1324,11 +1325,11 @@ static void plates_update(u64 frame) {
     }
     if (sec < 0) sec = 0;
     sec %= 86400;
-    if (plates) {
+    if (plates || g_shbcfg.hud_mode == 1) {   /* wide plate or the simple row (no background) */
         u32 day = sec >= 6 * 3600 && sec < 18 * 3600;
         if (P[16] > 0.5f) day = P[16] < 1.5f;
         u32 sun = show_c && day, moon = show_c && !day;
-        float ix = (float)bxc + ioff, iy = BY;
+        float ix = (float)bxc + ioff2, iy = BY;
         float ssc = plates == 1 ? 1.0f : isc;
         float ray = plates == 1 ? P[12] : P[12] * (isc / P[6]);
         float msc = plates == 1 ? P[17] : isc;
@@ -2357,8 +2358,8 @@ static void hud_on_settext(u64 pane, const u64 *ref, u64 lr, const u64 *regs) {
             u64 hrec = vptr(root) ? pane_record(root, "P_ShbPic_398") : 0;
             g_map_icon_dbg[0] = root; g_map_icon_dbg[1] = hrec; g_map_icon_dbg[2] = 0;
             if (hrec) {
-                g_map_icon_dbg[3] = 180;
-                place(hrec, 180.0f, -5.0f, 0.66f, 0.66f, 0.0f);
+                g_map_icon_dbg[3] = 220;
+                place(hrec, 220.0f, -5.0f, 0.66f, 0.66f, 0.0f);
                 tint_rec(hrec, 1.0f, 1.0f, 1.0f, 1.0f);
             }
         }

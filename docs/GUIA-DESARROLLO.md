@@ -146,9 +146,10 @@ reads them every frame (`g_shbcfg`). **Fields are only appended at the end** (us
 | 54 | `hud_mode` (0 wide, 1 simple, 2 map; informational) | HUD layout chosen in the app |
 | 55-60 | `hud_sx`, `hud_sy`, `hud_tscale`, `hud_iscale`, `hud_plates`, `hud_map_hearts` | Plate/text/icon scales, plate mode (0 none, 1 all, 2 one bar), heart counter on the Minus map |
 | 62-63 | `hud_y` (s16) | HUD row y |
-| 64-65 | `hud_ioff` (s16) | Icon x offset |
+| 64-65 | `hud_ioff` (s16) | Rupee icon x offset |
 | 66-67 | `hud_tx` (s16) | Text x offset |
-| 68-71 | reserved | — |
+| 68-69 | `hud_ioff2` (s16) | Clock/collectible icon x offset |
+| 70-71 | reserved | — |
 
 **Adding a new option:** field in `config.h` (taking bytes from `reserved`), default value in `config.c`, write in
 `installer.patch_config` (`f = magic + 16`), field in `installer.Settings`, flag in `main.cli`, control in `main.py`

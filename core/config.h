@@ -45,9 +45,10 @@ typedef struct {
     unsigned char hud_plates;       /* 0 no plates, 1 all (wide), 2 one bar plate (simple) */
     unsigned char hud_map_hearts;   /* 1 = area heart counter on the Minus map */
     signed short hud_y;             /* row y (layout units) */
-    signed short hud_ioff;          /* icon x offset */
+    signed short hud_ioff;          /* rupee icon x offset */
     signed short hud_tx;            /* text x offset */
-    unsigned char reserved[4];
+    signed short hud_ioff2;         /* clock/collectible icon x offset (wide: same as hud_ioff) */
+    unsigned char reserved[2];
 } ShbConfig;
 
 extern volatile ShbConfig g_shbcfg;

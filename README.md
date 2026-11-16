@@ -110,6 +110,16 @@ To remove the mod, press **Uninstall** in the app or delete the `00-Super-Hero-B
 Prebuilt binaries are published on the [Releases](https://github.com/kuribox/OOT-SuperHeroBoostMod/releases) page;
 you can also build the app from source with the steps below.
 
+| Your system | Download |
+|---|---|
+| Windows | `SuperHeroBoostConfig.exe` |
+| Linux (x86_64) | `SuperHeroBoostConfig-linux` — `chmod +x SuperHeroBoostConfig-linux` after downloading |
+| macOS (Apple Silicon) | `SuperHeroBoostConfig-macos.dmg` — open it and drag the app to Applications (not signed: right-click > Open the first time) |
+| Emulator, no app | `SuperHeroBoost-<version>-presets.zip` — ready-to-install mod folders |
+
+The Windows build is the only one with a `.exe` extension; the Linux one is a plain executable named with
+`-linux` and the macOS one is a `.dmg` disk image.
+
 ### Longshot and Hookshot
 
 Hookshot and Longshot are static recompilations, not emulators: they translate the game to native code and ignore

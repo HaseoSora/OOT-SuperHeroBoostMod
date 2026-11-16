@@ -61,9 +61,9 @@ def _platform_assets() -> tuple[str, ...]:
     if sys.platform == "win32":
         return ("SuperHeroBoostConfig.exe",)
     if sys.platform == "darwin":
-        return ("SuperHeroBoostConfig.app.zip", "SuperHeroBoostConfig-macos.zip",
-                "SuperHeroBoostConfig.dmg", "SuperHeroBoostConfig")
-    return ("SuperHeroBoostConfig", "SuperHeroBoostConfig-linux")
+        return ("SuperHeroBoostConfig-macos.dmg", "SuperHeroBoostConfig.app.zip",
+                "SuperHeroBoostConfig-macos.zip", "SuperHeroBoostConfig.dmg", "SuperHeroBoostConfig")
+    return ("SuperHeroBoostConfig-linux", "SuperHeroBoostConfig")
 
 
 def _pick_asset(assets: list) -> dict | None:

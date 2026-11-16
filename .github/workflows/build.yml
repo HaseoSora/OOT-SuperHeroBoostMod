@@ -50,12 +50,14 @@ jobs:
         run: python3 -m pip install --user --upgrade pyinstaller zstandard
       - name: Build
         run: python3 tools/build_app.py
+      - name: Name the binary
+        run: mv release/SuperHeroBoostConfig release/SuperHeroBoostConfig-linux
       - name: Check the binary
-        run: test -x release/SuperHeroBoostConfig
+        run: test -x release/SuperHeroBoostConfig-linux
       - uses: actions/upload-artifact@v4
         with:
           name: app-linux
-          path: release/SuperHeroBoostConfig
+          path: release/SuperHeroBoostConfig-linux
           if-no-files-found: error
 
   macos:
@@ -72,17 +74,24 @@ jobs:
         run: python -m pip install --upgrade pip pyinstaller zstandard
       - name: Build
         run: python tools/build_app.py
-      - name: Zip the app bundle
+      - name: Package the app (dmg, or zip if the bundle is missing)
         run: |
+          set -e
           if [ -d release/SuperHeroBoostConfig.app ]; then
-            ditto -c -k --sequesterRsrc --keepParent release/SuperHeroBoostConfig.app release/SuperHeroBoostConfig.app.zip
+            mkdir -p build/dmg
+            cp -R release/SuperHeroBoostConfig.app build/dmg/
+            ln -s /Applications build/dmg/Applications
+            hdiutil create -volname "Super Hero Boost" -srcfolder build/dmg -ov \
+              -format UDZO release/SuperHeroBoostConfig-macos.dmg
           else
-            ditto -c -k release/SuperHeroBoostConfig release/SuperHeroBoostConfig.app.zip
+            ditto -c -k release/SuperHeroBoostConfig release/SuperHeroBoostConfig-macos.zip
           fi
       - uses: actions/upload-artifact@v4
         with:
           name: app-macos
-          path: release/SuperHeroBoostConfig.app.zip
+          path: |
+            release/SuperHeroBoostConfig-macos.dmg
+            release/SuperHeroBoostConfig-macos.zip
           if-no-files-found: error
 
   presets:
@@ -123,3 +132,11 @@ jobs:
           files: dist/*
           fail_on_unmatched_files: true
           generate_release_notes: true
+      - name: Use the release notes file when there is one
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          if [ -f "docs/RELEASE-$tag.md" ]; then
+            gh release edit "$GITHUB_REF_NAME" --notes-file "docs/RELEASE-$tag.md"
+          fi

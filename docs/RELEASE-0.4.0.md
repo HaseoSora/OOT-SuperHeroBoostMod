@@ -6,11 +6,16 @@ and the presets pack are built by the GitHub Actions workflow.
 
 ## Download
 
-- `SuperHeroBoostConfig.exe` — the configuration app for Windows (the module payload is bundled inside).
-- `SuperHeroBoostConfig` — the Linux app (`chmod +x` after downloading if needed).
-- `SuperHeroBoostConfig.app.zip` — the macOS app (not signed; right-click > Open the first time).
-- `SuperHeroBoost-0.4.0-presets.zip` — all 11 app profiles as ready-to-install mod folders for emulators, with
-  no executables.
+| Your system | File |
+|---|---|
+| Windows | `SuperHeroBoostConfig.exe` — the configuration app (the module payload is bundled inside). |
+| Linux (x86_64) | `SuperHeroBoostConfig-linux` — `chmod +x SuperHeroBoostConfig-linux` after downloading. |
+| macOS (Apple Silicon) | `SuperHeroBoostConfig-macos.dmg` — open it and drag the app to Applications. It is not signed, so the first time use right-click > Open (or `xattr -dr com.apple.quarantine /Applications/SuperHeroBoostConfig.app`). |
+| Emulator / manual | `SuperHeroBoost-0.4.0-presets.zip` (+ `.sha256`) — all 11 app profiles as ready-to-install mod folders, no executables. |
+
+The Windows build is the only one with an `.exe` extension: the Linux build is a plain ELF executable (that
+is why it has no extension, it is named `-linux` to tell it apart) and macOS ships as a `.dmg` with the
+`.app` bundle inside, the usual way to install an app on a Mac.
 
 ## What's new
 

@@ -117,7 +117,9 @@ On startup the app asks GitHub for the latest release of
 the tag is newer than `app/version.py`, a bar appears under the header with **Download / Later**; it is also
 available as **Check for updates** in *About*.
 
-- The download is the release asset for the platform (`SuperHeroBoostConfig.exe` on Windows). It is written to a
+- The download is the release asset for the platform (`SuperHeroBoostConfig.exe` on Windows,
+  `SuperHeroBoostConfig-linux` on Linux, `SuperHeroBoostConfig-macos.dmg` on macOS; the older asset names are
+  still accepted). It is written to a
   `.part` file, its SHA-256 is checked against the asset digest from the GitHub API (when present), and only then
   renamed.
 - A frozen Windows build in a writable folder replaces itself: a small detached PowerShell script waits for the app

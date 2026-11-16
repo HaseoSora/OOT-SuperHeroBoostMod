@@ -722,7 +722,7 @@ def gui() -> None:
                 w.config(state="disabled" if on else "normal")
             except Exception:
                 pass
-        for key in ("install", "uninstall", "rebuild", "builder_btn"):
+        for key in ("install", "uninstall", "rebuild", "builder_btn", "builder_auto"):
             w = ui.get(key)
             if w is not None:
                 w.config(state="disabled" if on else "normal")
@@ -926,12 +926,18 @@ def gui() -> None:
                     fg=DIM if built else AMBER)
             if "builder_line" in ui:
                 user = recomp_builder.get().strip()
-                builder = Path(user).expanduser() if user else None
-                if not builder or not (builder / "tools" / "nx2" / "make_game.py").exists():
+                builder = None
+                if user:
+                    cand = Path(user).expanduser()
+                    if R.is_builder(cand):
+                        builder = cand
+                    ui["builder_line"].config(
+                        text=L("recomp_builder_manual", a=builder or cand), fg=DIM if builder else RED)
+                else:
                     builder = R.find_builder(game) if game else None
-                ui["builder_line"].config(
-                    text=L("recomp_builder_found", a=builder) if builder else L("recomp_builder_hint"),
-                    fg=DIM if builder else AMBER)
+                    ui["builder_line"].config(
+                        text=L("recomp_builder_found", a=builder) if builder else L("recomp_builder_hint"),
+                        fg=DIM if builder else AMBER)
             else:
                 builder = None
             if "rebuild" in ui:
@@ -1051,6 +1057,19 @@ def gui() -> None:
         label(rf, L("recomp_hint"), size=9, color=DIM, bg=PANEL).pack(anchor="w", pady=(5, 0))
         ui["recomp_status"] = label(rf, "", size=9, color=DIM, bg=PANEL)
         ui["recomp_status"].pack(anchor="w", pady=(2, 0))
+        label(rf, L("recomp_builder"), size=9, color=DIM, bg=PANEL).pack(anchor="w", pady=(8, 0))
+        brow = tk.Frame(rf, bg=PANEL)
+        brow.pack(fill="x", pady=(2, 0))
+        entry_b = tk.Entry(brow, textvariable=recomp_builder, bg=PANEL2, fg=TEXT, insertbackground=ACCENT,
+                           relief="flat", font=(FAM, 10), highlightthickness=1,
+                           highlightbackground=BORDER, highlightcolor=ACCENT)
+        entry_b.pack(side="left", fill="x", expand=True, ipady=4)
+        b_build = button(brow, L("browse"), browse_builder)
+        b_build.pack(side="left", padx=(8, 0))
+        ui["builder_btn"] = b_build
+        b_auto = button(brow, L("recomp_builder_auto"), lambda: recomp_builder.set(""))
+        b_auto.pack(side="left", padx=(8, 0))
+        ui["builder_auto"] = b_auto
         ui["builder_line"] = label(rf, "", size=9, color=DIM, bg=PANEL)
         ui["builder_line"].pack(anchor="w", pady=(2, 0))
         ui["recomp_note"] = label(rf, "", size=9, color=AMBER, bg=PANEL)

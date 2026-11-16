@@ -30,9 +30,88 @@ MOD_NAME = "Super-Hero-Boost"
 BACKUP = ".shb-backup"
 CONFIG_MAGIC = b"SHBCFG01"
 CONFIG_SIZE = 72
-EXEFS_NAMES = (".longshot_exefs", ".hookshot_exefs")
-EXE_NAMES = (Path("bin") / "longshot.exe", Path("bin") / "hookshot.exe", Path("bin") / "hookshot")
-BUILDER_NAMES = ("LongshotBuilder", "HookshotBuilder")
+MODULE_BUILD = "e0f3ccfa"   # the game build the IPS and the module are made for (main's NSO module id)
+# Longshot, Hookshot and ReLink are the same kind of static recompilation (an exefs, image.bin, a romfs and a
+# launcher beside a game exe in bin/). The folder name and the exe say which one it is.
+EXEFS_NAMES = (".longshot_exefs", ".hookshot_exefs", ".relink_exefs")
+EXE_NAMES = (Path("bin") / "longshot.exe", Path("bin") / "hookshot.exe", Path("bin") / "hookshot",
+             Path("bin") / "relink-game.exe")
+LAUNCHER_NAMES = ("longshot.exe", "hookshot.exe", "hookshot", "ReLink.exe", "relink.exe")
+BUILDER_NAMES = ("LongshotBuilder", "HookshotBuilder", "ReLink")
+BUILDER_ROOTS = ("LongshotLauncher", "HookshotLauncher", "ReLink")
+# Files the builders regenerate on every build: never copied (some are gigabytes) and deleted on uninstall, so a
+# stale cache of the modded build cannot meet the restored game.
+VOLATILE = (
+    "cache/longshot_pipelines.bin", "longshot_pipelines.bin",
+    "relink_programs.bin", "relink_programs.idx", "relink_pipelines.bin",
+    "relink_pipeline_states.bin", "relink_shaders.bin", "relink_computes.bin",
+    "relink_pipelines_warm.txt",
+)
+# Folders the builders write (their own dump repair mod).
+VOLATILE_DIRS = ("mods/00-dump-repair",)
+
+
+def flavor(game: Path) -> str:
+    """'relink', 'hookshot' or 'longshot', from the exefs folder the game keeps."""
+    name = exefs_of(game).name
+    if name == ".relink_exefs":
+        return "relink"
+    if name == ".hookshot_exefs":
+        return "hookshot"
+    return "longshot"
+
+
+def _env_prefix(game: Path) -> str:
+    return "RELINK" if flavor(game) == "relink" else "LONGSHOT"
+
+
+def launcher_options(game: Path) -> dict:
+    """How the game was built (DLSS, FSR, XeSS), as its launcher remembers it.
+
+    A rebuild that ignores these silently changes the renderer: the DLSS path is compiled out, the ngx runtime is
+    removed and the game can stop on a setting it no longer has. ReLink keeps them in launcher.ini; the Longshot and
+    Hookshot launchers in settings.json, with the per-folder entry of builds.json."""
+    home = Path(os.environ.get("LOCALAPPDATA", ""))
+    opt = {"dlss": False, "dlssLicense": False, "fsr": False, "fsrLicense": False,
+           "xess": False, "xessLicense": False, "ngx": None, "launcher": None}
+    if flavor(game) == "relink":
+        ini = home / "ReLink" / "launcher.ini"
+        opt["launcher"] = str(ini) if ini.is_file() else None
+        try:
+            for line in ini.read_text(encoding="utf-8", errors="replace").splitlines():
+                if line.strip().startswith("nvidia_dlss="):
+                    opt["dlss"] = line.split("=", 1)[1].strip() == "1"
+        except OSError:
+            pass
+        opt["ngx"] = home / "ReLink" / "ngx-sdk"
+    else:
+        base = home / "LongshotLauncher"
+        if not base.is_dir():
+            base = home / "HookshotLauncher"
+        opt["launcher"] = str(base / "settings.json") if (base / "settings.json").is_file() else None
+        try:
+            settings = json.loads((base / "settings.json").read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            settings = {}
+        for key in ("dlss", "dlssLicense", "fsr", "fsrLicense", "xess", "xessLicense"):
+            opt[key] = bool(settings.get(key))
+        try:
+            builds = json.loads((base / "builds.json").read_text(encoding="utf-8")).get("builds", [])
+        except (OSError, ValueError):
+            builds = []
+        for b in builds:
+            try:
+                same = Path(str(b.get("folder", ""))).resolve() == game.resolve()
+            except OSError:
+                same = False
+            if same:
+                for key in ("dlss", "fsr", "xess"):
+                    opt[key] = bool(b.get(key, opt[key]))
+        opt["ngx"] = base / "ngx-sdk"
+    if not opt["ngx"] or not opt["ngx"].is_dir():
+        opt["ngx"] = None
+    return opt
+
 
 _proc: subprocess.Popen | None = None
 _cancel = threading.Event()
@@ -102,35 +181,71 @@ def expected_exefs(builder: Path | None) -> str | None:
     return None
 
 
+def is_builder(path: Path) -> bool:
+    return (path / "tools" / "nx2" / "make_game.py").is_file()
+
+
 def find_builder(game: Path | None = None) -> Path | None:
-    env = os.environ.get("LONGSHOT_BUILDER") or os.environ.get("HOOKSHOT_BUILDER")
-    if env and (Path(env) / "tools" / "nx2" / "make_game.py").exists():
-        return Path(env)
+    """The builder folder (the one with tools/nx2/make_game.py) for this game.
+
+    Longshot and Hookshot keep it in `%LOCALAPPDATA%\\LongshotLauncher|HookshotLauncher\\toolchains\\<version>\\…Builder`;
+    ReLink in `%LOCALAPPDATA%\\ReLink\\versions\\<version>\\ReLink`. The environment variables win, then the newest
+    folder found, then one beside the game."""
+    for name in ("LONGSHOT_BUILDER", "HOOKSHOT_BUILDER", "RELINK_BUILDER"):
+        env = os.environ.get(name)
+        if env and is_builder(Path(env)):
+            return Path(env)
     local = Path(os.environ.get("LOCALAPPDATA", ""))
-    found = []
-    for root in (local / "LongshotLauncher" / "toolchains", local / "HookshotLauncher" / "toolchains"):
-        if root.is_dir():
-            for pat in ("*/LongshotBuilder", "*/HookshotBuilder"):
-                for p in root.glob(pat):
-                    if (p / "tools" / "nx2" / "make_game.py").exists():
+    found: list[Path] = []
+    for root in BUILDER_ROOTS:
+        base = local / root
+        if not base.is_dir():
+            continue
+        try:
+            for pat in ("toolchains/*", "versions/*", "versions/*/*"):
+                for p in base.glob(pat):
+                    if p.name in BUILDER_NAMES and is_builder(p):
                         found.append(p)
+                    else:
+                        for name in BUILDER_NAMES:
+                            q = p / name
+                            if q.is_dir() and is_builder(q):
+                                found.append(q)
+        except OSError:
+            pass
     if game:
-        for rel in (("LongshotBuilder",), ("HookshotBuilder",), ("..", "LongshotBuilder"), ("..", "HookshotBuilder")):
+        for rel in (("LongshotBuilder",), ("HookshotBuilder",), ("ReLink",),
+                    ("..", "LongshotBuilder"), ("..", "HookshotBuilder"), ("..", "ReLink")):
             p = game.joinpath(*rel)
-            if (p / "tools" / "nx2" / "make_game.py").exists():
+            if is_builder(p):
                 found.append(p)
-    return sorted(found)[-1] if found else None
+    return sorted(set(found))[-1] if found else None
 
 
 def find_work(game: Path | None = None) -> Path | None:
-    for name in ("LongshotLauncher", "HookshotLauncher"):
-        cfg = Path(os.environ.get("LOCALAPPDATA", "")) / name / "settings.json"
+    """The build cache folder the launchers use, so a rebuild is incremental instead of a full recompile."""
+    home = Path(os.environ.get("LOCALAPPDATA", ""))
+    relink = False
+    if game:
         try:
-            w = json.loads(cfg.read_text(encoding="utf-8")).get("work")
+            relink = flavor(game) == "relink"
+        except I.InstallError:
+            relink = False
+    order = ("ReLink",) if relink else ("LongshotLauncher", "HookshotLauncher", "ReLink")
+    for name in order:
+        base = home / name
+        if not base.is_dir():
+            continue
+        try:
+            w = json.loads((base / "settings.json").read_text(encoding="utf-8")).get("work")
             if w and Path(w).is_dir():
                 return Path(w)
         except (OSError, ValueError):
             pass
+        if (base / "work").is_dir():
+            return base / "work"
+        if name == "ReLink" and ((base / "build_times.json").is_file() or (base / "objcache").is_dir()):
+            return base   # ReLink keeps objcache/, image/, build_times.json in its own folder
     if game:
         for cand in (game.parent / "temp", game / ".shb-work"):
             if cand.is_dir():
@@ -179,7 +294,9 @@ def is_built(game: Path) -> bool:
     exe = exe_of(game)
     if not mod.exists() or not img.exists() or not exe:
         return False
-    bak = game / BACKUP / exe.name
+    bak = game / BACKUP / "files" / exe.relative_to(game).as_posix()
+    if not bak.exists():
+        bak = game / BACKUP / exe.name
     try:
         key = (str(game), img.stat().st_mtime_ns, exe.stat().st_mtime_ns, mod.stat().st_mtime_ns,
                bak.stat().st_mtime_ns if bak.exists() else 0,
@@ -219,6 +336,16 @@ def _patch_bytes(data: bytes, s: I.Settings) -> bytes:
     return data[:i] + cfg + data[i + CONFIG_SIZE:]
 
 
+def main_build_id(main: Path) -> str:
+    """The NSO module id (header +0x40, 32 bytes) as hex: the builders call the first 8 characters the build."""
+    try:
+        with open(main, "rb") as f:
+            head = f.read(0x60)
+    except OSError:
+        return ""
+    return head[0x40:0x60].hex()
+
+
 def patch_main(main: Path, ips: Path) -> int:
     data = bytearray(main.read_bytes())
     text_off = struct.unpack_from("<I", data, 0x10)[0]
@@ -236,20 +363,32 @@ def patch_main(main: Path, ips: Path) -> int:
 def _backup_candidates(game: Path, exefs_name: str) -> list[str]:
     """Every file the install and the builder's finish step can write, replace or remove, as game-relative paths.
 
-    The builder stages BESIDE = longshot.exe, longshot_vk.dll, SDL2.dll, SDL3.dll (+ ffmpeg DLLs) into bin/ (or the
-    game folder without a launcher), writes image.bin and the shader cache, replaces the root launcher and removes
-    the old loose libraries. Our install patches exefs/main and writes exefs/subsdk9."""
-    rels = [
-        "image.bin", "longshot_prepared.bin",
-        "longshot.exe", "hookshot.exe", "hookshot", "longshot",
-        "longshot.map", "longshot-game.exe", "wgpu_native.dll",
-        "cache/longshot_pipelines.bin", "longshot_pipelines.bin",
-        "bin/longshot.exe", "bin/hookshot.exe", "bin/hookshot", "bin/longshot",
-        "bin/longshot_vk.dll", "bin/longshot_vk.so",
-        "bin/SDL2.dll", "bin/SDL3.dll", "bin/libSDL2-2.0.so.0",
-        "bin/wgpu_native.dll", "bin/longshot.map", "bin/longshot-game.exe",
-        f"{exefs_name}/main", f"{exefs_name}/subsdk9",
-    ]
+    The builders stage their BESIDE list (the game exe, the renderer, SDL, ffmpeg, the VC runtime for FSR) into bin/
+    when a launcher exists, write image.bin and their caches, replace the root launcher and remove the old loose
+    libraries. Our install patches exefs/main and writes exefs/subsdk9. ReLink uses its own names."""
+    if exefs_name == ".relink_exefs":
+        rels = [
+            "image.bin", "relink_prepared.bin", "relink_version.txt",
+            "ReLink.exe", "relink.exe", "relink-game.exe", "relink-game.map",
+            "bin/relink-game.exe", "bin/relink_vk.dll", "bin/relink_vk.so",
+            "bin/SDL2.dll", "bin/SDL3.dll", "bin/libSDL2-2.0.so.0",
+            "bin/wgpu_native.dll", "bin/amd_fidelityfx_vk.dll", "bin/LICENSE-FidelityFX.txt",
+            "bin/vcrt/msvcp140.dll", "bin/vcrt/vcruntime140.dll", "bin/vcrt/vcruntime140_1.dll",
+            "wheel/icons.bin", "wheel/names.bin", "wheel/sounds.bin",
+            "language.txt", "relink_options.ini",
+            f"{exefs_name}/main", f"{exefs_name}/subsdk9",
+        ]
+    else:
+        rels = [
+            "image.bin", "longshot_prepared.bin",
+            "longshot.exe", "hookshot.exe", "hookshot", "longshot",
+            "longshot.map", "longshot-game.exe", "wgpu_native.dll",
+            "bin/longshot.exe", "bin/hookshot.exe", "bin/hookshot", "bin/longshot",
+            "bin/longshot_vk.dll", "bin/longshot_vk.so",
+            "bin/SDL2.dll", "bin/SDL3.dll", "bin/libSDL2-2.0.so.0",
+            "bin/wgpu_native.dll", "bin/longshot.map", "bin/longshot-game.exe",
+            f"{exefs_name}/main", f"{exefs_name}/subsdk9",
+        ]
     for d in (game / "bin", game):
         if d.is_dir():
             try:
@@ -263,12 +402,17 @@ def _backup_candidates(game: Path, exefs_name: str) -> list[str]:
     return rels
 
 
-def backup_once(game: Path, exefs_original: str | None = None) -> Path:
-    """Snapshot, once, every file the install and the rebuild can change.
+MANIFEST_VERSION = 3
 
-    Files that exist are copied under `.shb-backup/files/`; files that do not exist are recorded as created by us, so
-    the uninstall deletes them instead of leaving a half-built game. The manifest keeps the first snapshot: installing
-    again never overwrites the originals. Older backups (flat files in `.shb-backup/`) keep working."""
+
+def backup_once(game: Path, exefs_original: str | None = None) -> Path:
+    """Snapshot, once, everything the install and the rebuild can change.
+
+    Files that exist are copied under `.shb-backup/files/` (folders too); files that do not exist are recorded as
+    created, so the uninstall deletes them instead of leaving a half-built game. The builders' caches are only
+    recorded: they are regenerated on every build (some are gigabytes) and deleted on uninstall, so a stale cache
+    of the modded build cannot meet the restored game. The manifest keeps the first snapshot: installing again never
+    overwrites the originals. Older backups (flat files in `.shb-backup/`, or a version 2 manifest) keep working."""
     bak = game / BACKUP
     files = bak / "files"
     files.mkdir(parents=True, exist_ok=True)
@@ -276,12 +420,14 @@ def backup_once(game: Path, exefs_original: str | None = None) -> Path:
     man = None
     try:
         data = json.loads(man_path.read_text(encoding="utf-8"))
-        if isinstance(data, dict) and data.get("version") == 2:
+        if isinstance(data, dict) and data.get("version") in (2, MANIFEST_VERSION):
             man = data
     except (OSError, ValueError):
         man = None
     if man is None:
-        man = {"version": 2, "exefs": exefs_original or exefs_of(game).name, "files": []}
+        man = {"version": MANIFEST_VERSION, "exefs": exefs_original or exefs_of(game).name, "files": []}
+    else:
+        man["version"] = MANIFEST_VERSION
     known = {e.get("path") for e in man.get("files", []) if isinstance(e, dict)}
     current = exefs_of(game).name          # (the folder may have been renamed to match the builder)
     for rel in _backup_candidates(game, current):
@@ -294,10 +440,25 @@ def backup_once(game: Path, exefs_original: str | None = None) -> Path:
             dst.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(src, dst)
             entry["kind"] = "file"
+        elif src.is_dir():
+            dst = files / rel
+            if dst.exists():
+                shutil.rmtree(dst, ignore_errors=True)
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copytree(src, dst)
+            entry["kind"] = "dir"
         else:
             entry["kind"] = "created"
         man["files"].append(entry)
         known.add(rel)
+    for rel in VOLATILE:
+        if rel not in known:
+            man["files"].append({"path": rel, "kind": "volatile"})
+            known.add(rel)
+    for rel in VOLATILE_DIRS:
+        if rel not in known:
+            man["files"].append({"path": rel, "kind": "volatile-dir"})
+            known.add(rel)
     man_path.write_text(json.dumps(man, indent=1), encoding="utf-8")
     return bak
 
@@ -308,7 +469,7 @@ def _restore_backup(game: Path, bak: Path) -> bool:
     man = None
     try:
         data = json.loads((bak / "manifest.json").read_text(encoding="utf-8"))
-        if isinstance(data, dict) and data.get("version") == 2:
+        if isinstance(data, dict) and data.get("version") in (2, MANIFEST_VERSION):
             man = data
     except (OSError, ValueError):
         man = None
@@ -321,19 +482,38 @@ def _restore_backup(game: Path, bak: Path) -> bool:
             if not rel or rel.startswith("/") or ".." in rel.split("/") or ":" in rel:
                 continue
             dst = game / rel
-            if e.get("kind") == "file":
-                src = files / rel
-                if src.is_file():
-                    dst.parent.mkdir(parents=True, exist_ok=True)
-                    shutil.copy2(src, dst)
-                    restored = True
-            else:
-                try:
-                    if dst.is_file():
+            kind = e.get("kind")
+            try:
+                if kind == "file":
+                    src = files / rel
+                    if src.is_file():
+                        dst.parent.mkdir(parents=True, exist_ok=True)
+                        shutil.copy2(src, dst)
+                        restored = True
+                elif kind == "dir":
+                    src = files / rel
+                    if src.is_dir():
+                        if dst.exists():
+                            shutil.rmtree(dst, ignore_errors=True)
+                        dst.parent.mkdir(parents=True, exist_ok=True)
+                        shutil.copytree(src, dst)
+                        restored = True
+                elif kind in ("volatile", "volatile-dir"):
+                    if dst.is_dir():
+                        shutil.rmtree(dst, ignore_errors=True)
+                        restored = True
+                    elif dst.is_file():
                         dst.unlink()
                         restored = True
-                except OSError:
-                    pass
+                else:   # created by the install/build: removed again
+                    if dst.is_dir():
+                        shutil.rmtree(dst, ignore_errors=True)
+                        restored = True
+                    elif dst.is_file():
+                        dst.unlink()
+                        restored = True
+            except OSError:
+                pass
         name = man.get("exefs")
         if name in EXEFS_NAMES:
             for other in EXEFS_NAMES:
@@ -469,12 +649,13 @@ def _vk_headers_ok(builder: Path, work: Path | None) -> bool:
 
 
 def _vk_prebuilt(game: Path, work: Path | None) -> Path | None:
-    """A copy of the game's working renderer, safe to hand to make_game.py as LONGSHOT_VK_PREBUILT.
+    """A copy of the game's working renderer, safe to hand to make_game.py as <FLAVOR>_VK_PREBUILT.
 
     The copy lives in the build work folder: make_game.py copies the prebuilt back beside the new exe, and
     source and destination must not be the same file (it builds in place)."""
+    names = ("relink_vk.dll", "relink_vk.so") if flavor(game) == "relink" else ("longshot_vk.dll", "longshot_vk.so")
     for sub in ("bin", ""):
-        for name in ("longshot_vk.dll", "longshot_vk.so"):
+        for name in names:
             src = game / sub / name if sub else game / name
             if not src.is_file():
                 continue
@@ -491,16 +672,20 @@ def _vk_prebuilt(game: Path, work: Path | None) -> Path | None:
 
 
 def build_env(game: Path, builder: Path, work: Path | None) -> tuple[dict, str | None]:
-    """Environment for make_game.py: the packaged CPM cache, and the installed renderer when the builder
-    cannot compile longshot_vk.dll (missing Vulkan/VMA headers)."""
+    """Environment for make_game.py: the packaged CPM cache, the renderer when the builder cannot compile it
+    (missing Vulkan/VMA headers) and the DLSS SDK the game was built with."""
     env = dict(os.environ)
+    prefix = _env_prefix(game)
     cpm = builder / "tools" / "cpm"
     if cpm.is_dir() and not env.get("RX_CPM"):
         env["RX_CPM"] = str(cpm)
-    if not env.get("LONGSHOT_VK_PREBUILT") and not _vk_headers_ok(builder, work):
+    opt = launcher_options(game)
+    if opt["dlss"] and not env.get(f"{prefix}_NGX_SDK") and opt["ngx"]:
+        env[f"{prefix}_NGX_SDK"] = str(opt["ngx"])
+    if not env.get(f"{prefix}_VK_PREBUILT") and not _vk_headers_ok(builder, work):
         pre = _vk_prebuilt(game, work)
         if pre is not None:
-            env["LONGSHOT_VK_PREBUILT"] = str(pre)
+            env[f"{prefix}_VK_PREBUILT"] = str(pre)
             return env, "Vulkan headers not found: reusing the installed renderer (%s)" % pre.name
     return env, None
 
@@ -522,6 +707,17 @@ def build(game: Path, builder: Path, work: Path | None, progress=None, log=None)
     if work:
         cmd += ["--work", str(work)]
     env, note = build_env(game, builder, work)
+    prefix = _env_prefix(game)
+    opt = launcher_options(game)
+    if opt["dlss"] and not env.get(f"{prefix}_NGX_SDK"):
+        if opt["dlssLicense"]:
+            cmd += ["--fetch-ngx-sdk", "--accept-nvidia-license"]
+        else:
+            raise I.InstallError("recomp_no_dlss", str(opt["launcher"] or prefix))
+    elif opt["dlss"]:
+        note = ((note + "; ") if note else "") + "keeping DLSS (%s)" % Path(env[f"{prefix}_NGX_SDK"]).name
+    if flavor(game) != "relink" and opt["fsr"]:
+        cmd += ["--fsr"]
     env.update({"PYTHONUNBUFFERED": "1", "PYTHONIOENCODING": "utf-8", "PYTHONUTF8": "1"})
     if note and log:
         log(note)
@@ -611,6 +807,9 @@ def install(game_path, s: I.Settings, rebuild: bool = True, builder_path=None, w
     ips = payload_dir() / "standalone" / "ours.ips"
     if not ips.exists():
         raise I.InstallError("no_payload", "standalone")
+    bid = main_build_id(exefs / "main")
+    if bid and not bid.startswith(MODULE_BUILD):
+        raise I.InstallError("recomp_bad_build", bid[:8])
     backup_once(game, exefs_name)
     n = patch_main(exefs / "main", ips)
     write_module(game, s)
@@ -635,6 +834,9 @@ def apply_settings(game_path, s: I.Settings) -> Result:
         raise I.InstallError("recomp_running", str(game))
     if not (exefs_of(game) / "subsdk9").exists():
         raise I.InstallError("recomp_needs_build", str(game))
+    bid = main_build_id(exefs_of(game) / "main")
+    if bid and not bid.startswith(MODULE_BUILD):
+        raise I.InstallError("recomp_bad_build", bid[:8])
     backup_once(game)
     write_module(game, s)
     copied, notes = install_romfs(game, s)

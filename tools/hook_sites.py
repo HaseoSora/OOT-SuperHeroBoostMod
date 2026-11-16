@@ -63,6 +63,17 @@ STORE_SITES = (
     (0x3294BCC, "hook_songbook_select", 0xB9022E74),  # str w20,[x19,#0x22c] in the songbook list
 )
 
+# Mid-function sites owned by an optional feature. The stock instruction at
+# `site` is replaced by `b <wrapper>`; the wrapper does its work and branches to
+# the resume address (or to a specific function body) itself. They are only
+# patched when `feature` is part of the build, so a build without the feature
+# keeps the stock instructions. (site, wrapper symbol, expected stock word, feature)
+EXTRA_SITES = (
+    (0x37BA100, "hook_guard_setter", 0x37F801C1, "manual_shield"),  # tbnz w1,#31 in the AS bool setter
+    (0x972E18, "hook_guard_flags", 0x2A090108, "manual_shield"),    # orr w8,w8,w9 (target guard flags)
+    (0x97320C, "hook_guard_update", 0x320D0129, "manual_shield"),   # orr w9,w9,#0x80000 (target guard update)
+)
+
 PACIBSP = 0xD503237F
 
 # Sites we do NOT patch yet. Site 3 (0x346966C) crashes the game when our module

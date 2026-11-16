@@ -2326,6 +2326,7 @@ __attribute__((weak)) void stamina_speed_hook(void *regs);   /* features/stamina
 __attribute__((weak)) void songbook_on_ocarina(u32 active, void *ctx);   /* features/songbook */
 __attribute__((weak)) void songbook_on_select(void *ctx, u32 sel) { (void)ctx; (void)sel; }   /* overridden by the feature */
 __attribute__((weak)) void songbook_on_frame(void);                      /* features/songbook */
+__attribute__((weak)) void manual_shield_on_frame(void *scheduler);      /* features/manual_shield */
 __attribute__((weak)) void songbook_on_ui(void *ctx);                    /* features/songbook */
 /* The game's control guide (UICtrlGuideScreen) writes the A action ("Hablar", "Abrir", "Rodar"...) into its text
  * pane T_GuideA_00 through the set-text-by-name call (frame in x22, pane name in x21). */
@@ -2473,6 +2474,7 @@ void hud_on_code(u32 id, void *a0, void *a1, void *a2, void *regs) {
     } else if (id == 0) {
         if (a0 && *(u64 *)a0 == (u64)MAIN_SCHED_VT) {
             hud_frame();
+            if (manual_shield_on_frame) manual_shield_on_frame(a0);
             if (songbook_on_frame) songbook_on_frame();
         }
     }

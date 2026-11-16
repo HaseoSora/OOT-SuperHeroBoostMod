@@ -72,6 +72,14 @@ The module, the HUD, the textures and the app are original work: no third-party 
 - The named profiles (including **Recommended**) turn it on; each selector can still be disabled in the app's
   **Quick select** section. It writes the game's equipment live, so keep a save backup.
 
+### Manual shield
+
+- **Hold ZL** to raise the shield and release to lower it; **L** toggles targeting and **R3** cancels it.
+- Optional: it is off by default and can be enabled in the app's **HUD & buttons** section.
+- It reserves **L** and **ZL** during gameplay. If buttonMapping uses L for an item, assign that item to another
+  button while this option is on.
+- Independent of the stamina system: the stamina config still applies its own held/hit costs when stamina is on.
+
 ### Configuration app
 
 - GUI for Windows, macOS and Linux (Python 3.10+ with Tkinter).

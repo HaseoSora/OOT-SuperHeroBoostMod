@@ -80,6 +80,7 @@ class Settings:
     bm_simple: bool = False          # simple layout: only the assignable buttons (no A / X / Y)
     bm_l_mode: str = "assign"        # one of L_MODES
     stamina_bar: bool = False        # stamina UI: segmented horizontal bar instead of the ring
+    manual_shield: bool = False      # ZL holds the guard, L toggles targeting, R3 cancels
 
     def to_dict(self): return dict(self.__dict__)
 
@@ -239,6 +240,7 @@ def patch_config(nso: bytes, s: Settings) -> bytes:
     b[f + 43], b[f + 44] = plates, maph
     struct.pack_into("<hhh", b, f + 46, hy, ioff, tx)   # struct 62/64/66 (the shorts are 2-byte aligned)
     struct.pack_into("<h", b, f + 52, ioff2)            # struct 68: clock/collectible icon offset
+    b[f + 54] = int(s.manual_shield)                    # struct 70: manual shield (was reserved)
     return bytes(b)
 
 

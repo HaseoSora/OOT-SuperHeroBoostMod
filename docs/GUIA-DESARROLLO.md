@@ -149,7 +149,8 @@ reads them every frame (`g_shbcfg`). **Fields are only appended at the end** (us
 | 64-65 | `hud_ioff` (s16) | Rupee icon x offset |
 | 66-67 | `hud_tx` (s16) | Text x offset |
 | 68-69 | `hud_ioff2` (s16) | Clock/collectible icon x offset |
-| 70-71 | reserved | — |
+| 70 | `manual_shield` | Manual shield checkbox |
+| 71 | reserved | — |
 
 **Adding a new option:** field in `config.h` (taking bytes from `reserved`), default value in `config.c`, write in
 `installer.patch_config` (`f = magic + 16`), field in `installer.Settings`, flag in `main.cli`, control in `main.py`
@@ -191,7 +192,21 @@ the speed argument.
 - Learned songs only. Song 12 (Scarecrow, composed by the player) is not played.
 - Sequences derived from `GameParameter/MelodyScoreBook/Default.game__ocarina__MelodyScoreBook.bgyml` (12 entries).
 
-### 4.5 No heart drops (romfs)
+### 4.5 Manual shield (`features/manual_shield/`)
+- Optional (`manual_shield`); with it off every hook is pass-through and the stock controls stay.
+- Input (site 3): consumes the physical L/ZL bits, toggles targeting on an L edge, cancels it with R3 and synthesises
+  ZL while targeting or holding the guard. The scheduler frame keeps the toggle from firing while the player is not
+  in gameplay (`player_active`).
+- Frame (code hook 0): `manual_shield_on_frame()` caches the player state and AS interface and keeps the native guard
+  flags and AS Bool14 off unless ZL is held. On guard entry it requests the shield draw only (not the sword).
+- Three extra mid-function sites in `tools/hook_sites.py` (`EXTRA_SITES`, only patched when the feature is built):
+  the AS Bool setter (`main+0x37BA100`) and the two target-guard flag stores (`main+0x972E18`, `main+0x97320C`). Their
+  wrappers are in `manual_shield.S`; the resume addresses are linker symbols in `core/link.ld`.
+- The guard uses the stock locomotion/animation path: the feature only decides whether the guard is allowed. Busy
+  actions (carrying, bow, hookshot, boomerang, horse aim) and a dead/inactive player keep it off.
+- Behaviour replicated from REXCRAFT88's Manual Shield 0.1.7 for the same build.
+
+### 4.6 No heart drops (romfs)
 `tools/make_romfs_opts.py` generates, from the game's own dump (`SHB_ROMFS`, your dump folder),
 `GameParameter/DropGlobalParam/...` with `DropGlobalParam.HpActor` (the actor that drops as a "heart") pointing to the
 green rupee. It is only needed at build time: the payload/release already includes the generated file, so the end user

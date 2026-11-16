@@ -110,6 +110,15 @@ The **HUD & buttons** section has a **Quick select** card. It enables the module
 - The named profiles turn both on; uncheck them here to use a profile without quick select. It writes the live
   equipment, so keep a save backup.
 
+## Manual shield
+
+The **HUD & buttons** section has a **Manual shield** card (off by default):
+
+- **ZL**: hold to raise the shield, release to lower it.
+- **L**: toggles targeting; **R3** cancels targeting.
+- The option reserves L and ZL during gameplay. With buttonMapping, use another button for an item if L was assigned.
+- It is a control preference, not part of a profile, and it works independently of the stamina system.
+
 ## Updates
 
 On startup the app asks GitHub for the latest release of

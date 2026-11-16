@@ -73,6 +73,16 @@ SECTIONS
     fs_write_file = 0x3C425E0;
     fs_set_file_size = 0x3C42940;
     fs_read_file = 0x3C43050;  /* ReadFile(size_t *out, handle, offset, buf, size) */
+    /* manual shield: guard/AS functions in main and their resume points */
+    resolve_player = 0x973030;
+    get_guard_component = 0x974EB0;
+    native_draw_equipment = 0x6B6820;
+    as_int = 0x37BB2C0;
+    as_bool = 0x37BB4C0;
+    GUARD_SETTER_BODY = 0x37BA104;
+    GUARD_SETTER_EARLY = 0x37BA138;
+    GUARD_FLAGS_RESUME = 0x972E1C;
+    GUARD_UPDATE_RESUME = 0x973210;
     icon_widget_init = 0x33B7DA0;  /* (widget, heap): widget+0x20 = part holding Pa_ReplaceIcon_00; builds its icon controller (initial icon Item_AgonyStone) */
     tex_replace = 0xA73920;     /* (replacer, const char **name, flag): load UI/Tex/Icon/<name> into a replaceable pane texture */
     item_actor_name = 0x592B20; /* (manager, const char **out, item index): actor name of an item (Item_Boomerang ...) */

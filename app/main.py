@@ -69,6 +69,8 @@ def cli(argv) -> int:
     ap.add_argument("--no-songbook", action="store_true", help="disable playing songs from the native songbook")
     ap.add_argument("--quick-boots", action="store_true", help="hold D-pad down to switch boots")
     ap.add_argument("--quick-mask", action="store_true", help="hold D-pad up to switch masks")
+    ap.add_argument("--manual-shield", action="store_true",
+                    help="ZL holds the guard, L toggles targeting and R3 cancels it")
     ap.add_argument("--enemy-double", action="store_true", help="beta: duplicate generic enemies (romfs)")
     ap.add_argument("--enemy-speed", action="store_true", help="deprecated: enemy movement/animation/attack at x2")
     ap.add_argument("--enemy-move", type=int, choices=I.ENEMY_LEVELS, default=None,
@@ -137,6 +139,8 @@ def cli(argv) -> int:
         s.quick_boots = True
     if a.quick_mask:
         s.quick_mask = True
+    if a.manual_shield:
+        s.manual_shield = True
     if a.enemy_double:
         s.enemy_double = True
     if a.enemy_speed:
@@ -308,6 +312,7 @@ def gui() -> None:
     songbook = tk.BooleanVar(value=bool(cfg.get("songbook", True)))
     quick_boots = tk.BooleanVar(value=bool(cfg.get("quick_boots", False)))
     quick_mask = tk.BooleanVar(value=bool(cfg.get("quick_mask", False)))
+    manual_shield = tk.BooleanVar(value=bool(cfg.get("manual_shield", False)))
     hud_collectibles = tk.BooleanVar(value=bool(cfg.get("hud_collectibles", False)))
     _hm = cfg.get("hud_mode")
     hud_mode = tk.StringVar(value=_hm if _hm in I.HUD_MODES else "wide")
@@ -502,6 +507,7 @@ def gui() -> None:
     for var in (bstyle, bsimple, blmode):
         var.trace_add("write", on_pref_change)
     stamina_bar.trace_add("write", on_pref_change)   # display preference: does not switch to Custom
+    manual_shield.trace_add("write", on_pref_change)  # control preference: does not switch to Custom
 
     pending = {"id": None}
 
@@ -515,6 +521,7 @@ def gui() -> None:
                           bm_l_mode=blmode.get(), stamina=stamina.get(), stamina_bar=stamina_bar.get(),
                           songbook=songbook.get(),
                           quick_boots=quick_boots.get(), quick_mask=quick_mask.get(),
+                          manual_shield=manual_shield.get(),
                           hud_collectibles=hud_collectibles.get(),
                           hud_mode=hud_mode.get(),
                           enemy_double=enemy_double.get(),
@@ -536,6 +543,7 @@ def gui() -> None:
             "bm_l_mode": blmode.get(),
             "stamina": stamina.get(), "stamina_bar": stamina_bar.get(), "songbook": songbook.get(),
             "quick_boots": quick_boots.get(), "quick_mask": quick_mask.get(),
+            "manual_shield": manual_shield.get(),
             "hud_collectibles": hud_collectibles.get(),
             "hud_mode": hud_mode.get(),
             "enemy_double": enemy_double.get(),
@@ -1157,6 +1165,14 @@ def gui() -> None:
         label(body, L("hud_note"), size=9, color=DIM, bg=PANEL).pack(anchor="w", pady=(8, 0))
         build_buttons(parent)
         build_quick_select(parent)
+        build_manual_shield(parent)
+
+    def build_manual_shield(parent):
+        body = card(parent, L("ms_title"), L("ms_desc"))
+        check(body, L("ms_on"), manual_shield).pack(anchor="w")
+        label(body, L("ms_on_desc"), size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=(20, 0), pady=(0, 8))
+        label(body, L("ms_controls"), size=9, color=DIM, bg=PANEL).pack(anchor="w")
+        label(body, L("ms_note"), size=9, color=AMBER, bg=PANEL).pack(anchor="w", pady=(8, 0))
 
     def build_quick_select(parent):
         body = card(parent, L("quick_title"), L("quick_desc"))

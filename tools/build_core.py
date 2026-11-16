@@ -24,7 +24,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from hook_sites import (CODE_SITES, DISABLED_SITES, INPUT_SITES, PACIBSP,  # noqa: E402
+from hook_sites import (CODE_SITES, DISABLED_SITES, EXTRA_SITES, INPUT_SITES, PACIBSP,  # noqa: E402
                         SLOT_SITES, SLOT_STOCK, STORE_SITES)
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -64,6 +64,7 @@ FEATURE_INPUT_HANDLERS = {
     "songbook": ["songbook_on_input"],
     "quick_select": ["quick_select_on_input"],
     "button_mapping": ["button_mapping_on_input"],
+    "manual_shield": ["manual_shield_on_input"],
 }
 FEATURE_SLOT_HANDLERS = {
     "button_mapping": ["button_mapping_on_call"],
@@ -165,7 +166,7 @@ def decode_bl(word: int, pc: int) -> int | None:
     return pc + (imm << 2)
 
 
-def verify_stock_sites() -> None:
+def verify_stock_sites(features: list[str]) -> None:
     """Check that each site in main is `bl <stock reader>` before patching.
 
     The stock main is compressed (ZBIC/LZ4); tools/lib/nso.py decompresses the
@@ -195,8 +196,15 @@ def verify_stock_sites() -> None:
         word = struct.unpack_from("<I", text, site)[0]
         if word != expected:
             raise SystemExit(f"store site {site:#x} ({name}) is {word:#x}, expected {expected:#x}")
-    print(f"verified {len(INPUT_SITES)} input sites, {len(SLOT_SITES)} slot sites "
-          f"and {len(STORE_SITES)} store sites")
+    for site, name, expected, feature in EXTRA_SITES:
+        if feature not in features:
+            continue
+        word = struct.unpack_from("<I", text, site)[0]
+        if word != expected:
+            raise SystemExit(f"extra site {site:#x} ({name}) is {word:#x}, expected {expected:#x}")
+    extra = sum(1 for _s, _n, _e, f in EXTRA_SITES if f in features)
+    print(f"verified {len(INPUT_SITES)} input sites, {len(SLOT_SITES)} slot sites, "
+          f"{len(STORE_SITES)} store sites and {extra} extra sites")
 
 
 def write_handler_table(features: list[str], path: Path) -> None:
@@ -251,7 +259,7 @@ def active_sites():
     return list(INPUT_SITES), list(SLOT_SITES)
 
 
-def make_ips(symbols: dict[str, int]) -> bytes:
+def make_ips(symbols: dict[str, int], features: list[str]) -> bytes:
     out = bytearray(b"IPS32")
     if COMPAT:
         site, name, _w = COMPAT_STUB
@@ -273,6 +281,12 @@ def make_ips(symbols: dict[str, int]) -> bytes:
         out += struct.pack(">H", 4)
         out += struct.pack("<I", word)
     for site, name, _expected in STORE_SITES:
+        out += struct.pack(">I", site + 0x100)
+        out += struct.pack(">H", 4)
+        out += struct.pack("<I", encode_b(site, symbols[name]))
+    for site, name, _expected, feature in EXTRA_SITES:
+        if feature not in features:
+            continue
         out += struct.pack(">I", site + 0x100)
         out += struct.pack(">H", 4)
         out += struct.pack("<I", encode_b(site, symbols[name]))
@@ -304,7 +318,7 @@ def main() -> int:
         if not (FEATURES_SRC / f).is_dir():
             raise SystemExit(f"unknown feature: {f}")
 
-    verify_stock_sites()
+    verify_stock_sites(features)
 
     OUT.mkdir(parents=True, exist_ok=True)
     # Hashes of our HUD part names (the engine stores a CityHash64 next to each name).
@@ -323,9 +337,11 @@ def main() -> int:
     sources = sorted(CORE_SRC.glob("*.S")) + sorted(CORE_SRC.glob("*.c"))
     for f in features:
         sources += sorted((FEATURES_SRC / f).glob("*.c"))
+        sources += sorted((FEATURES_SRC / f).glob("*.S"))
     objs: list[str] = []
     for src in sources + [gen]:
-        obj = OUT / (src.stem + ".o")
+        rel = src.relative_to(ROOT).as_posix().replace("/", "__")
+        obj = OUT / (rel + ".o")
         extra = ["-DBUTTON_PROBE"] if os.environ.get("BUTTON_PROBE") else []
         if "button_mapping" in features:
             extra.append("-DBUTTON_MAPPING")   # core/hud.c draws the buttonMapping buttons
@@ -354,11 +370,14 @@ def main() -> int:
     for _, name, _ in active_sites()[0] + active_sites()[1]:
         if name not in syms:
             raise SystemExit(f"missing wrapper symbol {name}")
+    for _site, name, _expected, feature in EXTRA_SITES:
+        if feature in features and name not in syms:
+            raise SystemExit(f"missing extra wrapper symbol {name}")
 
     exefs = OUT / "exefs"
     exefs.mkdir(exist_ok=True)
     (exefs / "subsdk9").write_bytes(build_nso(text, ro, data, ro_rel, data_rel, bss_size))
-    (exefs / f"{MAIN_BUILD_ID}.ips").write_bytes(make_ips(syms))
+    (exefs / f"{MAIN_BUILD_ID}.ips").write_bytes(make_ips(syms, features))
     print(f"features={features} text={len(text):#x} ro={len(ro):#x} "
           f"data={len(data):#x} bss={bss_size:#x}")
     print(f"wrote {exefs / 'subsdk9'}")

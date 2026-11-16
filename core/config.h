@@ -48,7 +48,8 @@ typedef struct {
     signed short hud_ioff;          /* rupee icon x offset */
     signed short hud_tx;            /* text x offset */
     signed short hud_ioff2;         /* clock/collectible icon x offset (wide: same as hud_ioff) */
-    unsigned char reserved[2];
+    unsigned char manual_shield;    /* ZL holds the guard, L toggles targeting, R3 cancels it */
+    unsigned char reserved[1];
 } ShbConfig;
 
 extern volatile ShbConfig g_shbcfg;

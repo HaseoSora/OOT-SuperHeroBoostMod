@@ -979,6 +979,10 @@ def gui() -> None:
             idx = CLOCK_MODES.index(clock_mode.get()) if clock_mode.get() in CLOCK_MODES else 0
             ui["clock_var"].set(ui["clock_values"][idx])
             ui["clock"].current(idx)
+        if "hud_mode" in ui:
+            idx = I.HUD_MODES.index(hud_mode.get()) if hud_mode.get() in I.HUD_MODES else 0
+            ui["hud_mode_var"].set(ui["hud_mode_values"][idx])
+            ui["hud_mode"].current(idx)
 
     # ---- sections ----
     def build_home(parent):
@@ -1130,6 +1134,9 @@ def gui() -> None:
         mcb = combo(mrow, mvalues, mvar, width=24)
         mcb.grid(row=0, column=1, sticky="w")
         mcb.bind("<<ComboboxSelected>>", lambda e: hud_mode.set(I.HUD_MODES[mcb.current()]))
+        ui["hud_mode"] = mcb
+        ui["hud_mode_var"] = mvar
+        ui["hud_mode_values"] = mvalues
         label(body, L("hud_mode_desc"), size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=(20, 0), pady=(0, 8))
         row = tk.Frame(body, bg=PANEL)
         row.pack(fill="x")

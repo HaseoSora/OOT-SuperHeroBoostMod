@@ -54,7 +54,7 @@ CFLAGS = [
     # The NSO has no relocations: jump tables and switch lookup tables hold link-time
     # absolute addresses that are wrong at runtime. This also turns off the lookup tables.
     "-fno-jump-tables",
-    "-O2",
+    "-Oz",
 ]
 
 # Handler table entries per feature, per table

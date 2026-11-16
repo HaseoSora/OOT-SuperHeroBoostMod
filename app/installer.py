@@ -209,9 +209,9 @@ def patch_config(nso: bytes, s: Settings) -> bytes:
     if mode == "simple":
         pos = [-1610, -1330, -1050, -800]
         rupees = clock = collectibles = True
-        sx, sy, ts, isc, plates, maph, hy, ioff, tx = 110, 34, 50, 45, 2, 0, -1000, -60, 0
+        sx, sy, ts, isc, plates, maph, hy, ioff, tx = 110, 34, 50, 45, 2, 0, -1030, -120, 0
     elif mode == "map":
-        pos = [1365, 1565, -32768, -32768]
+        pos = [1234, 1434, -32768, -32768]
         rupees = clock = True
         collectibles = False
         sx, sy, ts, isc, plates, maph, hy, ioff, tx = 50, 50, 50, 45, 0, 1, -420, -140, 0

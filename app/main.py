@@ -1137,7 +1137,9 @@ def gui() -> None:
         ui["hud_mode"] = mcb
         ui["hud_mode_var"] = mvar
         ui["hud_mode_values"] = mvalues
-        label(body, L("hud_mode_desc"), size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=(20, 0), pady=(0, 8))
+        label(body, L("hud_mode_wide_desc"), size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=(20, 0))
+        label(body, L("hud_mode_simple_desc"), size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=(20, 0))
+        label(body, L("hud_mode_map_desc"), size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=(20, 0), pady=(0, 8))
         row = tk.Frame(body, bg=PANEL)
         row.pack(fill="x")
         check(row, L("hud_rupees"), rupees).grid(row=0, column=0, sticky="w", padx=(0, 30))

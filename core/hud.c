@@ -491,6 +491,52 @@ static u8 *build_plus(const u8 *r) {
     g_plus_build_dbg[0]++;
     return root;
 }
+/* Minus map (MapMenu_00): one extra picture pane, the heart-piece icon, using the map's own heart texture.
+ * Placed by hud_on_settext() next to the native Skulltula counter when HUD mode 2 is on. */
+u32 g_map_build_dbg[4];
+static u8 *build_map(const u8 *r) {
+    int ci = name_index(r, 0x20, "P_Collect_00"), bi = name_index(r, 0x40, "P_Collect_00"),
+        pi = name_index(r, 0x60, "P_Collect_00");
+    u32 nc = w(r, 0x38), nb = w(r, 0x58), np = w(r, 0x78);
+    g_map_build_dbg[0] = 1;
+    if (ci < 0 || bi < 0 || pi < 0 || nc > 512 || nb > 512 || np > 512) {
+        g_map_build_dbg[1] = (u32)(ci & 0xFF) | ((u32)(bi & 0xFF) << 8) | ((u32)(pi & 0xFF) << 16);
+        return 0;
+    }
+    u8 *root = pool_clone(r, 0x228);
+    u8 *first = pool_clone((const void *)((const u64 *)q(r, 0x28))[0], 68);
+    u8 *cd = pool_clone((const void *)((const u64 *)q(r, 0x28))[ci], 68);
+    u8 *bd = pool_clone((const void *)((const u64 *)q(r, 0x48))[bi], 0x88);
+    u8 *pd = pool_clone((const void *)((const u64 *)q(r, 0x68))[pi], 0x88);
+    if (!root || !first || !cd || !bd || !pd) { g_map_build_dbg[1] = 2; return 0; }
+    int mat = add_material(root, r, *(u32 *)(pd + 0x14), "MapIconCollectHeartPiece_00");
+    g_map_build_dbg[2] = (u32)mat;
+    if (mat < 0) { g_map_build_dbg[1] = 3; return 0; }
+    *(u32 *)(pd + 0x14) = (u32)mat;
+    *(float *)(cd + 0x10) = 0.0f; *(float *)(cd + 0x14) = 0.0f;   /* hidden until placed */
+    *(u32 *)(cd + 40) = 0;
+    *(u32 *)(cd + 52) = nc + 1;
+    *(unsigned short *)(cd + 0x3c) = (unsigned short)nb;
+    *(unsigned short *)(cd + 0x42) = (unsigned short)np;
+    if (!tbl_add(root, 0x20, "P_ShbPic_398", cd, g_pihash[398]) ||
+        !tbl_add(root, 0x40, "P_ShbPic_398", bd, g_pihash[398]) ||
+        !tbl_add(root, 0x60, "P_ShbPic_398", pd, g_pihash[398])) { g_map_build_dbg[1] = 4; return 0; }
+    *(u32 *)(first + 52) = nc + 1;
+    ((u64 *)q(root, 0x28))[0] = (u64)first;
+    {   /* per picture/text-list entry table: grow it */
+        u32 oc = w(r, 0x210);
+        const u8 *op = (const u8 *)q(r, 0x208);
+        if (!op || oc != nb) { g_map_build_dbg[1] = 5; g_map_build_dbg[3] = oc * 4096u + nb; return 0; }
+        int *na = pool_alloc((oc + 1) * 4);
+        if (!na) return 0;
+        memcpy(na, op, oc * 4);
+        na[oc] = -1;
+        *(u64 *)(root + 0x208) = (u64)na;
+        *(u32 *)(root + 0x210) = oc + 1;
+    }
+    g_map_build_dbg[1] = 0;
+    return root;
+}
 static u8 *build_root(const u8 *r) {
     pic_names();
     if (name_index(r, 0x20, g_pinames[0]) >= 0) { g_hud_dbg[9] = MARK | 1; return 0; }
@@ -668,7 +714,8 @@ void *hud_prepare(void *handle, u8 *config) {
     const char *asset = (const char *)q(r, 0x18);
     const char *inst = (const char *)q(handle, 0x30);
     u32 kind = str_eq(asset, "PlayerStatus_00") ? 1 : BTNMAP && str_eq(asset, "PaItemMenu_00") ? 3 :
-               BTNMAP && str_eq(asset, "PlusMenu_00") ? 4 : 0;
+               BTNMAP && str_eq(asset, "PlusMenu_00") ? 4 :
+               g_shbcfg.hud_map_hearts && str_eq(asset, "PaMapCollectNum_00") ? 5 : 0;
     /* one of our slot buttons: its nested Pa_ReplaceIcon_00 is built next and gets the private copy */
     for (u32 k = 0; !kind && k < PART_N; k++)
         if (str_eq(inst, part_name(k))) { g_repicon_armed = 1; return config; }
@@ -680,7 +727,8 @@ void *hud_prepare(void *handle, u8 *config) {
         if (g_res[i].src == r && g_res[i].kind == kind) { rep = g_res[i].copy; break; }
     if (i == g_res_n) {
         if (g_res_n == 140) return config;
-        rep = kind == 1 ? build_root(r) : kind == 3 ? build_menu(r) : kind == 4 ? build_plus(r) : build_repicon(r);
+        rep = kind == 1 ? build_root(r) : kind == 3 ? build_menu(r) : kind == 4 ? build_plus(r) :
+              kind == 5 ? build_map(r) : build_repicon(r);
         if (!rep) return config;
         g_res[i].src = r; g_res[i].copy = rep; g_res[i].kind = kind;
         g_res_n++;
@@ -1276,24 +1324,29 @@ static void plates_update(u64 frame) {
     }
     if (sec < 0) sec = 0;
     sec %= 86400;
-    if (plates == 1) {
+    if (plates) {
         u32 day = sec >= 6 * 3600 && sec < 18 * 3600;
         if (P[16] > 0.5f) day = P[16] < 1.5f;
         u32 sun = show_c && day, moon = show_c && !day;
         float ix = (float)bxc + ioff, iy = BY;
+        float ssc = plates == 1 ? 1.0f : isc;
+        float ray = plates == 1 ? P[12] : P[12] * (isc / P[6]);
+        float msc = plates == 1 ? P[17] : isc;
+        float ssh = plates == 1 ? P[18] : isc * 0.85f;
+        float mof = plates == 1 ? P[14] : P[14] * (isc / P[6]);
         static const float SUN[3] = {1.0f, 0.86f, 0.42f};
-        place(g_pic_rec[9], ix, iy, sun ? 1.0f : 0.0f, sun ? 1.0f : 0.0f, 0.0f);
+        place(g_pic_rec[9], ix, iy, sun ? ssc : 0.0f, sun ? ssc : 0.0f, 0.0f);
         tint_rec(g_pic_rec[9], SUN[0], SUN[1], SUN[2], 1.0f);
         for (u32 j = 0; j < 8; j++) {
             u64 rec = g_pic_rec[10 + j];
-            place(rec, ix + RAY_DX[j] * P[12], iy + RAY_DY[j] * P[12], sun ? 1.0f : 0.0f, sun ? 1.0f : 0.0f,
+            place(rec, ix + RAY_DX[j] * ray, iy + RAY_DY[j] * ray, sun ? ssc : 0.0f, sun ? ssc : 0.0f,
                   -0.785398f * (float)j);
             tint_rec(rec, SUN[0], SUN[1], SUN[2], 1.0f);
         }
-        float ms = moon ? P[17] : 0.0f, ss = moon ? P[18] : 0.0f;
+        float ms = moon ? msc : 0.0f, ss = moon ? ssh : 0.0f;
         place(g_pic_rec[18], ix, iy, ms, ms, 0.0f);
         tint_rec(g_pic_rec[18], 0.97f, 0.93f, 0.72f, 1.0f);
-        place(g_pic_rec[19], ix + P[14], iy + P[14] * 0.6f, ss, ss, 0.0f);
+        place(g_pic_rec[19], ix + mof, iy + mof * 0.6f, ss, ss, 0.0f);
         tint_rec(g_pic_rec[19], P[19], P[19], P[19], 1.0f);
     }
 
@@ -1782,6 +1835,8 @@ int hud_ingame(void) { return !vptr(g_ps_frame) || (*(volatile u32 *)(g_ps_frame
  * cell) is not 0: the game's own test before it shows the caption. */
 extern u64 g_menu_panel, g_menu_cell;
 static char g_map_buf[64];   /* Minus map: native total text + the area heart count */
+u64 g_map_set_frame;         /* the frame of the native counter when its total text was set */
+u64 g_map_icon_dbg[4];       /* diagnostic: MapMenu root, the added heart pane, the skull part, icon x */
 u64 player_get(void);
 int hud_menu_items(void) {   /* (the panel is built at boot: before a game is loaded it says nothing) */
     return g_menu_panel && player_get() && !hud_ingame() && *(volatile u8 *)(g_menu_panel + 0x28) == 2;
@@ -2282,6 +2337,7 @@ static void hud_on_settext(u64 pane, const u64 *ref, u64 lr, const u64 *regs) {
     /* Minus map: append the area heart-piece count to the native Skulltula counter's total text. */
     const char *nm = (const char *)regs[0xF0 / 8];
     if (g_shbcfg.hud_map_hearts && nm && vptr((u64)nm) && str_eq(nm, "T_NumTotal_00") && len < 40) {
+        g_map_set_frame = regs[0xF8 / 8];
         u32 sd = 0, st = 0, hd = 0, ht = 0;
         if (collect_counts(&sd, &st, &hd, &ht) && ht) {
             u32 m = 0;
@@ -2296,6 +2352,15 @@ static void hud_on_settext(u64 pane, const u64 *ref, u64 lr, const u64 *regs) {
             ((u64 *)ref)[1] = m;
             s = g_map_buf;
             len = m;
+            /* the heart-piece icon added to the counter part next to its total text */
+            u64 root = g_map_set_frame;
+            u64 hrec = vptr(root) ? pane_record(root, "P_ShbPic_398") : 0;
+            g_map_icon_dbg[0] = root; g_map_icon_dbg[1] = hrec; g_map_icon_dbg[2] = 0;
+            if (hrec) {
+                g_map_icon_dbg[3] = 180;
+                place(hrec, 180.0f, -5.0f, 0.66f, 0.66f, 0.0f);
+                tint_rec(hrec, 1.0f, 1.0f, 1.0f, 1.0f);
+            }
         }
     }
     if (nm && vptr((u64)nm) && str_eq(nm, "T_GuideA_00")) {

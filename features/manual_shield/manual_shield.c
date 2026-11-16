@@ -203,6 +203,14 @@ void manual_shield_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_re
         g_ms_held = 0;
         g_ms_allowed = 0;
         g_ms_dbg[5]++;
+        /* A hit stop can pause the player scheduler for a few frames without leaving gameplay. L is still
+         * ours there: consume it so the default L/item function cannot fire in the middle of the hit. */
+        if (ms_gameplay_state()) {
+            for (u32 i = 0; i < count; i++) {
+                u64 b = hid_get_buttons(&view, i);
+                hid_set_buttons(&view, i, b & ~MS_BTN_L);
+            }
+        }
         return;
     }
     if (player_dead()) {   /* death ragdoll / game over: never filter the screen's input */

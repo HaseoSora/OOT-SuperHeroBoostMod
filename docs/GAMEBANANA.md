@@ -20,7 +20,7 @@ from your own game files.
 
 There has been a lot of feedback about Longshot problems since 0.4.0: crashes while loading a save or an
 area, a rebuild that stopped near 90% ("Longshot is still running from this folder"), DLSS disappearing
-after a rebuild, and the app picking a ReLink or Hookshot builder for a Longshot game. 0.5.0 fixes those:
+after a rebuild, and the app picking a ReLink or Hookshot builder for a Longshot game. 0.5.0 fixed those; 0.5.1 includes them and adds the new controls and enemy options:
 the module no longer relies on condition flags across calls, DLSS/FSR are kept, the right builder is found
 on Windows/Linux/macOS, ReLink is supported and the app closes the running game. Rebuild the game once.
 
@@ -54,6 +54,11 @@ on Windows/Linux/macOS, ReLink is supported and the app closes the running game.
 - L as an item button or as the game's own item selector.
 - Songbook autoplay: pick a learned song in the native songbook (ZL) and Link plays it with its effect.
 
+**Controls**
+- Target with R3: swaps ZL and R3 (R3 targets, ZL resets the camera); set Targeting Type to Hold.
+- Hold L3 to sprint with the game's sprint animation, without rolling.
+- Manual shield: L reserved during hit reactions and hit-stop; R3 cancels unless the target-on-R3 swap is on.
+
 **Quick select**
 - Hold **D-pad Down** to switch between the **Iron Boots** and **Hover Boots**; hold **D-pad Up** to switch between
   the **Lens of Truth** and the **mask** you were wearing.
@@ -72,11 +77,11 @@ on Windows/Linux/macOS, ReLink is supported and the app closes the running game.
 
 **Beta (optional, generated from your own game files)**
 - Enemy duplication (Option A).
-- Enemy speed: movement, animation and attack cadence, each with eleven multipliers from x0.5 to x6 (plus off).
+- Enemy speed: movement (all base and attack speeds together, harder-combat method), animation, attack cadence and projectile speed, each with eleven multipliers from x0.5 to x6 (plus off).
 
 ## Download
 
-- **`SuperHeroBoost-0.5.0-presets.zip`** — one zip with **all 12 named profiles of the app**, each ready to install.
+- **`SuperHeroBoost-0.5.1-presets.zip`** — one zip with **all 12 named profiles of the app**, each ready to install.
   **No executable inside.** SHA-256: $preset.
 - The companion app **SuperHeroBoostConfig** is a third-party program, so it belongs in the game's **Tools** section
   (https://gamebanana.com/tools/games/7534), not in the Mods file. Source and binaries are also on the project's
@@ -91,7 +96,7 @@ Farore, no-heart-drop, enemy duplication/speed). Pick one; only one profile can 
 
 1. **Requirements**: the game on update **v131072** and an emulator that loads mods from `user/load`. Back up your
    saves; on Windows the app closes the game before installing or rebuilding.
-2. Download **`SuperHeroBoost-0.5.0-presets.zip`** and extract it.
+2. Download **`SuperHeroBoost-0.5.1-presets.zip`** and extract it.
 3. Open the folder of the profile you want (`01 Recommended`, `02 Base`, …) and copy its
    **`00-Super-Hero-Boost`** folder into `user/load/0400486024DEC000` (the folder that contains your mods; merge
    it if it already exists). Install one profile at a time.
@@ -121,8 +126,8 @@ The app saves your settings automatically, but changes only reach the game after
 - **Emulators: tested** on **lichii** and **Fritchii**.
 - **Longshot: supported and tested** since 0.2.0. Longshot is a static recompilation, so the module has to be built
   into the game: the app's **Longshot** target rebuilds it and installs the profile and romfs options (25-45 minutes
-  the first time; later code changes are incremental and profile/romfs changes need no rebuild). 0.5.0 fixes the
-  crashes of 0.4.0 and keeps DLSS/FSR; rebuild the game once.
+  the first time; later code changes are incremental and profile/romfs changes need no rebuild). 0.5.1 includes
+  the 0.5.0 crash fixes and adds the new controls; rebuild the game once with 0.5.1.
 - **Hookshot: expected to work, not tested yet.** It uses the same builder and `nx2/make_game.py --update`.
 - **ReLink: supported.** `bin/relink-game`, `.relink_exefs` and the `RELINK_*` variables. Install/backup tested; the full build has not been verified on a real ReLink install yet.
 - Real hardware: not tested.

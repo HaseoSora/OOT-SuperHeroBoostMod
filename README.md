@@ -3,8 +3,25 @@
 Gameplay module for the console remake (update **v131072**) and its cross-platform configuration app
 **SuperHeroBoostConfig**.
 
-Current release: **0.5.0**, with the Longshot 0.4.0 crashes fixed, DLSS/FSR kept on rebuild, ReLink support, the
-builder detected for each game on Windows, Linux and macOS, and the manual shield.
+Current release: **0.5.1**, with the enemy-speed rework (all movement speeds together and separate
+projectiles), the new controls (target on R3, L3 sprint) and the 0.5.0 Longshot/DLSS/ReLink fixes.
+
+### What's new in 0.5.1
+
+- **Enemy speed reworked.** Movement now scales every base and attack speed together (walk, run, dash, jog, strafe,
+  attack motions and the per-enemy attack speeds), the harder-combat method, so enemies no longer slide or overshoot.
+  **Animation playback**, **attack cadence** and **projectile speed** are independent, with eleven multipliers from
+  x0.5 to x6 each (plus off). Attack cadence scales the interval tables and the action timeouts; the beta enemy
+  profiles set all four components to x2.
+- **Controls section.** **Target with R3** swaps ZL and R3 (R3 targets, ZL resets the camera; set System > Options >
+  Targeting Type to **Hold**). **Hold L3** to sprint with the game's own sprint animation, without pressing A or
+  rolling. Both are personal preferences and are off by default.
+- **Manual shield.** L stays reserved while the shield is enabled, including during hit reactions and hit-stop; R3
+  cancels targeting unless the target-on-R3 swap is on.
+- **App.** New **Controls** section, an enemy **Projectiles** selector and `--enemy-proj`, `--target-r3` and
+  `--sprint-l3` flags. The beta enemy profiles include the projectile speed.
+- The 0.5.0 fixes remain: Longshot crashes, DLSS/FSR on rebuild, ReLink, builder detection on Windows, Linux and
+  macOS and closing the running game before a build. Rebuild the game once with 0.5.1 for the new module.
 
 ### What's new in 0.5.0
 
@@ -107,17 +124,26 @@ The module, the HUD, the textures and the app are original work: no third-party 
 
 - **ZL follows the game's Targeting Type option** (System > Options): in **Hold Target**, hold ZL to target; in
   **Toggle Target**, press ZL to toggle.
-- **Hold L** to raise the shield while the target camera is active.
-- **R3** cancels targeting.
-- Optional: it is off by default and can be enabled in the app's **HUD & buttons** section.
-- While it is enabled, **L is removed from buttonMapping**: its item slot is off, because L is the shield button.
+- **L is reserved while the manual shield is enabled**: it raises the shield only with the target camera and never
+  triggers its item/selector/default function, including during shield-hit reactions and hit-stop.
+- **R3** cancels targeting, unless the target-on-R3 swap is enabled.
+- Optional: it is off by default and can be enabled in the app's **Controls** section.
 - In Hold Target the physical ZL stays native; in Toggle Target the mod synthesises it.
 - Independent of the stamina system: the stamina config still applies its own held/hit costs when stamina is on.
+
+### Controls
+
+- **Target with R3**: swaps ZL and R3, so R3 holds or toggles the target camera and ZL resets it. Recommended with
+  the game's **Hold** targeting type.
+- **Hold L3** to sprint: uses the game's sprint flag and animation, without pressing A and without rolling.
+- The manual shield and button mapping are described above and below; the controls are personal preferences, not
+  part of a profile, and they are off by default.
 
 ### Configuration app
 
 - GUI for Windows, macOS and Linux (Python 3.10+ with Tkinter).
-- Profiles, per-section settings, install and uninstall into the emulator's mod folder.
+- Profiles, per-section settings, install and uninstall into the emulator's mod folder, including a
+  **Controls** section for the R3 target swap and the L3 sprint.
 - **Quick select**: boots and mask switching from the D-pad.
 - Checks GitHub Releases on startup and offers to download a newer version; on Windows it replaces itself and
   restarts.
@@ -132,9 +158,11 @@ everything*) turn them on together with the rest of the configuration.
 
 - **Enemy duplication (Option A)**: clones generic enemy placements in the map data and doubles field auto-spawn
   counts. Bosses, minibosses and scripted enemies are excluded.
-- **Enemy speed**: three independent components (movement, animation playback and attack cadence), each with eleven
-  multipliers from ×0.5 to ×6 (plus off). Some enemies or attacks may not change or may desync.
-
+- **Enemy speed**: four independent components (movement, animation playback, attack cadence and
+  projectile speed), each with eleven multipliers from x0.5 to x6 (plus off). Movement follows the
+  harder-combat method: every base and attack speed together, so enemies do not slide or overshoot.
+  Attack cadence scales the interval tables and the action timeouts; projectiles are separate. Some
+  enemies or attacks may not change or may desync.
 ## Usage
 
 1. **Requirements**: the game on update **v131072** and an emulator that loads mods from its
@@ -172,7 +200,8 @@ stamina, item buttons, collectible counter) has to be built into the game.
 - **Longshot: supported and tested.** The app's **Longshot** target patches the game's `main`, copies the module to
   `.longshot_exefs`, installs the chosen romfs options and runs the builder's update with a progress bar. The first
   build takes 25-45 minutes; later code changes are incremental (~5 minutes) and profile/romfs-only changes need no
-  rebuild. It is reversible with **Uninstall**. 0.5.0 fixes the crashes introduced in 0.4.0: rebuild once.
+  rebuild. It is reversible with **Uninstall**. 0.5.1 includes the 0.5.0 crash fixes; rebuild once with 0.5.1 for
+  the new controls/enemy module.
 - **Hookshot: expected to work, not tested yet.** It ships the same builder and the same
   `nx2/make_game.py --update`; point the app's target (or `tools/install_longshot.py --builder`) at its
   `HookshotBuilder` folder. The procedure is otherwise identical.
@@ -199,6 +228,8 @@ python app/main.py --cli --emu "EMULATOR_PATH" --profile recommended
 python app/main.py --cli --emu "EMULATOR_PATH" --profile hero-explorer --button-style switch --bm-simple
 python app/main.py --cli --emu "EMULATOR_PATH" --profile recommended --bm-l selector
 python app/main.py --cli --emu "EMULATOR_PATH" --profile recommended --quick-boots --quick-mask
+python app/main.py --cli --emu "EMULATOR_PATH" --profile base --enemy-move 1 --enemy-anim 2 --enemy-attack 2 --enemy-proj 2
+python app/main.py --cli --emu "EMULATOR_PATH" --profile recommended --target-r3 --sprint-l3
 ```
 
 `--profile` applies a complete profile; individual flags override it. `--list-profiles` shows the list. The

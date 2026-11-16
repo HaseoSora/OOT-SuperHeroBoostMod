@@ -8,7 +8,7 @@ GameBanana classifies third-party programs as Tools; the Mods file must stay fre
 **Tagline:** Configure and install Super Hero Boost: profiles, stamina, difficulty, HUD, item buttons and optional
 world changes from one window.
 
-**Version:** 0.5.0
+**Version:** 0.5.1
 
 ## Summary
 
@@ -28,18 +28,19 @@ Prebuilt apps: `SuperHeroBoostConfig.exe` (Windows), `SuperHeroBoostConfig-linux
   changes, two beta combinations and a fully custom setup.
 - Stamina style and per-action costs, enemy HP/damage multipliers, sprint speed, no-heart-drop.
 - HUD: rupees, clock (12/24 h) and per-area collectible counter, in three layouts (Wide, Simple, Minimal).
+- Controls: target with R3 (swaps ZL/R3), hold L3 to sprint with the native animation, and the manual
+  shield keeps L reserved.
 - Quick select (normal feature): hold D-pad Down/Up to switch boots/masks; the named profiles include it.
 - Button mapping: B / L / R / ZR, Switch / PlayStation / Xbox styles, extended or simple layout, L in item or
   selector mode, songbook autoplay.
-- Optional world changes (Great Fairy rewards, Farore outdoors) and beta enemy options, generated from your own game
-  files.
+- Optional world changes (Great Fairy rewards, Farore outdoors) and beta enemy options (duplication, movement,
+  animation, attack cadence and projectile speed), generated from your own game files.
 - Install and uninstall into the emulator's `user/load/0400486024DEC000` folder.
 - Checks GitHub Releases on startup, shows a download bar when a newer version exists and, on Windows, replaces
   itself and restarts (the SHA-256 of the downloaded asset is verified when GitHub provides it).
 - Longshot target: patches `main`, copies the module to `.longshot_exefs`, installs the romfs options and runs the
   builder's update with progress, log and cancel. It keeps DLSS/FSR, closes a running game on Windows, detects the
   right builder and supports **Hookshot** (same builder) and **ReLink** (`.relink_exefs`, `bin/relink-game`).
-  yet.
 - Command-line mode with the same options.
 - Spanish, English, Portuguese, French, German and Italian.
 
@@ -47,7 +48,7 @@ Prebuilt apps: `SuperHeroBoostConfig.exe` (Windows), `SuperHeroBoostConfig-linux
 
 1. Requirements: the game on update **v131072**; an emulator that loads mods from `user/load`, or a Longshot /
    Hookshot installation with its builder's `tools` folder.
-2. Close the game and back up your saves.
+2. Back up your saves. On Windows the app closes the running game before installing/rebuilding.
 3. Run `SuperHeroBoostConfig.exe`.
 4. Pick a profile or tune each section, choose the emulator/game folder and press **Install** (or **Rebuild game**
    for Longshot).
@@ -56,7 +57,7 @@ Prebuilt apps: `SuperHeroBoostConfig.exe` (Windows), `SuperHeroBoostConfig-linux
 ## Files
 
 - `SuperHeroBoostConfig.exe`
-  SHA-256: `73c6d2a2bf25ce5eefce50e4fdb026166851612905d8e04aad9a777416412861`
+  SHA-256: `94e3824196e073f62902b95fb0769c2698d0caeac6281814862d99f6136ad015`
 
 The module payload is inside the executable; the app does not download anything.
 

@@ -17,15 +17,17 @@ Time* remake (update **v131072**). It edits the module's configuration, chooses 
 files into the emulator's mod folder. It also builds the module into **Longshot** (static recompilation), and it can
 apply a new configuration without rebuilding.
 
-The app is open source (MIT). It is built with Python and PyInstaller; the executable is unsigned, so some antivirus
+The app is open source (MIT). It is built with Python and PyInstaller; the downloads are unsigned, so some antivirus
 programs may show a generic false positive. The source, the build script and the release checksums are public.
+Prebuilt apps: `SuperHeroBoostConfig.exe` (Windows), `SuperHeroBoostConfig-linux` (Linux x86_64) and
+`SuperHeroBoostConfig-macos.dmg` (macOS Apple Silicon), on GitHub Releases.
 
 ## Features
 
 - Profiles: Recommended, Base, Hero Mode, Hero + Stamina, Hero Explorer, Super Hero, Ultra Hero, Survival, World
   changes, two beta combinations and a fully custom setup.
 - Stamina style and per-action costs, enemy HP/damage multipliers, sprint speed, no-heart-drop.
-- HUD: rupees, clock (12/24 h) and per-area collectible counter.
+- HUD: rupees, clock (12/24 h) and per-area collectible counter, in three layouts (Wide, Simple, Minimal).
 - Quick select (normal feature): hold D-pad Down/Up to switch boots/masks; the named profiles include it.
 - Button mapping: B / L / R / ZR, Switch / PlayStation / Xbox styles, extended or simple layout, L in item or
   selector mode, songbook autoplay.

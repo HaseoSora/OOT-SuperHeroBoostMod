@@ -3,13 +3,21 @@ Super Hero Boost is a gameplay and HUD module for the Ocarina of Time remake (up
 WHAT YOU ARE DOWNLOADING
 The file in the Files tab is SuperHeroBoost-0.4.0-presets.zip: the mod itself, with all 11 profiles of the companion app ready to install in an emulator. Every profile includes the boots/mask quick select. It contains no executable. The configuration app is a separate download (see "Installation app" below); it is not in the Files tab.
 
+NEW IN 0.4.0
+- Three HUD layouts: Wide (the four plates), Simple (the four counters at the bottom, no background) and Minimal (rupees and time above the minimap, heart pieces next to the native Skulltula counter on the Minus map).
+- Bottle icons on B/L/R/ZR: the button shows the assigned bottle and its exact content (red, green and blue potions, blue fire, fish, bug, fairy, milk, half milk, letter, Poe, Big Poe, empty).
+- Enemy speed reworked: movement, animation and attack cadence are independent, each with eleven multipliers from x0.5 to x6, and the duplicated-enemy placements work now.
+- Optional compact stamina bar instead of the ring around Link.
+- Longshot: if the builder cannot find its Vulkan/VMA headers, the app reuses the installed longshot_vk library instead of failing.
+- Prebuilt apps for Windows, Linux and macOS, plus the add-on update check.
+
 Every feature in this mod is optional. The installation app sets up the module once, and each system below has its own on/off switch, so you can use only what you want — with everything off, the game plays like vanilla. The Recommended profile turns everything on; change any option and the profile switches to Custom. Options take effect when you press Install again: for emulators nothing is recompiled and no file is edited by hand. (Longshot is different; see the Longshot section.)
 
 STAMINA (optional)
 - Can be turned off completely: no costs, no ring, no locks.
 - Four styles: Hardcore (every action costs), Combat only, Sprint only, or Advanced (choose which actions cost).
 - Exhaustion and regeneration, with individual costs for rolling, jumping, attacking, shooting, sprinting and shield blocking.
-- Stamina ring next to Link, drawn with the game's own textures.
+- Stamina ring next to Link, drawn with the game's own textures, or an optional compact segmented bar at the bottom.
 
 DIFFICULTY (optional)
 - Enemy health and damage taken multipliers from x1 to x3 (x1 is vanilla).
@@ -25,6 +33,7 @@ HUD (optional, one switch per element)
 
 BUTTONS (optional)
 - B, L, R and ZR item buttons on the HUD, assignable from the pause menu's Items tab with X / L / R / A.
+- The buttons show the exact bottle content for potions, blue fire, fish, bug, fairy, milk, half milk, letter, Poe, Big Poe and empty bottles.
 - Switch, PlayStation and Xbox button styles.
 - Extended layout (B, L, R, ZR, X, Y, A and the sword) or simple layout (only the assignable buttons, with B centred).
 - L as an item button or as the game's own item selector.
@@ -44,8 +53,8 @@ PROFILES (optional shortcuts)
 - Recommended, Base, Hero Mode, Hero + Stamina, Hero Explorer, Super Hero, Ultra Hero, Survival, World changes and two beta combinations, plus a fully custom setup.
 
 BETA (optional, experimental, off unless you turn them on)
-- Enemy duplication (Option A): clones generic enemy placements and doubles field auto-spawn counts. Bosses, minibosses and scripted enemies are excluded.
-- Enemy speed x2: speeds up movement, animation and attack cadence. Some enemies or attacks may not change or may desync.
+- Enemy duplication (Option A): clones every eligible generic enemy placement and shares the original resources, so the extra enemies actually appear and behave. Bosses, minibosses and scripted enemies are excluded.
+- Enemy speed: movement, animation playback and attack cadence are separate levels, each with eleven multipliers from x0.5 to x6 (plus off). Some enemies or attacks may not change or may desync.
 - They install extra romfs files and can break puzzles, quests or performance. Back up your save and test one at a time.
 
 REQUIREMENTS
@@ -92,7 +101,7 @@ IN GAME
 - To remove the mod, press Uninstall in the app (or delete the 00-Super-Hero-Boost folder).
 
 INSTALLATION APP
-- GUI for Windows, macOS and Linux (Python 3.10+ with Tkinter), and a command-line mode.
+- Prebuilt apps for Windows, Linux (x86_64) and macOS (Apple Silicon); also GUI and command-line modes from source (Python 3.10+ with Tkinter).
 - Profiles, per-section settings, install and uninstall.
 - Quick select card: boots and mask switching from the D-pad.
 - Translations: Spanish, English, Portuguese, French, German and Italian.

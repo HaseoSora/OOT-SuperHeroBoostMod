@@ -114,10 +114,9 @@ The **HUD & buttons** section has a **Quick select** card. It enables the module
 
 The **HUD & buttons** section has a **Manual shield** card (off by default):
 
-- **ZL tap**: toggles the lock-on camera.
-- **ZL hold**: raises the shield.
-- **L**: raises the shield only while the lock-on camera is active; with the camera off it keeps its normal function
-  (item button or selector included).
+- **ZL**: press to toggle the lock-on camera.
+- **L**: hold to raise the shield only while the lock-on camera is active; with the camera off it keeps its normal
+  function (item button or selector included).
 - **R3**: cancels targeting.
 - It reserves ZL during gameplay and L only while the lock-on camera is active, so buttonMapping can still use L when
   the camera is off.

@@ -74,8 +74,8 @@ The module, the HUD, the textures and the app are original work: no third-party 
 
 ### Manual shield
 
-- **Tap ZL** to toggle the lock-on camera and **hold ZL** to raise the shield.
-- **L** raises the shield only while the lock-on camera is active; with the camera off, L keeps its normal function
+- **Press ZL** to toggle the lock-on camera.
+- **Hold L** to raise the shield while the lock-on camera is active; with the camera off, L keeps its normal function
   (item button or selector included).
 - **R3** cancels targeting.
 - Optional: it is off by default and can be enabled in the app's **HUD & buttons** section.

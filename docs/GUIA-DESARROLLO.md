@@ -194,20 +194,21 @@ the speed argument.
 
 ### 4.5 Manual shield (`features/manual_shield/`)
 - Optional (`manual_shield`); with it off every hook is pass-through and the stock controls stay.
-- Input (site 3): consumes the physical ZL, lets **L through untouched when the lock-on camera is off** and turns it
-  into a guard only while the camera is up. A ZL tap toggles targeting, a ZL hold raises the guard, R3 cancels
-  targeting. Native ZL is synthesised while targeting or guarding.
-- Frame (code hook 0): `manual_shield_on_frame()` runs the ZL tap/hold decision once per scheduler frame (so repeated
-  HID reads cannot repeat it), caches the player state and AS interface and keeps the native guard flags and AS
-  Bool14 off unless the guard is requested. On guard entry it requests the shield draw only (not the sword).
+- Input (site 3): consumes the physical ZL (target toggle) and synthesises native ZL while the target camera is up.
+  **L is let through untouched when the lock-on camera is off** and becomes a guard only while the camera is active.
+  R3 cancels targeting.
+- Frame (code hook 0): `manual_shield_on_frame()` turns a ZL rising edge into the targeting toggle once per
+  scheduler frame (repeated HID reads cannot toggle it twice), caches the player state and AS interface and keeps the
+  native guard flags and AS Bool14 off unless L is held with the camera active. On guard entry it requests the shield
+  draw only (not the sword).
 - The guard uses the stock locomotion/animation path: the feature only decides whether the guard is allowed. Busy
   actions (carrying, bow, hookshot, boomerang, horse aim) and a dead/inactive player keep it off. Menus keep their
   normal L/ZL navigation because the input filter only runs during gameplay.
 - Three extra mid-function sites in `tools/hook_sites.py` (`EXTRA_SITES`, only patched when the feature is built):
   the AS Bool setter (`main+0x37BA100`) and the two target-guard flag stores (`main+0x972E18`, `main+0x97320C`). Their
   wrappers are in `manual_shield.S`; the resume addresses are linker symbols in `core/link.ld`.
-- Behaviour replicated from REXCRAFT88's Manual Shield 0.1.7 for the same build, with the ZL tap/hold and the
-  camera-gated L guard added in Super Hero Boost.
+- The base guard/target behaviour comes from REXCRAFT88's Manual Shield 0.1.7 for the same build; Super Hero Boost
+  moves the targeting toggle to ZL and gates the L guard with the lock-on camera.
 
 ### 4.6 No heart drops (romfs)
 `tools/make_romfs_opts.py` generates, from the game's own dump (`SHB_ROMFS`, your dump folder),

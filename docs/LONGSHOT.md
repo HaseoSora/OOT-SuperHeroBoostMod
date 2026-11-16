@@ -170,6 +170,16 @@ The builder entry is optional: it only appears when no builder was found, when o
 `LONGSHOT_BUILDER`, `HOOKSHOT_BUILDER` and `RELINK_BUILDER` override it, as does `--builder` in
 `tools/install_longshot.py`.
 
+## A running game
+
+The builder replaces `bin/longshot.exe` and the other files at its final step. On Windows a running copy cannot be
+replaced, so the builder stops (at about 90%) with "Longshot is still running from this folder" if one is open. The
+app now closes any copy running from that folder (the root launcher, the game in `bin/`, an older
+`longshot-game.exe`, a visible or hidden window) before the build, checks while it runs and closes any copy opened
+meanwhile, so the swap is not blocked. Only the fallback when the copy cannot be closed (another user's or an
+elevated process) still asks the player to close it. On Linux and macOS a running executable can be replaced and
+the builder skips that check.
+
 ## The 0.4.0 crash (guest 0x38)
 
 `-Oz` (enabled for the 0.4.0 module) turns on LLVM's machine outliner, which moved the `p >= 0x10000` guard of many

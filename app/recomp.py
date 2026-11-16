@@ -21,6 +21,7 @@ import struct
 import subprocess
 import sys
 import threading
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -403,6 +404,120 @@ def game_running() -> bool:
         except (OSError, subprocess.SubprocessError):
             return False
     return False
+
+
+GAME_EXE_PREFIXES = ("longshot", "hookshot", "relink")
+
+
+def _game_processes(game: Path) -> list[int]:
+    """PIDs running an executable from this game folder (Windows).
+
+    The builder refuses to replace a game that is running from the folder: its root launcher (`longshot.exe`) and
+    the old `longshot-game.exe` live directly in it, the game itself is `bin/longshot.exe`. This matches both cases
+    (any .exe directly in the folder, plus the game's own names under bin/) and leaves the app and the builder's
+    Python alone."""
+    if os.name != "nt":
+        return []
+    try:
+        import ctypes
+        from ctypes import wintypes
+    except ImportError:
+        return []
+    k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    root = os.path.normcase(os.path.abspath(game)) + os.sep
+    skip = {os.getpid(), os.getppid()}
+    if _proc is not None:
+        skip.add(_proc.pid)
+
+    class Entry(ctypes.Structure):
+        _fields_ = [("dwSize", wintypes.DWORD), ("cntUsage", wintypes.DWORD),
+                    ("th32ProcessID", wintypes.DWORD), ("th32DefaultHeapID", ctypes.c_size_t),
+                    ("th32ModuleID", wintypes.DWORD), ("cntThreads", wintypes.DWORD),
+                    ("th32ParentProcessID", wintypes.DWORD), ("pcPriClassBase", ctypes.c_long),
+                    ("dwFlags", wintypes.DWORD), ("szExeFile", ctypes.c_wchar * 260)]
+
+    k32.CreateToolhelp32Snapshot.argtypes = [wintypes.DWORD, wintypes.DWORD]
+    k32.CreateToolhelp32Snapshot.restype = wintypes.HANDLE
+    k32.Process32FirstW.argtypes = [wintypes.HANDLE, ctypes.POINTER(Entry)]
+    k32.Process32NextW.argtypes = [wintypes.HANDLE, ctypes.POINTER(Entry)]
+    k32.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
+    k32.OpenProcess.restype = wintypes.HANDLE
+    k32.QueryFullProcessImageNameW.argtypes = [wintypes.HANDLE, wintypes.DWORD, wintypes.LPWSTR,
+                                               ctypes.POINTER(wintypes.DWORD)]
+    k32.CloseHandle.argtypes = [wintypes.HANDLE]
+    snap = k32.CreateToolhelp32Snapshot(0x2, 0)
+    if not snap or snap == wintypes.HANDLE(-1).value:
+        return []
+    found: list[int] = []
+    try:
+        e = Entry()
+        e.dwSize = ctypes.sizeof(Entry)
+        ok = k32.Process32FirstW(snap, ctypes.byref(e))
+        while ok:
+            pid = e.th32ProcessID
+            if pid not in skip and e.szExeFile.lower().endswith(".exe"):
+                h = k32.OpenProcess(0x1000, False, pid)   # PROCESS_QUERY_LIMITED_INFORMATION
+                if h:
+                    buf, n = ctypes.create_unicode_buffer(1024), wintypes.DWORD(1024)
+                    if k32.QueryFullProcessImageNameW(h, 0, buf, ctypes.byref(n)):
+                        path = os.path.normcase(buf.value)
+                        if path.startswith(root):
+                            name = os.path.basename(path)
+                            stem = name[:-4] if name.lower().endswith(".exe") else name
+                            low = stem.lower()
+                            if not low.startswith(("superheroboostconfig", "python")):
+                                direct = os.path.dirname(path) + os.sep == root
+                                if direct or low.startswith(GAME_EXE_PREFIXES):
+                                    found.append(pid)
+                    k32.CloseHandle(h)
+            ok = k32.Process32NextW(snap, ctypes.byref(e))
+    finally:
+        k32.CloseHandle(snap)
+    return found
+
+
+def _kill_game_copies(game: Path, log=None) -> list[int]:
+    """Close every copy of the game running from this folder, so the builder can replace it (Windows)."""
+    if os.name != "nt":
+        return []
+    pids = _game_processes(game)
+    if not pids:
+        return []
+    try:
+        import ctypes
+        from ctypes import wintypes
+    except ImportError:
+        return []
+    k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    k32.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
+    k32.OpenProcess.restype = wintypes.HANDLE
+    k32.TerminateProcess.argtypes = [wintypes.HANDLE, wintypes.UINT]
+    k32.TerminateProcess.restype = wintypes.BOOL
+    k32.WaitForSingleObject.argtypes = [wintypes.HANDLE, wintypes.DWORD]
+    k32.CloseHandle.argtypes = [wintypes.HANDLE]
+    killed: list[int] = []
+    for pid in pids:
+        h = k32.OpenProcess(0x0001 | 0x00100000, False, pid)   # PROCESS_TERMINATE | SYNCHRONIZE
+        if not h:
+            continue
+        if k32.TerminateProcess(h, 1):
+            k32.WaitForSingleObject(h, 5000)
+            killed.append(pid)
+            if log:
+                log("Closed the running game (process %d) so the build can finish" % pid)
+        k32.CloseHandle(h)
+    if killed:
+        time.sleep(0.3)      # let Windows release the exe/dll handles
+    return killed
+
+
+def _watch_games(game: Path, stop: threading.Event, log=None) -> None:
+    """Keep closing copies of the game opened while the build runs (the builder would stop at the final swap)."""
+    while not stop.wait(1.0):
+        try:
+            _kill_game_copies(game, log)
+        except Exception:
+            pass
 
 
 _built_cache: dict = {}
@@ -876,51 +991,58 @@ def build(game: Path, builder: Path, work: Path | None, progress=None, log=None)
             progress(min(1.0, max(0.0, fraction)), text, stage)
 
     report("starting")
+    _kill_game_copies(game, log)      # (a game left open would stop the builder at its final swap)
+    stop_watch = threading.Event()
+    threading.Thread(target=_watch_games, args=(game, stop_watch, log), daemon=True,
+                     name="shb-game-watch").start()
     try:
-        _proc = subprocess.Popen(cmd, cwd=str(tools), stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                                 text=True, encoding="utf-8", errors="replace", bufsize=1, env=env,
-                                 creationflags=flags)
-    except OSError as ex:
-        raise I.InstallError("recomp_no_builder", str(ex))
-    last = []
-    with _proc:
-        for line in _proc.stdout or ():
-            line = line.rstrip("\r\n")
-            if not line:
-                continue
-            last.append(line)
-            last = last[-40:]
-            if line.startswith("@@stage "):
-                parts = line.split(" ", 2)
-                stage = parts[1] if len(parts) > 1 else stage
-                fraction = STAGE_RANGE.get(stage, (fraction, fraction))[0]
-                report(parts[2] if len(parts) > 2 else stage)
-            elif line.startswith("@@progress "):
-                try:
-                    p = float(line.split(" ", 1)[1])
-                except ValueError:
+        try:
+            _proc = subprocess.Popen(cmd, cwd=str(tools), stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                     text=True, encoding="utf-8", errors="replace", bufsize=1, env=env,
+                                     creationflags=flags)
+        except OSError as ex:
+            raise I.InstallError("recomp_no_builder", str(ex))
+        last = []
+        with _proc:
+            for line in _proc.stdout or ():
+                line = line.rstrip("\r\n")
+                if not line:
                     continue
-                lo, hi = STAGE_RANGE.get(stage, (0.0, 1.0))
-                fraction = lo + max(0.0, min(1.0, p)) * (hi - lo)
-                report("")
-            elif line.startswith("@@plan "):
-                report("")
-            elif line.startswith("@@eta "):
-                report("")
-            elif line.startswith("@@error "):
-                try:
-                    _proc.terminate()
-                except OSError:
-                    pass
-                raise I.InstallError("recomp_build_failed", line[8:])
-            elif line.startswith("@@"):
-                continue
-            else:
-                if log:
-                    log(line)
-            if _cancel.is_set():
-                raise I.InstallError("recomp_cancelled")
-        code = _proc.wait()
+                last.append(line)
+                last = last[-40:]
+                if line.startswith("@@stage "):
+                    parts = line.split(" ", 2)
+                    stage = parts[1] if len(parts) > 1 else stage
+                    fraction = STAGE_RANGE.get(stage, (fraction, fraction))[0]
+                    report(parts[2] if len(parts) > 2 else stage)
+                elif line.startswith("@@progress "):
+                    try:
+                        p = float(line.split(" ", 1)[1])
+                    except ValueError:
+                        continue
+                    lo, hi = STAGE_RANGE.get(stage, (0.0, 1.0))
+                    fraction = lo + max(0.0, min(1.0, p)) * (hi - lo)
+                    report("")
+                elif line.startswith("@@plan "):
+                    report("")
+                elif line.startswith("@@eta "):
+                    report("")
+                elif line.startswith("@@error "):
+                    try:
+                        _proc.terminate()
+                    except OSError:
+                        pass
+                    raise I.InstallError("recomp_build_failed", line[8:])
+                elif line.startswith("@@"):
+                    continue
+                else:
+                    if log:
+                        log(line)
+                if _cancel.is_set():
+                    raise I.InstallError("recomp_cancelled")
+            code = _proc.wait()
+    finally:
+        stop_watch.set()
     _proc = None
     if _cancel.is_set():
         raise I.InstallError("recomp_cancelled")
@@ -937,7 +1059,10 @@ def install(game_path, s: I.Settings, rebuild: bool = True, builder_path=None, w
     game = find_game(game_path)
     if game is None:
         raise I.InstallError("recomp_no_game", str(game_path))
-    if game_running():
+    # A copy running from this folder cannot be replaced (the builder refuses at its final swap). Close it and
+    # carry on; only fail if it could not be closed (another user's/elevated process).
+    _kill_game_copies(game, log)
+    if _game_processes(game):
         raise I.InstallError("recomp_running", str(game))
     builder = None
     exefs_name = exefs_of(game).name          # (the name the folder had before any rename: restored on uninstall)
@@ -976,7 +1101,8 @@ def apply_settings(game_path, s: I.Settings) -> Result:
     game = find_game(game_path)
     if game is None:
         raise I.InstallError("recomp_no_game", str(game_path))
-    if game_running():
+    _kill_game_copies(game)
+    if _game_processes(game):
         raise I.InstallError("recomp_running", str(game))
     if not (exefs_of(game) / "subsdk9").exists():
         raise I.InstallError("recomp_needs_build", str(game))

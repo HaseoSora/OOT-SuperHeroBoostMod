@@ -202,7 +202,8 @@ the speed argument.
     ZL/`LockOn` is active and is passed through when the target camera is off.
   - **Toggle Target:** physical ZL is consumed, a rising edge latches targeting, and native ZL is synthesised while the
     latch is on. L is consumed as a guard only while targeting.
-  - R3 cancels targeting in both modes.
+  - **R3** while the target camera is active injects a few frames of full stick deflection (both sticks) so the
+    game changes to the next lock-on target with its own logic; it no longer cancels targeting.
 - Frame (code hook 0): `manual_shield_on_frame()` updates the ZL gesture/latch once per scheduler frame (repeated HID
   reads cannot repeat it), caches the player state and AS interface and keeps the native guard flags and AS Bool14 off
   unless L is held with the target camera active. On guard entry it requests the shield draw only (not the sword).

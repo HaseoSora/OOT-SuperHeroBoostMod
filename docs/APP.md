@@ -122,7 +122,8 @@ The **HUD & buttons** section has a **Manual shield** card (off by default):
   in **Toggle Target**. The mod reads the option live.
 - **L**: hold to raise the shield only while the target camera is active; with the camera off it keeps its normal
   function (item button or selector included).
-- **R3**: cancels targeting.
+- **R3**: while the target camera is active, switches to the next lock-on target (a quick stick flick, the same
+  gesture the game uses); it no longer cancels targeting.
 - It reserves L only while the target camera is active, so buttonMapping can still use L when the camera is off.
 - It is a control preference, not part of a profile, and it works independently of the stamina system.
 

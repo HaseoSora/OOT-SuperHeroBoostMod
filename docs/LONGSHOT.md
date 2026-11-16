@@ -1,8 +1,8 @@
 # Longshot, Hookshot and ReLink
 
 Hookshot, Longshot and ReLink are **not emulators**: they are static recompilations of the game. The console's code is
-translated to C and compiled into a native program (`bin/hookshot`, `bin/longshot.exe`, `bin/relink-game.exe`); the
-prepared guest image lives in `image.bin`, next to it. The app tells them apart by the exefs folder the game keeps
+translated to C and compiled into a native program (`bin/hookshot`, `bin/longshot`, `bin/relink-game`; `.exe` on
+Windows); the prepared guest image lives in `image.bin`, next to it. The app tells them apart by the exefs folder the game keeps
 (`.longshot_exefs`, `.hookshot_exefs`, `.relink_exefs`), and uses the matching builder, environment variables
 (`LONGSHOT_*` / `RELINK_*`) and file names.
 
@@ -152,12 +152,18 @@ different game version is refused instead of patched at the wrong offsets.
 
 ## The builder folder
 
-The game's flavor decides which launcher is searched: Longshot in
-`%LOCALAPPDATA%\LongshotLauncher\toolchains\<version>\LongshotBuilder`, Hookshot in
-`%LOCALAPPDATA%\HookshotLauncher\toolchains\<version>\HookshotBuilder` and ReLink in
-`%LOCALAPPDATA%\ReLink\versions\<version>\ReLink`. A ReLink or Hookshot builder is never picked for a Longshot
-game (and the settings that decide DLSS/FSR are read from the same launcher). The detected path is shown under the
-game path (**Builder detected: …**).
+The game's flavor decides which launcher is searched: Longshot in `<launcher>\toolchains\<version>\LongshotBuilder`,
+Hookshot in `<launcher>\toolchains\<version>\HookshotBuilder` and ReLink in
+`<launcher>\versions\<version>\ReLink`. `<launcher>` is the launcher's data folder: `%LOCALAPPDATA%\<Launcher>`
+on Windows, `$XDG_DATA_HOME/<Launcher>` (or `~/.local/share/<Launcher>`) on Linux and
+`~/Library/Application Support/<Launcher>` on macOS; the known spellings and any folder whose name contains the
+flavor are accepted. A ReLink or Hookshot builder is never picked for a Longshot game (and the settings that decide
+DLSS/FSR are read from the same launcher). The detected path is shown under the game path (**Builder detected: …
+**).
+
+On Linux and macOS the builders produce `bin/longshot`, `bin/hookshot` and `bin/relink-game` (no `.exe`), and the
+app runs `make_game.py` with the builder's own `tools/python/bin/python3` (or a system `python3` when the app is
+packaged), so the same install/rebuild/uninstall works there.
 
 The builder entry is optional: it only appears when no builder was found, when one was chosen by hand
 (**Builder set by you: …**) or after **Change…**; **Auto** clears it and returns to detection.

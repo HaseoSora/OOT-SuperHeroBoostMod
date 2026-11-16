@@ -152,10 +152,27 @@ different game version is refused instead of patched at the wrong offsets.
 
 ## The builder folder
 
-The app looks for it in the launchers' folders (`toolchains` for Longshot/Hookshot, `versions` for ReLink) and shows
-the detected path under the game path (**Builder detected: …**). The entry below it lets you pick another folder
-(**Builder set by you: …**); **Auto** clears it and returns to detection. `LONGSHOT_BUILDER`, `HOOKSHOT_BUILDER` and
-`RELINK_BUILDER` override it, as does `--builder` in `tools/install_longshot.py`.
+The game's flavor decides which launcher is searched: Longshot in
+`%LOCALAPPDATA%\LongshotLauncher\toolchains\<version>\LongshotBuilder`, Hookshot in
+`%LOCALAPPDATA%\HookshotLauncher\toolchains\<version>\HookshotBuilder` and ReLink in
+`%LOCALAPPDATA%\ReLink\versions\<version>\ReLink`. A ReLink or Hookshot builder is never picked for a Longshot
+game (and the settings that decide DLSS/FSR are read from the same launcher). The detected path is shown under the
+game path (**Builder detected: …**).
+
+The builder entry is optional: it only appears when no builder was found, when one was chosen by hand
+(**Builder set by you: …**) or after **Change…**; **Auto** clears it and returns to detection.
+`LONGSHOT_BUILDER`, `HOOKSHOT_BUILDER` and `RELINK_BUILDER` override it, as does `--builder` in
+`tools/install_longshot.py`.
+
+## The 0.4.0 crash (guest 0x38)
+
+`-Oz` (enabled for the 0.4.0 module) turns on LLVM's machine outliner, which moved the `p >= 0x10000` guard of many
+pointer checks into a shared `OUTLINED_FUNCTION_n` that ends in `cmp` + `ret`; the callers then branched on the
+flags. Longshot's recompiler drops the flags of a `cmp` that ends a function, so after the call the `b.lo` used stale
+flags: the guard stopped working and a null pointer reached `ldr x8, [x8, #0x38]` in `hud_on_code` (`read
+0x100000000038, guest 0x38`, thread `BaseProcExecutor5`). `tools/build_core.py` now compiles with
+`-mllvm -enable-machine-outliner=never`, so those comparisons stay inline and no call sits between `cmp` and the
+branch. The module is baked into the image: the game has to be rebuilt once for the fix to apply.
 
 ## Hookshot and ReLink
 

@@ -38,7 +38,10 @@ EXE_NAMES = (Path("bin") / "longshot.exe", Path("bin") / "hookshot.exe", Path("b
              Path("bin") / "relink-game.exe")
 LAUNCHER_NAMES = ("longshot.exe", "hookshot.exe", "hookshot", "ReLink.exe", "relink.exe")
 BUILDER_NAMES = ("LongshotBuilder", "HookshotBuilder", "ReLink")
-BUILDER_ROOTS = ("LongshotLauncher", "HookshotLauncher", "ReLink")
+# Each flavor has its own launcher folder and builder name: never mix them (a ReLink builder cannot build a
+# Longshot game, and the settings that decide DLSS/FSR live in the matching launcher).
+BUILDER_ROOTS = {"longshot": "LongshotLauncher", "hookshot": "HookshotLauncher", "relink": "ReLink"}
+BUILDER_ENV = {"longshot": "LONGSHOT_BUILDER", "hookshot": "HOOKSHOT_BUILDER", "relink": "RELINK_BUILDER"}
 # Files the builders regenerate on every build: never copied (some are gigabytes) and deleted on uninstall, so a
 # stale cache of the modded build cannot meet the restored game.
 VOLATILE = (
@@ -85,9 +88,9 @@ def launcher_options(game: Path) -> dict:
             pass
         opt["ngx"] = home / "ReLink" / "ngx-sdk"
     else:
-        base = home / "LongshotLauncher"
-        if not base.is_dir():
-            base = home / "HookshotLauncher"
+        # The settings that decide DLSS/FSR belong to the launcher that built this flavor (a Hookshot game reads
+        # HookshotLauncher; a Longshot game LongshotLauncher).
+        base = home / ("HookshotLauncher" if flavor(game) == "hookshot" else "LongshotLauncher")
         opt["launcher"] = str(base / "settings.json") if (base / "settings.json").is_file() else None
         try:
             settings = json.loads((base / "settings.json").read_text(encoding="utf-8"))
@@ -185,53 +188,77 @@ def is_builder(path: Path) -> bool:
     return (path / "tools" / "nx2" / "make_game.py").is_file()
 
 
-def find_builder(game: Path | None = None) -> Path | None:
-    """The builder folder (the one with tools/nx2/make_game.py) for this game.
+def _builder_names(fl: str) -> tuple[str, ...]:
+    return ("ReLink",) if fl == "relink" else (("HookshotBuilder",) if fl == "hookshot" else ("LongshotBuilder",))
 
-    Longshot and Hookshot keep it in `%LOCALAPPDATA%\\LongshotLauncher|HookshotLauncher\\toolchains\\<version>\\…Builder`;
-    ReLink in `%LOCALAPPDATA%\\ReLink\\versions\\<version>\\ReLink`. The environment variables win, then the newest
-    folder found, then one beside the game."""
-    for name in ("LONGSHOT_BUILDER", "HOOKSHOT_BUILDER", "RELINK_BUILDER"):
-        env = os.environ.get(name)
+
+def _flavors(game: Path | None) -> list[str]:
+    """The flavors to look for: the game's own, or every one when there is no game yet (Longshot first)."""
+    if game is None:
+        return ["longshot", "hookshot", "relink"]
+    try:
+        return [flavor(game)]
+    except I.InstallError:
+        return []
+
+
+def find_builder(game: Path | None = None) -> Path | None:
+    """The builder folder (the one with tools/nx2/make_game.py) **for this game**.
+
+    Longshot keeps it in `%LOCALAPPDATA%\\LongshotLauncher\\toolchains\\<version>\\LongshotBuilder`, Hookshot in
+    `…\\HookshotLauncher\\toolchains\\<version>\\HookshotBuilder` and ReLink in `%LOCALAPPDATA%\\ReLink\\versions\\
+    <version>\\ReLink`: the game's flavor decides which launcher is searched, so a ReLink or Hookshot builder is never
+    picked for a Longshot game. The matching environment variable wins, then the newest folder found, then one beside
+    the game."""
+    flavors = _flavors(game)
+    for fl in flavors:
+        env = os.environ.get(BUILDER_ENV[fl])
         if env and is_builder(Path(env)):
             return Path(env)
     local = Path(os.environ.get("LOCALAPPDATA", ""))
     found: list[Path] = []
-    for root in BUILDER_ROOTS:
-        base = local / root
+    for fl in flavors:
+        base = local / BUILDER_ROOTS[fl]
         if not base.is_dir():
             continue
+        names = _builder_names(fl)
+        patterns = ("versions/*", "versions/*/*") if fl == "relink" else ("toolchains/*",)
         try:
-            for pat in ("toolchains/*", "versions/*", "versions/*/*"):
+            for pat in patterns:
                 for p in base.glob(pat):
-                    if p.name in BUILDER_NAMES and is_builder(p):
+                    if p.name in names and is_builder(p):
                         found.append(p)
                     else:
-                        for name in BUILDER_NAMES:
+                        for name in names:
                             q = p / name
                             if q.is_dir() and is_builder(q):
                                 found.append(q)
         except OSError:
             pass
-    if game:
-        for rel in (("LongshotBuilder",), ("HookshotBuilder",), ("ReLink",),
-                    ("..", "LongshotBuilder"), ("..", "HookshotBuilder"), ("..", "ReLink")):
+    if game and flavors:
+        fl = flavors[0]
+        for rel in ((*_builder_names(fl),), ("..", *_builder_names(fl))):
             p = game.joinpath(*rel)
             if is_builder(p):
                 found.append(p)
-    return sorted(set(found))[-1] if found else None
+    if not found:
+        return None
+    # With a game there is a single flavor: the newest installed version wins. Without one, keep the Longshot,
+    # then Hookshot, then ReLink order instead of comparing unrelated paths.
+    return sorted(set(found))[-1] if game else found[0]
 
 
 def find_work(game: Path | None = None) -> Path | None:
-    """The build cache folder the launchers use, so a rebuild is incremental instead of a full recompile."""
+    """The build cache folder the launcher of this game uses, so a rebuild is incremental instead of a full
+    recompile."""
     home = Path(os.environ.get("LOCALAPPDATA", ""))
-    relink = False
+    fl = None
     if game:
         try:
-            relink = flavor(game) == "relink"
+            fl = flavor(game)
         except I.InstallError:
-            relink = False
-    order = ("ReLink",) if relink else ("LongshotLauncher", "HookshotLauncher", "ReLink")
+            fl = None
+    order = (BUILDER_ROOTS[fl],) if fl else ("LongshotLauncher", "HookshotLauncher", "ReLink")
     for name in order:
         base = home / name
         if not base.is_dir():

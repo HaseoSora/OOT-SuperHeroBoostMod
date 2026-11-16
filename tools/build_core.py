@@ -54,6 +54,12 @@ CFLAGS = [
     # The NSO has no relocations: jump tables and switch lookup tables hold link-time
     # absolute addresses that are wrong at runtime. This also turns off the lookup tables.
     "-fno-jump-tables",
+    # -Oz turns on LLVM's machine outliner, which moves the `p >= 0x10000` guard of many checks into a
+    # shared OUTLINED_FUNCTION_n ending in `cmp` + `ret`; the callers then branch on the flags. Longshot's
+    # recompiler drops the flags of a `cmp` that ends a function, so after the call the `b.lo` uses stale
+    # flags, the guard stops working and a null pointer reaches the load (the 0.4.0 Longshot crash:
+    # read 0x100000000038 / guest 0x38 in hud_on_code). Keep those comparisons inline.
+    "-mllvm", "-enable-machine-outliner=never",
     "-Oz",
 ]
 

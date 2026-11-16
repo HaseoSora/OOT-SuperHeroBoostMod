@@ -722,7 +722,7 @@ def gui() -> None:
                 w.config(state="disabled" if on else "normal")
             except Exception:
                 pass
-        for key in ("install", "uninstall", "rebuild", "builder_btn", "builder_auto"):
+        for key in ("install", "uninstall", "rebuild", "builder_btn", "builder_auto", "builder_change"):
             w = ui.get(key)
             if w is not None:
                 w.config(state="disabled" if on else "normal")
@@ -817,6 +817,37 @@ def gui() -> None:
         d = filedialog.askdirectory(title=L("recomp_builder_hint"))
         if d:
             recomp_builder.set(d)
+            show_builder(True)
+
+    builder_open = {"on": False}
+
+    def set_builder_visible(vis):
+        frame = ui.get("builder_frame")
+        if frame is None:
+            return
+        try:
+            if vis:
+                if not frame.winfo_manager():
+                    before = ui.get("recomp_note")
+                    if before is not None:
+                        frame.pack(fill="x", pady=(4, 0), before=before)
+                    else:
+                        frame.pack(fill="x", pady=(4, 0))
+            else:
+                frame.pack_forget()
+        except tk.TclError:
+            pass
+
+    def show_builder(show=None):
+        """Open/close the optional builder entry (it stays hidden while a builder is detected)."""
+        if show is not None:
+            builder_open["on"] = bool(show)
+        set_builder_visible(builder_open["on"])
+
+    def clear_builder():
+        builder_open["on"] = False
+        recomp_builder.set("")
+        refresh()
 
     def on_target(*_):
         if not ui.get("sections"):
@@ -933,11 +964,15 @@ def gui() -> None:
                         builder = cand
                     ui["builder_line"].config(
                         text=L("recomp_builder_manual", a=builder or cand), fg=DIM if builder else RED)
+                    set_builder_visible(True)
                 else:
                     builder = R.find_builder(game) if game else None
                     ui["builder_line"].config(
                         text=L("recomp_builder_found", a=builder) if builder else L("recomp_builder_hint"),
                         fg=DIM if builder else AMBER)
+                    # Optional: no entry while the game's own launcher has a builder; shown when it does not
+                    # (or when "Change" opened it).
+                    set_builder_visible(not builder or builder_open["on"])
             else:
                 builder = None
             if "rebuild" in ui:
@@ -1057,8 +1092,18 @@ def gui() -> None:
         label(rf, L("recomp_hint"), size=9, color=DIM, bg=PANEL).pack(anchor="w", pady=(5, 0))
         ui["recomp_status"] = label(rf, "", size=9, color=DIM, bg=PANEL)
         ui["recomp_status"].pack(anchor="w", pady=(2, 0))
-        label(rf, L("recomp_builder"), size=9, color=DIM, bg=PANEL).pack(anchor="w", pady=(8, 0))
-        brow = tk.Frame(rf, bg=PANEL)
+        bline = tk.Frame(rf, bg=PANEL)
+        bline.pack(fill="x", pady=(8, 0))
+        ui["builder_line"] = label(bline, "", size=9, color=DIM, bg=PANEL)
+        ui["builder_line"].pack(side="left")
+        b_change = button(bline, L("recomp_builder_change"), lambda: show_builder(True))
+        b_change.pack(side="left", padx=(8, 0))
+        ui["builder_change"] = b_change
+        # Optional: only shown when no builder was detected, when one was chosen by hand, or by "Change".
+        ui["builder_frame"] = tk.Frame(rf, bg=PANEL)
+        label(ui["builder_frame"], L("recomp_builder"), size=9, color=DIM,
+              bg=PANEL).pack(anchor="w", pady=(2, 0))
+        brow = tk.Frame(ui["builder_frame"], bg=PANEL)
         brow.pack(fill="x", pady=(2, 0))
         entry_b = tk.Entry(brow, textvariable=recomp_builder, bg=PANEL2, fg=TEXT, insertbackground=ACCENT,
                            relief="flat", font=(FAM, 10), highlightthickness=1,
@@ -1067,11 +1112,9 @@ def gui() -> None:
         b_build = button(brow, L("browse"), browse_builder)
         b_build.pack(side="left", padx=(8, 0))
         ui["builder_btn"] = b_build
-        b_auto = button(brow, L("recomp_builder_auto"), lambda: recomp_builder.set(""))
+        b_auto = button(brow, L("recomp_builder_auto"), clear_builder)
         b_auto.pack(side="left", padx=(8, 0))
         ui["builder_auto"] = b_auto
-        ui["builder_line"] = label(rf, "", size=9, color=DIM, bg=PANEL)
-        ui["builder_line"].pack(anchor="w", pady=(2, 0))
         ui["recomp_note"] = label(rf, "", size=9, color=AMBER, bg=PANEL)
         ui["recomp_note"].pack(anchor="w", pady=(8, 0))
         prow = tk.Frame(rf, bg=PANEL)
@@ -1424,7 +1467,7 @@ def gui() -> None:
         v.trace_add("write", autosave)
     emu.trace_add("write", lambda *_: (status.set(""), refresh()))
     recomp_path.trace_add("write", lambda *_: (status.set(""), refresh()))
-    recomp_builder.trace_add("write", autosave)
+    recomp_builder.trace_add("write", lambda *_: (autosave(), refresh()))
 
     render()
     root.after(80, poll)

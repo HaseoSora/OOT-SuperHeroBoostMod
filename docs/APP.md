@@ -77,8 +77,8 @@ display on the ring, and the enemy speed components off.
     interval tables and the action timeouts (as before). See [HARDERCOMBAT.md](HARDERCOMBAT.md).
   They can break puzzles, quests or performance. Back up the save and test one at a time.
 - **Controls**: target with R3 (swaps ZL and R3; the app recommends setting the game's Targeting Type to **Toggle**),
-  sprint while L3 is held (without rolling), the manual shield, button mapping (on/off, style, layout, L mode) and
-  **Quick select**.
+  sprint while L3 is held (the game's sprint animation, without rolling), the manual shield, button mapping
+  (on/off, style, layout, L mode) and **Quick select**.
 - **HUD**: rupee counter, clock (**off / 12 h / 24 h**, one selector), HUD layout and the area collectibles counter.
 - **HUD layout**: **Wide** (the four native-style plates at the bottom), **Simple** (the four counters at the bottom,
   no background) and **Minimal** (rupees and time above the minimap, no plates; the

@@ -146,6 +146,37 @@ static void halve_stick(const HidView *v) {
     }
 }
 
+/* L3 sprint: the game only plays the sprint animation while A is held, and pressing A while
+ * already moving makes Link roll first. So L3 is injected as A, and on the frame the A press
+ * arrives while the stick is pushed the stick is centred for two frames: the game sees the
+ * press while standing, which is the "hold A then move" case (sprint, no roll). */
+static u32 g_l3_a;         /* A is being injected for L3 */
+static u32 g_l3_neutral;   /* frames left with the stick centred (avoid the roll) */
+static u32 g_l3_frame;     /* last rendered frame seen here */
+
+static void l3_inject_a(const HidView *v, u64 buttons, u32 moving) {
+    if (!(g_shbcfg.sprint_l3 && (buttons & BTN_L3)) || (buttons & BTN_A)) {
+        g_l3_a = 0;
+        g_l3_neutral = 0;
+        return;
+    }
+    u32 now = hud_frame_count();
+    u32 new_frame = now != g_l3_frame;
+    g_l3_frame = now;
+    if (!g_l3_a && moving) g_l3_neutral = 2;
+    g_l3_a = 1;
+    for (u32 i = 0; i < v->count; i++)
+        hid_set_buttons(v, i, hid_get_buttons(v, i) | BTN_A);
+    if (g_l3_neutral) {
+        for (u32 i = 0; i < v->count; i++) {
+            volatile int *p = (volatile int *)((unsigned char *)v->samples + (u64)i * HID_STRIDE + 0x10);
+            p[0] = 0;
+            p[1] = 0;
+        }
+        if (new_frame) g_l3_neutral--;
+    }
+}
+
 #define RUN_HOLD_FRAMES 12u
 static u32 g_run_hold;
 u32 g_st_guard;           /* diagnostic: guard hits that cost stamina */
@@ -171,6 +202,8 @@ void stamina_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_result) 
     if (site != 3) return;   /* only site 3 runs during gameplay */
     if (player_dead()) {     /* death ragdoll / game over: never filter the menu's buttons */
         g_sprint_a = 0;
+        g_l3_a = 0;
+        g_l3_neutral = 0;
         player_take_events();
         hud_set_tired(0);
         hud_set_stamina(g_stamina.stamina, g_stamina.cap, 0.0f);
@@ -178,6 +211,7 @@ void stamina_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_result) 
     }
     if (!g_shbcfg.stamina_enabled) {   /* stamina system switched off in the config */
         u64 b = hid_merge_buttons(&view);
+        l3_inject_a(&view, b, stick_mag2(&view) > STICK_MOVE2);
         g_sprint_a = ((b & BTN_A) || (g_shbcfg.sprint_l3 && (b & BTN_L3))) != 0;
         player_take_events();
         hud_set_tired(0);
@@ -193,7 +227,8 @@ void stamina_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_result) 
 
     float m2 = stick_mag2(&view);
     u32 moving = m2 > STICK_MOVE2;
-    /* Sprint: A held, or L3 held when the app option is on. L3 is not injected as A, so it does not roll. */
+    /* Sprint: A held, or L3 held when the app option is on (L3 is injected as A further down,
+     * so the game's sprint animation plays; the stick is centred on the press to avoid the roll). */
     u32 sprint_held = ((buttons & BTN_A) || (g_shbcfg.sprint_l3 && (buttons & BTN_L3))) != 0;
     u32 running = sprint_held && moving;
 
@@ -207,6 +242,8 @@ void stamina_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_result) 
     /* Outside the world (menus, pause, game over, dead) nothing of this runs. */
     if (!(player_active() && g_same_reads <= 8)) {
         player_take_events();
+        g_l3_a = 0;
+        g_l3_neutral = 0;
         /* shield hits survive a short pause (the player's hit reaction); after a real break (menu, loading) they are dropped */
         if (!g_inactive_since) g_inactive_since = now ? now : 1;
         if (now - g_inactive_since > 60u) g_guard_seen = player_guard_seq();
@@ -307,6 +344,9 @@ void stamina_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_result) 
                         (in_combat || draining || g_exhausted || g_stamina.stamina < g_stamina.cap - 0.5f)
                             ? 1.0f : 0.0f);
     }
+    /* L3: inject A so the game's own sprint (and its animation) plays, without the roll. */
+    l3_inject_a(&view, buttons, moving);
+
     /* Filters on the input the game sees (every call, not only the first of a frame). */
     u64 strip = 0;
     unsigned preset = g_shbcfg.preset;

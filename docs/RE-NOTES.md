@@ -340,6 +340,12 @@ Both mods are generated from the user's own dump by `tools/make_enemy_opts.py`; 
   address, multiplies s0 (saved d0) by `sprint_speed_pct` while A is held and not stripped by the stamina rules.
   Measured: run ~5.6 m/s, native sprint ~7 m/s, x2 -> ~14.5 m/s. Default 125 %. Writing position (actor+0x31C) or
   velocity (actor+0x388) does nothing (both are outputs); RollingMaxSpeed does not drive the sprint.
+- L3 sprint and the sprint animation (Nov 16): holding A plays a faster run (7 m/s), but only when A is
+  already held before the stick moves; pressing A while moving rolls first. So `sprint_l3` injects A into
+  the HID state, and when the press arrives with the stick already pushed it centres the stick for two
+  frames (the "hold A, then move" case). L3 then sprints with the game's own sprint animation and never
+  rolls: measured 7.3-8.0 m/s against 5.1-5.6 m/s running. Forcing the action-state name (comp+0x244) to
+  `MoveDash` changes the pose too, but it is sticky and freezes the movement state machine: do not use it.
 - Shield cost: the hit arrives during the player's hit reaction, when his movement update pauses (player_active() false
   for a few frames) and queued events were dropped. Shield hits are now a counter (player_guard_seq) kept across
   pauses shorter than 60 frames; GuardFailHit (the hit went through) no longer counts.

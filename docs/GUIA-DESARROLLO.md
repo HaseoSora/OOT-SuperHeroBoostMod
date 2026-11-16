@@ -151,7 +151,7 @@ reads them every frame (`g_shbcfg`). **Fields are only appended at the end** (us
 | 68-69 | `hud_ioff2` (s16) | Clock/collectible icon x offset |
 | 70 | `manual_shield` | Manual shield checkbox |
 | 71 | `target_r3` | Swap ZL/R3 (target on R3; Toggle targeting recommended) |
-| 72 | `sprint_l3` | L3 (left stick click) sprint while pressed (sprint flag, no A injection) |
+| 72 | `sprint_l3` | L3 (left stick click) sprint while pressed (injects A, roll suppressed) |
 | 73-75 | padding (struct alignment) | — |
 
 **Adding a new option:** field in `config.h` (taking bytes from `reserved`), default value in `config.c`, write in
@@ -226,8 +226,10 @@ the speed argument.
 - `target_r3`: exchanges the physical ZL and R3 bits in gameplay only. R3 then targets; the app recommends setting
   System > Options > Targeting Type to **Toggle** (press R3 to start/stop targeting).
   Menus and loading screens keep the native buttons.
-- `sprint_l3`: the stamina feature reads L3 (`0x10`) and sets its sprint flag while it is held, without injecting
-  A, so Link does not roll. It charges the sprint cost and uses the same speed multiplier; gameplay only.
+- `sprint_l3`: the stamina feature reads L3 (`0x10`) and injects A while it is held, so the game plays its own
+  sprint (animation included). When the A press arrives while the stick is already pushed, the stick is centred for
+  two frames, which is the "hold A, then move" case: Link sprints without rolling. It charges the sprint cost and
+  uses the same speed multiplier; gameplay only.
 - Config bytes 71 and 72 (see the runtime table above); `installer.patch_config` writes them at `f+55`/`f+56` when
   the module config size is at least 73.
 

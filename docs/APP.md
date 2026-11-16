@@ -67,8 +67,8 @@ display on the ring, and the enemy speed components off.
 - **Stamina**: on/off, stamina style, what costs stamina (the checkboxes update automatically for each style), sprint
   speed and the stamina display (ring around the hero, or a segmented bar under the magic gauge; yellow, red while
   recharging).
-- **Difficulty**: enemy health, damage taken, heart drops.
-- **Enemies**: two beta tools, generated from the user's dump at build time and installed as extra romfs files:
+- **Difficulty**: enemy health, damage taken, heart drops and the two beta enemy tools, generated from the user's
+  dump at build time and installed as extra romfs files:
   - **Duplicate enemies (Option A)**: clones generic enemy placements in `Banc` and doubles field auto-spawn counts.
     Bosses, minibosses and scripted enemies are excluded.
   - **Enemy speed**: movement (all base speeds and attack motions), animation playback, attack cadence and
@@ -76,8 +76,9 @@ display on the ring, and the enemy speed components off.
     harder-combat method (every speed together, so enemies do not slide or overshoot); attack cadence scales the
     interval tables and the action timeouts (as before). See [HARDERCOMBAT.md](HARDERCOMBAT.md).
   They can break puzzles, quests or performance. Back up the save and test one at a time.
-- **HUD & buttons**: rupee counter, clock (**off / 12 h / 24 h**, one selector), button mapping (on/off), button
-  style (Switch / PlayStation / Xbox), layout (extended / simple), L mode (item / selector) and **Quick select**.
+- **Controls**: target with R3 (swaps ZL and R3; the app recommends setting the game's Targeting Type to **Hold**),
+  sprint while L3 is held, the manual shield, button mapping (on/off, style, layout, L mode) and **Quick select**.
+- **HUD**: rupee counter, clock (**off / 12 h / 24 h**, one selector), HUD layout and the area collectibles counter.
 - **HUD layout**: **Wide** (the four native-style plates at the bottom), **Simple** (the four counters at the bottom,
   no background) and **Minimal** (rupees and time above the minimap, no plates; the
   Skulltula plate is left to the game, and the current area's heart-piece counter appears next to the native

@@ -229,7 +229,7 @@ void manual_shield_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_re
     g_ms_zl_raw = zl;
     g_ms_l_raw = l;
     g_ms_prev_l = l;
-    if (r3) { g_ms_targeting = 0; g_ms_dbg[4]++; }
+    if (r3 && !g_shbcfg.target_r3) { g_ms_targeting = 0; g_ms_dbg[4]++; }
     g_ms_dbg[1] = g_ms_held;
     g_ms_dbg[2] = g_ms_targeting;
 

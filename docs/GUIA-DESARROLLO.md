@@ -150,7 +150,9 @@ reads them every frame (`g_shbcfg`). **Fields are only appended at the end** (us
 | 66-67 | `hud_tx` (s16) | Text x offset |
 | 68-69 | `hud_ioff2` (s16) | Clock/collectible icon x offset |
 | 70 | `manual_shield` | Manual shield checkbox |
-| 71 | reserved | — |
+| 71 | `target_r3` | Swap ZL/R3 (target on R3; Hold targeting recommended) |
+| 72 | `sprint_l3` | L3 (left stick click) holds A while pressed (sprint) |
+| 73-75 | padding (struct alignment) | — |
 
 **Adding a new option:** field in `config.h` (taking bytes from `reserved`), default value in `config.c`, write in
 `installer.patch_config` (`f = magic + 16`), field in `installer.Settings`, flag in `main.cli`, control in `main.py`
@@ -217,6 +219,17 @@ the speed argument.
 - The base guard/target behaviour comes from REXCRAFT88's Manual Shield 0.1.7 for the same build; Super Hero Boost
   makes ZL follow the game's Hold/Toggle option and gates the L guard with the target camera.
 
+### 4.5.1 Controls (`features/controls/`)
+- Optional input remaps; it runs **before** `manual_shield` and `stamina` (the feature list order is
+  `controls,manual_shield,stamina,...`) so those see the swapped buttons and the synthetic A.
+- `target_r3`: exchanges the physical ZL and R3 bits in gameplay only. R3 then targets; the app recommends setting
+  System > Options > Targeting Type to **Hold** (a Toggle press would work too, but the mod is designed around Hold).
+  Menus and loading screens keep the native buttons.
+- `sprint_l3`: L3 (`0x10`) ORs A (`0x01`) while held, which is the game's sprint input (the stamina feature sees it
+  and charges its sprint cost). Gameplay only.
+- Config bytes 71 and 72 (see the runtime table above); `installer.patch_config` writes them at `f+55`/`f+56` when
+  the module config size is at least 73.
+
 ### 4.6 No heart drops (romfs)
 `tools/make_romfs_opts.py` generates, from the game's own dump (`SHB_ROMFS`, your dump folder),
 `GameParameter/DropGlobalParam/...` with `DropGlobalParam.HpActor` (the actor that drops as a "heart") pointing to the
@@ -277,7 +290,7 @@ When the look is right, copy the values into the `g_hudp` / `g_ringp` initialise
 ## 6. Build, release and the app
 
 ```
-python tools/build_core.py --features stamina,songbook,button_mapping --slots --base 0x4F80000   # test module in build/native
+python tools/build_core.py --features controls,manual_shield,stamina,songbook,button_mapping --slots --base 0x4F80000   # test module in build/native
 python tools/make_release.py     # builds the module in app/payload + button textures + optional romfs
 python tools/build_app.py        # native app binary (PyInstaller). Close the app first.
 ```

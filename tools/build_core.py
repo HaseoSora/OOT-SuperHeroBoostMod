@@ -66,6 +66,7 @@ CFLAGS = [
 # Handler table entries per feature, per table
 FEATURE_INPUT_HANDLERS = {
     "probe": ["probe_on_input"],
+    "controls": ["controls_on_input"],
     "stamina": ["stamina_on_input"],
     "songbook": ["songbook_on_input"],
     "quick_select": ["quick_select_on_input"],

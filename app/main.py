@@ -72,6 +72,9 @@ def cli(argv) -> int:
     ap.add_argument("--manual-shield", action="store_true",
                     help="ZL follows the game's Hold/Toggle setting; L holds the shield while targeting")
     ap.add_argument("--no-manual-shield", action="store_true", help="disable the manual shield of a profile")
+    ap.add_argument("--target-r3", action="store_true",
+                    help="swap ZL and R3: target with R3 (recommended with Hold targeting)")
+    ap.add_argument("--sprint-l3", action="store_true", help="L3 (left stick click) holds A while pressed (sprint)")
     ap.add_argument("--enemy-double", action="store_true", help="beta: duplicate generic enemies (romfs)")
     ap.add_argument("--enemy-speed", action="store_true", help="deprecated: enemy movement/animation/attack at x2")
     ap.add_argument("--enemy-move", type=int, choices=I.ENEMY_LEVELS, default=None,
@@ -147,6 +150,10 @@ def cli(argv) -> int:
         s.manual_shield = True
     if a.no_manual_shield:
         s.manual_shield = False
+    if a.target_r3:
+        s.target_r3 = True
+    if a.sprint_l3:
+        s.sprint_l3 = True
     if a.enemy_double:
         s.enemy_double = True
     if a.enemy_speed:
@@ -321,6 +328,8 @@ def gui() -> None:
     quick_boots = tk.BooleanVar(value=bool(cfg.get("quick_boots", False)))
     quick_mask = tk.BooleanVar(value=bool(cfg.get("quick_mask", False)))
     manual_shield = tk.BooleanVar(value=bool(cfg.get("manual_shield", False)))
+    target_r3 = tk.BooleanVar(value=bool(cfg.get("target_r3", False)))
+    sprint_l3 = tk.BooleanVar(value=bool(cfg.get("sprint_l3", False)))
     hud_collectibles = tk.BooleanVar(value=bool(cfg.get("hud_collectibles", False)))
     _hm = cfg.get("hud_mode")
     hud_mode = tk.StringVar(value=_hm if _hm in I.HUD_MODES else "wide")
@@ -489,7 +498,8 @@ def gui() -> None:
         refresh()
         autosave()
 
-    for var in (bmap, stamina, songbook, quick_boots, quick_mask, manual_shield, hud_collectibles, hud_mode,
+    for var in (bmap, stamina, songbook, quick_boots, quick_mask, manual_shield, target_r3, sprint_l3,
+                hud_collectibles, hud_mode,
                 enemy_double, enemy_move, enemy_anim, enemy_attack, enemy_proj,
                 great_fairy, farore_outdoor, mode,
                 combat, hp, dmg, speed, nodrop,
@@ -533,6 +543,7 @@ def gui() -> None:
                           songbook=songbook.get(),
                           quick_boots=quick_boots.get(), quick_mask=quick_mask.get(),
                           manual_shield=manual_shield.get(),
+                          target_r3=target_r3.get(), sprint_l3=sprint_l3.get(),
                           hud_collectibles=hud_collectibles.get(),
                           hud_mode=hud_mode.get(),
                           enemy_double=enemy_double.get(),
@@ -555,6 +566,7 @@ def gui() -> None:
             "stamina": stamina.get(), "stamina_bar": stamina_bar.get(), "songbook": songbook.get(),
             "quick_boots": quick_boots.get(), "quick_mask": quick_mask.get(),
             "manual_shield": manual_shield.get(),
+            "target_r3": target_r3.get(), "sprint_l3": sprint_l3.get(),
             "hud_collectibles": hud_collectibles.get(),
             "hud_mode": hud_mode.get(),
             "enemy_double": enemy_double.get(),
@@ -1205,6 +1217,7 @@ def gui() -> None:
         c.pack(anchor="w", pady=(10, 0))
         label(body, L("no_heart_drop_desc"), size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=(20, 0))
         label(body, L("difficulty_note"), size=9, color=DIM, bg=PANEL).pack(anchor="w", pady=(8, 0))
+        build_enemies(parent)
 
     def build_hud(parent):
         body = card(parent, L("hud_title"), L("hud_desc"))
@@ -1237,9 +1250,17 @@ def gui() -> None:
         check(body, L("hud_collectibles"), hud_collectibles).pack(anchor="w", pady=(8, 0))
         label(body, L("hud_collectibles_desc"), size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=(20, 0))
         label(body, L("hud_note"), size=9, color=DIM, bg=PANEL).pack(anchor="w", pady=(8, 0))
+
+    def build_controls(parent):
+        body = card(parent, L("controls_title"), L("controls_desc"))
+        check(body, L("target_r3_on"), target_r3).pack(anchor="w")
+        label(body, L("target_r3_desc"), size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=(20, 0))
+        label(body, L("target_r3_note"), size=9, color=AMBER, bg=PANEL).pack(anchor="w", padx=(20, 0), pady=(2, 8))
+        check(body, L("sprint_l3_on"), sprint_l3).pack(anchor="w")
+        label(body, L("sprint_l3_desc"), size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=(20, 0))
+        build_manual_shield(parent)
         build_buttons(parent)
         build_quick_select(parent)
-        build_manual_shield(parent)
 
     def build_manual_shield(parent):
         body = card(parent, L("ms_title"), L("ms_desc"))
@@ -1395,7 +1416,7 @@ def gui() -> None:
         side.pack(side="left", fill="y")
         side.pack_propagate(False)
         for key, text in (("home", "nav_home"), ("install", "nav_install"), ("stamina", "nav_stamina"),
-                          ("difficulty", "nav_difficulty"), ("enemies", "nav_enemies"), ("hud", "nav_hud"),
+                          ("difficulty", "nav_difficulty"), ("controls", "nav_controls"), ("hud", "nav_hud"),
                           ("misc", "nav_misc"), ("about", "nav_about")):
             b = tk.Button(side, text=L(text), command=lambda k=key: show_section(k), anchor="w",
                           bg=SIDEBAR, fg=TEXT, activebackground=PANEL, activeforeground=ACCENT,
@@ -1411,7 +1432,7 @@ def gui() -> None:
         scroll = ScrollArea(wrap, BG)
         scroll.frame.pack(fill="both", expand=True)
         builders = {"home": build_home, "install": build_install, "stamina": build_stamina,
-                    "difficulty": build_difficulty, "enemies": build_enemies, "hud": build_hud,
+                    "difficulty": build_difficulty, "controls": build_controls, "hud": build_hud,
                     "misc": build_misc, "about": build_about}
         for key, fn in builders.items():
             f = tk.Frame(scroll.inner, bg=BG)
@@ -1472,6 +1493,7 @@ def gui() -> None:
         apply_profile(profile.get(), save=False)
 
     for v in (emu, bmap, bstyle, bsimple, blmode, stamina, songbook, quick_boots, quick_mask, hud_collectibles,
+              target_r3, sprint_l3,
               enemy_double, enemy_move, enemy_anim, enemy_attack, enemy_proj, stamina_bar,
               great_fairy, farore_outdoor, mode, combat, hp, dmg, speed,
               nodrop, rupees, clock_mode, *costs.values()):

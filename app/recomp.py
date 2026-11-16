@@ -30,7 +30,7 @@ import installer as I
 MOD_NAME = "Super-Hero-Boost"
 BACKUP = ".shb-backup"
 CONFIG_MAGIC = b"SHBCFG01"
-CONFIG_SIZE = 72
+CONFIG_SIZE = 76
 MODULE_BUILD = "e0f3ccfa"   # the game build the IPS and the module are made for (main's NSO module id)
 # Longshot, Hookshot and ReLink are the same kind of static recompilation (an exefs, image.bin, a romfs and a
 # launcher beside a game exe in bin/). The folder name and the exe say which one it is.
@@ -572,8 +572,13 @@ def _patch_bytes(data: bytes, s: I.Settings) -> bytes:
     i = data.find(CONFIG_MAGIC)
     if i < 0:
         raise I.InstallError("bad_module", "config block not found")
-    cfg = I.patch_config(data[i:i + CONFIG_SIZE], s)
-    return data[:i] + cfg + data[i + CONFIG_SIZE:]
+    # Older images carry the 72-byte config; the current module has 76 bytes (target_r3/sprint_l3).
+    import struct
+    size = struct.unpack_from("<I", data, i + 12)[0]
+    if size < 72 or size > 256 or i + size > len(data):
+        size = CONFIG_SIZE
+    cfg = I.patch_config(data[i:i + size], s)
+    return data[:i] + cfg + data[i + size:]
 
 
 def main_build_id(main: Path) -> str:

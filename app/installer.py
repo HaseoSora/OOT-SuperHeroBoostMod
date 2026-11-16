@@ -82,6 +82,8 @@ class Settings:
     bm_l_mode: str = "assign"        # one of L_MODES
     stamina_bar: bool = False        # stamina UI: segmented horizontal bar instead of the ring
     manual_shield: bool = False      # ZL holds the guard, L toggles targeting, R3 cancels
+    target_r3: bool = False          # swap ZL and R3 (target on R3; Hold targeting recommended)
+    sprint_l3: bool = False          # L3 (left stick click) presses A while held (sprint)
 
     def to_dict(self): return dict(self.__dict__)
 
@@ -242,6 +244,9 @@ def patch_config(nso: bytes, s: Settings) -> bytes:
     struct.pack_into("<hhh", b, f + 46, hy, ioff, tx)   # struct 62/64/66 (the shorts are 2-byte aligned)
     struct.pack_into("<h", b, f + 52, ioff2)            # struct 68: clock/collectible icon offset
     b[f + 54] = int(s.manual_shield)                    # struct 70: manual shield (was reserved)
+    if size >= 0x49:                                    # 73: the two new control bytes
+        b[f + 55] = int(s.target_r3)                    # struct 71: swap ZL/R3
+        b[f + 56] = int(s.sprint_l3)                    # struct 72: L3 sprint
     return bytes(b)
 
 

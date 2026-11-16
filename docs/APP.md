@@ -71,8 +71,10 @@ display on the ring, and the enemy speed components off.
 - **Enemies**: two beta tools, generated from the user's dump at build time and installed as extra romfs files:
   - **Duplicate enemies (Option A)**: clones generic enemy placements in `Banc` and doubles field auto-spawn counts.
     Bosses, minibosses and scripted enemies are excluded.
-  - **Enemy speed**: movement, animation playback and attack cadence, each with eleven multipliers from ×0.5 to ×6
-    (plus off). Some enemies or attacks may not change, or may desync.
+  - **Enemy speed**: movement (all base speeds and attack motions), animation playback, attack cadence and
+    projectile speed, each with eleven multipliers from ×0.5 to ×6 (plus off). Movement follows the
+    harder-combat method (every speed together, so enemies do not slide or overshoot); attack cadence scales
+    the interval tables only, not the AI action timeouts. See [HARDERCOMBAT.md](HARDERCOMBAT.md).
   They can break puzzles, quests or performance. Back up the save and test one at a time.
 - **HUD & buttons**: rupee counter, clock (**off / 12 h / 24 h**, one selector), button mapping (on/off), button
   style (Switch / PlayStation / Xbox), layout (extended / simple), L mode (item / selector) and **Quick select**.
@@ -156,7 +158,7 @@ python app/main.py --cli --emu "EMULATOR_PATH" --profile recommended
 python app/main.py --cli --emu "EMULATOR_PATH" --preset 3 --off jump,shoot --combat-only
 python app/main.py --cli --emu "EMULATOR_PATH" --profile hero-explorer --rupees --clock --clock24
 python app/main.py --cli --emu "EMULATOR_PATH" --profile recommended --no-songbook
-python app/main.py --cli --emu "EMULATOR_PATH" --profile base --enemy-move 1 --enemy-anim 2 --enemy-attack 2 --stamina-bar
+python app/main.py --cli --emu "EMULATOR_PATH" --profile base --enemy-move 1 --enemy-anim 2 --enemy-attack 2 --enemy-proj 2 --stamina-bar
 python app/main.py --list-profiles
 ```
 

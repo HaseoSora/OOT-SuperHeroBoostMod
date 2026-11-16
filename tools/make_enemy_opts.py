@@ -2,20 +2,24 @@
 
 Output (installed by the app only when the corresponding option is enabled):
   app/payload/romfs_opts/enemy_double/...      duplicated generic enemies (Banc placements + field auto-spawn)
-  app/payload/romfs_opts/enemy_speed_base/...  original enemy packs (movement + attack patched at install time)
+  app/payload/romfs_opts/enemy_speed_base/...  original enemy packs (movement, attack cadence and projectile
+                                               speeds patched at install time)
   app/payload/romfs_opts/enemy_anim_x15/...    x1.5 animation playback (ASB frame controllers)
   app/payload/romfs_opts/enemy_anim_x2/...     x2 animation playback
   app/payload/romfs_opts/enemy_anim_x3/...     x3 animation playback
-  app/payload/romfs_opts/enemy_speed_manifest.json  float offsets of the base packs
+  app/payload/romfs_opts/enemy_speed_manifest.json  float offsets of the base packs (k: m/a/p)
   app/payload/romfs_opts/enemy_speed_pack.zsdic     dictionary used to recompress the packs
 
 Movement and attack values live in the same pack for most enemies, so shipping one folder per
 combination would repeat ~7.6 MB sixteen times. The app applies the chosen multipliers to the
-base packs at install time; the manifest says which floats are movement and which are attack
-intervals. Animations are separate ASB files and are shipped as three ready-made folders.
+base packs at install time; the manifest says which floats are movement (m), attack intervals (a)
+and projectiles (p). Animations are separate ASB files and are shipped as ready-made folders.
 
-The files are game data, so they are generated locally from the dump and are not part of the repository.
-This is a beta generator: the exclusion list is deliberately conservative and some enemies are left alone.
+The movement set follows the harder-combat mod: every base speed including JogSpeed, the attack
+motion speeds (charge/trans/surprise/fly) and the per-enemy attack move speeds, so a fast enemy
+does not slide or overshoot. The attack set only scales interval tables/fields, not the AI action
+timeouts (AttackStartTimeoutFrames, TimeoutTime, BackWalkTime...), which is what made the old
+speed option unstable.
 """
 import copy
 import json
@@ -61,11 +65,27 @@ BLOCK_BANCS = (
     "Banc/CrumblingGanonCastle", "Banc/SageRoom", "Banc/Demo_",
 )
 MOVE_FIELDS = ("/WalkSpeed", "/RunSpeed", "/DashSpeed", "/EscapeSpeed", "/SpecialMoveSpeed",
-               "/StrafeSpeed", "/LiftWalkSpeed", "/WalkBackwardsSpeed")
-ATTACK_ACTION_FIELDS = ("/AttackStartTimeoutFrames", "/AttackIntervalTimeFromDamage",
-                        "/AttackIntervalTimeFromGuard", "/AttackIntervalTimeGuarded",
-                        "/AttackIntervalTimeMinGrdedCombo", "/BackWalkTimeMax",
-                        "/BackWalkTimeMin", "/TimeoutTime")
+               "/StrafeSpeed", "/LiftWalkSpeed", "/WalkBackwardsSpeed", "/JogSpeed")
+# Attack motions whose speed must follow the base movement: the harder-combat mod scales these too, which is what
+# keeps a fast enemy from sliding/overshooting while it winds up or charges.
+ACTION_MOVE_FIELDS = ("/ChargeAttackMoveSpeed", "/AttackTransSpeed", "/SurpriseAttackMoveSpeed",
+                      "/AttackFlySpeed")
+GAME_MOVE_FIELDS = MOVE_FIELDS + ("/AttackMoveSpeed", "/LandAttackMoveSpeed", "/ChargeAttackMoveSpeed",
+                                  "/SurpriseAttackMoveSpeed", "/AttackFlySpeed", "/Attack1stSpeed",
+                                  "/Attack2ndSpeed", "/AttackSpeed", "/AttackSpeedInWater",
+                                  "/AttackJumpSpeed", "/AttackHitSpeed")
+# Enemy projectiles (a separate app option; they are not part of the enemy's walking speed).
+PROJECTILE_FIELDS = ("BulletSpeed", "ShootInitialSpeed", "RangedAttackInitSpeed",
+                     "SecondBulletFireSpeed", "LightBallSpeed", "BulletMaxSpeed", "BulletMinSpeed")
+# Attack cadence: the interval tables and per-enemy interval fields. The AI action timeouts
+# (AttackStartTimeoutFrames, TimeoutTime, BackWalkTime...) are deliberately NOT scaled here: changing them is
+# what makes the old speed mod unstable. Exact names, so ChangeBrainNotAttackInterval stays alone.
+ATTACK_INTERVAL_NAMES = frozenset((
+    "AttackInterval", "RangedAttackInterval", "AttackIntervalRandom", "AttackIntervalIsNotOnBasePos",
+    "AttackIntervalOutUserPerception", "PreAttackIntervalTime", "AfterAttackWaitFrame",
+    "BeforeAttackWaitFrame", "BasicAttackBeforeInterval", "CloseRangeAttackInterval",
+    "MiddleRangeAttackInterval", "BulletFireEmitInterval",
+))
 ATTACK_TABLE_FIELDS = ("/LongIntervalMax", "/LongIntervalMin", "/MediumIntervalMax",
                        "/MediumIntervalMin", "/ShortIntervalMax", "/ShortIntervalMin")
 
@@ -132,44 +152,72 @@ def scan_pack(path, dictionaries):
         except Exception:
             continue
         movement = "BSA/MovementParam/" in name
-        action = "Game/BSA/ActionSeqContainer/" in name
-        table = "GameBalance/AttackInterval/" in name
-        if not (movement or action or table):
+        action_seq = "Game/BSA/ActionSeqContainer/" in name
+        attack_table = "GameBalance/AttackInterval/" in name
+        game_param = (name.startswith("GameParameter/") or name.startswith("Game/")) and not action_seq
+        if not (movement or action_seq or attack_table or game_param):
             continue
         for path_name, typ, value, off in b.flat():
-            if typ != byml.T_FLOAT or not isinstance(value, float) or value <= 0.01:
+            if typ != byml.T_FLOAT or not isinstance(value, float):
+                continue
+            if value < 0.0:
+                # WalkBackwardsSpeed is negative by design; other negative floats are sentinels (e.g. -1 =
+                # "no interval") and must not be scaled.
+                if not path_name.endswith("WalkBackwardsSpeed"):
+                    continue
+            elif value <= 0.01:
                 continue
             kind = None
-            if movement and any(path_name.endswith(s.lstrip("/")) for s in MOVE_FIELDS):
-                kind = "m"
-            elif action and any(path_name.endswith(s.lstrip("/")) for s in ATTACK_ACTION_FIELDS):
-                kind = "a"
-            elif table and any(path_name.endswith(s.lstrip("/")) for s in ATTACK_TABLE_FIELDS):
-                kind = "a"
+            last = path_name.rsplit("/", 1)[-1]
+            if movement:
+                if any(path_name.endswith(s.lstrip("/")) for s in MOVE_FIELDS):
+                    kind = "m"
+            elif action_seq:
+                if any(path_name.endswith(s.lstrip("/")) for s in ACTION_MOVE_FIELDS):
+                    kind = "m"
+            elif attack_table:
+                if any(path_name.endswith(s.lstrip("/")) for s in ATTACK_TABLE_FIELDS):
+                    kind = "a"
+            elif game_param:
+                if any(path_name.endswith(s.lstrip("/")) for s in GAME_MOVE_FIELDS):
+                    kind = "m"
+                elif any(s in path_name for s in PROJECTILE_FIELDS):
+                    kind = "p"
+                elif last in ATTACK_INTERVAL_NAMES:
+                    kind = "a"
             if kind is not None:
                 found[start + off] = (kind, value)
     return [{"o": off, "k": kind, "v": value} for off, (kind, value) in sorted(found.items())]
 
 
 def edit_pack(path, dictionaries, factor, kind):
-    """Apply one component (for the old x2 folder compatibility; the app patches from base instead)."""
+    """Apply one component (legacy helper; the app patches from the ready-made base packs)."""
     raw = path.read_bytes()
     data = bytearray(pack_of(raw, dictionaries["pack.zsdic"]))
     files = sarc.read_sarc(bytes(data))
     changed = False
-    scale = factor if kind == "m" else 1.0 / factor
+    scale = factor if kind == "m" else 1.0 / factor if kind == "a" else factor
     for name, (start, end) in files.items():
         if not (name.endswith(".bgyml") or name.endswith(".byml")):
             continue
         block = data[start:end]
         try:
             before = bytes(block)
-            if kind == "m" and "BSA/MovementParam/" in name:
-                scale_fields(block, before, MOVE_FIELDS, scale)
-            if kind == "a" and "Game/BSA/ActionSeqContainer/" in name:
-                scale_fields(block, before, ATTACK_ACTION_FIELDS, scale)
-            if kind == "a" and "GameBalance/AttackInterval/" in name:
-                scale_fields(block, before, ATTACK_TABLE_FIELDS, scale)
+            if kind == "m":
+                if "BSA/MovementParam/" in name:
+                    scale_fields(block, before, MOVE_FIELDS, scale)
+                if "Game/BSA/ActionSeqContainer/" in name:
+                    scale_fields(block, before, ACTION_MOVE_FIELDS, scale)
+                if name.startswith("GameParameter/") or name.startswith("Game/"):
+                    scale_fields(block, before, GAME_MOVE_FIELDS, scale)
+            if kind == "a":
+                if "GameBalance/AttackInterval/" in name:
+                    scale_fields(block, before, ATTACK_TABLE_FIELDS, scale)
+                if name.startswith("GameParameter/") or name.startswith("Game/"):
+                    scale_fields(block, before, ATTACK_INTERVAL_NAMES, scale)
+            if kind == "p":
+                if name.startswith("GameParameter/") or name.startswith("Game/"):
+                    scale_fields(block, before, PROJECTILE_FIELDS, scale)
             if bytes(block) != before:
                 data[start:end] = block
                 changed = True
@@ -389,7 +437,7 @@ def main():
         dst.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(p, dst)
         packs.append({"path": rel, "fields": fields})
-    MANIFEST.write_text(json.dumps({"version": 1, "factors": {str(k): v for k, v in FACTORS.items()},
+    MANIFEST.write_text(json.dumps({"version": 2, "factors": {str(k): v for k, v in FACTORS.items()},
                                     "packs": packs}, separators=(",", ":")), encoding="utf-8")
     PACK_DICT.write_bytes(DICTS["pack.zsdic"])
 

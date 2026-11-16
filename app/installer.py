@@ -73,6 +73,7 @@ class Settings:
     enemy_move: int = 0              # enemy movement speed: 0 off, 1 x1.5, 2 x2, 3 x3
     enemy_anim: int = 0              # enemy animation playback: same levels
     enemy_attack: int = 0            # enemy attack cadence: same levels
+    enemy_proj: int = 0              # enemy projectile speed: same levels
     great_fairy: bool = False        # reorder the three Great Fairy magic rewards
     farore_outdoor: bool = False     # allow Farore's Wind points outside dungeons
     button_mapping: bool = True      # buttonMapping: our own item buttons B / L / R / ZR on the HUD
@@ -245,12 +246,13 @@ def patch_config(nso: bytes, s: Settings) -> bytes:
 
 
 # ---------- enemy speed components ----------
-def enemy_levels(s: Settings) -> tuple[int, int, int]:
-    """Selected movement / animation / attack levels. The old enemy_speed bool means all three x2."""
+def enemy_levels(s: Settings) -> tuple[int, int, int, int]:
+    """Selected movement / animation / attack / projectile levels. The old enemy_speed bool means the
+    original three components x2 (projectiles stay off, as they were not part of that option)."""
     levels = tuple(int(v) if int(v) in ENEMY_FACTORS else 0
-                   for v in (s.enemy_move, s.enemy_anim, s.enemy_attack))
+                   for v in (s.enemy_move, s.enemy_anim, s.enemy_attack, s.enemy_proj))
     if s.enemy_speed and not any(levels):
-        return (2, 2, 2)
+        return (2, 2, 2, 0)
     return levels
 
 
@@ -263,14 +265,14 @@ def _copy_tree(src: Path, dst: Path) -> bool:
 
 def install_enemy_mods(romfs: Path, s: Settings, payload: Path | None = None) -> list[tuple[str, str]]:
     """Install the selected enemy-speed components (patched base packs + one animation folder)."""
-    move, anim, attack = enemy_levels(s)
-    if not (move or anim or attack):
+    move, anim, attack, proj = enemy_levels(s)
+    if not (move or anim or attack or proj):
         return []
     opts = (payload or resource_dir()) / "romfs_opts"
     notes: list[tuple[str, str]] = []
     missing = False
 
-    if move or attack:
+    if move or attack or proj:
         base = opts / "enemy_speed_base"
         manifest_path = opts / "enemy_speed_manifest.json"
         dictionary_path = opts / "enemy_speed_pack.zsdic"
@@ -282,15 +284,18 @@ def install_enemy_mods(romfs: Path, s: Settings, payload: Path | None = None) ->
                 dictionary = zstandard.ZstdCompressionDict(dictionary_path.read_bytes())
                 move_scale = ENEMY_FACTORS.get(move, 1.0)
                 attack_scale = 1.0 / ENEMY_FACTORS[attack] if attack else 1.0
+                proj_scale = ENEMY_FACTORS.get(proj, 1.0)
                 for pack in manifest.get("packs", []):
                     fields = pack.get("fields", [])
-                    if not any((f.get("k") == "m" and move) or (f.get("k") == "a" and attack) for f in fields):
+                    if not any((f.get("k") == "m" and move) or (f.get("k") == "a" and attack)
+                               or (f.get("k") == "p" and proj) for f in fields):
                         continue
                     raw = (base / pack["path"]).read_bytes()
                     data = bytearray(zstandard.ZstdDecompressor(dict_data=dictionary).decompress(
                         raw, max_output_size=200_000_000))
                     for f in fields:
-                        scale = move_scale if f.get("k") == "m" else attack_scale
+                        kind = f.get("k")
+                        scale = move_scale if kind == "m" else attack_scale if kind == "a" else proj_scale
                         if scale != 1.0:
                             struct.pack_into("<f", data, int(f["o"]), float(f["v"]) * scale)
                     out = zstandard.ZstdCompressor(dict_data=dictionary).compress(bytes(data))

@@ -39,6 +39,7 @@ class Profile:
     enemy_move: int              # 0 off, 1 x1.5, 2 x2, 3 x3
     enemy_anim: int
     enemy_attack: int
+    enemy_proj: int
     great_fairy: bool
     farore_outdoor: bool
     stamina_bar: bool            # stamina UI: horizontal bar instead of the ring
@@ -49,7 +50,7 @@ def _profile(key, *, button_mapping=True, stamina=True, mode=0, costs=(True,) * 
              enemy_hp=100, damage=100, no_heart_drop=False, sprint_speed=SPRINT_DEFAULT,
              hud_rupees=True, hud_clock=True, clock_24h=True, songbook=True,
              quick_boots=True, quick_mask=True, hud_collectibles=False, hud_mode="wide",
-             enemy_double=False, enemy_move=0, enemy_anim=0, enemy_attack=0,
+             enemy_double=False, enemy_move=0, enemy_anim=0, enemy_attack=0, enemy_proj=0,
              great_fairy=False, farore_outdoor=False, stamina_bar=False, manual_shield=False):
     return Profile(key=key, button_mapping=button_mapping, stamina=stamina, mode=mode, costs=costs,
                    combat_only=combat_only, enemy_hp=enemy_hp, damage=damage,
@@ -58,7 +59,7 @@ def _profile(key, *, button_mapping=True, stamina=True, mode=0, costs=(True,) * 
                    songbook=songbook, quick_boots=quick_boots, quick_mask=quick_mask,
                    hud_collectibles=hud_collectibles, hud_mode=hud_mode,
                    enemy_double=enemy_double, enemy_move=enemy_move, enemy_anim=enemy_anim,
-                   enemy_attack=enemy_attack,
+                   enemy_attack=enemy_attack, enemy_proj=enemy_proj,
                    great_fairy=great_fairy, farore_outdoor=farore_outdoor, stamina_bar=stamina_bar,
                    manual_shield=manual_shield)
 
@@ -97,11 +98,11 @@ PROFILES = {
                       farore_outdoor=True),
     # Beta options: the two enemy mods on top of the vanilla game (all enemy components x2).
     "beta-enemies": _profile("beta-enemies", stamina=False, hud_collectibles=True,
-                             enemy_double=True, enemy_move=2, enemy_anim=2, enemy_attack=2),
+                             enemy_double=True, enemy_move=2, enemy_anim=2, enemy_attack=2, enemy_proj=2),
     # Beta options: everything on, enemy mods included.
     "beta-all": _profile("beta-all", enemy_hp=150, damage=200, no_heart_drop=True,
                          hud_collectibles=True, great_fairy=True, farore_outdoor=True,
-                         enemy_double=True, enemy_move=2, enemy_anim=2, enemy_attack=2,
+                         enemy_double=True, enemy_move=2, enemy_anim=2, enemy_attack=2, enemy_proj=2,
                          manual_shield=True),
 }
 
@@ -116,7 +117,7 @@ def defaults() -> dict:
                 enemy_hp=100, damage=100, no_heart_drop=False, sprint_speed=SPRINT_DEFAULT,
                 hud_rupees=True, hud_clock=True, clock_24h=True, songbook=True,
                 quick_boots=True, quick_mask=True, hud_collectibles=False, hud_mode="wide",
-                enemy_double=False, enemy_move=0, enemy_anim=0, enemy_attack=0,
+                enemy_double=False, enemy_move=0, enemy_anim=0, enemy_attack=0, enemy_proj=0,
                 great_fairy=False, farore_outdoor=False, stamina_bar=False, manual_shield=False)
 
 
@@ -132,5 +133,6 @@ def profile_values(key: str) -> dict:
                 songbook=p.songbook, quick_boots=p.quick_boots, quick_mask=p.quick_mask,
                 hud_collectibles=p.hud_collectibles, hud_mode=p.hud_mode, enemy_double=p.enemy_double,
                 enemy_move=p.enemy_move, enemy_anim=p.enemy_anim, enemy_attack=p.enemy_attack,
+                enemy_proj=p.enemy_proj,
                 great_fairy=p.great_fairy, farore_outdoor=p.farore_outdoor,
                 stamina_bar=p.stamina_bar, manual_shield=p.manual_shield)

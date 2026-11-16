@@ -88,6 +88,11 @@ ATTACK_INTERVAL_NAMES = frozenset((
 ))
 ATTACK_TABLE_FIELDS = ("/LongIntervalMax", "/LongIntervalMin", "/MediumIntervalMax",
                        "/MediumIntervalMin", "/ShortIntervalMax", "/ShortIntervalMin")
+# Fields that must never be touched by any enemy-speed option: the AI action timeouts. They are kept in a
+# separate blacklist so a future name match can never sneak them back in.
+NEVER_SCALE = ("AttackStartTimeoutFrames", "AttackIntervalTimeFromDamage", "AttackIntervalTimeFromGuard",
+               "AttackIntervalTimeGuarded", "AttackIntervalTimeMinGrdedCombo", "BackWalkTimeMax",
+               "BackWalkTimeMin", "TimeoutTime")
 
 
 def load_dicts():
@@ -166,6 +171,8 @@ def scan_pack(path, dictionaries):
                 if not path_name.endswith("WalkBackwardsSpeed"):
                     continue
             elif value <= 0.01:
+                continue
+            if any(path_name.endswith(x) for x in NEVER_SCALE):
                 continue
             kind = None
             last = path_name.rsplit("/", 1)[-1]

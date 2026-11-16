@@ -15,12 +15,11 @@ combination would repeat ~7.6 MB sixteen times. The app applies the chosen multi
 base packs at install time; the manifest says which floats are movement (m), attack intervals (a)
 and projectiles (p). Animations are separate ASB files and are shipped as ready-made folders.
 
-The movement set follows the harder-combat mod: every base speed including JogSpeed, the attack
-motion speeds (charge/trans/surprise/fly) and the per-enemy attack move speeds, so a fast enemy
-does not slide or overshoot. The attack set scales the interval tables/fields and also the AI
-action timeouts (AttackStartTimeoutFrames, TimeoutTime, BackWalkTime...) as requested; note that
-changing those timeouts can make the AI less predictable than the harder-combat mod, which leaves
-them alone.
+The movement set scales every base speed including JogSpeed, the attack motion speeds
+(charge/trans/surprise/fly) and the per-enemy attack move speeds, so a fast enemy does not slide
+or overshoot. The attack set scales the interval tables/fields and also the AI action timeouts
+(AttackStartTimeoutFrames, TimeoutTime, BackWalkTime...) as requested; note that changing those
+timeouts can make the AI less predictable.
 """
 import copy
 import json
@@ -67,8 +66,8 @@ BLOCK_BANCS = (
 )
 MOVE_FIELDS = ("/WalkSpeed", "/RunSpeed", "/DashSpeed", "/EscapeSpeed", "/SpecialMoveSpeed",
                "/StrafeSpeed", "/LiftWalkSpeed", "/WalkBackwardsSpeed", "/JogSpeed")
-# Attack motions whose speed must follow the base movement: the harder-combat mod scales these too, which is what
-# keeps a fast enemy from sliding/overshooting while it winds up or charges.
+# Attack motions whose speed must follow the base movement: scaling these together is what keeps a fast enemy
+# from sliding/overshooting while it winds up or charges.
 ACTION_MOVE_FIELDS = ("/ChargeAttackMoveSpeed", "/AttackTransSpeed", "/SurpriseAttackMoveSpeed",
                       "/AttackFlySpeed")
 GAME_MOVE_FIELDS = MOVE_FIELDS + ("/AttackMoveSpeed", "/LandAttackMoveSpeed", "/ChargeAttackMoveSpeed",

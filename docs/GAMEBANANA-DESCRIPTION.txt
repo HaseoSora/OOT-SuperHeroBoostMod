@@ -11,9 +11,9 @@ WHAT YOU ARE DOWNLOADING
 The file in the Files tab is SuperHeroBoost-0.5.1-presets.zip: the mod itself, with all 12 named profiles of the companion app ready to install in an emulator. Every profile includes the boots/mask quick select. It contains no executable. The configuration app is a separate download (see "Installation app" below); it is not in the Files tab.
 
 NEW IN 0.5.1
-- Enemy speed reworked: movement scales every base and attack speed together (harder-combat method), with separate
+- Enemy speed reworked: movement scales every base and attack speed together, with separate
   animation, attack cadence and projectile speed. The beta profiles set all four components to x2.
-- Controls: target with R3 (swaps ZL and R3; set System > Options > Targeting Type to Hold) and hold L3 to sprint
+- Controls: target with R3 (swaps ZL and R3; set System > Options > Targeting Type to Toggle) and hold L3 to sprint
   with the game's sprint animation, without rolling.
 - Manual shield: L stays reserved during hit reactions and hit-stop; R3 cancels unless the target-on-R3 swap is on.
 - App: Controls section, enemy Projectiles selector and --enemy-proj / --target-r3 / --sprint-l3.
@@ -83,7 +83,7 @@ PROFILES (optional shortcuts)
 
 BETA (optional, experimental, off unless you turn them on)
 - Enemy duplication (Option A): clones every eligible generic enemy placement and shares the original resources, so the extra enemies actually appear and behave. Bosses, minibosses and scripted enemies are excluded.
-- Enemy speed: four independent components (movement, animation playback, attack cadence and projectile speed), each with eleven multipliers from x0.5 to x6 (plus off). Movement follows the harder-combat method (all base and attack speeds together, so enemies do not slide or overshoot). The beta profiles set all four to x2.
+- Enemy speed: four independent components (movement, animation playback, attack cadence and projectile speed), each with eleven multipliers from x0.5 to x6 (plus off). Movement scales all base and attack speeds together, so enemies do not slide or overshoot. The beta profiles set all four to x2.
 - They install extra romfs files and can break puzzles, quests or performance. Back up your save and test one at a time.
 
 REQUIREMENTS

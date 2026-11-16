@@ -1,7 +1,7 @@
 # Super Hero Boost 0.5.1
 
-This release reworks enemy speed (harder-combat movement, a separate projectile speed), adds the **Controls**
-section (target on **R3**, **L3** sprint) and keeps the 0.5.0 Longshot, DLSS/FSR and ReLink fixes.
+This release reworks enemy speed (movement that scales every speed together, a separate projectile speed), adds the
+**Controls** section (target on **R3**, **L3** sprint) and keeps the 0.5.0 Longshot, DLSS/FSR and ReLink fixes.
 
 ## Longshot / Hookshot
 
@@ -22,7 +22,7 @@ adds the controls and enemy options, so **rebuild the game once with 0.5.1**. If
 
 **Enemy speed reworked**
 - Movement now scales every base and attack speed together: walk, run, dash, jog, strafe, attack motions and the
-  per-enemy attack speeds. This is the harder-combat method, so enemies no longer slide or overshoot.
+  per-enemy attack speeds, so enemies no longer slide or overshoot.
 - **Animation playback**, **attack cadence** and **projectile speed** are independent, each with eleven multipliers
   from x0.5 to x6 (plus off).
 - Attack cadence scales the interval tables and the action timeouts; projectile speed is a new, separate option.
@@ -43,8 +43,8 @@ adds the controls and enemy options, so **rebuild the game once with 0.5.1**. If
 **App**
 - New **Controls** section, enemy **Projectiles** selector and `--enemy-proj`, `--target-r3` and `--sprint-l3`
   command-line flags.
-- The enemy-speed generator uses the harder-combat data layout (movement, animation, attack cadence and projectiles
-  in one manifest); reinstall the profile after updating.
+- The enemy-speed generator uses one data layout for movement, animation, attack cadence and projectiles in a single
+  manifest; reinstall the profile after updating.
 
 ## Everything from 0.5.0
 

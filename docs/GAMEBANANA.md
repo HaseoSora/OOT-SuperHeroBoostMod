@@ -77,7 +77,7 @@ on Windows/Linux/macOS, ReLink is supported and the app closes the running game.
 
 **Beta (optional, generated from your own game files)**
 - Enemy duplication (Option A).
-- Enemy speed: movement (all base and attack speeds together, harder-combat method), animation, attack cadence and projectile speed, each with eleven multipliers from x0.5 to x6 (plus off).
+- Enemy speed: movement (all base and attack speeds together), animation, attack cadence and projectile speed, each with eleven multipliers from x0.5 to x6 (plus off).
 
 ## Download
 

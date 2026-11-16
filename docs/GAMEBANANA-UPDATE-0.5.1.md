@@ -14,8 +14,8 @@ logged in. This file is the copy-paste material for that upload.
 **Update description**
 
 ```
-0.5.1 reworks enemy speed (harder-combat movement + a separate projectile speed) and adds the new Controls:
-target with R3 and sprint while holding L3. The 0.5.0 Longshot/DLSS/ReLink fixes are included.
+0.5.1 reworks enemy speed (movement that scales every speed together + a separate projectile speed) and adds the new
+Controls: target with R3 and sprint while holding L3. The 0.5.0 Longshot/DLSS/ReLink fixes are included.
 
 IMPORTANT - LONGSHOT / HOOKSHOT
 There has been a lot of feedback about Longshot problems since 0.4.0: crashes while loading a save or an area, a
@@ -25,7 +25,7 @@ remains, attach logs/longshot_log.txt and the new file in bug-reports/.
 
 ENEMY SPEED
 - Movement now scales every base and attack speed together (walk, run, dash, jog, strafe, attack motions and the
-  per-enemy attack speeds), the harder-combat method: enemies no longer slide or overshoot.
+  per-enemy attack speeds): enemies no longer slide or overshoot.
 - Animation playback, attack cadence and projectile speed are independent, each with eleven multipliers from x0.5
   to x6 (plus off).
 - Attack cadence scales the interval tables and the action timeouts; projectiles are a new, separate option.

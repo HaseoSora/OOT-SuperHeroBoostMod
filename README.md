@@ -9,7 +9,7 @@ projectiles), the new controls (target on R3, L3 sprint) and the 0.5.0 Longshot/
 ### What's new in 0.5.1
 
 - **Enemy speed reworked.** Movement now scales every base and attack speed together (walk, run, dash, jog, strafe,
-  attack motions and the per-enemy attack speeds), the harder-combat method, so enemies no longer slide or overshoot.
+  attack motions and the per-enemy attack speeds), so enemies no longer slide or overshoot.
   **Animation playback**, **attack cadence** and **projectile speed** are independent, with eleven multipliers from
   x0.5 to x6 each (plus off). Attack cadence scales the interval tables and the action timeouts; the beta enemy
   profiles set all four components to x2.
@@ -159,8 +159,8 @@ everything*) turn them on together with the rest of the configuration.
 - **Enemy duplication (Option A)**: clones generic enemy placements in the map data and doubles field auto-spawn
   counts. Bosses, minibosses and scripted enemies are excluded.
 - **Enemy speed**: four independent components (movement, animation playback, attack cadence and
-  projectile speed), each with eleven multipliers from x0.5 to x6 (plus off). Movement follows the
-  harder-combat method: every base and attack speed together, so enemies do not slide or overshoot.
+  projectile speed), each with eleven multipliers from x0.5 to x6 (plus off). Movement scales
+  every base and attack speed together, so enemies do not slide or overshoot.
   Attack cadence scales the interval tables and the action timeouts; projectiles are separate. Some
   enemies or attacks may not change or may desync.
 ## Usage

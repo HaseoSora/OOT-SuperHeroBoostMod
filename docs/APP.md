@@ -72,9 +72,9 @@ display on the ring, and the enemy speed components off.
   - **Duplicate enemies (Option A)**: clones generic enemy placements in `Banc` and doubles field auto-spawn counts.
     Bosses, minibosses and scripted enemies are excluded.
   - **Enemy speed**: movement (all base speeds and attack motions), animation playback, attack cadence and
-    projectile speed, each with eleven multipliers from ×0.5 to ×6 (plus off). Movement follows the
-    harder-combat method (every speed together, so enemies do not slide or overshoot); attack cadence scales the
-    interval tables and the action timeouts (as before). See [HARDERCOMBAT.md](HARDERCOMBAT.md).
+    projectile speed, each with eleven multipliers from ×0.5 to ×6 (plus off). Movement scales every speed
+    together, so enemies do not slide or overshoot; attack cadence scales the interval tables and the action
+    timeouts (as before).
   They can break puzzles, quests or performance. Back up the save and test one at a time.
 - **Controls**: target with R3 (swaps ZL and R3; the app recommends setting the game's Targeting Type to **Toggle**),
   sprint while L3 is held (the game's sprint animation, without rolling), the manual shield, button mapping

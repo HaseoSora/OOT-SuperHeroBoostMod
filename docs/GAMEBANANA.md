@@ -1,8 +1,8 @@
 # GameBanana listing
 
-**Title:** Super Hero Boost
+**Title:** Super Hero Boost - Stamina, HUD & item buttons
 
-**Tagline:** More than a HUD — stamina, Hero Mode difficulty, extra item buttons and world changes, all configurable from a desktop app.
+**Tagline:** Stamina, Hero Mode difficulty, HUD layouts, item buttons and quick select, all configurable from the app.
 
 **Alternative taglines**
 

@@ -24,8 +24,8 @@ static u32 g_guard_seen, g_inactive_since;
 static volatile u32 g_sprint_a;   /* A held and not taken away by the stamina rules (last input read) */
 
 /* Ground-movement hook (main+0x9352F0, x0 player, x1 direction, s0 speed). Only the player's own call (it returns to
- * main+0x934994) is touched: while A is held his speed is multiplied by the sprint setting, as the game's own
- * sprint is "A held while moving". Rolling, swimming and climbing do not go through this call. */
+ * main+0x934994) is touched: while A (or L3, when enabled) is held his speed is multiplied by the sprint setting, as
+ * the game's own sprint is "A held while moving". Rolling, swimming and climbing do not go through this call. */
 extern char MAIN_SCHED_VT[];
 u32 g_speed_dbg[2];   /* calls from the player's site, calls boosted */
 void stamina_speed_hook(void *regs) {
@@ -177,7 +177,8 @@ void stamina_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_result) 
         return;
     }
     if (!g_shbcfg.stamina_enabled) {   /* stamina system switched off in the config */
-        g_sprint_a = (hid_merge_buttons(&view) & BTN_A) != 0;
+        u64 b = hid_merge_buttons(&view);
+        g_sprint_a = ((b & BTN_A) || (g_shbcfg.sprint_l3 && (b & BTN_L3))) != 0;
         player_take_events();
         hud_set_tired(0);
         hud_set_stamina(g_stamina.stamina, g_stamina.cap, 0.0f);
@@ -192,7 +193,9 @@ void stamina_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_result) 
 
     float m2 = stick_mag2(&view);
     u32 moving = m2 > STICK_MOVE2;
-    u32 running = (buttons & BTN_A) && moving;   /* sprint = A held while moving */
+    /* Sprint: A held, or L3 held when the app option is on. L3 is not injected as A, so it does not roll. */
+    u32 sprint_held = ((buttons & BTN_A) || (g_shbcfg.sprint_l3 && (buttons & BTN_L3))) != 0;
+    u32 running = sprint_held && moving;
 
     /* State advances once per rendered frame (the reader can run more than once). */
     u32 now = hud_frame_count();
@@ -323,7 +326,7 @@ void stamina_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_result) 
     }
     if (g_stamina.in_combat && g_stamina.stamina <= 0.0f && cost_on(K_ATTACK)) strip |= BTN_Y;   /* no sword at 0 */
     if (lock && preset != 2 && m2 > STICK_FAST2) halve_stick(&view);   /* exhausted: walk only */
-    g_sprint_a = (buttons & BTN_A) && !(strip & BTN_A);
+    g_sprint_a = sprint_held && !(strip & BTN_A);
     if (strip) {
         for (u32 i = 0; i < count; i++) {
             u64 b = hid_get_buttons(&view, i);

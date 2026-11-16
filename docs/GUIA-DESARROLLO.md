@@ -225,8 +225,8 @@ the speed argument.
 - `target_r3`: exchanges the physical ZL and R3 bits in gameplay only. R3 then targets; the app recommends setting
   System > Options > Targeting Type to **Hold** (a Toggle press would work too, but the mod is designed around Hold).
   Menus and loading screens keep the native buttons.
-- `sprint_l3`: L3 (`0x10`) ORs A (`0x01`) while held, which is the game's sprint input (the stamina feature sees it
-  and charges its sprint cost). Gameplay only.
+- `sprint_l3`: the stamina feature reads L3 (`0x10`) and sets its sprint flag while it is held, without injecting
+  A, so Link does not roll. It charges the sprint cost and uses the same speed multiplier; gameplay only.
 - Config bytes 71 and 72 (see the runtime table above); `installer.patch_config` writes them at `f+55`/`f+56` when
   the module config size is at least 73.
 

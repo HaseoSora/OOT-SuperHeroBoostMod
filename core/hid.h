@@ -22,6 +22,8 @@ typedef struct {
 #define BTN_R      0x0080ull
 #define BTN_ZL     0x0100ull
 #define BTN_ZR     0x0200ull
+#define BTN_L3     0x0010ull
+#define BTN_R3     0x0020ull
 
 u64 hid_get_buttons(const HidView *v, u32 index);
 void hid_set_buttons(const HidView *v, u32 index, u64 value);

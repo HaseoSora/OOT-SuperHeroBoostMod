@@ -233,27 +233,23 @@ void manual_shield_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_re
     g_ms_dbg[1] = g_ms_held;
     g_ms_dbg[2] = g_ms_targeting;
 
-    /* L is only ours while the lock-on camera is up (or while we are already
-     * guarding). Otherwise it keeps the game's normal behaviour. */
+    /* L belongs to the manual shield whenever it is enabled (the item slot is off too). */
     u32 toggle = g_ms_toggle_mode;
     u32 guard_active = g_ms_held != 0;
-    u32 target_active;
-    if (toggle) {
-        /* Our latched target; native LockOn also counts while it exits. */
-        target_active = g_ms_targeting != 0 || guard_active || player_state_starts("LockOn");
-    } else {
-        /* The game itself is in Hold Target: physical ZL is the target. */
-        target_active = zl != 0 || guard_active || player_state_starts("LockOn");
-    }
+    /* With the R3/ZL swap the target button is native: pass it through instead of latching it. */
+    u32 native_zl = g_shbcfg.target_r3;
 
     for (u32 i = 0; i < count; i++) {
         u64 b = hid_get_buttons(&view, i);
-        if (toggle) b &= ~MS_BTN_ZL;           /* toggle mode: ZL is consumed and re-synthesised */
-        if (target_active) b &= ~MS_BTN_L;     /* L guards only with the target camera */
+        if (toggle && !native_zl) b &= ~MS_BTN_ZL;   /* toggle mode: ZL is consumed and re-synthesised */
+        /* Manual shield owns L while it is enabled: always consume it, including during shield-hit
+         * reactions (Guard/Repelled/GuardBreak). Otherwise the default L (item/selector) fires for a
+         * frame in the middle of the hit. */
+        b &= ~MS_BTN_L;
         /* toggle mode: synth native ZL from our latch or an active L guard; the
          * native LockOn state alone must not keep itself alive. Hold mode leaves
          * the physical ZL untouched. */
-        if (toggle && (g_ms_targeting || guard_active)) b |= MS_BTN_ZL;
+        if (toggle && !native_zl && (g_ms_targeting || guard_active)) b |= MS_BTN_ZL;
         hid_set_buttons(&view, i, b);
     }
     g_ms_dbg[0]++;
@@ -294,7 +290,10 @@ void manual_shield_on_frame(void *scheduler) {
      * Hold Target: the game itself owns the hold; keep our latch off. */
     if (ms_gameplay_state()) {
         u8 zl = g_ms_zl_raw;
-        if (g_ms_toggle_mode) {
+        if (g_shbcfg.target_r3) {
+            /* The swapped ZL/R3 is native: the game's Toggle/Hold owns the target. */
+            g_ms_targeting = 0;
+        } else if (g_ms_toggle_mode) {
             if (zl && !g_ms_zl_prev) {
                 g_ms_targeting ^= 1u;
                 g_ms_dbg[3]++;

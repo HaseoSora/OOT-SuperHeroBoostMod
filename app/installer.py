@@ -82,7 +82,7 @@ class Settings:
     bm_l_mode: str = "assign"        # one of L_MODES
     stamina_bar: bool = False        # stamina UI: segmented horizontal bar instead of the ring
     manual_shield: bool = False      # ZL holds the guard, L toggles targeting, R3 cancels
-    target_r3: bool = False          # swap ZL and R3 (target on R3; Hold targeting recommended)
+    target_r3: bool = False          # swap ZL and R3 (target on R3; Toggle targeting recommended)
     sprint_l3: bool = False          # L3 (left stick click) presses A while held (sprint)
 
     def to_dict(self): return dict(self.__dict__)

@@ -150,8 +150,8 @@ reads them every frame (`g_shbcfg`). **Fields are only appended at the end** (us
 | 66-67 | `hud_tx` (s16) | Text x offset |
 | 68-69 | `hud_ioff2` (s16) | Clock/collectible icon x offset |
 | 70 | `manual_shield` | Manual shield checkbox |
-| 71 | `target_r3` | Swap ZL/R3 (target on R3; Hold targeting recommended) |
-| 72 | `sprint_l3` | L3 (left stick click) holds A while pressed (sprint) |
+| 71 | `target_r3` | Swap ZL/R3 (target on R3; Toggle targeting recommended) |
+| 72 | `sprint_l3` | L3 (left stick click) sprint while pressed (sprint flag, no A injection) |
 | 73-75 | padding (struct alignment) | — |
 
 **Adding a new option:** field in `config.h` (taking bytes from `reserved`), default value in `config.c`, write in
@@ -200,13 +200,14 @@ the speed argument.
   `0x834d9d9e`, member `0xc713c7da`, via `read_enum` at `main+0x17BF90`, manager at `main+0x4E842A8`). Values:
   `0x60fc6939` Hold Target, `0x212dc0e7` Toggle Target. It refreshes every 10 scheduler frames.
 - Input (site 3):
-  - **Hold Target:** physical ZL stays native (the game itself holds the target); L is consumed as a guard only while
-    ZL/`LockOn` is active and is passed through when the target camera is off.
+  - **Hold Target:** physical ZL stays native (the game itself holds the target); the shield request only applies
+    while ZL/`LockOn` is active.
   - **Toggle Target:** physical ZL is consumed, a rising edge latches targeting, and native ZL is synthesised while the
-    latch is on. L is consumed as a guard only while targeting.
-  - **R3** cancels targeting in both modes.
-  - While the manual shield is enabled the L slot of buttonMapping is disabled (the assignment is kept, but L
-    never equips/uses an item and cannot be assigned in the Items tab); turning the manual shield off restores it.
+    latch is on. The shield request only applies while targeting.
+  - **R3** cancels targeting in both modes (unless the target-on-R3 swap is enabled).
+  - While the manual shield is enabled, L is always consumed by the input filter, including during shield-hit
+    reactions (`Guard*`, `Repelled`, `GuardBreak`); otherwise the default L/item function could fire mid-hit. The
+    buttonMapping L slot is disabled too (the assignment is kept); turning the manual shield off restores it.
 - Frame (code hook 0): `manual_shield_on_frame()` updates the ZL gesture/latch once per scheduler frame (repeated HID
   reads cannot repeat it), caches the player state and AS interface and keeps the native guard flags and AS Bool14 off
   unless L is held with the target camera active. On guard entry it requests the shield draw only (not the sword).
@@ -223,7 +224,7 @@ the speed argument.
 - Optional input remaps; it runs **before** `manual_shield` and `stamina` (the feature list order is
   `controls,manual_shield,stamina,...`) so those see the swapped buttons and the synthetic A.
 - `target_r3`: exchanges the physical ZL and R3 bits in gameplay only. R3 then targets; the app recommends setting
-  System > Options > Targeting Type to **Hold** (a Toggle press would work too, but the mod is designed around Hold).
+  System > Options > Targeting Type to **Toggle** (press R3 to start/stop targeting).
   Menus and loading screens keep the native buttons.
 - `sprint_l3`: the stamina feature reads L3 (`0x10`) and sets its sprint flag while it is held, without injecting
   A, so Link does not roll. It charges the sprint cost and uses the same speed multiplier; gameplay only.

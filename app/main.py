@@ -73,7 +73,7 @@ def cli(argv) -> int:
                     help="ZL follows the game's Hold/Toggle setting; L holds the shield while targeting")
     ap.add_argument("--no-manual-shield", action="store_true", help="disable the manual shield of a profile")
     ap.add_argument("--target-r3", action="store_true",
-                    help="swap ZL and R3: target with R3 (recommended with Hold targeting)")
+                    help="swap ZL and R3: target with R3 (recommended with Toggle targeting)")
     ap.add_argument("--sprint-l3", action="store_true", help="L3 (left stick click) holds A while pressed (sprint)")
     ap.add_argument("--enemy-double", action="store_true", help="beta: duplicate generic enemies (romfs)")
     ap.add_argument("--enemy-speed", action="store_true", help="deprecated: enemy movement/animation/attack at x2")

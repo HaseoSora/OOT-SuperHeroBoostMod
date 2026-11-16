@@ -76,7 +76,7 @@ display on the ring, and the enemy speed components off.
     harder-combat method (every speed together, so enemies do not slide or overshoot); attack cadence scales the
     interval tables and the action timeouts (as before). See [HARDERCOMBAT.md](HARDERCOMBAT.md).
   They can break puzzles, quests or performance. Back up the save and test one at a time.
-- **Controls**: target with R3 (swaps ZL and R3; the app recommends setting the game's Targeting Type to **Hold**),
+- **Controls**: target with R3 (swaps ZL and R3; the app recommends setting the game's Targeting Type to **Toggle**),
   sprint while L3 is held (without rolling), the manual shield, button mapping (on/off, style, layout, L mode) and
   **Quick select**.
 - **HUD**: rupee counter, clock (**off / 12 h / 24 h**, one selector), HUD layout and the area collectibles counter.
@@ -120,14 +120,13 @@ The **HUD & buttons** section has a **Quick select** card. It enables the module
 
 ## Manual shield
 
-The **HUD & buttons** section has a **Manual shield** card (off by default):
+The **Controls** section has a **Manual shield** card (off by default):
 
 - **ZL** follows the game's **System > Options > Targeting Type**: hold to target in **Hold Target**, press to toggle
   in **Toggle Target**. The mod reads the option live.
-- **L**: hold to raise the shield only while the target camera is active; with the camera off it keeps its normal
-  function (item button or selector included).
-- **R3**: cancels targeting.
-- While the manual shield is enabled, L is removed from buttonMapping (its item slot is off), not only reserved while the target camera is active.
+- **L**: while the manual shield is enabled, L is reserved: it raises the shield only with the target camera and never
+  triggers its item/selector/default function, including during shield-hit reactions.
+- **R3**: cancels targeting (unless the target-on-R3 swap is enabled).
 - It is a control preference, not part of a profile, and it works independently of the stamina system.
 
 ## Updates

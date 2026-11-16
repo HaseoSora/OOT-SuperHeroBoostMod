@@ -1524,7 +1524,7 @@ static float item_pattern(int item) {
     switch (item) {
     case 0: return 0.0f;  case 1: return 6.0f;  case 2: return 4.0f;  case 3: return 3.0f;  case 4: return 1.0f;
     case 5: return 33.0f; case 6: return 34.0f; case 7: return 32.0f; case 9: return 5.0f;  case 10: return 8.0f;
-    case 13: return 2.0f; case 14: case 15: case 16: case 17: return 23.0f;   /* bottles (contents share the frame) */
+    case 13: return 2.0f; case 14: case 15: case 16: case 17: case 50: return 23.0f;   /* bottle cells A..E */
     case 18: return 36.0f; case 30: return 24.0f; case 31: return 9.0f;
     default: return 6.0f;
     }
@@ -1537,6 +1537,62 @@ static const char *item_name(int item) {
     if (!mgr || item < 0) return 0;
     item_actor_name((void *)mgr, &nm, (u64)item);
     return nm && nm[0] ? nm : 0;
+}
+/* ---- bottles ----
+ * The five bottle cells are item indices 14, 15, 16, 17 and 50 (grid order BottleA..BottleE). Their content is an
+ * Enum in GameData (Shop_SelectBottleContentItem: Empty, RedPotion, GreenPotion, BluePotion, BlueFire, Fish,
+ * Letter, BigPoe, Poe, Bug, Fairy, MaxMilk, HalfMilk); records 60..64 are BottleA..BottleE in that order. The bottle
+ * item itself resolves to the current bottle (e.g. RedPotion), and the game's own hidden box icon is stale for the
+ * 2nd..5th bottle, so the HUD reads the bottle's content record (or the box's BottleA..E Enum value) for its icon. */
+static const u32 BOTTLE_VAL[5] = {0x22C7238Cu, 0xAC889FD5u, 0xA7D94611u, 0xB55EE4E3u, 0xD8CC3008u};   /* BottleA..E */
+static const int BOTTLE_CELL[5] = {14, 15, 16, 17, 50};
+static char g_bicon[32];
+static u32 enum_value(u32 idx) {
+    u64 mgr = *(u64 *)GAMEDATA_MGR;
+    if (!vptr(mgr)) return 0;
+    u32 cnt = *(volatile u32 *)(mgr + 8 + 0x60 * 6 + 8);
+    u64 rec = *(volatile u64 *)(mgr + 8 + 0x60 * 6 + 0x10);
+    if (!rec || idx >= cnt) return 0;
+    return *(volatile u32 *)(rec + (u64)idx * 0x38 + 0x1C);
+}
+static const char *bottle_suffix(u32 v) {
+    switch (v) {
+    case 3938082919u: return "RedPotion";
+    case 77412289u:   return "GreenPotion";
+    case 4085503717u: return "BluePotion";
+    case 472462615u:  return "BlueFire";
+    case 511921912u:  return "Fish";
+    case 254076936u:  return "Letter";
+    case 3452048497u: return "BigPoe";
+    case 34099102u:   return "Poe";
+    case 1960193739u: return "Bug";
+    case 1867113303u: return "Fairy";
+    case 1932879911u: return "Milk";       /* MaxMilk */
+    case 4009157808u: return "HalfMilk";
+    default:          return 0;             /* Empty */
+    }
+}
+static const char *bottle_icon_rec(u32 rec) {
+    const char *s = bottle_suffix(enum_value(rec));
+    if (!s) return "Item_Bottle";
+    static const char P[] = "Item_Bottle_";
+    u32 n = 0, j = 0;
+    while (P[n]) { g_bicon[n] = P[n]; n++; }
+    while (s[j] && n < 31) g_bicon[n++] = s[j++];
+    g_bicon[n] = 0;
+    return g_bicon;
+}
+static int bottle_pos(int cell) {
+    for (u32 i = 0; i < 5; i++) if (cell == BOTTLE_CELL[i]) return (int)i;
+    return -1;
+}
+static const char *bottle_icon(int cell) {
+    int p = bottle_pos(cell);
+    return p >= 0 ? bottle_icon_rec(60u + (u32)p) : 0;
+}
+static int bottle_box_pos(u32 v) {
+    for (u32 i = 0; i < 5; i++) if (v == BOTTLE_VAL[i]) return (int)i;
+    return -1;
 }
 /* around the stock item box (top right): above, left, below, right-above; layout units, root-relative */
 /* buttonMapping default arrangement, top right: top row L X R, middle row (Y) (A) ZR, bottom (B) */
@@ -1647,6 +1703,7 @@ int hud_zr_item(void) { return g_zr_index; }
 static int g_zr_hold;
 void hud_zr_hold(int hold) { g_zr_hold = hold; }   /* features/button_mapping: a slot item borrows the item box */
 static int box_item(void);
+static u32 box_value(void);
 static void zr_mirror(void) {
     u64 part = g_sb[0].part;   /* any of our bound parts: [part + 0x28] is the PlayerStatus frame it lives in */
     u64 fr = vptr(part) ? ptr(part, 0x28) : 0;
@@ -1661,10 +1718,20 @@ static void zr_mirror(void) {
         if (!g_zr_hold) g_sb_force[10][0] = 1;   /* hidden */
         return;
     }
+    /* a bottle in the box: its own Enum value names the bottle (BottleA..E), the content is in the bottle record */
+    int bp = bottle_box_pos(box_value());
+    const char *disp = bp >= 0 ? bottle_icon_rec(60u + (u32)bp) : 0;
     if (bi >= 0) nm = item_name(bi);
-    if (!nm || (u64)nm < 0x10000 || (nm[0] != 'I' && nm[0] != 'W' && nm[0] != 'A')) return;   /* Item_/Weapon_/Armor_ */
+    if (!disp && (!nm || (u64)nm < 0x10000 || (nm[0] != 'I' && nm[0] != 'W' && nm[0] != 'A'))) return;   /* Item_/Weapon_/Armor_ */
     /* 1. always track the box: name and item index */
-    if (!str_eq(g_zr_name, nm)) {
+    if (bp >= 0) {
+        if (g_zr_index != BOTTLE_CELL[bp] || !str_eq(g_zr_name, disp)) {
+            u32 i;
+            for (i = 0; i < 30 && disp[i]; i++) g_zr_name[i] = disp[i];
+            g_zr_name[i] = 0;
+            g_zr_index = BOTTLE_CELL[bp];
+        }
+    } else if (nm && !str_eq(g_zr_name, nm)) {
         u32 i;
         for (i = 0; i < 30 && nm[i]; i++) g_zr_name[i] = nm[i];
         g_zr_name[i] = 0;
@@ -1675,10 +1742,11 @@ static void zr_mirror(void) {
         }
     }
     /* 2. show it on ZR, unless a slot item is borrowing the box right now */
+    const char *show = disp ? disp : g_zr_name;
     char *dst = g_sb_force[10];
-    if (g_zr_hold || str_eq(dst, g_zr_name)) return;
+    if (g_zr_hold || str_eq(dst, show)) return;
     u32 i;
-    for (i = 0; i < 30 && g_zr_name[i]; i++) dst[i] = g_zr_name[i];
+    for (i = 0; i < 30 && show[i]; i++) dst[i] = show[i];
     dst[i] = 0;
     dst[31] = 0;   /* apply again */
 }
@@ -1783,7 +1851,7 @@ void hud_box_empty(int child) {
 static u32 g_own_idx[64];   /* cached Bool index + 1; 0xFFFFFFFF = no flag */
 int hud_item_owned(int item) {
     if (item < 0 || item >= 64) return 0;
-    if (item >= 14 && item <= 17) return 1;   /* bottles: the content name has no IsGet flag of its own */
+    if ((item >= 14 && item <= 17) || item == 50) return 1;   /* bottles: five cells, contents are not IsGet flags */
     if (!g_own_idx[item]) {
         const char *nm = item_name(item);
         if (!nm) return 1;
@@ -1837,6 +1905,8 @@ void hud_menu_zr(int item) {   /* -1: empty */
     if (g_zr_hold) return;
     char *dst = g_sb_force[10];
     const char *nm = item >= 0 ? item_name(item) : 0;
+    const char *bn = bottle_icon(item);   /* a bottle cell: its content, not the current bottle */
+    if (bn) nm = bn;
     if (!nm) { dst[0] = 1; dst[1] = 0; return; }
     u32 i;
     for (i = 0; i < 30 && nm[i]; i++) dst[i] = nm[i];
@@ -1948,6 +2018,11 @@ static void slots_draw(SlotBtn *set, const u64 *ctrls, u64 frame, const float *l
         /* icon of the button's item: also refresh when the item's actor name changes (bottles keep the same
          * index while their content changes, e.g. empty -> red potion) */
         const char *inm = g_sb_item[k] >= 0 ? item_name(g_sb_item[k]) : 0;
+        /* bottles: the item index gives the current bottle (e.g. RedPotion); read the bottle slot for its own content */
+        if (k != 10) {
+            const char *bn = bottle_icon(g_sb_item[k]);
+            if (bn) inm = bn;
+        }
         u32 nh = inm ? mmh3("", inm) : 0;
         if (b->ctrl && !g_sb_busy &&
             (!b->icon_set || b->shown_item != g_sb_item[k] || b->shown_name != nh)) {
@@ -2178,7 +2253,6 @@ __attribute__((weak)) void songbook_on_ocarina(u32 active, void *ctx);   /* feat
 __attribute__((weak)) void songbook_on_select(void *ctx, u32 sel) { (void)ctx; (void)sel; }   /* overridden by the feature */
 __attribute__((weak)) void songbook_on_frame(void);                      /* features/songbook */
 __attribute__((weak)) void songbook_on_ui(void *ctx);                    /* features/songbook */
-__attribute__((weak)) int songbook_debug_text(char *b, u32 cap);         /* features/songbook */
 /* diagnostic: the game's own set_text calls (not ours), consecutive repeats skipped: caller, pane, len, text */
 struct { u64 lr, pane; u32 len, n; char s[40]; char nm[24]; u64 lr2; } g_st_log[32];
 u32 g_st_n = 0x10000000u;

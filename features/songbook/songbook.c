@@ -208,22 +208,3 @@ static u32 put_u32(char *b, u32 v) {
     for (u32 i = 0; i < n; i++) b[i] = t[n - 1 - i];
     return n;
 }
-
-/* Temporary diagnostic on the clock plate: N<active>P<page>V<preview>S<state>B<busy>. */
-int songbook_debug_text(char *b, u32 cap) {
-    (void)cap;
-    if (!g_shbcfg.songbook_enabled) return 0;
-    u32 n = 0;
-    b[n++] = 'N';
-    n += put_u32(b + n, g_songbook_active);
-    b[n++] = 'P';
-    n += put_u32(b + n, g_songbook_seen_page);
-    b[n++] = 'A';
-    n += put_u32(b + n, g_songbook_seen_arm);
-    b[n++] = 'S';
-    n += put_u32(b + n, g_songbook_seen_state);
-    b[n++] = 'B';
-    n += put_u32(b + n, g_songbook_seen_busy);
-    b[n] = 0;
-    return 1;
-}

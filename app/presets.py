@@ -42,6 +42,7 @@ class Profile:
     great_fairy: bool
     farore_outdoor: bool
     stamina_bar: bool            # stamina UI: horizontal bar instead of the ring
+    manual_shield: bool          # ZL follows the game's Hold/Toggle setting, L guards while targeting
 
 
 def _profile(key, *, button_mapping=True, stamina=True, mode=0, costs=(True,) * 6, combat_only=False,
@@ -49,7 +50,7 @@ def _profile(key, *, button_mapping=True, stamina=True, mode=0, costs=(True,) * 
              hud_rupees=True, hud_clock=True, clock_24h=True, songbook=True,
              quick_boots=True, quick_mask=True, hud_collectibles=False, hud_mode="wide",
              enemy_double=False, enemy_move=0, enemy_anim=0, enemy_attack=0,
-             great_fairy=False, farore_outdoor=False, stamina_bar=False):
+             great_fairy=False, farore_outdoor=False, stamina_bar=False, manual_shield=False):
     return Profile(key=key, button_mapping=button_mapping, stamina=stamina, mode=mode, costs=costs,
                    combat_only=combat_only, enemy_hp=enemy_hp, damage=damage,
                    no_heart_drop=no_heart_drop, sprint_speed=sprint_speed,
@@ -58,32 +59,39 @@ def _profile(key, *, button_mapping=True, stamina=True, mode=0, costs=(True,) * 
                    hud_collectibles=hud_collectibles, hud_mode=hud_mode,
                    enemy_double=enemy_double, enemy_move=enemy_move, enemy_anim=enemy_anim,
                    enemy_attack=enemy_attack,
-                   great_fairy=great_fairy, farore_outdoor=farore_outdoor, stamina_bar=stamina_bar)
+                   great_fairy=great_fairy, farore_outdoor=farore_outdoor, stamina_bar=stamina_bar,
+                   manual_shield=manual_shield)
 
 
 PROFILES = {
-    # Everything on: Hero Mode difficulty, hardcore stamina, HUD, buttonMapping and the world changes.
+    # Everything on: Hero Mode difficulty, hardcore stamina, HUD, buttonMapping, the world changes and manual shield.
     "recommended": _profile("recommended", enemy_hp=150, damage=200, no_heart_drop=True,
-                            hud_collectibles=True, great_fairy=True, farore_outdoor=True),
+                            hud_collectibles=True, great_fairy=True, farore_outdoor=True,
+                            manual_shield=True),
     # Vanilla difficulty, but with the pack's HUD and extra buttons.
     "base": _profile("base", stamina=False, hud_collectibles=True),
-    # Hero Mode: x1.5 enemy health, x2 damage, no hearts.
+    # Only the manual shield: vanilla difficulty/HUD/controls off, no stamina, no extra buttons.
+    "manual-shield": _profile("manual-shield", stamina=False, button_mapping=False, songbook=False,
+                              hud_rupees=False, hud_clock=False, quick_boots=False, quick_mask=False,
+                              hud_collectibles=False, manual_shield=True),
+    # Hero Mode: x1.5 enemy health, x2 damage, no hearts, manual shield.
     "hero": _profile("hero", stamina=False, enemy_hp=150, damage=200, no_heart_drop=True,
-                     hud_collectibles=True),
+                     hud_collectibles=True, manual_shield=True),
     # Hero Mode plus stamina on every action.
     "hero-stamina": _profile("hero-stamina", enemy_hp=150, damage=200, no_heart_drop=True,
-                             hud_collectibles=True),
+                             hud_collectibles=True, manual_shield=True),
     # Hero Mode with stamina only on sprint.
     "hero-explorer": _profile("hero-explorer", mode=2, enemy_hp=150, damage=200, no_heart_drop=True,
-                              hud_collectibles=True, costs=(False, False, True, False, False, False)),
+                              hud_collectibles=True, costs=(False, False, True, False, False, False),
+                              manual_shield=True),
     # Higher difficulty tiers.
     "super-hero": _profile("super-hero", enemy_hp=200, damage=300, no_heart_drop=True,
-                           hud_collectibles=True),
+                           hud_collectibles=True, manual_shield=True),
     "ultra-hero": _profile("ultra-hero", enemy_hp=300, damage=300, no_heart_drop=True,
-                           hud_collectibles=True),
+                           hud_collectibles=True, manual_shield=True),
     # Endurance run: no heart drops and hardcore stamina, but x2 instead of x3.
     "survival": _profile("survival", enemy_hp=200, damage=200, no_heart_drop=True,
-                         hud_collectibles=True),
+                         hud_collectibles=True, manual_shield=True),
     # Only the world changes (Great Fairy rewards + Farore's Wind outdoors) on vanilla difficulty.
     "world": _profile("world", stamina=False, hud_collectibles=True, great_fairy=True,
                       farore_outdoor=True),
@@ -93,11 +101,12 @@ PROFILES = {
     # Beta options: everything on, enemy mods included.
     "beta-all": _profile("beta-all", enemy_hp=150, damage=200, no_heart_drop=True,
                          hud_collectibles=True, great_fairy=True, farore_outdoor=True,
-                         enemy_double=True, enemy_move=2, enemy_anim=2, enemy_attack=2),
+                         enemy_double=True, enemy_move=2, enemy_anim=2, enemy_attack=2,
+                         manual_shield=True),
 }
 
-PROFILE_KEYS = ("recommended", "base", "hero", "hero-stamina", "hero-explorer", "super-hero", "ultra-hero",
-                "survival", "world", "beta-enemies", "beta-all", "custom")
+PROFILE_KEYS = ("recommended", "base", "manual-shield", "hero", "hero-stamina", "hero-explorer", "super-hero",
+                "ultra-hero", "survival", "world", "beta-enemies", "beta-all", "custom")
 DEFAULT_PROFILE = "recommended"
 
 
@@ -108,7 +117,7 @@ def defaults() -> dict:
                 hud_rupees=True, hud_clock=True, clock_24h=True, songbook=True,
                 quick_boots=True, quick_mask=True, hud_collectibles=False, hud_mode="wide",
                 enemy_double=False, enemy_move=0, enemy_anim=0, enemy_attack=0,
-                great_fairy=False, farore_outdoor=False, stamina_bar=False)
+                great_fairy=False, farore_outdoor=False, stamina_bar=False, manual_shield=False)
 
 
 def profile_values(key: str) -> dict:
@@ -124,4 +133,4 @@ def profile_values(key: str) -> dict:
                 hud_collectibles=p.hud_collectibles, hud_mode=p.hud_mode, enemy_double=p.enemy_double,
                 enemy_move=p.enemy_move, enemy_anim=p.enemy_anim, enemy_attack=p.enemy_attack,
                 great_fairy=p.great_fairy, farore_outdoor=p.farore_outdoor,
-                stamina_bar=p.stamina_bar)
+                stamina_bar=p.stamina_bar, manual_shield=p.manual_shield)

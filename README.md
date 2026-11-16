@@ -28,10 +28,10 @@ The module, the HUD, the textures and the app are original work: no third-party 
 
 ### Gameplay
 
-- **Complete profiles**: Recommended (everything on), Base, Hero Mode, Hero + Stamina, Hero Explorer, Super Hero,
-  Ultra Hero, Survival, World changes and the two beta combinations (duplicated + fast enemies, everything). They set
-  difficulty, stamina, the HUD, the world changes and the beta mods in one step; changing any option afterwards
-  switches the profile to **Custom**.
+- **Complete profiles**: Recommended (everything on), Base, Manual Shield, Hero Mode, Hero + Stamina, Hero Explorer,
+  Super Hero, Ultra Hero, Survival, World changes and the two beta combinations (duplicated + fast enemies,
+  everything). They set difficulty, stamina, the HUD, the world changes, the manual shield and the beta mods in one
+  step; changing any option afterwards switches the profile to **Custom**.
 - **Stamina** with four styles: hardcore (everything costs), combat only, sprint only and advanced (choose which
   actions cost). Includes exhaustion and regeneration, and costs for rolling, jumping, attacking, shooting,
   sprinting and blocking with the shield.

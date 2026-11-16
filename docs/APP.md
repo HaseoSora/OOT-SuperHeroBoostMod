@@ -32,25 +32,29 @@ per-user configuration folder (see the README). The app never needs administrato
 
 ## Game profiles
 
-A profile sets **every** gameplay option. Every fixed profile includes the HUD, the button mapping and the Songbook.
-Changing any option afterwards switches the profile to **Custom** and keeps your value. The button style (Switch /
-PlayStation / Xbox), layout, L mode, the language and the emulator folder are not part of a profile. **Recommended**
-is the default and enables everything.
+A profile sets **every** gameplay option. The fixed profiles include the HUD, the button mapping and the Songbook,
+except **Manual Shield**, which installs only the shield. Changing any option afterwards switches the profile to
+**Custom** and keeps your value. The button style (Switch / PlayStation / Xbox), layout, L mode, the language and the
+emulator folder are not part of a profile. **Recommended** is the default and enables everything.
 
 Sprint is always **×1.25** in the profiles. It is only a starting point and can be changed by hand in the Stamina
 section; the profiles never use ×1.75, ×2 or ×3.
 
-| Profile | Stamina | Stamina style | Enemy HP | Damage | No hearts | Sprint | HUD | Buttons |
-|---|---|---|---|---|---|---|---|---|
-| **Recommended** | on | Hardcore | ×1.5 | ×2 | on | ×1.25 | on | on |
-| Base | off | — | ×1 | ×1 | off | ×1.25 | on | on |
-| Hero Mode | off | — | ×1.5 | ×2 | on | ×1.25 | on | on |
-| Hero + Stamina | on | Hardcore | ×1.5 | ×2 | on | ×1.25 | on | on |
-| Hero Explorer | on | Sprint only | ×1.5 | ×2 | on | ×1.25 | on | on |
-| Super Hero | on | Hardcore | ×2 | ×3 | on | ×1.25 | on | on |
-| Ultra Hero | on | Hardcore | ×3 | ×3 | on | ×1.25 | on | on |
-| Survival | on | Hardcore | ×2 | ×2 | on | ×1.25 | on | on |
-| Custom | your values | your values | your values | your values | your values | your values | your values | your values |
+| Profile | Stamina | Stamina style | Enemy HP | Damage | No hearts | Sprint | HUD | Buttons | Shield |
+|---|---|---|---|---|---|---|---|---|---|
+| **Recommended** | on | Hardcore | ×1.5 | ×2 | on | ×1.25 | on | on | on |
+| Base | off | — | ×1 | ×1 | off | ×1.25 | on | on | off |
+| Manual Shield | off | — | ×1 | ×1 | off | ×1.25 | off | off | on |
+| Hero Mode | off | — | ×1.5 | ×2 | on | ×1.25 | on | on | on |
+| Hero + Stamina | on | Hardcore | ×1.5 | ×2 | on | ×1.25 | on | on | on |
+| Hero Explorer | on | Sprint only | ×1.5 | ×2 | on | ×1.25 | on | on | on |
+| Super Hero | on | Hardcore | ×2 | ×3 | on | ×1.25 | on | on | on |
+| Ultra Hero | on | Hardcore | ×3 | ×3 | on | ×1.25 | on | on | on |
+| Survival | on | Hardcore | ×2 | ×2 | on | ×1.25 | on | on | on |
+| World changes | off | — | ×1 | ×1 | off | ×1.25 | on | on | off |
+| Beta: duplicated + fast enemies | off | — | ×1 | ×1 | off | ×1.25 | on | on | off |
+| Beta: everything | on | Hardcore | ×1.5 | ×2 | on | ×1.25 | on | on | on |
+| Custom | your values | your values | your values | your values | your values | your values | your values | your values | your values |
 
 "Sprint only" means only sprinting drains stamina. "Hardcore" means every enabled action drains it. "No hearts" means
 dropped hearts become green rupees (the optional romfs file; see the note below). Named profiles keep the stamina

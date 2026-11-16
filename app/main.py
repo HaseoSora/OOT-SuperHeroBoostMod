@@ -70,7 +70,8 @@ def cli(argv) -> int:
     ap.add_argument("--quick-boots", action="store_true", help="hold D-pad down to switch boots")
     ap.add_argument("--quick-mask", action="store_true", help="hold D-pad up to switch masks")
     ap.add_argument("--manual-shield", action="store_true",
-                    help="ZL holds the guard, L toggles targeting and R3 cancels it")
+                    help="ZL follows the game's Hold/Toggle setting; L holds the shield while targeting")
+    ap.add_argument("--no-manual-shield", action="store_true", help="disable the manual shield of a profile")
     ap.add_argument("--enemy-double", action="store_true", help="beta: duplicate generic enemies (romfs)")
     ap.add_argument("--enemy-speed", action="store_true", help="deprecated: enemy movement/animation/attack at x2")
     ap.add_argument("--enemy-move", type=int, choices=I.ENEMY_LEVELS, default=None,
@@ -120,7 +121,7 @@ def cli(argv) -> int:
                    hud_rupees=v["hud_rupees"], hud_clock=v["hud_clock"], clock_24h=v["clock_24h"],
                    hud_collectibles=v["hud_collectibles"], hud_mode=v["hud_mode"],
                    enemy_move=v["enemy_move"], enemy_anim=v["enemy_anim"], enemy_attack=v["enemy_attack"],
-                   stamina_bar=v["stamina_bar"])
+                   stamina_bar=v["stamina_bar"], manual_shield=v["manual_shield"])
     if a.preset is not None:
         s.preset = a.preset
     if a.no_button_mapping:
@@ -141,6 +142,8 @@ def cli(argv) -> int:
         s.quick_mask = True
     if a.manual_shield:
         s.manual_shield = True
+    if a.no_manual_shield:
+        s.manual_shield = False
     if a.enemy_double:
         s.enemy_double = True
     if a.enemy_speed:
@@ -454,6 +457,7 @@ def gui() -> None:
         enemy_attack.set(v["enemy_attack"])
         great_fairy.set(v["great_fairy"])
         farore_outdoor.set(v["farore_outdoor"])
+        manual_shield.set(v["manual_shield"])
         guard["on"] = False
         refresh()
         if save:
@@ -477,7 +481,7 @@ def gui() -> None:
         refresh()
         autosave()
 
-    for var in (bmap, stamina, songbook, quick_boots, quick_mask, hud_collectibles, hud_mode,
+    for var in (bmap, stamina, songbook, quick_boots, quick_mask, manual_shield, hud_collectibles, hud_mode,
                 enemy_double, enemy_move, enemy_anim, enemy_attack,
                 great_fairy, farore_outdoor, mode,
                 combat, hp, dmg, speed, nodrop,
@@ -507,7 +511,6 @@ def gui() -> None:
     for var in (bstyle, bsimple, blmode):
         var.trace_add("write", on_pref_change)
     stamina_bar.trace_add("write", on_pref_change)   # display preference: does not switch to Custom
-    manual_shield.trace_add("write", on_pref_change)  # control preference: does not switch to Custom
 
     pending = {"id": None}
 
@@ -1004,6 +1007,7 @@ def gui() -> None:
             r.grid(row=i, column=0, sticky="w", pady=1)
             label(prof, L("p_" + key.replace("-", "_") + "_d"), size=9, color=DIM, bg=PANEL).grid(
                 row=i, column=1, sticky="w", padx=(10, 0), pady=1)
+        label(body, L("profile_shield_note"), size=9, color=AMBER, bg=PANEL).pack(anchor="w", pady=(8, 0))
         ui["reapply"] = button(body, L("reapply"), lambda: apply_profile(profile.get()))
         ui["reapply"].pack(anchor="w", pady=(8, 0))
 

@@ -46,6 +46,7 @@ def settings_for(key: str) -> I.Settings:
         stamina_bar=v["stamina_bar"],
         great_fairy=v["great_fairy"], farore_outdoor=v["farore_outdoor"],
         button_style="switch", bm_simple=False, bm_l_mode="assign",
+        manual_shield=v["manual_shield"],
     )
 
 

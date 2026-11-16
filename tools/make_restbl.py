@@ -8,6 +8,7 @@ Reads the vanilla table from the user's dump (read only), writes
 <out>/System/Resource/ResourceSizeTable.Product.111.Nin_Ounce_NVN2.rsizetable.zs
 """
 import argparse
+import os
 import struct
 import sys
 import zlib

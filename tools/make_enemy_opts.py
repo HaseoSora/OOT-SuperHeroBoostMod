@@ -17,9 +17,10 @@ and projectiles (p). Animations are separate ASB files and are shipped as ready-
 
 The movement set follows the harder-combat mod: every base speed including JogSpeed, the attack
 motion speeds (charge/trans/surprise/fly) and the per-enemy attack move speeds, so a fast enemy
-does not slide or overshoot. The attack set only scales interval tables/fields, not the AI action
-timeouts (AttackStartTimeoutFrames, TimeoutTime, BackWalkTime...), which is what made the old
-speed option unstable.
+does not slide or overshoot. The attack set scales the interval tables/fields and also the AI
+action timeouts (AttackStartTimeoutFrames, TimeoutTime, BackWalkTime...) as requested; note that
+changing those timeouts can make the AI less predictable than the harder-combat mod, which leaves
+them alone.
 """
 import copy
 import json
@@ -88,11 +89,10 @@ ATTACK_INTERVAL_NAMES = frozenset((
 ))
 ATTACK_TABLE_FIELDS = ("/LongIntervalMax", "/LongIntervalMin", "/MediumIntervalMax",
                        "/MediumIntervalMin", "/ShortIntervalMax", "/ShortIntervalMin")
-# Fields that must never be touched by any enemy-speed option: the AI action timeouts. They are kept in a
-# separate blacklist so a future name match can never sneak them back in.
-NEVER_SCALE = ("AttackStartTimeoutFrames", "AttackIntervalTimeFromDamage", "AttackIntervalTimeFromGuard",
-               "AttackIntervalTimeGuarded", "AttackIntervalTimeMinGrdedCombo", "BackWalkTimeMax",
-               "BackWalkTimeMin", "TimeoutTime")
+ATTACK_ACTION_FIELDS = ("/AttackStartTimeoutFrames", "/AttackIntervalTimeFromDamage",
+                        "/AttackIntervalTimeFromGuard", "/AttackIntervalTimeGuarded",
+                        "/AttackIntervalTimeMinGrdedCombo", "/BackWalkTimeMax",
+                        "/BackWalkTimeMin", "/TimeoutTime")
 
 
 def load_dicts():
@@ -172,8 +172,6 @@ def scan_pack(path, dictionaries):
                     continue
             elif value <= 0.01:
                 continue
-            if any(path_name.endswith(x) for x in NEVER_SCALE):
-                continue
             kind = None
             last = path_name.rsplit("/", 1)[-1]
             if movement:
@@ -182,6 +180,8 @@ def scan_pack(path, dictionaries):
             elif action_seq:
                 if any(path_name.endswith(s.lstrip("/")) for s in ACTION_MOVE_FIELDS):
                     kind = "m"
+                elif any(path_name.endswith(s.lstrip("/")) for s in ATTACK_ACTION_FIELDS):
+                    kind = "a"
             elif attack_table:
                 if any(path_name.endswith(s.lstrip("/")) for s in ATTACK_TABLE_FIELDS):
                     kind = "a"
@@ -218,6 +218,8 @@ def edit_pack(path, dictionaries, factor, kind):
                 if name.startswith("GameParameter/") or name.startswith("Game/"):
                     scale_fields(block, before, GAME_MOVE_FIELDS, scale)
             if kind == "a":
+                if "Game/BSA/ActionSeqContainer/" in name:
+                    scale_fields(block, before, ATTACK_ACTION_FIELDS, scale)
                 if "GameBalance/AttackInterval/" in name:
                     scale_fields(block, before, ATTACK_TABLE_FIELDS, scale)
                 if name.startswith("GameParameter/") or name.startswith("Game/"):

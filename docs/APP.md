@@ -73,8 +73,8 @@ display on the ring, and the enemy speed components off.
     Bosses, minibosses and scripted enemies are excluded.
   - **Enemy speed**: movement (all base speeds and attack motions), animation playback, attack cadence and
     projectile speed, each with eleven multipliers from ×0.5 to ×6 (plus off). Movement follows the
-    harder-combat method (every speed together, so enemies do not slide or overshoot); attack cadence scales
-    the interval tables only, not the AI action timeouts. See [HARDERCOMBAT.md](HARDERCOMBAT.md).
+    harder-combat method (every speed together, so enemies do not slide or overshoot); attack cadence scales the
+    interval tables and the action timeouts (as before). See [HARDERCOMBAT.md](HARDERCOMBAT.md).
   They can break puzzles, quests or performance. Back up the save and test one at a time.
 - **HUD & buttons**: rupee counter, clock (**off / 12 h / 24 h**, one selector), button mapping (on/off), button
   style (Switch / PlayStation / Xbox), layout (extended / simple), L mode (item / selector) and **Quick select**.

@@ -42,7 +42,9 @@ Nuestro generador (`tools/make_enemy_opts.py`, versión anterior) sólo escalaba
 3. Acortar los timeouts de acción cambia la máquina de estados de la IA, no sólo el ritmo.
 
 Harder Combat escala **todas** las velocidades juntas y **no** toca los timeouts de acción:
-la cadencia la cambia con las tablas de intervalo. Eso es lo que aplicamos.
+la cadencia la cambia con las tablas de intervalo. Nuestro `enemy_attack` sí sigue tocando los
+timeouts de acción, como antes (por pedido); eso puede hacer la IA menos predecible que Harder
+Combat, pero es lo que se quiere para esta opción.
 
 ## Qué se adoptó en Super Hero Boost
 
@@ -52,8 +54,8 @@ la cadencia la cambia con las tablas de intervalo. Eso es lo que aplicamos.
   - las velocidades de acción de `Game/BSA/ActionSeqContainer`,
   - las velocidades de ataque por enemigo de `GameParameter/*Param` y `Game/*Param`.
 
-- `enemy_attack` ahora escala **sólo** las tablas/campos de intervalo de ataque; ya no toca
-  los timeouts de acción (la causa de la inestabilidad anterior).
+- `enemy_attack` escala las tablas/campos de intervalo de ataque **y también** los timeouts de
+  acción (`AttackStartTimeoutFrames`, `BackWalkTime`, `TimeoutTime`, ...), como antes.
 
 - **Nuevo `enemy_proj`**: velocidad de los proyectiles enemigos, independiente del movimiento.
 

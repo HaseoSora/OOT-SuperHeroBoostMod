@@ -15,6 +15,8 @@ BUILD_ID = "E0F3CCFAF50065AE4EA01EB5AEB13B1A45DA3348"
 MOD_NAME = "00-Super-Hero-Boost"
 MARKER = ".super-hero-boost"
 BUTTON_STYLES = ("switch", "playstation", "xbox")   # buttonMapping button art (the config byte: 0 Switch, 1 Xbox, 2 PS)
+HUD_MODES = ("wide", "simple", "map")
+HUD_MODE_BYTE = {"wide": 0, "simple": 1, "map": 2}
 STYLE_BYTE = {"switch": 0, "xbox": 1, "playstation": 2}
 L_MODES = ("assign", "selector")           # buttonMapping L: an item slot or the game's item selector
 L_MODE_VALUES = {"assign": 0, "selector": 2}
@@ -65,6 +67,7 @@ class Settings:
     quick_boots: bool = False        # hold D-pad down to pick the boots
     quick_mask: bool = False         # hold D-pad up to pick a mask
     hud_collectibles: bool = False   # per-area Skulltula / heart-piece counter
+    hud_mode: str = "wide"           # one of HUD_MODES: wide / simple (small bar) / map (hearts on the Minus map)
     enemy_double: bool = False       # beta: install the duplicated-enemy romfs mod
     enemy_speed: bool = False        # deprecated: old boolean maps to all three components at x2
     enemy_move: int = 0              # enemy movement speed: 0 off, 1 x1.5, 2 x2, 3 x3
@@ -189,7 +192,8 @@ def patch_config(nso: bytes, s: Settings) -> bytes:
     b[f + 8] = int(s.combat_only)
     b[f + 9] = 0                      # reserved legacy flag (always 0)
     struct.pack_into("<HH", b, f + 10, int(s.enemy_hp), int(s.damage))
-    b[f + 14], b[f + 15], b[f + 16], b[f + 17] = int(s.hud_rupees), int(s.hud_clock), int(s.clock_24h), int(s.no_heart_drop)
+    b[f + 14], b[f + 15], b[f + 16] = 0, 0, int(s.clock_24h)
+    b[f + 17] = int(s.no_heart_drop)
     struct.pack_into("<H", b, f + 18, int(s.sprint_speed))
     b[f + 20] = int(s.songbook)
     b[f + 21] = int(s.button_mapping)
@@ -198,20 +202,42 @@ def patch_config(nso: bytes, s: Settings) -> bytes:
     b[f + 24] = L_MODE_VALUES.get(s.bm_l_mode, 0)
     b[f + 25] = int(s.quick_boots)
     b[f + 26] = int(s.quick_mask)
-    b[f + 27] = int(s.hud_collectibles)
-    slots = []
-    if s.hud_rupees: slots.append(0)
-    if s.hud_clock: slots.append(1)
-    if s.hud_collectibles: slots += [2, 3]
-    # Pack the enabled blocks left to right with an equal gap between plate edges (a disabled block leaves no hole).
-    pos = [-32768] * 4
-    x = float(HUD_X0)
-    for i, block in enumerate(slots):
-        pos[block] = int(round(x))
-        if i + 1 < len(slots):
-            x += (HUD_PLATE_W[block] + HUD_PLATE_W[slots[i + 1]]) * 0.5 + HUD_GAP
+    mode = s.hud_mode if s.hud_mode in HUD_MODES else "wide"
+    # The HUD layout is four block x positions plus plate/text/icon scales. Wide keeps the user's element
+    # switches; simple always shows the four elements in one small bar; map shows rupees+time above the
+    # minimap and puts the heart counter on the Minus map.
+    if mode == "simple":
+        pos = [-1610, -1330, -1050, -800]
+        rupees = clock = collectibles = True
+        sx, sy, ts, isc, plates, maph, hy, ioff, tx = 110, 34, 50, 45, 2, 0, -1000, -60, 0
+    elif mode == "map":
+        pos = [1365, 1565, -32768, -32768]
+        rupees = clock = True
+        collectibles = False
+        sx, sy, ts, isc, plates, maph, hy, ioff, tx = 50, 50, 50, 45, 0, 1, -420, -140, 0
+    else:
+        rupees, clock, collectibles = s.hud_rupees, s.hud_clock, s.hud_collectibles
+        slots = []
+        if rupees: slots.append(0)
+        if clock: slots.append(1)
+        if collectibles: slots += [2, 3]
+        # Pack the enabled blocks left to right with an equal gap between plate edges (no hole when off).
+        pos = [-32768] * 4
+        x = float(HUD_X0)
+        for i, block in enumerate(slots):
+            pos[block] = int(round(x))
+            if i + 1 < len(slots):
+                x += (HUD_PLATE_W[block] + HUD_PLATE_W[slots[i + 1]]) * 0.5 + HUD_GAP
+        sx, sy, ts, isc, plates, maph, hy, ioff, tx = 46, 62, 0, 85, 1, 0, -960, -165, 30
+    b[f + 14], b[f + 15] = int(rupees), int(clock)
+    b[f + 27] = int(collectibles)
     struct.pack_into("<4h", b, f + 28, *pos)
     b[f + 36] = int(s.stamina_bar)
+    b[f + 37] = 1                       # hud_flags: the layout fields below are valid
+    b[f + 38] = HUD_MODE_BYTE[mode]
+    b[f + 39], b[f + 40], b[f + 41], b[f + 42] = sx, sy, ts, isc
+    b[f + 43], b[f + 44] = plates, maph
+    struct.pack_into("<hhh", b, f + 46, hy, ioff, tx)   # struct 62/64/66 (the shorts are 2-byte aligned)
     return bytes(b)
 
 

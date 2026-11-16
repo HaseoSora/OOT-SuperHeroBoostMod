@@ -72,6 +72,10 @@ display on the ring, and the enemy speed components off.
   They can break puzzles, quests or performance. Back up the save and test one at a time.
 - **HUD & buttons**: rupee counter, clock (**off / 12 h / 24 h**, one selector), button mapping (on/off), button
   style (Switch / PlayStation / Xbox), layout (extended / simple), L mode (item / selector) and **Quick select**.
+- **HUD layout**: **Wide** (the four native-style plates at the bottom), **Simple** (one small bar with the four
+  counters, so it covers little of the screen) and **Map** (rupees and time above the minimap, no plates; the
+  Skulltula plate is left to the game, and the current area's heart-piece counter appears next to the native
+  Skulltula counter on the Minus map).
 - **Area collectibles counter**: adds a third native-style plate below the rupee/clock row with the
   Gold Skulltulas and heart pieces of the current Banc, for example `SKULL 3/8  COR 1/2`. It reads the live
   `HeartPieceAnchor_GameDataPath` flags, `Sequence_CurrentBanc` and, for the Skulltulas, the save's persistent

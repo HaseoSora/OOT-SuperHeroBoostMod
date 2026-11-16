@@ -81,6 +81,8 @@ def cli(argv) -> int:
     ap.add_argument("--great-fairy", action="store_true", help="reorder the three Great Fairy magic rewards (romfs)")
     ap.add_argument("--farore-outdoor", action="store_true", help="allow Farore's Wind points outside dungeons (romfs)")
     ap.add_argument("--hud-collectibles", action="store_true", help="per-area Skulltula / heart-piece counter")
+    ap.add_argument("--hud-mode", choices=I.HUD_MODES, default=None,
+                    help="HUD layout: wide (plates), simple (one small bar), map (hearts on the Minus map)")
     ap.add_argument("--off", default=None, help="advanced: comma list of jump,attack,sprint,block,shoot,roll to disable")
     ap.add_argument("--combat-only", action="store_true", default=None)
     ap.add_argument("--name", default=I.MOD_NAME)
@@ -114,6 +116,7 @@ def cli(argv) -> int:
                    enemy_hp=v["enemy_hp"], damage=v["damage"],
                    no_heart_drop=v["no_heart_drop"], sprint_speed=v["sprint_speed"],
                    hud_rupees=v["hud_rupees"], hud_clock=v["hud_clock"], clock_24h=v["clock_24h"],
+                   hud_collectibles=v["hud_collectibles"], hud_mode=v["hud_mode"],
                    enemy_move=v["enemy_move"], enemy_anim=v["enemy_anim"], enemy_attack=v["enemy_attack"],
                    stamina_bar=v["stamina_bar"])
     if a.preset is not None:
@@ -152,6 +155,8 @@ def cli(argv) -> int:
         s.farore_outdoor = True
     if a.hud_collectibles:
         s.hud_collectibles = True
+    if a.hud_mode:
+        s.hud_mode = a.hud_mode
     if a.combat_only:
         s.combat_only = True
     if a.enemy_hp is not None:
@@ -304,6 +309,8 @@ def gui() -> None:
     quick_boots = tk.BooleanVar(value=bool(cfg.get("quick_boots", False)))
     quick_mask = tk.BooleanVar(value=bool(cfg.get("quick_mask", False)))
     hud_collectibles = tk.BooleanVar(value=bool(cfg.get("hud_collectibles", False)))
+    _hm = cfg.get("hud_mode")
+    hud_mode = tk.StringVar(value=_hm if _hm in I.HUD_MODES else "wide")
     enemy_double = tk.BooleanVar(value=bool(cfg.get("enemy_double", False)))
     _legacy_speed = 2 if cfg.get("enemy_speed") else 0
     enemy_move = tk.IntVar(value=cfg.get("enemy_move", _legacy_speed)
@@ -425,6 +432,7 @@ def gui() -> None:
         quick_boots.set(v["quick_boots"])
         quick_mask.set(v["quick_mask"])
         hud_collectibles.set(v["hud_collectibles"])
+        hud_mode.set(v["hud_mode"])
         mode.set(STAMINA_MODES[v["mode"]])
         for k, val in zip(KEYS, v["costs"]):
             costs[k].set(val)
@@ -464,7 +472,7 @@ def gui() -> None:
         refresh()
         autosave()
 
-    for var in (bmap, stamina, songbook, quick_boots, quick_mask, hud_collectibles,
+    for var in (bmap, stamina, songbook, quick_boots, quick_mask, hud_collectibles, hud_mode,
                 enemy_double, enemy_move, enemy_anim, enemy_attack,
                 great_fairy, farore_outdoor, mode,
                 combat, hp, dmg, speed, nodrop,
@@ -508,6 +516,7 @@ def gui() -> None:
                           songbook=songbook.get(),
                           quick_boots=quick_boots.get(), quick_mask=quick_mask.get(),
                           hud_collectibles=hud_collectibles.get(),
+                          hud_mode=hud_mode.get(),
                           enemy_double=enemy_double.get(),
                           enemy_move=enemy_move.get(), enemy_anim=enemy_anim.get(),
                           enemy_attack=enemy_attack.get(),
@@ -528,6 +537,7 @@ def gui() -> None:
             "stamina": stamina.get(), "stamina_bar": stamina_bar.get(), "songbook": songbook.get(),
             "quick_boots": quick_boots.get(), "quick_mask": quick_mask.get(),
             "hud_collectibles": hud_collectibles.get(),
+            "hud_mode": hud_mode.get(),
             "enemy_double": enemy_double.get(),
             "enemy_move": enemy_move.get(), "enemy_anim": enemy_anim.get(),
             "enemy_attack": enemy_attack.get(),
@@ -1112,6 +1122,15 @@ def gui() -> None:
 
     def build_hud(parent):
         body = card(parent, L("hud_title"), L("hud_desc"))
+        mrow = tk.Frame(body, bg=PANEL)
+        mrow.pack(fill="x", pady=(0, 8))
+        label(mrow, L("hud_mode") + ":", size=10, bg=PANEL).grid(row=0, column=0, sticky="w", padx=(0, 6))
+        mvalues = [L("hud_mode_wide"), L("hud_mode_simple"), L("hud_mode_map")]
+        mvar = tk.StringVar(value=mvalues[I.HUD_MODES.index(hud_mode.get())])
+        mcb = combo(mrow, mvalues, mvar, width=24)
+        mcb.grid(row=0, column=1, sticky="w")
+        mcb.bind("<<ComboboxSelected>>", lambda e: hud_mode.set(I.HUD_MODES[mcb.current()]))
+        label(body, L("hud_mode_desc"), size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=(20, 0), pady=(0, 8))
         row = tk.Frame(body, bg=PANEL)
         row.pack(fill="x")
         check(row, L("hud_rupees"), rupees).grid(row=0, column=0, sticky="w", padx=(0, 30))

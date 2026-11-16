@@ -298,6 +298,8 @@ static void pic_names(void) {
 float g_hudp[26] = {-1518.0f, -860.0f, -960.0f, 0.46f, 0.62f, -165.0f, 0.85f, 30.0f, 0.0f,
                     29.0f, 0.9f, 0.6f, 30.0f, 0.7f, 14.0f, 0.45f, 0.0f, 0.75f, 0.75f, 0.09f,
                     -1000.0f, -960.0f, -660.0f, -960.0f, -190.0f, -960.0f};
+/* HUD layout: the app writes the placement/scales in the configuration (wide, simple or map); these are the
+ * tuned defaults used by older configurations (hud_flags == 0). */
 static int tbl_add(u8 *root, u32 off, const char *name, void *desc, u64 hash) {
     u32 n = w(root, off + 24);
     for (u32 j = 0; j < 3; j++) {
@@ -659,20 +661,12 @@ static u32 g_calls_n;
 
 u64 g_prep_dbg[20] = {1};   /* per part: handle, config, handle+0x28, handle+0x38 */
 
-char g_pl[160][32] = {{1}};
-u32 g_pl_n = 1;
-
 void *hud_prepare(void *handle, u8 *config) {
     g_hud_dbg[8] += 1;
     const u8 *r = (const u8 *)q(config, 0);
     if (!r || w(r, 0) != 0x004C4955u) return config;   /* "UIL\0" */
     const char *asset = (const char *)q(r, 0x18);
     const char *inst = (const char *)q(handle, 0x30);
-    if (inst && asset && g_pl_n < 160 && (str_eq(asset, "NumDisplay_00") || (asset[0] == 'P' && asset[1] == 'a' && asset[2] == 'N' && asset[3] == 'u') ||
-                                         str_eq(asset, "PlayerStatus_00") || (asset[0] == 'N' && asset[1] == 'u'))) {
-        char *d = g_pl[g_pl_n++];
-        for (int i = 0; i < 15; i++) { d[i] = inst[i]; d[16 + i] = asset[i]; }
-    }
     u32 kind = str_eq(asset, "PlayerStatus_00") ? 1 : BTNMAP && str_eq(asset, "PaItemMenu_00") ? 3 :
                BTNMAP && str_eq(asset, "PlusMenu_00") ? 4 : 0;
     /* one of our slot buttons: its nested Pa_ReplaceIcon_00 is built next and gets the private copy */
@@ -1173,15 +1167,44 @@ static int collect_counts(u32 *sd, u32 *st, u32 *hd, u32 *ht) {
     }
     return 0;
 }
+static void hud_rupee_values(int *cur, int *mx) {
+    *cur = 0; *mx = 200;
+    u64 mgr = *(u64 *)GAMEDATA_MGR;
+    if (vptr(mgr)) {
+        u32 cnt = *(u32 *)(mgr + 8 + 0x60 * 2 + 8);
+        u64 rec = *(u64 *)(mgr + 8 + 0x60 * 2 + 0x10);
+        if (rec && cnt >= 977) { *cur = *(int *)(rec + 962 * 0x28 + 0x1C); *mx = *(int *)(rec + 976 * 0x28 + 0x1C); }
+    }
+    if (*mx <= 0) *mx = 200;
+}
+static u32 hud_clock_text(char *b, int sec) {
+    if (quick_select_text && quick_select_text(b, 16)) { u32 n = 0; while (b[n]) n++; return n; }
+    int h = sec / 3600, m = (sec / 60) % 60, hh = h;
+    if (!g_shbcfg.clock_24h) { hh = h % 12; if (!hh) hh = 12; }
+    u32 n = 0;
+    if (g_shbcfg.clock_24h || hh >= 10) b[n++] = (char)('0' + hh / 10);
+    b[n++] = (char)('0' + hh % 10);
+    b[n++] = ':'; b[n++] = (char)('0' + m / 10); b[n++] = (char)('0' + m % 10);
+    if (!g_shbcfg.clock_24h) { b[n++] = ' '; b[n++] = h < 12 ? 'A' : 'P'; b[n++] = 'M'; }
+    b[n] = 0;
+    return n;
+}
 static void plates_update(u64 frame) {
     for (u32 k = 0; k < PIC_N; k++)
         if (!g_pic_rec[k]) g_pic_rec[k] = pane_record(frame, g_pinames[k]);
     for (u32 k = 0; k < PIC_N; k++) if (!g_pic_rec[k]) return;
     u32 active = player_active() != 0;
-    u32 clk = active && g_shbcfg.hud_clock, rup = active && g_shbcfg.hud_rupees;
+    static u32 g_last_hm = 0xFFFFFFFFu;
+    u32 hm = g_shbcfg.hud_mode;
+    if (hm != g_last_hm) { if (g_plates_shown) plates_hide(frame); g_last_hm = hm; }
+    if (!active) {
+        g_hud_show[0] = g_hud_show[1] = 0x10000000u;
+        if (g_plates_shown) { plates_hide(frame); g_plates_shown = 0; }
+        return;
+    }
+    u32 clk = g_shbcfg.hud_clock, rup = g_shbcfg.hud_rupees;
     u32 sd = 0, st = 0, hd = 0, ht = 0;
-    u32 col = (active && g_shbcfg.hud_collectibles) ?
-              (u32)collect_counts(&sd, &st, &hd, &ht) : 0;
+    u32 col = g_shbcfg.hud_collectibles ? (u32)collect_counts(&sd, &st, &hd, &ht) : 0;
     (void)col;
     /* outside gameplay (loading, menus, cutscenes) nothing is touched except hiding the plates once:
      * setting texts there costs the engine a slow lookup per call */
@@ -1192,6 +1215,17 @@ static void plates_update(u64 frame) {
     }
     g_plates_shown = 1;
     const float *P = g_hudp;
+    u32 nf = g_shbcfg.hud_flags;
+    float psx = nf && g_shbcfg.hud_sx ? g_shbcfg.hud_sx / 100.0f : P[3];
+    float psy = nf && g_shbcfg.hud_sy ? g_shbcfg.hud_sy / 100.0f : P[4];
+    float tsc = nf && g_shbcfg.hud_tscale ? g_shbcfg.hud_tscale / 100.0f : P[13];
+    float isc = nf && g_shbcfg.hud_iscale ? g_shbcfg.hud_iscale / 100.0f : P[6];
+    float ioff = nf ? (float)g_shbcfg.hud_ioff : P[5];
+    float txo = nf ? (float)g_shbcfg.hud_tx : P[7];
+    float BY = nf && g_shbcfg.hud_y ? (float)g_shbcfg.hud_y : -960.0f;
+    u32 plates = nf ? g_shbcfg.hud_plates : 1;
+    float adv = P[9] * (tsc / P[13]);
+    g_fld_sc[0] = g_fld_sc[1] = g_fld_sc[2] = tsc; g_fld_sc[3] = tsc; g_fld_sc[6] = tsc;
     int sec = clk ? world_seconds() : -1;
     if (sec < 0) clk = 0;
     g_hud_show[0] = 0x10000000u + clk; g_hud_show[1] = 0x10000000u + rup;
@@ -1200,94 +1234,81 @@ static void plates_update(u64 frame) {
     u32 show_r = rup && bxr != -32768, show_c = clk && bxc != -32768;
     u32 show_s = active && g_shbcfg.hud_collectibles && bxs != -32768;
     u32 show_h = active && g_shbcfg.hud_collectibles && bxh != -32768;
-#define BY (-960.0f)
-    if (show_r) for (u32 j = 0; j < 4; j++) {
-        u64 rec = g_pic_rec[4 + j];
-        float sx = P[3] * ((j & 1) ? -1.0f : 1.0f);
-        place(rec, (float)bxr, BY, sx, P[4], 0.0f);
-        if (j < 2) tint_rec(rec, 0.0f, 0.0f, 0.0f, P[10]);
-        else tint_rec(rec, P[15], P[15], P[15], P[11]);
+    if (plates && show_r) {
+        float cx = plates == 2 && bxh != -32768 ? ((float)bxr + (float)bxh) * 0.5f : (float)bxr;
+        for (u32 j = 0; j < 4; j++) {
+            u64 rec = g_pic_rec[4 + j];
+            float sx = psx * ((j & 1) ? -1.0f : 1.0f);
+            place(rec, cx, BY, sx, psy, 0.0f);
+            if (j < 2) tint_rec(rec, 0.0f, 0.0f, 0.0f, P[10]);
+            else tint_rec(rec, P[15], P[15], P[15], P[11]);
+        }
     }
-    if (show_c) for (u32 j = 0; j < 4; j++) {
+    if (plates == 1 && show_c) for (u32 j = 0; j < 4; j++) {
         u64 rec = g_pic_rec[j];
-        float sx = P[3] * ((j & 1) ? -1.0f : 1.0f);
-        place(rec, (float)bxc, BY, sx, P[4], 0.0f);
+        float sx = psx * ((j & 1) ? -1.0f : 1.0f);
+        place(rec, (float)bxc, BY, sx, psy, 0.0f);
         if (j < 2) tint_rec(rec, 0.0f, 0.0f, 0.0f, P[10]);
         else tint_rec(rec, P[15], P[15], P[15], P[11]);
     }
-    /* collectible sections */
-    for (u32 sec2 = 0; sec2 < 2; sec2++) {
+    if (plates == 1) for (u32 sec2 = 0; sec2 < 2; sec2++) {
         int bi = sec2 ? bxh : bxs;
         if (bi == -32768) continue;
         for (u32 j = 0; j < 4; j++) {
             u64 rec = g_pic_rec[PIC_COLL + sec2 * 4 + j];
             float sx = 0.42f * ((j & 1) ? -1.0f : 1.0f);
-            place(rec, (float)bi, BY, sx, P[4], 0.0f);
+            place(rec, (float)bi, BY, sx, psy, 0.0f);
             if (j < 2) tint_rec(rec, 0.0f, 0.0f, 0.0f, P[10]);
             else tint_rec(rec, P[15], P[15], P[15], P[11]);
         }
+    }
+    /* collectible icons (the plates are only in wide mode) */
+    for (u32 sec2 = 0; sec2 < 2; sec2++) {
+        int bi = sec2 ? bxh : bxs;
+        if (bi == -32768 || !(sec2 ? show_h : show_s)) continue;
         u64 icn = g_pic_rec[PIC_COLL + 8 + sec2];
-        place(icn, (float)bi + P[5], BY, P[6], P[6], 0.0f);
+        place(icn, (float)bi + ioff, BY, isc, isc, 0.0f);
         tint_rec(icn, 1.0f, 1.0f, 1.0f, 1.0f);
     }
-    /* rupee icon */
     if (show_r) {
-        place(g_pic_rec[8], (float)bxr + P[5], BY, P[6], P[6], 0.0f);
+        place(g_pic_rec[8], (float)bxr + ioff, BY, isc, isc, 0.0f);
         tint_rec(g_pic_rec[8], 1.0f, 1.0f, 1.0f, 1.0f);
     }
-    /* sun (06:00-18:00) or moon */
     if (sec < 0) sec = 0;
     sec %= 86400;
-    u32 day = sec >= 6 * 3600 && sec < 18 * 3600;
-    if (P[16] > 0.5f) day = P[16] < 1.5f;
-    u32 sun = show_c && day, moon = show_c && !day;
-    float ix = (float)bxc + P[5], iy = BY;
-    static const float SUN[3] = {1.0f, 0.86f, 0.42f};
-    place(g_pic_rec[9], ix, iy, sun ? 1.0f : 0.0f, sun ? 1.0f : 0.0f, 0.0f);
-    tint_rec(g_pic_rec[9], SUN[0], SUN[1], SUN[2], 1.0f);
-    for (u32 j = 0; j < 8; j++) {
-        u64 rec = g_pic_rec[10 + j];
-        /* the pane is turned clockwise by the ray's angle (rotation is counter-clockwise positive) */
-        place(rec, ix + RAY_DX[j] * P[12], iy + RAY_DY[j] * P[12], sun ? 1.0f : 0.0f, sun ? 1.0f : 0.0f,
-              -0.785398f * (float)j);
-        tint_rec(rec, SUN[0], SUN[1], SUN[2], 1.0f);
+    if (plates == 1) {
+        u32 day = sec >= 6 * 3600 && sec < 18 * 3600;
+        if (P[16] > 0.5f) day = P[16] < 1.5f;
+        u32 sun = show_c && day, moon = show_c && !day;
+        float ix = (float)bxc + ioff, iy = BY;
+        static const float SUN[3] = {1.0f, 0.86f, 0.42f};
+        place(g_pic_rec[9], ix, iy, sun ? 1.0f : 0.0f, sun ? 1.0f : 0.0f, 0.0f);
+        tint_rec(g_pic_rec[9], SUN[0], SUN[1], SUN[2], 1.0f);
+        for (u32 j = 0; j < 8; j++) {
+            u64 rec = g_pic_rec[10 + j];
+            place(rec, ix + RAY_DX[j] * P[12], iy + RAY_DY[j] * P[12], sun ? 1.0f : 0.0f, sun ? 1.0f : 0.0f,
+                  -0.785398f * (float)j);
+            tint_rec(rec, SUN[0], SUN[1], SUN[2], 1.0f);
+        }
+        float ms = moon ? P[17] : 0.0f, ss = moon ? P[18] : 0.0f;
+        place(g_pic_rec[18], ix, iy, ms, ms, 0.0f);
+        tint_rec(g_pic_rec[18], 0.97f, 0.93f, 0.72f, 1.0f);
+        place(g_pic_rec[19], ix + P[14], iy + P[14] * 0.6f, ss, ss, 0.0f);
+        tint_rec(g_pic_rec[19], P[19], P[19], P[19], 1.0f);
     }
-    /* crescent: a pale disc partly covered by a smaller disc in the plate's own colour, shifted up-right */
-    float ms = moon ? P[17] : 0.0f, ss = moon ? P[18] : 0.0f;
-    place(g_pic_rec[18], ix, iy, ms, ms, 0.0f);
-    tint_rec(g_pic_rec[18], 0.97f, 0.93f, 0.72f, 1.0f);
-    place(g_pic_rec[19], ix + P[14], iy + P[14] * 0.6f, ss, ss, 0.0f);
-    tint_rec(g_pic_rec[19], P[19], P[19], P[19], 1.0f);
 
     static const float WHITE[3] = {1.0f, 1.0f, 1.0f};
     static const float GREEN[3] = {0.38f, 0.95f, 0.25f};
     /* text panes are centre-aligned: P[7] is the centre of the text area (right of the icon) */
     float ty = P[8];
     {   /* clock (or the quick-select text while it is open) */
-        char b[16]; u32 n = 0;
-        if (quick_select_text && quick_select_text(b, sizeof b)) {
-            put_text(frame, 0, b, (float)bxc + P[7], BY + ty, show_c, WHITE);
-        } else {
-        int h = sec / 3600, m = (sec / 60) % 60, hh = h;
-        if (!g_shbcfg.clock_24h) { hh = h % 12; if (!hh) hh = 12; }
-        if (g_shbcfg.clock_24h || hh >= 10) b[n++] = (char)('0' + hh / 10);
-        b[n++] = (char)('0' + hh % 10);
-        b[n++] = ':'; b[n++] = (char)('0' + m / 10); b[n++] = (char)('0' + m % 10);
-        if (!g_shbcfg.clock_24h) { b[n++] = ' '; b[n++] = h < 12 ? 'A' : 'P'; b[n++] = 'M'; }
-        b[n] = 0;
-        put_text(frame, 0, b, (float)bxc + P[7], BY + ty, show_c, WHITE);
-        }
+        char b[16];
+        hud_clock_text(b, sec);
+        put_text(frame, 0, b, (float)bxc + txo, BY + ty, show_c, WHITE);
     }
-    {   /* rupees: GameData Int table (k = 2), records 0x28 bytes, live value at +0x1C.
-         * 962 = PlayerStatus.CurrentRupee, 976 = wallet capacity (member "Rupee" of the ammo/rupee caps). */
-        int cur = 0, mx = 200;
-        u64 mgr = *(u64 *)GAMEDATA_MGR;
-        if (vptr(mgr)) {
-            u32 cnt = *(u32 *)(mgr + 8 + 0x60 * 2 + 8);
-            u64 rec = *(u64 *)(mgr + 8 + 0x60 * 2 + 0x10);
-            if (rec && cnt >= 977) { cur = *(int *)(rec + 962 * 0x28 + 0x1C); mx = *(int *)(rec + 976 * 0x28 + 0x1C); }
-        }
-        if (mx <= 0) mx = 200;
+    {   /* rupees: current / wallet capacity */
+        int cur, mx;
+        hud_rupee_values(&cur, &mx);
         char a[16], b[16];
         u32 na = put_int(a, cur), nb = 0;
         a[na] = 0;
@@ -1298,17 +1319,17 @@ static void plates_update(u64 frame) {
         * ("/" is narrower than a digit: it counts as SLASH_W digits) */
         const float SLASH_W = 0.55f;
         float wa = (float)na, wb = (float)(nb - 1) + SLASH_W;
-        float tx = (float)bxr + P[7];
-        float x0 = tx - P[9] * (wa + wb) * 0.5f;
-        put_text(frame, 1, a, x0 + P[9] * wa * 0.5f, BY + ty, show_r, GREEN);
-        put_text(frame, 2, b, x0 + P[9] * (wa + wb * 0.5f), BY + ty, show_r, WHITE);
+        float tx = (float)bxr + txo;
+        float x0 = tx - adv * (wa + wb) * 0.5f;
+        put_text(frame, 1, a, x0 + adv * wa * 0.5f, BY + ty, show_r, GREEN);
+        put_text(frame, 2, b, x0 + adv * (wa + wb * 0.5f), BY + ty, show_r, WHITE);
     }
     {   /* per-area Skulltulas / heart pieces: collected / total, one section each */
         char b[16]; u32 n;
         n = put_int(b, (int)sd); b[n++] = '/'; n += put_int(b + n, (int)st); b[n] = 0;
-        put_text(frame, 3, b, (float)bxs + 15.0f, BY + ty, show_s, WHITE);
+        put_text(frame, 3, b, (float)bxs + txo, BY + ty, show_s, WHITE);
         n = put_int(b, (int)hd); b[n++] = '/'; n += put_int(b + n, (int)ht); b[n] = 0;
-        put_text(frame, 6, b, (float)bxh + 15.0f, BY + ty, show_h, WHITE);
+        put_text(frame, 6, b, (float)bxh + txo, BY + ty, show_h, WHITE);
     }
 }
 static void txt_update(u64 frame) {
@@ -1760,6 +1781,7 @@ int hud_ingame(void) { return !vptr(g_ps_frame) || (*(volatile u32 *)(g_ps_frame
  * pattern frame ([[entry+0x48]+0x20]+0x18, entry = the panel's list +0x78 / count +0x70 whose +0xE8 is the
  * cell) is not 0: the game's own test before it shows the caption. */
 extern u64 g_menu_panel, g_menu_cell;
+static char g_map_buf[64];   /* Minus map: native total text + the area heart count */
 u64 player_get(void);
 int hud_menu_items(void) {   /* (the panel is built at boot: before a game is loaded it says nothing) */
     return g_menu_panel && player_get() && !hud_ingame() && *(volatile u8 *)(g_menu_panel + 0x28) == 2;
@@ -1953,7 +1975,6 @@ static void slots_draw(SlotBtn *set, const u64 *ctrls, u64 frame, const float *l
         SlotBtn *b = &set[k];
         if (!b->part) {
             u64 p = (u64)find_part_safe((void *)frame, part_name(k));
-            if (main_set) g_sb_dbg[k] = MARK | p; else g_mb_dbg[k] = MARK | p;
             if (!p) continue;
             u64 none = (u64)find_anim((void *)p, "__no_such_anim__");
             u32 mask = 0;
@@ -1962,10 +1983,8 @@ static void slots_draw(SlotBtn *set, const u64 *ctrls, u64 frame, const float *l
                 b->anim[i] = (a && a != none) ? a : 0;
                 if (b->anim[i]) mask |= 1u << i;
             }
-            if (main_set) g_sb_anim[k] = 0x10000000u | mask;
             {   /* the nested icon part: its icon pane and its shadow pane (where our button is drawn) */
                 u64 rif = (u64)find_part_safe((void *)p, "Pa_ReplaceIcon_00");
-                if (main_set) { g_sb_rif[k][0] = MARK | rif; g_sb_rif[k][1] = MARK | (rif ? ptr(rif, 0x80) : 0); }
                 b->rep = rif ? ptr(rif, 0x6A8) : 0;
                 b->ic = rif ? part_child(rif, "P_ReplaceIcon_00") : 0;
                 b->sh = rif ? part_child(rif, "P_ReplaceIconSh_00") : 0;
@@ -2029,7 +2048,6 @@ static void slots_draw(SlotBtn *set, const u64 *ctrls, u64 frame, const float *l
             b->icon_set = 1;
             b->shown_item = g_sb_item[k];
             b->shown_name = nh;
-            if (main_set) for (u32 i = 0; i < 31; i++) { g_sb_name_dbg[k][i] = inm ? inm[i] : 0; if (inm && !inm[i]) break; }
             if (inm) set_icon_btn(b, inm, g_sb_btn[k][0] ? g_sb_btn[k] : 0);
         }
     }
@@ -2253,9 +2271,6 @@ __attribute__((weak)) void songbook_on_ocarina(u32 active, void *ctx);   /* feat
 __attribute__((weak)) void songbook_on_select(void *ctx, u32 sel) { (void)ctx; (void)sel; }   /* overridden by the feature */
 __attribute__((weak)) void songbook_on_frame(void);                      /* features/songbook */
 __attribute__((weak)) void songbook_on_ui(void *ctx);                    /* features/songbook */
-/* diagnostic: the game's own set_text calls (not ours), consecutive repeats skipped: caller, pane, len, text */
-struct { u64 lr, pane; u32 len, n; char s[40]; char nm[24]; u64 lr2; } g_st_log[32];
-u32 g_st_n = 0x10000000u;
 /* The game's control guide (UICtrlGuideScreen) writes the A action ("Hablar", "Abrir", "Rodar"...) into its text
  * pane T_GuideA_00 through the set-text-by-name call (frame in x22, pane name in x21). */
 static void hud_on_settext(u64 pane, const u64 *ref, u64 lr, const u64 *regs) {
@@ -2264,25 +2279,31 @@ static void hud_on_settext(u64 pane, const u64 *ref, u64 lr, const u64 *regs) {
     const char *s = (const char *)ref[0];
     u32 len = (u32)ref[1];
     if (!s || !vptr((u64)s)) return;
-    {
-        const char *nm = (const char *)regs[0xF0 / 8];
-        if (nm && vptr((u64)nm) && str_eq(nm, "T_GuideA_00")) {
-            g_aguide_frame = regs[0xF8 / 8];
-            u32 i;
-            for (i = 0; i < len && i < 47 && s[i]; i++) g_aguide_text[i] = s[i];
-            g_aguide_text[i] = 0;
+    /* Minus map: append the area heart-piece count to the native Skulltula counter's total text. */
+    const char *nm = (const char *)regs[0xF0 / 8];
+    if (g_shbcfg.hud_map_hearts && nm && vptr((u64)nm) && str_eq(nm, "T_NumTotal_00") && len < 40) {
+        u32 sd = 0, st = 0, hd = 0, ht = 0;
+        if (collect_counts(&sd, &st, &hd, &ht) && ht) {
+            u32 m = 0;
+            for (u32 i = 0; i < len && i < 40; i++) g_map_buf[m++] = s[i];
+            static const char E[] = "  ";
+            for (u32 i = 0; E[i] && m < 47; i++) g_map_buf[m++] = E[i];
+            m += put_int(g_map_buf + m, (int)hd);
+            g_map_buf[m++] = '/';
+            m += put_int(g_map_buf + m, (int)ht);
+            g_map_buf[m] = 0;
+            ((u64 *)ref)[0] = (u64)g_map_buf;
+            ((u64 *)ref)[1] = m;
+            s = g_map_buf;
+            len = m;
         }
     }
-    u32 last = (g_st_n - 1u) % 32;
-    if (g_st_log[last].pane == pane && g_st_log[last].len == len && g_st_log[last].s[0] == s[0] && g_st_log[last].s[2] == s[2]) return;
-    u32 k = (g_st_n++ - 0x10000000u) % 32;
-    g_st_log[k].lr = lr; g_st_log[k].pane = pane; g_st_log[k].len = len; g_st_log[k].n = g_st_n;
-    for (u32 i = 0; i < 40; i++) g_st_log[k].s[i] = s[i];
-    const char *nm = (const char *)regs[0xF0 / 8];
-    u64 fp = regs[0];
-    for (u32 i = 0; i < 24; i++) g_st_log[k].nm[i] = 0;
-    if (nm && vptr((u64)nm)) for (u32 i = 0; i < 23 && nm[i]; i++) g_st_log[k].nm[i] = nm[i];
-    g_st_log[k].lr2 = (fp && vptr(fp)) ? *(u64 *)(fp + 8) : 0;
+    if (nm && vptr((u64)nm) && str_eq(nm, "T_GuideA_00")) {
+        g_aguide_frame = regs[0xF8 / 8];
+        u32 i;
+        for (i = 0; i < len && i < 47 && s[i]; i++) g_aguide_text[i] = s[i];
+        g_aguide_text[i] = 0;
+    }
 }
 /* Our parts on the Items page get their icon controllers at the end of the page build (main+0xF78BA8, hook 15:
  * x19 = the page panel, its +0x20 the page frame; x20 = the build heap), right after the game's own cells got
@@ -2360,7 +2381,8 @@ void hud_on_code(u32 id, void *a0, void *a1, void *a2, void *regs) {
         if (!vptr(layout)) return;
         u64 arr = ptr(layout, 0x100);
         const u8 *lr = layout ? (const u8 *)ptr(layout, 0xF8) : 0;
-        if (!lr || !str_eq((const char *)q(lr, 0x18), "PlayerStatus_00")) return;
+        const char *asset = lr ? (const char *)q(lr, 0x18) : 0;
+        if (!asset || !str_eq(asset, "PlayerStatus_00")) return;
         {   /* child frame object the caller prepared: x0 -> [x0+8] -> [0]; null = creation failed */
             u64 o = (u64)a0, c = 0;
             if (o && vptr(o) && vptr(ptr(o, 8))) c = ptr(ptr(o, 8), 0);

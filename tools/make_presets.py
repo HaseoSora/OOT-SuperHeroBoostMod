@@ -40,7 +40,7 @@ def settings_for(key: str) -> I.Settings:
         no_heart_drop=v["no_heart_drop"], sprint_speed=v["sprint_speed"],
         hud_rupees=v["hud_rupees"], hud_clock=v["hud_clock"], clock_24h=v["clock_24h"],
         quick_boots=v["quick_boots"], quick_mask=v["quick_mask"],
-        hud_collectibles=v["hud_collectibles"],
+        hud_collectibles=v["hud_collectibles"], hud_mode=v["hud_mode"],
         enemy_double=v["enemy_double"],
         enemy_move=v["enemy_move"], enemy_anim=v["enemy_anim"], enemy_attack=v["enemy_attack"],
         stamina_bar=v["stamina_bar"],

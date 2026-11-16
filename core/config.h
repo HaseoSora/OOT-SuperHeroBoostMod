@@ -36,7 +36,18 @@ typedef struct {
     unsigned char hud_collectibles; /* per-area Skulltula / heart-piece counter */
     signed short hud_x[4];          /* installer: x of the rupee, clock, skull and heart blocks (-32768 = off) */
     unsigned char stamina_bar;      /* 0 = ring around the player, 1 = segmented horizontal bar */
-    unsigned char reserved[19];
+    unsigned char hud_flags;        /* 1 = use the layout fields below (new app); 0 = wide defaults */
+    unsigned char hud_mode;         /* app: 0 wide, 1 simple, 2 map (informational) */
+    unsigned char hud_sx;           /* plate scale x, percent */
+    unsigned char hud_sy;           /* plate scale y, percent */
+    unsigned char hud_tscale;       /* text scale, percent */
+    unsigned char hud_iscale;       /* icon scale, percent */
+    unsigned char hud_plates;       /* 0 no plates, 1 all (wide), 2 one bar plate (simple) */
+    unsigned char hud_map_hearts;   /* 1 = area heart counter on the Minus map */
+    signed short hud_y;             /* row y (layout units) */
+    signed short hud_ioff;          /* icon x offset */
+    signed short hud_tx;            /* text x offset */
+    unsigned char reserved[4];
 } ShbConfig;
 
 extern volatile ShbConfig g_shbcfg;

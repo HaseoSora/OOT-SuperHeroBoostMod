@@ -32,6 +32,9 @@ The module, the HUD, the textures and the app are original work: no third-party 
   the current area (for example `SKULL 3/8  COR 0/2`). The Skulltulas are read from the save's persistent key set, so
   the count no longer resets when you leave and re-enter an area; heart pieces without a map anchor (some
   chests/minigames) are not counted yet.
+- **Three HUD layouts**: **Wide** (the four plates), **Simple** (one small bar with the four counters) and **Map**
+  (rupees and time above the minimap, with the area heart counter next to the native Skulltula counter on the Minus
+  map).
 - **World changes**: reorders the three Great Fairy magic rewards (Hyrule Castle child gives **Nayru's Love**, Death
   Mountain Crater the **magic spin attack** and Desert Colossus **double magic**) and allows placing **Farore's Wind**
   warp points outside dungeons. Each fountain keeps her own model and dialogue; the Din fairy's overview still

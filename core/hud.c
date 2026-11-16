@@ -1497,7 +1497,7 @@ static const char *slot_anim_name(u32 i) {
     case 8: return "UnSelect"; case 9: return "Decide"; default: return "Assign";
     }
 }
-typedef struct { u64 part, anim[SA_N], rec, rep, ctrl, hide[9], ic, sh; u32 icon_set; int shown_item; char forced[32]; } SlotBtn;
+typedef struct { u64 part, anim[SA_N], rec, rep, ctrl, hide[9], ic, sh; u32 icon_set, shown_name; int shown_item; char forced[32]; } SlotBtn;
 static SlotBtn g_sb[PART_N];
 u64 g_sb_dbg[PART_N];       /* part object per button (diagnostic) */
 u32 g_sb_anim[PART_N];      /* bit i = anim i found */
@@ -1524,7 +1524,8 @@ static float item_pattern(int item) {
     switch (item) {
     case 0: return 0.0f;  case 1: return 6.0f;  case 2: return 4.0f;  case 3: return 3.0f;  case 4: return 1.0f;
     case 5: return 33.0f; case 6: return 34.0f; case 7: return 32.0f; case 9: return 5.0f;  case 10: return 8.0f;
-    case 13: return 2.0f; case 14: return 23.0f; case 18: return 36.0f; case 30: return 24.0f; case 31: return 9.0f;
+    case 13: return 2.0f; case 14: case 15: case 16: case 17: return 23.0f;   /* bottles (contents share the frame) */
+    case 18: return 36.0f; case 30: return 24.0f; case 31: return 9.0f;
     default: return 6.0f;
     }
 }
@@ -1782,6 +1783,7 @@ void hud_box_empty(int child) {
 static u32 g_own_idx[64];   /* cached Bool index + 1; 0xFFFFFFFF = no flag */
 int hud_item_owned(int item) {
     if (item < 0 || item >= 64) return 0;
+    if (item >= 14 && item <= 17) return 1;   /* bottles: the content name has no IsGet flag of its own */
     if (!g_own_idx[item]) {
         const char *nm = item_name(item);
         if (!nm) return 1;
@@ -1943,13 +1945,17 @@ static void slots_draw(SlotBtn *set, const u64 *ctrls, u64 frame, const float *l
                 set_icon(b, nm);
             }
         }
-        /* icon of the button's item (only when it changes) */
-        if (b->ctrl && !g_sb_busy && (!b->icon_set || b->shown_item != g_sb_item[k])) {
-            const char *nm = item_name(g_sb_item[k]);
+        /* icon of the button's item: also refresh when the item's actor name changes (bottles keep the same
+         * index while their content changes, e.g. empty -> red potion) */
+        const char *inm = g_sb_item[k] >= 0 ? item_name(g_sb_item[k]) : 0;
+        u32 nh = inm ? mmh3("", inm) : 0;
+        if (b->ctrl && !g_sb_busy &&
+            (!b->icon_set || b->shown_item != g_sb_item[k] || b->shown_name != nh)) {
             b->icon_set = 1;
             b->shown_item = g_sb_item[k];
-            if (main_set) for (u32 i = 0; i < 31; i++) { g_sb_name_dbg[k][i] = nm ? nm[i] : 0; if (nm && !nm[i]) break; }
-            if (nm) set_icon_btn(b, nm, g_sb_btn[k][0] ? g_sb_btn[k] : 0);
+            b->shown_name = nh;
+            if (main_set) for (u32 i = 0; i < 31; i++) { g_sb_name_dbg[k][i] = inm ? inm[i] : 0; if (inm && !inm[i]) break; }
+            if (inm) set_icon_btn(b, inm, g_sb_btn[k][0] ? g_sb_btn[k] : 0);
         }
     }
 }

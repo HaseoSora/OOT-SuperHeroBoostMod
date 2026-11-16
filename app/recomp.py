@@ -334,6 +334,67 @@ def _python(builder: Path) -> Path:
     return Path(sys.executable)
 
 
+def _vk_headers_ok(builder: Path, work: Path | None) -> bool:
+    """Ask the builder itself whether it can find the Vulkan, SPIR-V and VMA headers.
+
+    Some builder packages keep the CPM cache at tools/cpm, which the builder finds by itself; a source
+    build may not ship it at all. That is when make_game.py stops with "no headers for longshot_vk.dll".
+    """
+    tools = builder / "tools"
+    code = ("import sys; sys.path.insert(0, 'nx2'); import build; "
+            "print(1 if all(build.vulkan_headers(sys.argv[1] if len(sys.argv) > 1 else None)) else 0)")
+    cmd = [str(_python(builder)), "-I", "-c", code]
+    if work:
+        cmd.append(str(work))
+    try:
+        r = subprocess.run(cmd, cwd=str(tools), capture_output=True, text=True, encoding="utf-8",
+                           errors="replace", timeout=90,
+                           creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0) if os.name == "nt" else 0)
+    except (OSError, subprocess.SubprocessError):
+        return True   # cannot tell: let the builder run its normal path
+    if r.returncode:
+        return True
+    lines = [line.strip() for line in (r.stdout or "").splitlines() if line.strip()]
+    return (lines[-1] if lines else "") == "1"
+
+
+def _vk_prebuilt(game: Path, work: Path | None) -> Path | None:
+    """A copy of the game's working renderer, safe to hand to make_game.py as LONGSHOT_VK_PREBUILT.
+
+    The copy lives in the build work folder: make_game.py copies the prebuilt back beside the new exe, and
+    source and destination must not be the same file (it builds in place)."""
+    for sub in ("bin", ""):
+        for name in ("longshot_vk.dll", "longshot_vk.so"):
+            src = game / sub / name if sub else game / name
+            if not src.is_file():
+                continue
+            out = Path(work) if work else game / ".shb-work"
+            try:
+                out.mkdir(parents=True, exist_ok=True)
+                dst = out / ("shb-" + name)
+                if src.resolve() != dst.resolve():
+                    shutil.copy2(src, dst)
+                return dst
+            except OSError:
+                return None
+    return None
+
+
+def build_env(game: Path, builder: Path, work: Path | None) -> tuple[dict, str | None]:
+    """Environment for make_game.py: the packaged CPM cache, and the installed renderer when the builder
+    cannot compile longshot_vk.dll (missing Vulkan/VMA headers)."""
+    env = dict(os.environ)
+    cpm = builder / "tools" / "cpm"
+    if cpm.is_dir() and not env.get("RX_CPM"):
+        env["RX_CPM"] = str(cpm)
+    if not env.get("LONGSHOT_VK_PREBUILT") and not _vk_headers_ok(builder, work):
+        pre = _vk_prebuilt(game, work)
+        if pre is not None:
+            env["LONGSHOT_VK_PREBUILT"] = str(pre)
+            return env, "Vulkan headers not found: reusing the installed renderer (%s)" % pre.name
+    return env, None
+
+
 def build(game: Path, builder: Path, work: Path | None, progress=None, log=None) -> None:
     """Run the builder's update, reporting (fraction, text) and every output line."""
     global _proc
@@ -350,8 +411,10 @@ def build(game: Path, builder: Path, work: Path | None, progress=None, log=None)
     cmd = [str(_python(builder)), "-I", "nx2/make_game.py", "--update", str(game), "--jobs", "0"]
     if work:
         cmd += ["--work", str(work)]
-    env = dict(os.environ)
+    env, note = build_env(game, builder, work)
     env.update({"PYTHONUNBUFFERED": "1", "PYTHONIOENCODING": "utf-8", "PYTHONUTF8": "1"})
+    if note and log:
+        log(note)
     flags = getattr(subprocess, "CREATE_NO_WINDOW", 0) if os.name == "nt" else 0
     stage = "read"
     fraction = 0.0

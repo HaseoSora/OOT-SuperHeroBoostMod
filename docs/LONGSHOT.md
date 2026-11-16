@@ -65,6 +65,16 @@ python tools/install_longshot.py --game "F:\Switch2\Longshot"
 The update takes about as long as the first build (25–45 minutes on the reference PC: most of it is the GPU
 shaders). It replaces `bin/longshot.exe` and `image.bin`; the romfs and saves are kept.
 
+### If the builder cannot find the Vulkan headers
+
+The update also compiles `longshot_vk.dll` (the Vulkan back end). A builder package ships the Vulkan, SPIR-V and VMA
+headers in `tools/cpm`; the installer points `RX_CPM` there when that folder exists. If the builder still stops with
+`no headers for longshot_vk.dll (missing Vulkan, VMA)`, the installer reuses the renderer already in the game
+(`bin/longshot_vk.dll` or `bin/longshot_vk.so`) through `LONGSHOT_VK_PREBUILT`: it copies that file into the build's
+work folder first, because the builder updates in place and cannot copy a file onto itself. Without an existing
+renderer, install `vulkan-headers`, `spirv-headers` and `vulkan-memory-allocator` (or set the three
+`LONGSHOT_*_HEADERS` variables / `RX_CPM` to a CPM cache) and run the update again.
+
 ### Why this works
 
 The recompiler's module order is `rtld`, `main`, `subsdk0`…`subsdk9`, `sdk`, page-aligned. With `main` at

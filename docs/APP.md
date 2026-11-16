@@ -193,6 +193,8 @@ sidebar and choose the game folder (the one with `bin/longshot.exe` and `.longsh
   is not.
 - Once the game is built, **Install** only applies the profile, the configuration block and the selected romfs files
   (seconds, no rebuild). Use **Rebuild game** after an app/mod update.
+- If the builder cannot find the Vulkan/VMA headers, the app points `RX_CPM` at its packaged `tools/cpm`; if they are
+  still missing, it reuses the game's existing `bin/longshot_vk.dll` / `.so` through `LONGSHOT_VK_PREBUILT`.
 - The actions are in the bottom bar: **Install / Apply settings**, **Rebuild game** and **Uninstall**. The Install
   section shows the game folder, the detected builder (a **Builder…** button appears only if it is not found) and the
   progress/log of a rebuild.

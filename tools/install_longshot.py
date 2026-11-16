@@ -62,6 +62,7 @@ BUTTON_STYLES = ("switch", "xbox", "playstation")
 ROMFS_OPTS = ("enemy_double", "farore_outdoor", "great_fairy", "no_heart_drop")
 sys.path.insert(0, str(ROOT / "app"))
 import installer as I  # noqa: E402
+import recomp as R  # noqa: E402
 
 
 # --------------------------------------------------------------------------- IPS
@@ -175,9 +176,12 @@ def build_game(game: Path, builder: Path, work: Path | None, jobs: int) -> int:
     cmd = [str(py), "-I", "nx2/make_game.py", "--update", str(game), "--jobs", str(jobs)]
     if work:
         cmd += ["--work", str(work)]
+    env, note = R.build_env(game, builder, work)
+    if note:
+        print(note, flush=True)
     print("building: %s" % " ".join(cmd), flush=True)
     print("        (the game must be closed; this takes 25-45 minutes)", flush=True)
-    return subprocess.call(cmd, cwd=str(tools))
+    return subprocess.call(cmd, cwd=str(tools), env=env)
 
 
 # -------------------------------------------------------------------------- files

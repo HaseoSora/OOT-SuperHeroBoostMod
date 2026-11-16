@@ -51,9 +51,20 @@ layout at 39 and L mode at 40.
 - Item index = index of the equip call `main+0x1211C00`. Read live:
   0 Item_DekuStick, 1 Item_DekuNut, 2 Item_Bomb, 3 Item_Boomerang, 4 Weapon_Range_SlingShot, 5 Item_Hookshot,
   6 Item_Longshot, 7 Item_Hammer, 9 Item_Bombchu, 10 Item_DinFire, 11 Item_FaroreWind, 12 Item_NayruLove,
-  13 Item_MagicBean, 14 Item_Bottle_<content>, 18 Item_FishingRod, 30 Weapon_Range_Bow, 31 Item_WeirdEgg ..
+  13 Item_MagicBean, 14-17, 50 Item_Bottle_<content>, 18 Item_FishingRod, 30 Weapon_Range_Bow, 31 Item_WeirdEgg ..
   44 Item_ClaimCheck (trade items), 46 Item_Arrow_Fire, 47 Item_Arrow_Ice, 48 Item_Arrow_Light
-  (8, 15-17, 19-29, 45: empty in this save).
+  (8, 19-29, 45: empty in this save).
+- **Bottles**: the five bottle cells are item indices **14, 15, 16, 17 and 50** (grid order BottleA..BottleE), not
+  normal items. Their contents are the Enum
+  `Shop_SelectBottleContentItem` (`Empty, RedPotion, GreenPotion, BluePotion, BlueFire, Fish, Letter, BigPoe, Poe,
+  Bug, Fairy, MaxMilk, HalfMilk`); the five content records in GameData are the unnamed Enum indices **60, 61, 62,
+  63, 64** for BottleA..BottleE (confirmed live: assigning cells 14-17 sets the box to BottleA..D, and cell 50 sets
+  it to BottleE). The HUD reads the slot and draws `Item_Bottle_<content>` (`Empty` -> `Item_Bottle`), so the button
+  shows the bottle that was assigned even though the item index itself resolves to the current bottle (e.g.
+  `Item_Bottle_RedPotion`).
+- **ZR** is the game's own item box (`PlayerStatus.AssignableItem.<age>`, an Enum: `BottleA..BottleE` when it holds
+  a bottle). Its own HUD icon name is stale for the 2nd..5th bottle, so the HUD takes the box's `BottleA..E` value,
+  reads the matching content record (60..64) and draws the same `Item_Bottle_<content>` icon.
 - `ItemPattern` is the **framing** of the icon inside the button (frame 0 draws it oversized), not the item choice;
   the measured item -> frame table is applied per item (`item_pattern()` in `core/hud.c`). `ItemChange` is the icon's
   pop-in animation (frame 0 = hidden). `Type` changes nothing visible.

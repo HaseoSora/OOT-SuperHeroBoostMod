@@ -248,6 +248,32 @@ Consequence: only site 3 sees gameplay input. The four item-button slot sites
   samplers in one material); using it as a fill would need the ui shader's combiner/threshold settings.
 - Live tuning: tools/hud_tune.py set <i>=<v> --sym g_ringp (radii, thickness, border, track alpha/brightness).
 
+## Segmented stamina bar under the magic gauge
+- The magic gauge's fill texture is green, so tinting it (blue, amber...) turns it muddy; the bar therefore draws
+  its own **flat segments** (`White8_00_BC4L` tinted from the config) over a clean dark strip, with one pane per
+  segment. It uses **16 segments**, the same maximum as the magic gauge, so the separators line up with it. When
+  stamina drops, whole segments disappear and only the boundary segment shrinks: no texture is ever squashed.
+- Capacity grows with the hearts (75 at 3 hearts, 150 at 20), so the bar grows to the right from half to full width
+  and the visible segments go from 8 to 16; the left edge stays under the magic gauge.
+- Default size and position match the magic gauge: 768 x 32 layout units, left edge aligned with it and placed just
+  below it (`g_barp[]`, tunable with `tools/hud_tune.py` at development time only).
+- Yellow normally, red while recharging from empty (`g_tired`, which the stamina core keeps set until the bar is
+  full again). The colours are fixed constants.
+- `stamina_bar` selects it; the ring is hidden with the same flag. The game's D-pad guide cross (`Pa_GuideCross_00`,
+  boots/masks/Navi/ocarina) always moves down 60 layout units while the bar is shown so it does not touch the bar.
+
+## Enemy speed components (beta romfs mod)
+- Three independent options (movement, animation playback, attack cadence), each with eleven multipliers from x0.5 to
+  x6 (plus off). The animation payload ships one pre-generated folder per multiplier; movement and attack are patched
+  from the manifest at install time.
+- Movement and attack are floats in the enemy `.pack.zs` (Byml): movement in `BSA/MovementParam` walk/run/dash fields,
+  attack in `Game/BSA/ActionSeqContainer` timeouts/intervals and `GameBalance/AttackInterval` tables. The same pack
+  usually holds both, so the payload ships the 89 original packs once plus a JSON manifest of float offsets; the app
+  patches the chosen multipliers and recompresses at install time with the shipped `pack.zsdic`.
+- Animation is the FrameController playback rate at `body+0x04` in the `ASB ` element array; the payload ships three
+  ready-made `AS/Enemy_*.root.asb.zs` folders. Bosses, minibosses and scripted actors are excluded.
+- Old `enemy_speed` boolean profiles still work: they map to all three components at x2.
+
 ## Songbook (native song list) - Nov 14
 
 - The remake's songbook is the native one opened with ZL (and the pause-menu song list). It shows only learned songs.
@@ -289,14 +315,16 @@ Consequence: only site 3 sees gameplay input. The four item-button slot sites
 Both mods are generated from the user's own dump by `tools/make_enemy_opts.py`; nothing is redistributed.
 
 - **Duplication (Option A)**: `Banc/*.bcett.byml.zs` keeps an `Actors` array; a generic `Enemy_*` entry is
-  cloned with a new `Hash`, its `Phive/Placement/ID` set to the same value, a new `SRTHash` and a small
-  `Translate` offset. Entries with `Links`/`Name` and every boss/miniboss/scripted actor are skipped.
+  cloned with a new `Hash`, its `Phive/Placement/ID` set to the same value, the **same `SRTHash`** (same spatial cell,
+  so the game does not cull it with a wrong cell) and a small `Translate` offset. Entries with `Links` and every
+  boss/miniboss/scripted actor are skipped; a plain `Name` is kept (it is a debug label).
   `Scene/Component/AutoPlacementMgrParam/*.bgyml` doubles `CreateActorCountMin/MaxAtOnce` and
   `MinExistActorCountToCreate`, and halves `IntervalToCreateFrame*`. Rewritten BYMLs grow, so
   `System/Resource/ResourceSizeTable...rsizetable.zs` is patched by CRC32 (`binascii.crc32` of the
-  path without `.zs`) to the new uncompressed size.
-- **Speed ×2**: `Pack/Actor/Enemy_*.pack.zs` scales `BSA/MovementParam` (`Walk/Run/Dash/Escape/Special/Strafe/
-  LiftWalk/WalkBackwards`) by 2, and halves `GameBalance/AttackInterval/*` plus the explicit
+  path without `.zs`) to the new uncompressed size. When the buttonMapping payload exists, the enemy table starts
+  from that one so it keeps the bigger UI budget (the installed enemy table overwrites it).
+- **Speed levels**: `Pack/Actor/Enemy_*.pack.zs` scales `BSA/MovementParam` (`Walk/Run/Dash/Escape/Special/Strafe/
+  LiftWalk/WalkBackwards`) by the chosen factor, and divides `GameBalance/AttackInterval/*` plus the explicit
   `ActionSeqContainer` cooldown fields. `AttackIntervalRatio` is **not** touched: it multiplies the
   global interval table, so scaling both would give ×4.
 - **Animation**: `AS/Enemy_*.root.asb.zs` (ASB, magic `ASB `): header `0x14` = element count, `0x18` =

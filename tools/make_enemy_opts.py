@@ -1,13 +1,24 @@
-"""Build the two beta enemy mods from the user's own game dump.
+"""Build the beta enemy mods from the user's own game dump.
 
-Output (installed by the app only when the corresponding beta option is enabled):
-  app/payload/romfs_opts/enemy_double/...   duplicated generic enemies (Banc placements + field auto-spawn)
-  app/payload/romfs_opts/enemy_speed/...    x2 animation/movement/attack cadence data edits
+Output (installed by the app only when the corresponding option is enabled):
+  app/payload/romfs_opts/enemy_double/...      duplicated generic enemies (Banc placements + field auto-spawn)
+  app/payload/romfs_opts/enemy_speed_base/...  original enemy packs (movement + attack patched at install time)
+  app/payload/romfs_opts/enemy_anim_x15/...    x1.5 animation playback (ASB frame controllers)
+  app/payload/romfs_opts/enemy_anim_x2/...     x2 animation playback
+  app/payload/romfs_opts/enemy_anim_x3/...     x3 animation playback
+  app/payload/romfs_opts/enemy_speed_manifest.json  float offsets of the base packs
+  app/payload/romfs_opts/enemy_speed_pack.zsdic     dictionary used to recompress the packs
+
+Movement and attack values live in the same pack for most enemies, so shipping one folder per
+combination would repeat ~7.6 MB sixteen times. The app applies the chosen multipliers to the
+base packs at install time; the manifest says which floats are movement and which are attack
+intervals. Animations are separate ASB files and are shipped as three ready-made folders.
 
 The files are game data, so they are generated locally from the dump and are not part of the repository.
 This is a beta generator: the exclusion list is deliberately conservative and some enemies are left alone.
 """
 import copy
+import json
 import os
 import random
 import struct
@@ -21,6 +32,15 @@ ROMFS = Path(os.environ.get("SHB_ROMFS", r"F:\switch2\Longshot\romfs"))
 OUT = ROOT / "app" / "payload" / "romfs_opts"
 DICT_CACHE = ROOT / "build" / "enemy_opts_dicts"
 RESTBL_REL = "System/Resource/ResourceSizeTable.Product.111.Nin_Ounce_NVN2.rsizetable.zs"
+FACTORS = {1: 1.5, 2: 2.0, 3: 3.0, 4: 1.25, 5: 1.75, 6: 2.5, 7: 4.0, 8: 5.0, 9: 6.0,
+           10: 0.5, 11: 0.75}
+ANIM_DIR = {1: "enemy_anim_x15", 2: "enemy_anim_x2", 3: "enemy_anim_x3",
+            4: "enemy_anim_x125", 5: "enemy_anim_x175", 6: "enemy_anim_x25",
+            7: "enemy_anim_x4", 8: "enemy_anim_x5", 9: "enemy_anim_x6",
+            10: "enemy_anim_x05", 11: "enemy_anim_x075"}
+BASE_DIR = "enemy_speed_base"
+MANIFEST = OUT / "enemy_speed_manifest.json"
+PACK_DICT = OUT / "enemy_speed_pack.zsdic"
 
 sys.path.insert(0, str(ROOT / "tools"))
 sys.path.insert(0, str(DEVTOOL))
@@ -40,6 +60,14 @@ BLOCK_BANCS = (
     "Banc/BossRushIntervalRoom", "Banc/EnemyMuseum", "Banc/FinalBattleField",
     "Banc/CrumblingGanonCastle", "Banc/SageRoom", "Banc/Demo_",
 )
+MOVE_FIELDS = ("/WalkSpeed", "/RunSpeed", "/DashSpeed", "/EscapeSpeed", "/SpecialMoveSpeed",
+               "/StrafeSpeed", "/LiftWalkSpeed", "/WalkBackwardsSpeed")
+ATTACK_ACTION_FIELDS = ("/AttackStartTimeoutFrames", "/AttackIntervalTimeFromDamage",
+                        "/AttackIntervalTimeFromGuard", "/AttackIntervalTimeGuarded",
+                        "/AttackIntervalTimeMinGrdedCombo", "/BackWalkTimeMax",
+                        "/BackWalkTimeMin", "/TimeoutTime")
+ATTACK_TABLE_FIELDS = ("/LongIntervalMax", "/LongIntervalMin", "/MediumIntervalMax",
+                       "/MediumIntervalMin", "/ShortIntervalMax", "/ShortIntervalMin")
 
 
 def load_dicts():
@@ -89,11 +117,12 @@ def scale_fields(buf, data, suffix, factor, min_positive=0.01):
     return changed
 
 
-def edit_pack(path, dictionaries, speed=True):
+def scan_pack(path, dictionaries):
+    """Return [{o: absolute offset in the decompressed pack, k: 'm'/'a', v: original float}]."""
     raw = path.read_bytes()
-    data = bytearray(pack_of(raw, dictionaries["pack.zsdic"]))
-    files = sarc.read_sarc(bytes(data))
-    changed = False
+    data = pack_of(raw, dictionaries["pack.zsdic"])
+    files = sarc.read_sarc(data)
+    found = {}
     for name, (start, end) in files.items():
         if not (name.endswith(".bgyml") or name.endswith(".byml")):
             continue
@@ -102,31 +131,54 @@ def edit_pack(path, dictionaries, speed=True):
             b = byml.Byml(block)
         except Exception:
             continue
-        if speed:
+        movement = "BSA/MovementParam/" in name
+        action = "Game/BSA/ActionSeqContainer/" in name
+        table = "GameBalance/AttackInterval/" in name
+        if not (movement or action or table):
+            continue
+        for path_name, typ, value, off in b.flat():
+            if typ != byml.T_FLOAT or not isinstance(value, float) or value <= 0.01:
+                continue
+            kind = None
+            if movement and any(path_name.endswith(s.lstrip("/")) for s in MOVE_FIELDS):
+                kind = "m"
+            elif action and any(path_name.endswith(s.lstrip("/")) for s in ATTACK_ACTION_FIELDS):
+                kind = "a"
+            elif table and any(path_name.endswith(s.lstrip("/")) for s in ATTACK_TABLE_FIELDS):
+                kind = "a"
+            if kind is not None:
+                found[start + off] = (kind, value)
+    return [{"o": off, "k": kind, "v": value} for off, (kind, value) in sorted(found.items())]
+
+
+def edit_pack(path, dictionaries, factor, kind):
+    """Apply one component (for the old x2 folder compatibility; the app patches from base instead)."""
+    raw = path.read_bytes()
+    data = bytearray(pack_of(raw, dictionaries["pack.zsdic"]))
+    files = sarc.read_sarc(bytes(data))
+    changed = False
+    scale = factor if kind == "m" else 1.0 / factor
+    for name, (start, end) in files.items():
+        if not (name.endswith(".bgyml") or name.endswith(".byml")):
+            continue
+        block = data[start:end]
+        try:
             before = bytes(block)
-            if "BSA/MovementParam/" in name:
-                scale_fields(block, before, ("/WalkSpeed", "/RunSpeed", "/DashSpeed", "/EscapeSpeed",
-                                             "/SpecialMoveSpeed", "/StrafeSpeed", "/LiftWalkSpeed",
-                                             "/WalkBackwardsSpeed"), 2.0)
-            # AttackIntervalRatio multiplies the global AttackInterval table, so scaling both
-            # would give x4. Keep the ratio and shorten the table plus the explicit cooldowns.
-            if "Game/BSA/ActionSeqContainer/" in name:
-                scale_fields(block, before, ("/AttackStartTimeoutFrames",
-                                             "/AttackIntervalTimeFromDamage", "/AttackIntervalTimeFromGuard",
-                                             "/AttackIntervalTimeGuarded", "/AttackIntervalTimeMinGrdedCombo",
-                                             "/BackWalkTimeMax", "/BackWalkTimeMin", "/TimeoutTime"), 0.5)
-            if "GameBalance/AttackInterval/" in name:
-                scale_fields(block, before, ("/LongIntervalMax", "/LongIntervalMin", "/MediumIntervalMax",
-                                             "/MediumIntervalMin", "/ShortIntervalMax", "/ShortIntervalMin"), 0.5)
+            if kind == "m" and "BSA/MovementParam/" in name:
+                scale_fields(block, before, MOVE_FIELDS, scale)
+            if kind == "a" and "Game/BSA/ActionSeqContainer/" in name:
+                scale_fields(block, before, ATTACK_ACTION_FIELDS, scale)
+            if kind == "a" and "GameBalance/AttackInterval/" in name:
+                scale_fields(block, before, ATTACK_TABLE_FIELDS, scale)
             if bytes(block) != before:
                 data[start:end] = block
                 changed = True
-    if changed:
-        return pack_to(bytes(data), dictionaries["pack.zsdic"])
-    return None
+        except Exception:
+            continue
+    return pack_to(bytes(data), dictionaries["pack.zsdic"]) if changed else None
 
 
-def edit_asb(path, zs_dict):
+def edit_asb(path, zs_dict, factor):
     raw = path.read_bytes()
     try:
         data = bytearray(zstandard.ZstdDecompressor(
@@ -151,7 +203,7 @@ def edit_asb(path, zs_dict):
             continue
         rate = struct.unpack_from("<f", data, body + 0x04)[0]   # playback rate (1.0 = normal)
         if 0.01 < rate < 8.0:
-            struct.pack_into("<f", data, body + 0x04, min(rate * 2.0, 8.0))
+            struct.pack_into("<f", data, body + 0x04, min(rate * factor, 8.0))
             changed = True
     if not changed:
         return None
@@ -190,7 +242,7 @@ def duplicate_banc(path, rng, size_changes):
         name = g.v
         if not name.startswith("Enemy_") or any(x in name for x in BLOCK):
             continue
-        if a.get("Links") is not None or a.get("Name") is not None:
+        if a.get("Links") is not None:
             continue
         c = copy.deepcopy(a)
         h = new_hash(rng, used)
@@ -198,11 +250,14 @@ def duplicate_banc(path, rng, size_changes):
         ph = c.get("Phive")
         if ph is not None and ph.get("Placement") is not None:
             ph["Placement"]["ID"] = byml.Val(byml.T_U64, h)
-        c["SRTHash"] = byml.Val(byml.T_UINT, rng.getrandbits(32))
+        # same spatial cell as the original (the clone is only a couple of metres away), otherwise the game can
+        # cull it with the wrong cell and it never appears
+        if a.get("SRTHash") is not None:
+            c["SRTHash"] = byml.Val(byml.T_UINT, a["SRTHash"].v)
         tr = c.get("Translate")
         if tr is not None and len(tr) == 3:
-            tr[0] = byml.Val(byml.T_FLOAT, tr[0].v + 1.5)
-            tr[2] = byml.Val(byml.T_FLOAT, tr[2].v + 1.5)
+            tr[0] = byml.Val(byml.T_FLOAT, tr[0].v + 2.5)
+            tr[2] = byml.Val(byml.T_FLOAT, tr[2].v + 2.5)
         add.append(c)
     if not add:
         return None
@@ -246,10 +301,10 @@ def edit_autoplace(path, size_changes):
     return out
 
 
-def update_restbl(size_changes):
+def update_restbl(size_changes, base_path=None):
     if not size_changes:
         return None
-    p = ROMFS / RESTBL_REL
+    p = Path(base_path) if base_path else (ROMFS / RESTBL_REL)
     data = bytearray(zstandard.ZstdDecompressor().decompress(p.read_bytes(), max_output_size=20_000_000))
     n = struct.unpack_from("<I", data, 0x0E)[0]
     base = 0x16
@@ -281,11 +336,13 @@ def main():
         return
     import shutil
     DICTS = load_dicts()
-    for name in ("enemy_double", "enemy_speed"):
+    for name in ("enemy_double", "enemy_speed", BASE_DIR, *ANIM_DIR.values()):
         d = OUT / name
         if d.exists():
             shutil.rmtree(d)
-        d.mkdir(parents=True, exist_ok=True)
+        if name != "enemy_speed":          # the old combined x2 folder is retired
+            d.mkdir(parents=True, exist_ok=True)
+    MANIFEST.unlink(missing_ok=True)
     rng = random.Random(0x5A17B005)
     size_changes = []
 
@@ -308,33 +365,47 @@ def main():
             dst.parent.mkdir(parents=True, exist_ok=True)
             dst.write_bytes(out)
 
-    # Enemy animation: ASB frame-controller playback rates. Same exclusions as the packs,
-    # so bosses and scripted fights keep their original timing.
-    for p in sorted((ROMFS / "AS").glob("Enemy_*.root.asb.zs")):
-        if any(x in p.stem for x in BLOCK):
-            continue
-        out = edit_asb(p, DICTS["zs.zsdic"])
-        if out:
-            dst = OUT / "enemy_speed" / p.relative_to(ROMFS)
-            dst.parent.mkdir(parents=True, exist_ok=True)
-            dst.write_bytes(out)
+    # Enemy animation: ASB frame-controller playback rates, one ready-made folder per multiplier.
+    for level, factor in FACTORS.items():
+        for p in sorted((ROMFS / "AS").glob("Enemy_*.root.asb.zs")):
+            if any(x in p.stem for x in BLOCK):
+                continue
+            out = edit_asb(p, DICTS["zs.zsdic"], factor)
+            if out:
+                dst = OUT / ANIM_DIR[level] / p.relative_to(ROMFS)
+                dst.parent.mkdir(parents=True, exist_ok=True)
+                dst.write_bytes(out)
 
-    # Enemy movement and attack cadence: values inside enemy packs.
+    # Movement and attack cadence: original packs + a manifest of the float offsets.
+    packs = []
     for p in sorted((ROMFS / "Pack/Actor").glob("Enemy_*.pack.zs")):
         if any(x in p.stem for x in BLOCK):
             continue
-        out = edit_pack(p, DICTS)
-        if out:
-            dst = OUT / "enemy_speed" / p.relative_to(ROMFS)
-            dst.parent.mkdir(parents=True, exist_ok=True)
-            dst.write_bytes(out)
+        fields = scan_pack(p, DICTS)
+        if not fields:
+            continue
+        rel = str(p.relative_to(ROMFS)).replace("\\", "/")
+        dst = OUT / BASE_DIR / p.relative_to(ROMFS)
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(p, dst)
+        packs.append({"path": rel, "fields": fields})
+    MANIFEST.write_text(json.dumps({"version": 1, "factors": {str(k): v for k, v in FACTORS.items()},
+                                    "packs": packs}, separators=(",", ":")), encoding="utf-8")
+    PACK_DICT.write_bytes(DICTS["pack.zsdic"])
 
-    table = update_restbl(size_changes)
+    # Start from the buttonMapping size table when it exists (it carries the bigger UI budget): the installed
+    # enemy_double table overwrites it, so it must keep both changes.
+    button_table = ROOT / "app" / "payload" / "button_romfs" / "common" / RESTBL_REL
+    table = update_restbl(size_changes, button_table if button_table.exists() else None)
     if table:
         dst = OUT / "enemy_double" / RESTBL_REL
         dst.parent.mkdir(parents=True, exist_ok=True)
         dst.write_bytes(table)
     print("enemy options written to", OUT)
+    print("  base packs:", len(packs), "(%d floats)" % sum(len(p["fields"]) for p in packs))
+    for level, folder in ANIM_DIR.items():
+        n = sum(1 for _ in (OUT / folder / "AS").glob("*.asb.zs")) if (OUT / folder / "AS").exists() else 0
+        print("  %s: %d animation files" % (folder, n))
 
 
 if __name__ == "__main__":

@@ -53,15 +53,23 @@ section; the profiles never use ×1.75, ×2 or ×3.
 | Custom | your values | your values | your values | your values | your values | your values | your values | your values |
 
 "Sprint only" means only sprinting drains stamina. "Hardcore" means every enabled action drains it. "No hearts" means
-dropped hearts become green rupees (the optional romfs file; see the note below).
+dropped hearts become green rupees (the optional romfs file; see the note below). Named profiles keep the stamina
+display on the ring, and the enemy speed components off.
 
 ## Window
 
 - **Home**: profile list (the only profile selector), explanation of the active profile, emulator folder and install
   status.
 - **Stamina**: on/off, stamina style, what costs stamina (the checkboxes update automatically for each style), sprint
-  speed.
+  speed and the stamina display (ring around the hero, or a segmented bar under the magic gauge; yellow, red while
+  recharging).
 - **Difficulty**: enemy health, damage taken, heart drops.
+- **Enemies**: two beta tools, generated from the user's dump at build time and installed as extra romfs files:
+  - **Duplicate enemies (Option A)**: clones generic enemy placements in `Banc` and doubles field auto-spawn counts.
+    Bosses, minibosses and scripted enemies are excluded.
+  - **Enemy speed**: movement, animation playback and attack cadence, each with eleven multipliers from ×0.5 to ×6
+    (plus off). Some enemies or attacks may not change, or may desync.
+  They can break puzzles, quests or performance. Back up the save and test one at a time.
 - **HUD & buttons**: rupee counter, clock (**off / 12 h / 24 h**, one selector), button mapping (on/off), button
   style (Switch / PlayStation / Xbox), layout (extended / simple), L mode (item / selector) and **Quick select**.
 - **Area collectibles counter**: adds a third native-style plate below the rupee/clock row with the
@@ -71,14 +79,7 @@ dropped hearts become green rupees (the optional romfs file; see the note below)
   The heart count only includes pieces that the game associates with a map anchor; some chest/minigame pieces
   without one are not counted yet.
 - **Miscellaneous**: Songbook autoplay (select a learned song in the game's native songbook with ZL and it plays
-  automatically, effect included; not the Scarecrow's Song) and two
-  **beta** toggles:
-  - **Duplicate enemies (Option A)**: clones generic enemy placements in `Banc` and doubles field auto-spawn counts.
-    Bosses, minibosses and scripted enemies are excluded.
-  - **Enemy speed ×2**: scales enemy movement speed, animation playback and attack cadence in the actor data. Some enemies or attacks may
-    not change, or may desync.
-  Both beta mods are generated from the user's dump at build time and installed as extra romfs files. They are not
-  part of the normal payload and can break puzzles, quests or performance. Back up the save and test one at a time.
+  automatically, effect included; not the Scarecrow's Song).
 - **World changes**, inside *Miscellaneous*:
   - **Great Fairy rewards**: the three magic rewards are reordered. Hyrule Castle (child) gives **Nayru's Love**,
     Death Mountain Crater gives the **magic spin attack**, and Desert Colossus gives **double magic**. Each fountain
@@ -133,6 +134,7 @@ python app/main.py --cli --emu "EMULATOR_PATH" --profile recommended
 python app/main.py --cli --emu "EMULATOR_PATH" --preset 3 --off jump,shoot --combat-only
 python app/main.py --cli --emu "EMULATOR_PATH" --profile hero-explorer --rupees --clock --clock24
 python app/main.py --cli --emu "EMULATOR_PATH" --profile recommended --no-songbook
+python app/main.py --cli --emu "EMULATOR_PATH" --profile base --enemy-move 1 --enemy-anim 2 --enemy-attack 2 --stamina-bar
 python app/main.py --list-profiles
 ```
 

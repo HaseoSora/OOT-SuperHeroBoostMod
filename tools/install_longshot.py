@@ -59,7 +59,9 @@ BACKUP = ".shb-backup"           # beside .longshot_exefs, never inside it
 CONFIG_MAGIC = b"SHBCFG01"
 CONFIG_SIZE = 72                 # ShbConfig, version 1
 BUTTON_STYLES = ("switch", "xbox", "playstation")
-ROMFS_OPTS = ("enemy_double", "enemy_speed", "farore_outdoor", "great_fairy", "no_heart_drop")
+ROMFS_OPTS = ("enemy_double", "farore_outdoor", "great_fairy", "no_heart_drop")
+sys.path.insert(0, str(ROOT / "app"))
+import installer as I  # noqa: E402
 
 
 # --------------------------------------------------------------------------- IPS
@@ -134,9 +136,9 @@ def write_config(target: Path, cfg: bytes) -> bool:
 
 def config_summary(cfg: bytes) -> str:
     name = lambda k: cfg[k]
-    return ("stamina %d, HUD rupees %d / clock %d / collectibles %d, button mapping %d (style %d), "
+    return ("stamina %d (bar %d), HUD rupees %d / clock %d / collectibles %d, button mapping %d (style %d), "
             "songbook %d, enemy HP %d%%, damage %d%%, great fairy/farore are romfs"
-            % (name(16), name(30), name(31), name(43), name(37), name(38), name(36),
+            % (name(16), name(52), name(30), name(31), name(43), name(37), name(38), name(36),
                struct.unpack_from("<H", cfg, 26)[0], struct.unpack_from("<H", cfg, 28)[0]))
 
 
@@ -220,7 +222,7 @@ def patch_exefs(game: Path, cfg: bytes | None) -> Path:
     return exefs
 
 
-def install_romfs(game: Path, src: Path | None, style: str, opts: set[str]) -> int:
+def install_romfs(game: Path, src: Path | None, style: str, opts: set[str], enemy=(0, 0, 0)) -> int:
     romfs = game / "mods" / MOD_NAME / "romfs"
     if romfs.exists():
         shutil.rmtree(romfs)
@@ -245,6 +247,10 @@ def install_romfs(game: Path, src: Path | None, style: str, opts: set[str]) -> i
                     dst.parent.mkdir(parents=True, exist_ok=True)
                     shutil.copy2(f, dst)
                     copied += 1
+        if any(enemy):
+            s = I.Settings(enemy_move=enemy[0], enemy_anim=enemy[1], enemy_attack=enemy[2])
+            for key, _ in I.install_enemy_mods(romfs, s, PAYLOAD):
+                print("WARNING: %s" % key)
     if copied:
         print("copied %d romfs files to %s" % (copied, romfs))
     return copied
@@ -289,6 +295,12 @@ if __name__ == "__main__":
     ap.add_argument("--romfs", help="an installed mod's romfs folder to copy (an emulator install)")
     ap.add_argument("--button-style", choices=BUTTON_STYLES, default="switch")
     ap.add_argument("--option", action="append", choices=ROMFS_OPTS, default=[], help="optional romfs feature")
+    ap.add_argument("--enemy-move", type=int, choices=I.ENEMY_LEVELS, default=0,
+                    help="enemy movement: 0 off, 1 x1.5, 2 x2, 3 x3")
+    ap.add_argument("--enemy-anim", type=int, choices=I.ENEMY_LEVELS, default=0,
+                    help="enemy animation: 0 off, 1 x1.5, 2 x2, 3 x3")
+    ap.add_argument("--enemy-attack", type=int, choices=I.ENEMY_LEVELS, default=0,
+                    help="enemy attack cadence: 0 off, 1 x1.5, 2 x2, 3 x3")
     ap.add_argument("--config-only", action="store_true", help="patch the module and image.bin; no rebuild")
     ap.add_argument("--no-build", action="store_true", help="only patch the exefs and copy the romfs")
     ap.add_argument("--no-romfs", action="store_true", help="do not touch the romfs mod folder")
@@ -318,7 +330,8 @@ if __name__ == "__main__":
 
     patch_exefs(game, cfg)
     if not a.no_romfs:
-        install_romfs(game, Path(a.romfs) if a.romfs else None, a.button_style, set(a.option))
+        install_romfs(game, Path(a.romfs) if a.romfs else None, a.button_style, set(a.option),
+                      (a.enemy_move, a.enemy_anim, a.enemy_attack))
     if a.no_build:
         print("prepared. Run the builder's update to rebuild the game.")
         sys.exit(0)

@@ -70,7 +70,14 @@ def cli(argv) -> int:
     ap.add_argument("--quick-boots", action="store_true", help="hold D-pad down to switch boots")
     ap.add_argument("--quick-mask", action="store_true", help="hold D-pad up to switch masks")
     ap.add_argument("--enemy-double", action="store_true", help="beta: duplicate generic enemies (romfs)")
-    ap.add_argument("--enemy-speed", action="store_true", help="beta: accelerate enemy animation/movement/cadence (romfs)")
+    ap.add_argument("--enemy-speed", action="store_true", help="deprecated: enemy movement/animation/attack at x2")
+    ap.add_argument("--enemy-move", type=int, choices=I.ENEMY_LEVELS, default=None,
+                    help="enemy movement: 0 off, 1 x1.5, 2 x2, 3 x3, 4 x1.25, 5 x1.75 (see the app for the rest)")
+    ap.add_argument("--enemy-anim", type=int, choices=I.ENEMY_LEVELS, default=None,
+                    help="enemy animation: same levels as --enemy-move")
+    ap.add_argument("--enemy-attack", type=int, choices=I.ENEMY_LEVELS, default=None,
+                    help="enemy attack cadence: same levels as --enemy-move")
+    ap.add_argument("--stamina-bar", action="store_true", help="draw stamina as a segmented horizontal bar instead of the ring")
     ap.add_argument("--great-fairy", action="store_true", help="reorder the three Great Fairy magic rewards (romfs)")
     ap.add_argument("--farore-outdoor", action="store_true", help="allow Farore's Wind points outside dungeons (romfs)")
     ap.add_argument("--hud-collectibles", action="store_true", help="per-area Skulltula / heart-piece counter")
@@ -106,7 +113,9 @@ def cli(argv) -> int:
                    combat_only=v["combat_only"], **costs,
                    enemy_hp=v["enemy_hp"], damage=v["damage"],
                    no_heart_drop=v["no_heart_drop"], sprint_speed=v["sprint_speed"],
-                   hud_rupees=v["hud_rupees"], hud_clock=v["hud_clock"], clock_24h=v["clock_24h"])
+                   hud_rupees=v["hud_rupees"], hud_clock=v["hud_clock"], clock_24h=v["clock_24h"],
+                   enemy_move=v["enemy_move"], enemy_anim=v["enemy_anim"], enemy_attack=v["enemy_attack"],
+                   stamina_bar=v["stamina_bar"])
     if a.preset is not None:
         s.preset = a.preset
     if a.no_button_mapping:
@@ -129,6 +138,14 @@ def cli(argv) -> int:
         s.enemy_double = True
     if a.enemy_speed:
         s.enemy_speed = True
+    if a.enemy_move is not None:
+        s.enemy_move = a.enemy_move
+    if a.enemy_anim is not None:
+        s.enemy_anim = a.enemy_anim
+    if a.enemy_attack is not None:
+        s.enemy_attack = a.enemy_attack
+    if a.stamina_bar:
+        s.stamina_bar = True
     if a.great_fairy:
         s.great_fairy = True
     if a.farore_outdoor:
@@ -282,12 +299,19 @@ def gui() -> None:
     bsimple = tk.BooleanVar(value=bool(cfg.get("bm_simple", False)))
     blmode = tk.StringVar(value=cfg.get("bm_l_mode") if cfg.get("bm_l_mode") in I.L_MODES else "assign")
     stamina = tk.BooleanVar(value=bool(cfg.get("stamina", True)))
+    stamina_bar = tk.BooleanVar(value=bool(cfg.get("stamina_bar", False)))
     songbook = tk.BooleanVar(value=bool(cfg.get("songbook", True)))
     quick_boots = tk.BooleanVar(value=bool(cfg.get("quick_boots", False)))
     quick_mask = tk.BooleanVar(value=bool(cfg.get("quick_mask", False)))
     hud_collectibles = tk.BooleanVar(value=bool(cfg.get("hud_collectibles", False)))
     enemy_double = tk.BooleanVar(value=bool(cfg.get("enemy_double", False)))
-    enemy_speed = tk.BooleanVar(value=bool(cfg.get("enemy_speed", False)))
+    _legacy_speed = 2 if cfg.get("enemy_speed") else 0
+    enemy_move = tk.IntVar(value=cfg.get("enemy_move", _legacy_speed)
+                           if cfg.get("enemy_move", _legacy_speed) in I.ENEMY_LEVELS else 0)
+    enemy_anim = tk.IntVar(value=cfg.get("enemy_anim", _legacy_speed)
+                           if cfg.get("enemy_anim", _legacy_speed) in I.ENEMY_LEVELS else 0)
+    enemy_attack = tk.IntVar(value=cfg.get("enemy_attack", _legacy_speed)
+                             if cfg.get("enemy_attack", _legacy_speed) in I.ENEMY_LEVELS else 0)
     great_fairy = tk.BooleanVar(value=bool(cfg.get("great_fairy", False)))
     farore_outdoor = tk.BooleanVar(value=bool(cfg.get("farore_outdoor", False)))
     mode = tk.StringVar(value=cfg.get("stamina_mode") if cfg.get("stamina_mode") in STAMINA_MODES
@@ -412,7 +436,9 @@ def gui() -> None:
         rupees.set(v["hud_rupees"])
         clock_mode.set("24" if v["clock_24h"] else "12" if v["hud_clock"] else "off")
         enemy_double.set(v["enemy_double"])
-        enemy_speed.set(v["enemy_speed"])
+        enemy_move.set(v["enemy_move"])
+        enemy_anim.set(v["enemy_anim"])
+        enemy_attack.set(v["enemy_attack"])
         great_fairy.set(v["great_fairy"])
         farore_outdoor.set(v["farore_outdoor"])
         guard["on"] = False
@@ -439,7 +465,7 @@ def gui() -> None:
         autosave()
 
     for var in (bmap, stamina, songbook, quick_boots, quick_mask, hud_collectibles,
-                enemy_double, enemy_speed,
+                enemy_double, enemy_move, enemy_anim, enemy_attack,
                 great_fairy, farore_outdoor, mode,
                 combat, hp, dmg, speed, nodrop,
                 rupees, clock_mode, *costs.values()):
@@ -467,6 +493,7 @@ def gui() -> None:
 
     for var in (bstyle, bsimple, blmode):
         var.trace_add("write", on_pref_change)
+    stamina_bar.trace_add("write", on_pref_change)   # display preference: does not switch to Custom
 
     pending = {"id": None}
 
@@ -477,10 +504,13 @@ def gui() -> None:
 
     def settings():
         return I.Settings(button_mapping=bmap.get(), button_style=bstyle.get(), bm_simple=bsimple.get(),
-                          bm_l_mode=blmode.get(), stamina=stamina.get(), songbook=songbook.get(),
+                          bm_l_mode=blmode.get(), stamina=stamina.get(), stamina_bar=stamina_bar.get(),
+                          songbook=songbook.get(),
                           quick_boots=quick_boots.get(), quick_mask=quick_mask.get(),
                           hud_collectibles=hud_collectibles.get(),
-                          enemy_double=enemy_double.get(), enemy_speed=enemy_speed.get(),
+                          enemy_double=enemy_double.get(),
+                          enemy_move=enemy_move.get(), enemy_anim=enemy_anim.get(),
+                          enemy_attack=enemy_attack.get(),
                           great_fairy=great_fairy.get(), farore_outdoor=farore_outdoor.get(),
                           preset=STAMINA_MODES.index(mode.get()),
                           combat_only=combat.get(),
@@ -495,10 +525,12 @@ def gui() -> None:
             "target": target.get(), "recomp": recomp_path.get(), "recomp_builder": recomp_builder.get(),
             "button_mapping": bmap.get(), "button_style": bstyle.get(), "bm_simple": bsimple.get(),
             "bm_l_mode": blmode.get(),
-            "stamina": stamina.get(), "songbook": songbook.get(),
+            "stamina": stamina.get(), "stamina_bar": stamina_bar.get(), "songbook": songbook.get(),
             "quick_boots": quick_boots.get(), "quick_mask": quick_mask.get(),
             "hud_collectibles": hud_collectibles.get(),
-            "enemy_double": enemy_double.get(), "enemy_speed": enemy_speed.get(),
+            "enemy_double": enemy_double.get(),
+            "enemy_move": enemy_move.get(), "enemy_anim": enemy_anim.get(),
+            "enemy_attack": enemy_attack.get(),
             "great_fairy": great_fairy.get(), "farore_outdoor": farore_outdoor.get(),
             "stamina_mode": mode.get(),
             "costs": {**{k: costs[k].get() for k in KEYS}, "combat_only": combat.get()},
@@ -922,6 +954,9 @@ def gui() -> None:
             idx = choices.index(var.get()) if var.get() in choices else 0
             svar.set(names[idx])
             cb.current(idx)
+        for cb, var in ui.get("enemy", []):
+            idx = I.ENEMY_LEVELS.index(var.get()) if var.get() in I.ENEMY_LEVELS else 0
+            cb.current(idx)
         if "sprint" in ui:
             idx = SPEEDS.index(speed.get()) if speed.get() in SPEEDS else 0
             ui["sprint_var"].set(ui["sprint_values"][idx])
@@ -1016,6 +1051,12 @@ def gui() -> None:
         body = card(parent, L("stamina_title"), L("stamina_desc"))
         check(body, L("stamina_on"), stamina).pack(anchor="w")
         label(body, L("stamina_on_desc"), size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=(20, 0))
+        label(body, L("stamina_display"), size=10, color=ACCENT, bold=True, bg=PANEL).pack(anchor="w", pady=(10, 0))
+        for value, key in ((False, "stamina_ring"), (True, "stamina_bar")):
+            r = radio(body, L(key), stamina_bar, value)
+            r.pack(anchor="w")
+            ui.setdefault("modes", []).append(r)
+            label(body, L(key + "_d"), size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=(20, 0))
         ui["note"] = label(parent, "", size=9, color=AMBER, bg=BG, wrap=760)
         ui["note"].pack(anchor="w", padx=10, pady=(0, 6))
 
@@ -1130,22 +1171,35 @@ def gui() -> None:
             label(body, L("bm_l_" + value + "_d"), size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=(20, 0))
         label(body, L("bm_note"), size=9, color=AMBER, bg=PANEL).pack(anchor="w", pady=(8, 0))
 
+    def build_enemies(parent):
+        body = card(parent, L("enemies_title"), L("enemies_desc"))
+        ui["enemy"] = []
+        label(body, L("beta_warning"), size=9, color=RED, bold=True, bg=PANEL).pack(anchor="w", pady=(0, 6))
+        label(body, L("enemy_double"), size=10, color=ACCENT, bold=True, bg=PANEL).pack(anchor="w")
+        check(body, L("enemy_double_on"), enemy_double).pack(anchor="w", padx=(0, 0))
+        label(body, L("enemy_double_desc"), size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=(20, 0), pady=(0, 8))
+        label(body, L("enemy_speed"), size=10, color=ACCENT, bold=True, bg=PANEL).pack(anchor="w")
+        row = tk.Frame(body, bg=PANEL)
+        row.pack(fill="x", pady=(2, 0))
+        names = [L("enemy_off") if l == 0 else "×%g" % I.ENEMY_FACTORS[l] for l in I.ENEMY_LEVELS]
+        for col, (key, var) in enumerate((("enemy_move", enemy_move), ("enemy_anim", enemy_anim),
+                                          ("enemy_attack", enemy_attack))):
+            label(row, L(key) + ":", size=10, bg=PANEL).grid(row=0, column=col * 2, sticky="w", padx=(0, 6))
+            idx = I.ENEMY_LEVELS.index(var.get()) if var.get() in I.ENEMY_LEVELS else 0
+            svar = tk.StringVar(value=names[idx])
+            cb = combo(row, names, svar, width=7)
+            cb.grid(row=0, column=col * 2 + 1, sticky="w", padx=(0, 18))
+            cb.bind("<<ComboboxSelected>>", lambda e, c=cb, v=var: v.set(I.ENEMY_LEVELS[c.current()]))
+            ui["enemy"].append((cb, var))
+        label(body, L("enemy_speed_desc"), size=9, color=DIM, bg=PANEL).pack(anchor="w", pady=(6, 0))
+        label(body, L("enemy_beta_note"), size=9, color=AMBER, bg=PANEL).pack(anchor="w", pady=(8, 0))
+
     def build_misc(parent):
         body = card(parent, L("misc_title"), L("misc_desc"))
         label(body, L("songbook_title"), size=11, color=ACCENT, bold=True, bg=PANEL).pack(anchor="w", pady=(2, 0))
         check(body, L("songbook_on"), songbook).pack(anchor="w", pady=(2, 0))
         label(body, L("songbook_desc"), size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=(20, 0))
         label(body, L("songbook_note"), size=9, color=AMBER, bg=PANEL).pack(anchor="w", pady=(8, 0))
-
-        body = card(parent, L("beta_title"), L("beta_desc"))
-        label(body, L("beta_warning"), size=9, color=RED, bold=True, bg=PANEL).pack(anchor="w", pady=(0, 6))
-        label(body, L("enemy_double"), size=10, color=ACCENT, bold=True, bg=PANEL).pack(anchor="w")
-        check(body, L("enemy_double_on"), enemy_double).pack(anchor="w", padx=(0, 0))
-        label(body, L("enemy_double_desc"), size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=(20, 0), pady=(0, 8))
-        label(body, L("enemy_speed"), size=10, color=ACCENT, bold=True, bg=PANEL).pack(anchor="w")
-        check(body, L("enemy_speed_on"), enemy_speed).pack(anchor="w", padx=(0, 0))
-        label(body, L("enemy_speed_desc"), size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=(20, 0))
-        label(body, L("enemy_beta_note"), size=9, color=AMBER, bg=PANEL).pack(anchor="w", pady=(8, 0))
 
         body = card(parent, L("world_beta_title"), L("world_beta_desc"))
         label(body, L("great_fairy"), size=10, color=ACCENT, bold=True, bg=PANEL).pack(anchor="w")
@@ -1220,7 +1274,7 @@ def gui() -> None:
         side.pack(side="left", fill="y")
         side.pack_propagate(False)
         for key, text in (("home", "nav_home"), ("install", "nav_install"), ("stamina", "nav_stamina"),
-                          ("difficulty", "nav_difficulty"), ("hud", "nav_hud"),
+                          ("difficulty", "nav_difficulty"), ("enemies", "nav_enemies"), ("hud", "nav_hud"),
                           ("misc", "nav_misc"), ("about", "nav_about")):
             b = tk.Button(side, text=L(text), command=lambda k=key: show_section(k), anchor="w",
                           bg=SIDEBAR, fg=TEXT, activebackground=PANEL, activeforeground=ACCENT,
@@ -1236,7 +1290,8 @@ def gui() -> None:
         scroll = ScrollArea(wrap, BG)
         scroll.frame.pack(fill="both", expand=True)
         builders = {"home": build_home, "install": build_install, "stamina": build_stamina,
-                    "difficulty": build_difficulty, "hud": build_hud, "misc": build_misc, "about": build_about}
+                    "difficulty": build_difficulty, "enemies": build_enemies, "hud": build_hud,
+                    "misc": build_misc, "about": build_about}
         for key, fn in builders.items():
             f = tk.Frame(scroll.inner, bg=BG)
             fn(f)
@@ -1296,8 +1351,8 @@ def gui() -> None:
         apply_profile(profile.get(), save=False)
 
     for v in (emu, bmap, bstyle, bsimple, blmode, stamina, songbook, quick_boots, quick_mask, hud_collectibles,
-              enemy_double,
-              enemy_speed, great_fairy, farore_outdoor, mode, combat, hp, dmg, speed,
+              enemy_double, enemy_move, enemy_anim, enemy_attack, stamina_bar,
+              great_fairy, farore_outdoor, mode, combat, hp, dmg, speed,
               nodrop, rupees, clock_mode, *costs.values()):
         v.trace_add("write", autosave)
     emu.trace_add("write", lambda *_: (status.set(""), refresh()))

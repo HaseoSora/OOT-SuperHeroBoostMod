@@ -237,7 +237,13 @@ static const u64 g_thash[TXT_N] = {HASH_TXT0, HASH_TXT1, HASH_TXT2, HASH_TXT3, H
 #define RF1 (RT2 + RING2_DOTS)              /* ring 1 fill (+1 end dot) */
 #define RF2 (RF1 + RING1_DOTS + 1)          /* ring 2 fill (+1 end dot) */
 #define PIC_COLL (RF2 + RING2_DOTS + 1)     /* first pane of the collectible plates */
-#define PIC_N (PIC_COLL + 10)               /* skull plate (4), heart plate (4), skull icon, heart icon */
+#define PIC_BAR (PIC_COLL + 10)             /* stamina bar: outline, empty track, then the segments */
+#define BAR_OUT 0                           /* (relative to PIC_BAR) */
+#define BAR_BASE 1
+#define BAR_SEG0 2
+#define BAR_SEG 16
+#define BAR_N (BAR_SEG0 + BAR_SEG)
+#define PIC_N (PIC_BAR + BAR_N)
 static char g_pinames[PIC_N][16];           /* "P_ShbPic_000".. filled by pic_names() */
 static const u64 g_pihash[400] = {HASH_PIC_LIST};   /* CityHash64 of "P_ShbPic_000".. (tools/build_core.py) */
 _Static_assert(PIC_N <= 400, "more picture panes than generated hashes");
@@ -249,6 +255,7 @@ static const u8 g_pitex0[20] = {0, 0, 1, 1, 0, 0, 1, 1, 2, 3, 4, 4, 4, 4, 4, 4, 
 static const float g_pic_w0[20] = {1014, 1014, 1014, 1014, 1014, 1014, 1014, 1014, 120, 60, 9, 9, 9, 9, 9, 9, 9, 9, 76, 70};
 static const float g_pic_h0[20] = {160, 160, 160, 160, 160, 160, 160, 160, 120, 60, 26, 26, 26, 26, 26, 26, 26, 26, 76, 70};
 static u32 pic_tex(u32 k) {
+    if (k >= PIC_BAR) return 4;   /* flat white panes: the bar draws its own segments in a solid colour */
     if (k >= PIC_COLL) {
         u32 j = k - PIC_COLL;
         if (j < 8) return ((j & 3u) < 2u) ? 0 : 1;   /* two plates: fill, fill mirrored, edge, edge mirrored */
@@ -257,10 +264,12 @@ static u32 pic_tex(u32 k) {
     return k < 20 ? g_pitex0[k] : 3;
 }
 static float pic_w(u32 k) {
+    if (k >= PIC_BAR) return 100.0f;   /* bar panes are scaled from a 100-unit base */
     if (k >= PIC_COLL) return (k - PIC_COLL) < 8 ? 1014.0f : 128.0f;
     return k < 20 ? g_pic_w0[k] : 100.0f;
 }
 static float pic_h(u32 k) {
+    if (k >= PIC_BAR) return 100.0f;
     if (k >= PIC_COLL) return (k - PIC_COLL) < 8 ? 160.0f : 128.0f;
     return k < 20 ? g_pic_h0[k] : 100.0f;
 }
@@ -1011,9 +1020,11 @@ static const float RAY_DY[8] = {1.0f, 0.70711f, 0.0f, -0.70711f, -1.0f, -0.70711
 u32 g_hud_show[2] = {0x10000000u, 0x10000000u};   /* clock, rupees: 1 = drawn this frame */
 static u64 g_pic_rec[PIC_N];
 static u32 g_plates_shown;
+static void bar_reset(void);
 /* the layout was rebuilt: drop cached pane records and force the texts to be set again */
 static void plates_reset(void) {
     for (u32 k = 0; k < PIC_N; k++) g_pic_rec[k] = 0;
+    bar_reset();
     for (u32 f = 0; f < FLD_N; f++) { g_tlast[f][0] = (char)0xFF; g_tpend[f] = 0; g_tfront[f] = 0; }
     g_plates_shown = 0;
 }
@@ -1371,7 +1382,7 @@ static void ring_update(void) {
     }
     static const float GREEN[3] = {0.30f, 0.85f, 0.25f}, YELLOW[3] = {1.0f, 0.85f, 0.10f};
     const float *rgb = g_tired ? YELLOW : GREEN;
-    u32 on = g_show > 0.5f && g_anchor_ok;
+    u32 on = g_show > 0.5f && g_anchor_ok && !g_shbcfg.stamina_bar;
     /* ring 1: 0..75 stamina; ring 2: 75..150, unlocked up to the capacity */
     float f1 = g_value / 75.0f, f2 = (g_value - 75.0f) / 75.0f, u2 = (g_cap - 75.0f) / 75.0f;
     if (f1 > 1.0f) f1 = 1.0f;
@@ -1385,6 +1396,97 @@ static void ring_update(void) {
     ring_draw(RT2, RF2, RING2_DOTS, g_rs2, g_rc2, G[1], G[3], u2, f2, on, rgb);
 }
 
+/* ---- stamina bar, directly under the magic gauge ----
+ * One flat pane per segment over a clean dark strip; when stamina goes down whole segments disappear and only
+ * the boundary segment shrinks, so nothing is squashed. Yellow normally, red while recharging from empty.
+ * Position and size default to the magic gauge's row (768 x 32 layout units, left edge aligned with it).
+ *  0 centre x, 1 top y, 2 width, 3 height (layout units; live tuning with tools/hud_tune.py) */
+float g_barp[4] = {-1362.0f, 772.0f, 768.0f, 32.0f};
+#define BAR_UNIT 100.0f
+/* the D-pad guide cross (boots / masks / Navi / ocarina, the game's own part) moves down to make room */
+static u64 g_cross_rec;
+static float g_cross_base, g_cross_last;
+static u32 g_cross_applied;
+static void bar_reset(void) { g_cross_rec = 0; g_cross_base = g_cross_last = 0.0f; g_cross_applied = 0; }
+static void cross_shift(u64 frame, u32 on, float dy) {
+    if (!on || dy <= 0.0f) {
+        if (g_cross_applied && g_cross_rec) {
+            *(float *)(g_cross_rec + 0x70) = g_cross_base;
+            *(u32 *)g_cross_rec |= 0x6F;
+            g_cross_applied = 0;
+            g_cross_last = g_cross_base;
+        }
+        return;
+    }
+    if (!g_cross_rec) {
+        g_cross_rec = pane_record(frame, "Pa_GuideCross_00");
+        if (!g_cross_rec) return;
+        g_cross_base = *(float *)(g_cross_rec + 0x70);
+        g_cross_last = g_cross_base;
+    }
+    float y = *(float *)(g_cross_rec + 0x70);
+    if (!g_cross_applied || y != g_cross_last) {   /* the game rewrote it: take that as the new base */
+        g_cross_base = y;
+        g_cross_applied = 1;
+    }
+    float ny = g_cross_base - dy;                  /* layout Y grows up: subtract to move down */
+    if (y != ny) {
+        *(float *)(g_cross_rec + 0x70) = ny;
+        *(u32 *)g_cross_rec |= 0x6F;
+    }
+    g_cross_last = ny;
+}
+static void bar_update(u64 frame) {
+    for (u32 k = PIC_BAR; k < PIC_N; k++) if (!g_pic_rec[k]) return;
+    const float *B = g_barp;
+    u32 on = g_shbcfg.stamina_bar && g_shbcfg.stamina_enabled && player_active();
+    float full = B[2];
+    float h = B[3];
+    /* capacity grows with the hearts (75 at 3 hearts, 150 at 20): the bar grows to the right from half to the
+     * full width, and the number of visible segments follows it (16 at full capacity, like the magic gauge) */
+    float grow = g_cap / 150.0f;
+    if (grow < 0.5f) grow = 0.5f;
+    if (grow > 1.0f) grow = 1.0f;
+    float w = full * grow;
+    u32 n = (u32)((float)BAR_SEG * grow + 0.5f);
+    if (n < 1) n = 1;
+    if (n > BAR_SEG) n = BAR_SEG;
+    float left = B[0] - full * 0.5f;
+    float cx = left + w * 0.5f;
+    float cy = B[1] - h * 0.5f;
+    /* fixed look: yellow normally, red while recharging from empty (linear values) */
+    static const float YELLOW[3] = {1.000f, 0.552f, 0.000f}, RED[3] = {1.000f, 0.027f, 0.027f};
+    const float *fillrgb = g_tired ? RED : YELLOW;
+    /* clean dark strip + one flat pane per segment: when stamina goes down whole segments disappear and only
+     * the boundary segment shrinks, so no texture is ever squashed */
+    u64 out = g_pic_rec[PIC_BAR + BAR_OUT];
+    place(out, cx, cy, on ? (w + 4.0f) / BAR_UNIT : 0.0f, on ? (h + 4.0f) / BAR_UNIT : 0.0f, 0.0f);
+    tint_rec(out, 0.004f, 0.004f, 0.006f, 0.90f);
+    u64 base = g_pic_rec[PIC_BAR + BAR_BASE];
+    place(base, cx, cy, on ? w / BAR_UNIT : 0.0f, on ? h / BAR_UNIT : 0.0f, 0.0f);
+    tint_rec(base, 0.010f, 0.011f, 0.015f, 0.88f);
+    float f = g_cap > 0.0f ? g_value / g_cap : 0.0f;
+    if (f < 0.0f) f = 0.0f;
+    if (f > 1.0f) f = 1.0f;
+    float gap = 4.0f;
+    float sw = (w - gap * (float)(n - 1)) / (float)n;
+    if (sw < 1.0f) sw = 1.0f;
+    float lit = f * (float)n;
+    for (u32 i = 0; i < BAR_SEG; i++) {
+        u64 rec = g_pic_rec[PIC_BAR + BAR_SEG0 + i];
+        float part = i < n ? lit - (float)i : 0.0f;
+        if (part > 1.0f) part = 1.0f;
+        if (part < 0.0f) part = 0.0f;
+        float fw = sw * part;
+        u32 show = on && fw > 0.5f;
+        place(rec, left + (sw + gap) * (float)i + fw * 0.5f, cy,
+              show ? fw / BAR_UNIT : 0.0f, show ? h / BAR_UNIT : 0.0f, 0.0f);
+        if (show) tint_rec(rec, fillrgb[0], fillrgb[1], fillrgb[2], 1.0f);
+    }
+    /* the game's D-pad guide cross always moves down while the bar is on screen */
+    cross_shift(frame, on, 60.0f);
+}
+
 /* ---- buttonMapping: slot item buttons (appended PaItemBtn_00 parts) ----
  * Phase 1 test: bind the parts, place them, show a fixed icon per button through the stock ItemPattern animation. */
 #define SA_N 11
@@ -1395,7 +1497,7 @@ static const char *slot_anim_name(u32 i) {
     case 8: return "UnSelect"; case 9: return "Decide"; default: return "Assign";
     }
 }
-typedef struct { u64 part, anim[SA_N], rec, rep, ctrl, hide[9], ic, sh; u32 icon_set; int shown_item; char forced[32]; } SlotBtn;
+typedef struct { u64 part, anim[SA_N], rec, rep, ctrl, hide[9], ic, sh; u32 icon_set, shown_name; int shown_item; char forced[32]; } SlotBtn;
 static SlotBtn g_sb[PART_N];
 u64 g_sb_dbg[PART_N];       /* part object per button (diagnostic) */
 u32 g_sb_anim[PART_N];      /* bit i = anim i found */
@@ -1422,7 +1524,8 @@ static float item_pattern(int item) {
     switch (item) {
     case 0: return 0.0f;  case 1: return 6.0f;  case 2: return 4.0f;  case 3: return 3.0f;  case 4: return 1.0f;
     case 5: return 33.0f; case 6: return 34.0f; case 7: return 32.0f; case 9: return 5.0f;  case 10: return 8.0f;
-    case 13: return 2.0f; case 14: return 23.0f; case 18: return 36.0f; case 30: return 24.0f; case 31: return 9.0f;
+    case 13: return 2.0f; case 14: case 15: case 16: case 17: case 50: return 23.0f;   /* bottle cells A..E */
+    case 18: return 36.0f; case 30: return 24.0f; case 31: return 9.0f;
     default: return 6.0f;
     }
 }
@@ -1434,6 +1537,62 @@ static const char *item_name(int item) {
     if (!mgr || item < 0) return 0;
     item_actor_name((void *)mgr, &nm, (u64)item);
     return nm && nm[0] ? nm : 0;
+}
+/* ---- bottles ----
+ * The five bottle cells are item indices 14, 15, 16, 17 and 50 (grid order BottleA..BottleE). Their content is an
+ * Enum in GameData (Shop_SelectBottleContentItem: Empty, RedPotion, GreenPotion, BluePotion, BlueFire, Fish,
+ * Letter, BigPoe, Poe, Bug, Fairy, MaxMilk, HalfMilk); records 60..64 are BottleA..BottleE in that order. The bottle
+ * item itself resolves to the current bottle (e.g. RedPotion), and the game's own hidden box icon is stale for the
+ * 2nd..5th bottle, so the HUD reads the bottle's content record (or the box's BottleA..E Enum value) for its icon. */
+static const u32 BOTTLE_VAL[5] = {0x22C7238Cu, 0xAC889FD5u, 0xA7D94611u, 0xB55EE4E3u, 0xD8CC3008u};   /* BottleA..E */
+static const int BOTTLE_CELL[5] = {14, 15, 16, 17, 50};
+static char g_bicon[32];
+static u32 enum_value(u32 idx) {
+    u64 mgr = *(u64 *)GAMEDATA_MGR;
+    if (!vptr(mgr)) return 0;
+    u32 cnt = *(volatile u32 *)(mgr + 8 + 0x60 * 6 + 8);
+    u64 rec = *(volatile u64 *)(mgr + 8 + 0x60 * 6 + 0x10);
+    if (!rec || idx >= cnt) return 0;
+    return *(volatile u32 *)(rec + (u64)idx * 0x38 + 0x1C);
+}
+static const char *bottle_suffix(u32 v) {
+    switch (v) {
+    case 3938082919u: return "RedPotion";
+    case 77412289u:   return "GreenPotion";
+    case 4085503717u: return "BluePotion";
+    case 472462615u:  return "BlueFire";
+    case 511921912u:  return "Fish";
+    case 254076936u:  return "Letter";
+    case 3452048497u: return "BigPoe";
+    case 34099102u:   return "Poe";
+    case 1960193739u: return "Bug";
+    case 1867113303u: return "Fairy";
+    case 1932879911u: return "Milk";       /* MaxMilk */
+    case 4009157808u: return "HalfMilk";
+    default:          return 0;             /* Empty */
+    }
+}
+static const char *bottle_icon_rec(u32 rec) {
+    const char *s = bottle_suffix(enum_value(rec));
+    if (!s) return "Item_Bottle";
+    static const char P[] = "Item_Bottle_";
+    u32 n = 0, j = 0;
+    while (P[n]) { g_bicon[n] = P[n]; n++; }
+    while (s[j] && n < 31) g_bicon[n++] = s[j++];
+    g_bicon[n] = 0;
+    return g_bicon;
+}
+static int bottle_pos(int cell) {
+    for (u32 i = 0; i < 5; i++) if (cell == BOTTLE_CELL[i]) return (int)i;
+    return -1;
+}
+static const char *bottle_icon(int cell) {
+    int p = bottle_pos(cell);
+    return p >= 0 ? bottle_icon_rec(60u + (u32)p) : 0;
+}
+static int bottle_box_pos(u32 v) {
+    for (u32 i = 0; i < 5; i++) if (v == BOTTLE_VAL[i]) return (int)i;
+    return -1;
 }
 /* around the stock item box (top right): above, left, below, right-above; layout units, root-relative */
 /* buttonMapping default arrangement, top right: top row L X R, middle row (Y) (A) ZR, bottom (B) */
@@ -1544,6 +1703,7 @@ int hud_zr_item(void) { return g_zr_index; }
 static int g_zr_hold;
 void hud_zr_hold(int hold) { g_zr_hold = hold; }   /* features/button_mapping: a slot item borrows the item box */
 static int box_item(void);
+static u32 box_value(void);
 static void zr_mirror(void) {
     u64 part = g_sb[0].part;   /* any of our bound parts: [part + 0x28] is the PlayerStatus frame it lives in */
     u64 fr = vptr(part) ? ptr(part, 0x28) : 0;
@@ -1558,10 +1718,20 @@ static void zr_mirror(void) {
         if (!g_zr_hold) g_sb_force[10][0] = 1;   /* hidden */
         return;
     }
+    /* a bottle in the box: its own Enum value names the bottle (BottleA..E), the content is in the bottle record */
+    int bp = bottle_box_pos(box_value());
+    const char *disp = bp >= 0 ? bottle_icon_rec(60u + (u32)bp) : 0;
     if (bi >= 0) nm = item_name(bi);
-    if (!nm || (u64)nm < 0x10000 || (nm[0] != 'I' && nm[0] != 'W' && nm[0] != 'A')) return;   /* Item_/Weapon_/Armor_ */
+    if (!disp && (!nm || (u64)nm < 0x10000 || (nm[0] != 'I' && nm[0] != 'W' && nm[0] != 'A'))) return;   /* Item_/Weapon_/Armor_ */
     /* 1. always track the box: name and item index */
-    if (!str_eq(g_zr_name, nm)) {
+    if (bp >= 0) {
+        if (g_zr_index != BOTTLE_CELL[bp] || !str_eq(g_zr_name, disp)) {
+            u32 i;
+            for (i = 0; i < 30 && disp[i]; i++) g_zr_name[i] = disp[i];
+            g_zr_name[i] = 0;
+            g_zr_index = BOTTLE_CELL[bp];
+        }
+    } else if (nm && !str_eq(g_zr_name, nm)) {
         u32 i;
         for (i = 0; i < 30 && nm[i]; i++) g_zr_name[i] = nm[i];
         g_zr_name[i] = 0;
@@ -1572,10 +1742,11 @@ static void zr_mirror(void) {
         }
     }
     /* 2. show it on ZR, unless a slot item is borrowing the box right now */
+    const char *show = disp ? disp : g_zr_name;
     char *dst = g_sb_force[10];
-    if (g_zr_hold || str_eq(dst, g_zr_name)) return;
+    if (g_zr_hold || str_eq(dst, show)) return;
     u32 i;
-    for (i = 0; i < 30 && g_zr_name[i]; i++) dst[i] = g_zr_name[i];
+    for (i = 0; i < 30 && show[i]; i++) dst[i] = show[i];
     dst[i] = 0;
     dst[31] = 0;   /* apply again */
 }
@@ -1680,6 +1851,7 @@ void hud_box_empty(int child) {
 static u32 g_own_idx[64];   /* cached Bool index + 1; 0xFFFFFFFF = no flag */
 int hud_item_owned(int item) {
     if (item < 0 || item >= 64) return 0;
+    if ((item >= 14 && item <= 17) || item == 50) return 1;   /* bottles: five cells, contents are not IsGet flags */
     if (!g_own_idx[item]) {
         const char *nm = item_name(item);
         if (!nm) return 1;
@@ -1733,6 +1905,8 @@ void hud_menu_zr(int item) {   /* -1: empty */
     if (g_zr_hold) return;
     char *dst = g_sb_force[10];
     const char *nm = item >= 0 ? item_name(item) : 0;
+    const char *bn = bottle_icon(item);   /* a bottle cell: its content, not the current bottle */
+    if (bn) nm = bn;
     if (!nm) { dst[0] = 1; dst[1] = 0; return; }
     u32 i;
     for (i = 0; i < 30 && nm[i]; i++) dst[i] = nm[i];
@@ -1841,13 +2015,22 @@ static void slots_draw(SlotBtn *set, const u64 *ctrls, u64 frame, const float *l
                 set_icon(b, nm);
             }
         }
-        /* icon of the button's item (only when it changes) */
-        if (b->ctrl && !g_sb_busy && (!b->icon_set || b->shown_item != g_sb_item[k])) {
-            const char *nm = item_name(g_sb_item[k]);
+        /* icon of the button's item: also refresh when the item's actor name changes (bottles keep the same
+         * index while their content changes, e.g. empty -> red potion) */
+        const char *inm = g_sb_item[k] >= 0 ? item_name(g_sb_item[k]) : 0;
+        /* bottles: the item index gives the current bottle (e.g. RedPotion); read the bottle slot for its own content */
+        if (k != 10) {
+            const char *bn = bottle_icon(g_sb_item[k]);
+            if (bn) inm = bn;
+        }
+        u32 nh = inm ? mmh3("", inm) : 0;
+        if (b->ctrl && !g_sb_busy &&
+            (!b->icon_set || b->shown_item != g_sb_item[k] || b->shown_name != nh)) {
             b->icon_set = 1;
             b->shown_item = g_sb_item[k];
-            if (main_set) for (u32 i = 0; i < 31; i++) { g_sb_name_dbg[k][i] = nm ? nm[i] : 0; if (nm && !nm[i]) break; }
-            if (nm) set_icon_btn(b, nm, g_sb_btn[k][0] ? g_sb_btn[k] : 0);
+            b->shown_name = nh;
+            if (main_set) for (u32 i = 0; i < 31; i++) { g_sb_name_dbg[k][i] = inm ? inm[i] : 0; if (inm && !inm[i]) break; }
+            if (inm) set_icon_btn(b, inm, g_sb_btn[k][0] ? g_sb_btn[k] : 0);
         }
     }
 }
@@ -2018,6 +2201,7 @@ static void hud_frame(void) {
         g_tired = (g_tick / 480) & 1;   /* demo: alternate green / yellow */
     }
     ring_update();
+    bar_update(g_frame_node);
     slots_update(g_frame_node);
     slots_labels(g_frame_node);
 }
@@ -2069,7 +2253,6 @@ __attribute__((weak)) void songbook_on_ocarina(u32 active, void *ctx);   /* feat
 __attribute__((weak)) void songbook_on_select(void *ctx, u32 sel) { (void)ctx; (void)sel; }   /* overridden by the feature */
 __attribute__((weak)) void songbook_on_frame(void);                      /* features/songbook */
 __attribute__((weak)) void songbook_on_ui(void *ctx);                    /* features/songbook */
-__attribute__((weak)) int songbook_debug_text(char *b, u32 cap);         /* features/songbook */
 /* diagnostic: the game's own set_text calls (not ours), consecutive repeats skipped: caller, pane, len, text */
 struct { u64 lr, pane; u32 len, n; char s[40]; char nm[24]; u64 lr2; } g_st_log[32];
 u32 g_st_n = 0x10000000u;

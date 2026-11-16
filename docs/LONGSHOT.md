@@ -1,8 +1,10 @@
-# Longshot and Hookshot
+# Longshot, Hookshot and ReLink
 
-Hookshot and Longshot are **not emulators**: they are static recompilations of the game. The console's code is
-translated to C and compiled into a native program (`bin/hookshot`, `bin/longshot.exe`); the prepared guest image
-lives in `image.bin`, next to it.
+Hookshot, Longshot and ReLink are **not emulators**: they are static recompilations of the game. The console's code is
+translated to C and compiled into a native program (`bin/hookshot`, `bin/longshot.exe`, `bin/relink-game.exe`); the
+prepared guest image lives in `image.bin`, next to it. The app tells them apart by the exefs folder the game keeps
+(`.longshot_exefs`, `.hookshot_exefs`, `.relink_exefs`), and uses the matching builder, environment variables
+(`LONGSHOT_*` / `RELINK_*`) and file names.
 
 That changes how a code mod is installed.
 
@@ -121,18 +123,47 @@ The romfs side (button textures, Great Fairy, Farore, no heart drops, enemy opti
 
 The first install snapshots everything the install and the builder's finish step can change into
 `<game>/.shb-backup/`: `files/` holds the original copies and `manifest.json` lists them, plus the files that did not
-exist yet (they are deleted again on uninstall). That covers `exefs/main`, the game executable (`bin/longshot.exe` /
-`bin/hookshot*`), `image.bin`, `longshot_prepared.bin`, the launcher (`longshot.exe` / `hookshot*` in the game
-folder), `bin/longshot_vk.dll` (`.so`), `bin/SDL2.dll`, `bin/SDL3.dll`, the ffmpeg `av*`/`sw*` DLLs, the shader cache
-(`cache/longshot_pipelines.bin`) and `exefs/subsdk9`. The snapshot is made once: installing again never overwrites the
-originals, and the `.longshot_exefs` / `.hookshot_exefs` folder name is recorded so it is renamed back.
+exist yet (they are deleted again on uninstall). That covers `exefs/main`, the game executable (`bin/longshot.exe`,
+`bin/hookshot*`, `bin/relink-game.exe`), `image.bin`, `longshot_prepared.bin` / `relink_prepared.bin`, the launcher in
+the game folder (`longshot.exe`, `hookshot*`, `ReLink.exe`), the renderer (`longshot_vk.dll`/`.so`, `relink_vk.dll`),
+`SDL2.dll`, `SDL3.dll`, the ffmpeg `av*`/`sw*` DLLs, ReLink's `amd_fidelityfx_vk.dll` and VC runtime, the item-wheel
+assets and `exefs/subsdk9`. The snapshot is made once: installing again never overwrites the originals, and the exefs
+folder name is recorded so it is renamed back.
 
-`--uninstall` copies those originals back, deletes the files that were not there before (the module, the new libraries,
-the shader cache) and removes `<game>/mods/Super-Hero-Boost`. Backups made by older versions (flat files in
-`.shb-backup/`) are still restored. Nothing has to be recompiled when that backup exists.
+The builders' generated files (shader, program and pipeline caches, and their own `mods/00-dump-repair`) are **not
+copied** (some are gigabytes): the manifest marks them as regenerated and the uninstall deletes them, so a cache of
+the modded build cannot meet the restored game. `--uninstall` copies the originals back, deletes the files and caches
+that were not there before and removes `<game>/mods/Super-Hero-Boost`. Backups made by older versions (flat files or a
+version 2 manifest) are still restored. Nothing has to be recompiled when that backup exists.
 
-## Hookshot
+## Rebuilding keeps the renderer the game was built with
+
+The builders compile the renderer from the same sources with compile-time options. Longshot and Hookshot can be built
+with **NVIDIA DLSS** (and `--fsr` for AMD FSR 4); ReLink keeps its DLSS choice in `launcher.ini`. A plain
+`make_game.py --update` does **not** set those options: it compiles the renderer without DLSS and deletes the `ngx`
+runtime, which leaves a game that was built with DLSS without it (and can stop it where DLSS was selected). The app
+reads the launcher settings (`%LOCALAPPDATA%\LongshotLauncher|HookshotLauncher\settings.json` + `builds.json`, or
+`%LOCALAPPDATA%\ReLink\launcher.ini`), points `LONGSHOT_NGX_SDK` / `RELINK_NGX_SDK` at the SDK the launcher keeps and
+passes `--fsr` when the game had FSR. If the game had DLSS and no SDK is found, the build stops with a message
+instead of silently removing DLSS.
+
+The build also checks the game's module id (`e0f3ccfa` for the supported update) before patching `exefs/main`: a
+different game version is refused instead of patched at the wrong offsets.
+
+## The builder folder
+
+The app looks for it in the launchers' folders (`toolchains` for Longshot/Hookshot, `versions` for ReLink) and shows
+the detected path under the game path (**Builder detected: …**). The entry below it lets you pick another folder
+(**Builder set by you: …**); **Auto** clears it and returns to detection. `LONGSHOT_BUILDER`, `HOOKSHOT_BUILDER` and
+`RELINK_BUILDER` override it, as does `--builder` in `tools/install_longshot.py`.
+
+## Hookshot and ReLink
 
 Hookshot is the original project; Longshot is its continuation. Both ship the same builder (`HookshotBuilder` or
 `LongshotBuilder`, with the `tools` folder beside it) and the same `nx2/make_game.py --update`. Pass its folder with
 `--builder`; the rest of the procedure is identical.
+
+ReLink is another fork of the same framework (version in `relink_version.txt`, builder under
+`%LOCALAPPDATA%\ReLink\versions\<version>\ReLink`). Its game is `bin/relink-game.exe`, its exefs `.relink_exefs`, its
+launcher `ReLink.exe`, and it reads the same `mods/<name>/romfs` layout, so the install and the uninstall are the
+same; only the names and the `RELINK_*` environment change.

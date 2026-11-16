@@ -420,15 +420,3 @@ Both mods are generated from the user's own dump by `tools/make_enemy_opts.py`; 
   `core/gd_index.h` (`GD_ACTOR_BOX`). The HUD controller path (+0x150 -> +0x1F0 -> +0x38) is not reliable
   for the box name (garbage in some saves); it is only the fallback now.
 - In the pause menu, A sets the box only when the menu closes (GameData unchanged until then).
-
-## R3 target switch (Nov 16)
-- The camera AINB vocabulary (PlayerCamera.pack.zs, AI/PlayerCamera.root.ainb) and the
-  game::camera::PlayerCameraControllerInput field names in main (ChangeTarget, IsChangeTarget,
-  NextTargetIndex, TargetChangeRate, TargetDirToStickX, TargetDistToStickY, LockOnChangeEnable)
-  describe a stick-driven target change, like the 3DS Circle Pad gesture.
-- manual_shield now consumes R3 while the target camera is up and injects `MS_FLICK_FRAMES` (4) frames of
-  full deflection in both sticks (buttons at +0x08, left stick +0x10, right stick +0x18, stride 0x28); the game
-  then picks the next target with its own logic. Both sticks are used because the exact axis was not confirmed
-  with two targets in range; the camera is following a target, so the unused stick is ignored.
-- Not yet confirmed live with two or more enemies; if it does not switch, check the axis first (write only
-  +0x10 or only +0x18) and then the frame count.

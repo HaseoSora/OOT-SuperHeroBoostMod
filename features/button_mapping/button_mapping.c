@@ -33,6 +33,12 @@ static const u64 SLOT_MASK[SLOT_N] = {BTN_B, BTN_L, BTN_R, BTN_ZR};
 static u64 slot_mask(u32 s) {
     return (s == SLOT_B && hud_button_swap()) ? BTN_X : SLOT_MASK[s];
 }
+/* Manual shield owns L (L is the guard while the target camera is active), so
+ * the L item slot is off while that option is enabled. The assignment is kept,
+ * so turning the manual shield off restores it. */
+static int slot_enabled(int s) {
+    return !(s == SLOT_L && g_shbcfg.manual_shield);
+}
 
 /* Item index per slot, -1 = empty (button stays normal): the set of Link's current age. Assigned in the pause
  * menu's Items tab with X / L / R; empty at first. (.data) */
@@ -191,7 +197,7 @@ void button_mapping_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_r
 
     /* Publish the slots to the HUD (core/hud.c): B, L, R as assigned (ZR mirrors the game's own box). */
     for (int s = 0; s < SLOT_N; s++)
-        hud_slot_item((u32)s, s == SLOT_ZR && g_assign[s] < 0 ? g_zr_item : g_assign[s]);
+        hud_slot_item((u32)s, !slot_enabled(s) ? -1 : (s == SLOT_ZR && g_assign[s] < 0 ? g_zr_item : g_assign[s]));
 
     u64 buttons = hid_merge_buttons(&view);
     u64 pressed = buttons & ~g_cl_prev;
@@ -214,7 +220,7 @@ void button_mapping_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_r
         static const u64 MENU_BTN[SLOT_ZR] = {BTN_X, BTN_L, BTN_R};   /* -> SLOT_B, SLOT_L, SLOT_R */
         for (int s = 0; s < SLOT_ZR; s++) {
             if (!(pressed & MENU_BTN[s])) continue;
-            if (s == SLOT_L && g_shbcfg.bm_l_mode) continue;   /* L is the item selector: not assignable */
+            if (s == SLOT_L && (g_shbcfg.bm_l_mode || g_shbcfg.manual_shield)) continue;   /* L is the selector / the shield */
             int it = hud_menu_item();
             if (it < 0) continue;
             int old = g_assign[s];
@@ -238,7 +244,7 @@ void button_mapping_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_r
                 g_zr_item = it; g_box_pending = -2; hud_menu_zr(it); g_menu_a_wait = 0;
             }
         }
-        for (int s = 0; s < SLOT_ZR; s++) hud_slot_item((u32)s, g_assign[s]);   /* show a swap at once */
+        for (int s = 0; s < SLOT_ZR; s++) hud_slot_item((u32)s, slot_enabled(s) ? g_assign[s] : -1);   /* show a swap at once */
         hud_refresh_button_swap();
         hud_menu_tick();
         set_all(&view, BTN_X | BTN_L | BTN_R, 0);
@@ -249,7 +255,7 @@ void button_mapping_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_r
     /* L as the game's item selector: outside menus, L does what R does (opens the selector for ZR).
      * The R slot is suppressed for this frame so an item assigned to R is not used as well. */
     u32 l_selector = 0;
-    if (g_shbcfg.button_mapping && g_shbcfg.bm_l_mode == 2 && hud_ingame() &&
+    if (g_shbcfg.button_mapping && !g_shbcfg.manual_shield && g_shbcfg.bm_l_mode == 2 && hud_ingame() &&
         (buttons & BTN_L) && !(buttons & BTN_R)) {
         u32 was_pressed = (pressed & BTN_L) != 0;
         set_all(&view, BTN_L, BTN_R);
@@ -308,10 +314,11 @@ void button_mapping_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_r
 
     u64 all_slot = 0;
     for (int s = 0; s < SLOT_N; s++)
-        if (g_assign[s] >= 0 && !(s == SLOT_R && l_selector)) all_slot |= slot_mask(s);
+        if (g_assign[s] >= 0 && slot_enabled(s) && !(s == SLOT_R && l_selector)) all_slot |= slot_mask(s);
 
     if (g_phase == PH_IDLE) {
         for (int s = 0; s < SLOT_N; s++) {
+            if (!slot_enabled(s)) continue;   /* manual shield: L never uses an item */
             if (s == SLOT_R && l_selector) continue;   /* this R came from L (item selector) */
             if ((pressed & slot_mask(s)) && g_assign[s] >= 0) {
                 if (!g_borrowed) { g_saved = g_zr_item; g_borrowed = 1; hud_zr_hold(1); }

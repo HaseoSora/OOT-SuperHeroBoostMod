@@ -80,7 +80,7 @@ class Settings:
     bm_simple: bool = False          # simple layout: only the assignable buttons (no A / X / Y)
     bm_l_mode: str = "assign"        # one of L_MODES
     stamina_bar: bool = False        # stamina UI: segmented horizontal bar instead of the ring
-    manual_shield: bool = False      # ZL target + L guard, R3 switches to the next target
+    manual_shield: bool = False      # ZL holds the guard, L toggles targeting, R3 cancels
 
     def to_dict(self): return dict(self.__dict__)
 

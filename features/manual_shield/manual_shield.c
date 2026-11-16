@@ -1,13 +1,11 @@
 /* manual shield: ZL toggles the lock-on camera, L holds the guard while it is
- * active and R3 switches to the next target.
+ * active and R3 cancels targeting.
  *
  * Ported from the behaviour of REXCRAFT88's Manual Shield mod for the same game
  * build. The two halves are:
  *   - manual_shield_on_input: consumes the physical ZL (target toggle) and
  *     synthesises native ZL while our toggle is on; L is only consumed while the
  *     lock-on camera is active, so it keeps its normal game function otherwise;
- *     an R3 press while the target camera is up flicks the stick, which is the
- *     game's own "change target" input.
  *   - manual_shield_on_frame: keeps the native guard state off unless L is held
  *     with the camera active (the game would otherwise raise the shield while
  *     targeting), draws the shield on guard entry and scopes the AS Bool14 setter
@@ -25,14 +23,6 @@ typedef unsigned char u8;
 #define MS_BTN_L   0x40ull
 #define MS_BTN_R3  0x20ull
 #define MS_BTN_ZL  0x100ull
-
-/* R3 target switch: the game changes lock-on targets from a quick stick
- * deflection (the same gesture the 3DS original reads from the Circle Pad).
- * We inject a few frames of full deflection in both sticks; the one the game
- * uses for target change consumes it and the other is ignored while the camera
- * is following a target. */
-#define MS_STICK_MAX     32767
-#define MS_FLICK_FRAMES  4u
 
 int player_dead(void);
 u64 player_get(void);
@@ -69,10 +59,7 @@ u8 g_ms_zl_raw;          /* physical ZL in the latest input sample */
 u8 g_ms_l_raw;           /* physical L in the latest input sample */
 u8 g_ms_zl_prev;         /* previous frame's physical ZL, for the toggle edge */
 u8 g_ms_prev_l;          /* previous sampled L (diagnostic) */
-u8 g_ms_flick;           /* frames of the R3 target-switch stick flick left */
-u8 g_ms_r3_prev;         /* previous sampled R3, for the edge */
 u8 g_ms_last_allowed;    /* previous frame's decision, for the shield draw */
-u32 g_ms_flick_count;    /* diagnostic: R3 target switches requested */
 u32 g_ms_toggle_mode = 1;/* 1 = game option Toggle Target, 0 = Hold Target */
 u32 g_ms_target_value = 0xFFFFFFFFu;  /* diagnostic: raw GameData enum value */
 u32 g_ms_tick;           /* scheduler frames (manual_shield_on_frame calls) */
@@ -81,7 +68,7 @@ u32 g_ms_stale;          /* gameplay HID reads without a scheduler tick */
 
 /* Diagnostic counters for tools/live_check (not used by the game). */
 u32 g_ms_dbg[8] = {0x10000000u, 0, 0, 0, 0, 0, 0, 0};
-/* 0 reads, 1 guard, 2 targeting, 3 ZL toggles, 4 R3 target switches, 5 stale reads, 6 frames, 7 guard entries */
+/* 0 reads, 1 guard, 2 targeting, 3 ZL toggles, 4 R3 cancels, 5 stale reads, 6 frames, 7 guard entries */
 
 static u64 rd(u64 p, unsigned off) { return *(volatile u64 *)(p + off); }
 
@@ -196,8 +183,6 @@ void manual_shield_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_re
         g_ms_l_raw = 0;
         g_ms_zl_prev = 0;
         g_ms_prev_l = 0;
-        g_ms_flick = 0;
-        g_ms_r3_prev = 0;
         return;
     }
     g_ms_active = 1;
@@ -217,8 +202,6 @@ void manual_shield_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_re
         g_ms_l_raw = 0;
         g_ms_held = 0;
         g_ms_allowed = 0;
-        g_ms_flick = 0;
-        g_ms_r3_prev = 0;
         g_ms_dbg[5]++;
         return;
     }
@@ -229,8 +212,6 @@ void manual_shield_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_re
         g_ms_allowed = 0;
         g_ms_targeting = 0;
         g_ms_last_allowed = 0;
-        g_ms_flick = 0;
-        g_ms_r3_prev = 0;
         return;
     }
     if (!ms_gameplay_state()) {   /* title, loading, pause or event camera: keep the state from firing */
@@ -238,8 +219,6 @@ void manual_shield_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_re
         g_ms_l_raw = 0;
         g_ms_held = 0;
         g_ms_allowed = 0;
-        g_ms_flick = 0;
-        g_ms_r3_prev = 0;
         return;
     }
 
@@ -250,6 +229,7 @@ void manual_shield_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_re
     g_ms_zl_raw = zl;
     g_ms_l_raw = l;
     g_ms_prev_l = l;
+    if (r3) { g_ms_targeting = 0; g_ms_dbg[4]++; }
     g_ms_dbg[1] = g_ms_held;
     g_ms_dbg[2] = g_ms_targeting;
 
@@ -266,34 +246,15 @@ void manual_shield_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_re
         target_active = zl != 0 || guard_active || player_state_starts("LockOn");
     }
 
-    /* R3 while the target camera is up = change target (the game's own stick
-     * gesture), instead of the old cancel-target behaviour. The flick is
-     * applied to the samples below and lasts a few frames. */
-    if (r3 && !g_ms_r3_prev && target_active) {
-        g_ms_flick = MS_FLICK_FRAMES;
-        ++g_ms_flick_count;
-        g_ms_dbg[4] = g_ms_flick_count;
-    }
-    g_ms_r3_prev = r3;
-
     for (u32 i = 0; i < count; i++) {
         u64 b = hid_get_buttons(&view, i);
         if (toggle) b &= ~MS_BTN_ZL;           /* toggle mode: ZL is consumed and re-synthesised */
-        if (target_active) b &= ~(MS_BTN_L | MS_BTN_R3);   /* L guards and R3 switches target */
+        if (target_active) b &= ~MS_BTN_L;     /* L guards only with the target camera */
         /* toggle mode: synth native ZL from our latch or an active L guard; the
          * native LockOn state alone must not keep itself alive. Hold mode leaves
          * the physical ZL untouched. */
         if (toggle && (g_ms_targeting || guard_active)) b |= MS_BTN_ZL;
         hid_set_buttons(&view, i, b);
-
-        if (g_ms_flick) {
-            volatile int *lstick = (volatile int *)((unsigned char *)view.samples + (u64)i * HID_STRIDE + 0x10);
-            volatile int *rstick = (volatile int *)((unsigned char *)view.samples + (u64)i * HID_STRIDE + 0x18);
-            lstick[0] = MS_STICK_MAX;
-            lstick[1] = 0;
-            rstick[0] = MS_STICK_MAX;
-            rstick[1] = 0;
-        }
     }
     g_ms_dbg[0]++;
 }
@@ -315,8 +276,6 @@ void manual_shield_on_frame(void *scheduler) {
         g_ms_l_raw = 0;
         g_ms_zl_prev = 0;
         g_ms_prev_l = 0;
-        g_ms_flick = 0;
-        g_ms_r3_prev = 0;
         g_ms_last_allowed = 0;
         g_ms_toggle_mode = 1;
         g_ms_target_value = 0xFFFFFFFFu;
@@ -326,9 +285,6 @@ void manual_shield_on_frame(void *scheduler) {
     ++g_ms_tick;
     g_ms_dbg[6]++;
     g_ms_held = 0;
-
-    /* The R3 target-switch stick flick lasts a few rendered frames. */
-    if (g_ms_flick) --g_ms_flick;
 
     /* The game's Targeting Type can change in System > Options. Refresh it a
      * few times per second so the ZL behaviour follows the setting. */
@@ -352,8 +308,6 @@ void manual_shield_on_frame(void *scheduler) {
         g_ms_l_raw = 0;
         g_ms_zl_prev = 0;
         g_ms_targeting = 0;
-        g_ms_flick = 0;
-        g_ms_r3_prev = 0;
         g_ms_last_allowed = 0;
     }
 

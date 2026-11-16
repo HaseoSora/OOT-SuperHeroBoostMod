@@ -15,7 +15,12 @@ project.
 | L mode: item | L is one more item slot |
 | L mode: selector | L opens the game's item selector; the L button is hidden in both layouts and the menu legend removes L |
 | Pause assignment | Items tab: B / L / R on the highlighted item; an item already in another slot is swapped |
+| Jump/B swap | if the game's System > Options **Swap Jump Controls** is on, the B slot moves to **X**: X triggers the item, the icon is drawn over the X button, the X button texture and the menu legend follow, and B keeps its native jump |
 | Icons | `PaItemBtn_00` parts with the item icon and its shadow, like the native item box |
+
+The swap option is read live from GameData (OptionData struct `0x834d9d9e`, Bool member `0x3B0FC63F`, via
+`read_bool` at `main+0x179F70`). It is refreshed every HUD frame and while the pause menu is open, so changing it in
+**System > Options** takes effect without reinstalling.
 
 The module is enabled by the `button_mapping` byte in the configuration (`core/config.h`): style at offset 38, simple
 layout at 39 and L mode at 40.

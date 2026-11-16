@@ -26,8 +26,13 @@ SlotLog g_slot_log[LOG_N] = {{0x7FFFFFFFu, 0, 0, 0, 0}};   /* non-zero: lives in
 u32 g_slot_log_n = SLOT_BASE;
 
 enum { SLOT_B = 0, SLOT_L = 1, SLOT_R = 2, SLOT_ZR = 3, SLOT_N = 4 };
+int hud_button_swap(void);              /* core/hud.c: the game's Jump/B swap option is on */
 #define BTN_RSTICK 0x0020ull   /* right stick click (R3) */
 static const u64 SLOT_MASK[SLOT_N] = {BTN_B, BTN_L, BTN_R, BTN_ZR};
+/* With the game's Jump/B swap, the B slot is the X button and B is jump. */
+static u64 slot_mask(u32 s) {
+    return (s == SLOT_B && hud_button_swap()) ? BTN_X : SLOT_MASK[s];
+}
 
 /* Item index per slot, -1 = empty (button stays normal): the set of Link's current age. Assigned in the pause
  * menu's Items tab with X / L / R; empty at first. (.data) */
@@ -67,6 +72,7 @@ int hud_ingame(void);   /* core/hud.c: 0 while a menu covers the game (pause ...
 int hud_menu_items(void);   /* core/hud.c: the pause menu's Items tab is open */
 int hud_menu_item(void);    /* core/hud.c: item index highlighted there (-1: none / not owned) */
 void hud_menu_tick(void);   /* core/hud.c: draw the slot cluster on the menu page */
+void hud_refresh_button_swap(void);   /* core/hud.c: re-read the game's Jump/B option */
 void hud_menu_decide(void); /* core/hud.c: play the highlighted cell's Decide animation (the game's A feedback) */
 int hud_menu_decided(void); /* core/hud.c: that animation is playing */
 void hud_menu_zr(int item); /* core/hud.c: show an item on ZR now */
@@ -233,6 +239,7 @@ void button_mapping_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_r
             }
         }
         for (int s = 0; s < SLOT_ZR; s++) hud_slot_item((u32)s, g_assign[s]);   /* show a swap at once */
+        hud_refresh_button_swap();
         hud_menu_tick();
         set_all(&view, BTN_X | BTN_L | BTN_R, 0);
         g_phase = PH_IDLE; g_swallow = 0;
@@ -258,7 +265,7 @@ void button_mapping_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_r
     int free_now = ingame && (player_state_is("Wait") || player_state_is("Move") ||
                               player_state_starts("LockOn"));   /* LockOn*: ZL held (target or free), aiming */
     if (!g_shbcfg.button_mapping || (!free_now && g_phase == PH_IDLE)) {
-        if (ingame && (pressed & (BTN_B | BTN_L | BTN_R))) {   /* remember why a slot button did nothing */
+        if (ingame && (pressed & (slot_mask(SLOT_B) | slot_mask(SLOT_L) | slot_mask(SLOT_R)))) {   /* remember why a slot button did nothing */
             const char *n = player_state_name();
             for (int i = 0; i < 23; i++) g_cl_refused[i] = n[i];
         }
@@ -301,12 +308,12 @@ void button_mapping_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_r
 
     u64 all_slot = 0;
     for (int s = 0; s < SLOT_N; s++)
-        if (g_assign[s] >= 0 && !(s == SLOT_R && l_selector)) all_slot |= SLOT_MASK[s];
+        if (g_assign[s] >= 0 && !(s == SLOT_R && l_selector)) all_slot |= slot_mask(s);
 
     if (g_phase == PH_IDLE) {
         for (int s = 0; s < SLOT_N; s++) {
             if (s == SLOT_R && l_selector) continue;   /* this R came from L (item selector) */
-            if ((pressed & SLOT_MASK[s]) && g_assign[s] >= 0) {
+            if ((pressed & slot_mask(s)) && g_assign[s] >= 0) {
                 if (!g_borrowed) { g_saved = g_zr_item; g_borrowed = 1; hud_zr_hold(1); }
                 g_active = s;
                 g_borrow_item = g_assign[s];
@@ -333,7 +340,7 @@ void button_mapping_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_r
         if (++g_phase_t >= EQUIP_TICKS) g_phase = PH_HOLD;
         break;
     case PH_HOLD:                              /* ZR follows the slot button (aim while held, throw on release) */
-        if (buttons & SLOT_MASK[g_active]) set = BTN_ZR;
+        if (buttons & slot_mask((u32)g_active)) set = BTN_ZR;
         else g_phase = PH_IDLE;                /* the item stays in the box: nothing is swapped mid-use */
         break;
     case PH_ZRBACK:                            /* hold ZR back until the box has the ZR item again */

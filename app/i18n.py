@@ -1008,6 +1008,7 @@ _BM = {
         bm_l_selector="Item selector", bm_l_selector_d="L always opens the game's item selector for ZR. Nothing can be "
                                                        "assigned to L.",
         bm_note="Close the game before installing. The button style only changes the button pictures.",
+        bm_swap_note="If the game's Swap Jump Controls option is on, the B item slot moves to X automatically; B stays jump.",
         hud_desc="Always show the game's clock and rupee counter, and the extra item buttons (button mapping).",
         p_recommended_d="Everything on: Hero Mode difficulty, hardcore stamina, HUD and button mapping.",
     ),
@@ -1026,6 +1027,7 @@ _BM = {
         bm_l_selector="Selector de objetos", bm_l_selector_d="L abre siempre el selector de objetos del juego para ZR. "
                                                              "No se puede asignar nada a L.",
         bm_note="Cierra el juego antes de instalar. El estilo solo cambia el dibujo de los botones.",
+        bm_swap_note="Si la opción Cambiar controles de salto del juego está activa, el botón de objeto B pasa automáticamente a X; B sigue siendo salto.",
         hud_desc="Muestra siempre el reloj y el contador de rupias del juego, y los botones de objeto extra "
                  "(mapeo de botones).",
         p_recommended_d="Activa todo: dificultad de modo héroe, estamina hardcore, HUD y mapeo de botones.",
@@ -1045,6 +1047,7 @@ _BM = {
         bm_l_selector="Seletor de itens", bm_l_selector_d="L sempre abre o seletor de itens do jogo para o ZR. Nada "
                                                           "pode ser atribuído ao L.",
         bm_note="Feche o jogo antes de instalar. O estilo só muda o desenho dos botões.",
+        bm_swap_note="Se a opção Trocar controles de salto do jogo estiver ativa, o botão de item B passa automaticamente para X; B continua sendo salto.",
         hud_desc="Mostra sempre o relógio e o contador de rupias do jogo, e os botões de item extras "
                  "(mapeamento de botões).",
         p_recommended_d="Tudo ligado: dificuldade modo herói, estamina hardcore, HUD e mapeamento de botões.",
@@ -1064,6 +1067,7 @@ _BM = {
         bm_l_selector="Sélecteur d'objets", bm_l_selector_d="L ouvre toujours le sélecteur d'objets du jeu pour ZR. "
                                                             "Rien ne peut être attribué à L.",
         bm_note="Fermez le jeu avant d'installer. Le style ne change que le dessin des boutons.",
+        bm_swap_note="Si l'option Échanger les commandes de saut du jeu est active, le bouton d'objet B passe automatiquement sur X ; B reste le saut.",
         hud_desc="Affiche toujours l'horloge et le compteur de rubis du jeu, et les boutons d'objet supplémentaires "
                  "(mappage des boutons).",
         p_recommended_d="Tout activé : difficulté mode héros, endurance hardcore, HUD et mappage des boutons.",
@@ -1083,6 +1087,7 @@ _BM = {
         bm_l_selector="Item-Auswahl", bm_l_selector_d="L öffnet immer die Item-Auswahl des Spiels für ZR. L kann "
                                                       "nicht belegt werden.",
         bm_note="Schließe das Spiel vor der Installation. Der Stil ändert nur das Aussehen der Tasten.",
+        bm_swap_note="Wenn die Spieloption Sprungtasten tauschen aktiv ist, wandert der B-Gegenstand automatisch auf X; B bleibt Springen.",
         hud_desc="Zeigt immer die Uhr und den Rubinzähler des Spiels sowie die zusätzlichen Item-Tasten "
                  "(Tastenbelegung).",
         p_recommended_d="Alles an: Heldenmodus-Schwierigkeit, Hardcore-Ausdauer, HUD und Tastenbelegung.",
@@ -1102,6 +1107,7 @@ _BM = {
         bm_l_selector="Selettore oggetti", bm_l_selector_d="L apre sempre il selettore oggetti del gioco per ZR. Non "
                                                            "si può assegnare nulla a L.",
         bm_note="Chiudi il gioco prima di installare. Lo stile cambia solo il disegno dei tasti.",
+        bm_swap_note="Se l'opzione Scambia comandi di salto del gioco è attiva, il tasto oggetto B passa automaticamente a X; B resta il salto.",
         hud_desc="Mostra sempre l'orologio e il contatore di rupie del gioco, e i tasti oggetto extra "
                  "(mappatura tasti).",
         p_recommended_d="Tutto attivo: difficoltà modalità eroe, stamina hardcore, HUD e mappatura tasti.",

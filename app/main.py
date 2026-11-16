@@ -1280,6 +1280,7 @@ def gui() -> None:
             ui["bm"].append(r)
             label(body, L("bm_l_" + value + "_d"), size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=(20, 0))
         label(body, L("bm_note"), size=9, color=AMBER, bg=PANEL).pack(anchor="w", pady=(8, 0))
+        label(body, L("bm_swap_note"), size=9, color=DIM, bg=PANEL).pack(anchor="w", pady=(2, 0))
 
     def build_enemies(parent):
         body = card(parent, L("enemies_title"), L("enemies_desc"))

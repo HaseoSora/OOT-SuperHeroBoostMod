@@ -60,6 +60,8 @@ The module, the HUD, the textures and the app are original work: no third-party 
   - **Extended** layout (B, L, R, ZR, X, Y, A and the sword) or **simple** layout (only the assignable buttons, with
     B centred and L / R / ZR repositioned so there are no gaps).
   - **L button modes**: item or the game's item selector.
+  - **Jump/B swap**: if the game's System > Options **Swap Jump Controls** is on, the B item slot moves to **X**
+    automatically (input, icon position and menu legend); B keeps its native jump.
 
 ### Quick select
 

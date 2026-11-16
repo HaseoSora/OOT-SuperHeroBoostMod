@@ -40,6 +40,7 @@ extern void *memcpy(void *d, const void *s, unsigned long n);
 extern long set_text(void *pane, const void *ref, int zero);   /* stock text-pane setter (main+0x439520) */
 __attribute__((weak)) int quick_select_text(char *b, u32 cap);   /* features/quick_select */
 extern char GAMEDATA_MGR[];                                      /* main+0x4E842A8: GameData manager pointer slot */
+extern u32 read_bool(void *, u8 *, void *, u32);                 /* main+0x179F70: GameData struct Bool member */
 
 #if __has_include("../build/collectibles_data.h")
 #include "../build/collectibles_data.h"
@@ -1581,6 +1582,10 @@ u64 g_sb_rif[PART_N][2];    /* nested Pa_ReplaceIcon_00 frame, its layout (diagn
 /* parts 0..3: the buttons (our textures, drawn by the icon pane: full colour), parts 4..7: the items on them.
  * (The icon's shadow pane cannot carry the button: it draws only the texture's shape in a fixed shadow tone.) */
 enum { SB_L, SB_X, SB_R, SB_Y, SB_A, SB_ZR, SB_B, SB_NBTN };
+/* Game option: Jump and B swapped (System > Options). The mod moves the B item
+ * slot to the X button: input, HUD position and legend all follow it. */
+u32 g_btn_swap;
+int hud_button_swap(void) { return g_btn_swap; }
 int g_sb_item[PART_N] = {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1};   /* set by hud_slot_item() */
 /* features/button_mapping publishes its slots here: slot 0 B, 1 L, 2 R, 3 ZR (the item the game has equipped) */
 void hud_slot_item(u32 slot, int item) {
@@ -1695,6 +1700,10 @@ static void sb_xy(const float *lay, u32 k, int simple, float *x, float *y) {
     float bx = g_sb_pos[k][0], by = g_sb_pos[k][1];
     if (simple) {
         bx = g_sb_simple[k][0]; by = g_sb_simple[k][1];
+    } else if (g_btn_swap && k == 11) {
+        /* B item slot follows the X button when Jump and B are swapped */
+        bx = g_sb_pos[SB_X][0] + (g_sb_pos[11][0] - g_sb_pos[SB_B][0]);
+        by = g_sb_pos[SB_X][1] + (g_sb_pos[11][1] - g_sb_pos[SB_B][1]);
     }
     *x = SB_CX + (bx - SB_CX) * lay[0] + lay[2];
     *y = SB_CY + (by - SB_CY) * lay[0] + lay[3];
@@ -1864,6 +1873,43 @@ static int gd_bool(u32 idx) {
     if (!vptr(rec) || idx >= cnt) return -1;
     return *(volatile u8 *)(rec + (u64)idx * 0x18 + 0x16) != 0;
 }
+/* GameData option: System > Options "Jump and B swapped" (OptionData struct
+ * 0x834d9d9e, Bool member 0x3B0FC63F). The option row's type is the member hash;
+ * read_bool resolves the live value. */
+#define GD_OPTIONS_STRUCT 0x834d9d9eu
+#define GD_JUMP_SWAP_FIELD 0x3B0FC63Fu
+static u8 *gd_options_entry(void) {
+    u64 g = *(u64 *)GAMEDATA_MGR;
+    if (!vptr(g)) return 0;
+    u32 *map = *(volatile u32 **)(g + 0xC20);
+    u32 slots = *(volatile u32 *)(g + 0xC2C);
+    u32 count = *(volatile u32 *)(g + 0xC10);
+    u8 *entries = *(volatile u8 **)(g + 0xC18);
+    if (!map || !slots || slots > 1048576u || !entries) return 0;
+    u32 start = GD_OPTIONS_STRUCT % slots, at = start;
+    do {
+        if (map[at * 2] == GD_OPTIONS_STRUCT) {
+            u32 index = map[at * 2 + 1];
+            return index < count ? entries + (u64)index * 32 : 0;
+        }
+        if (!map[at * 2]) break;
+        at = at + 1 == slots ? 0 : at + 1;
+    } while (at != start);
+    return 0;
+}
+static void refresh_button_swap(void) {
+    u8 *entry = gd_options_entry();
+    u64 g = *(u64 *)GAMEDATA_MGR;
+    if (!entry || !vptr(g)) { g_btn_swap = 0; return; }
+    struct { void *entry; u32 index; u32 active; } d;
+    d.entry = entry;
+    d.index = 0;
+    d.active = *(volatile u32 *)(entry + 24) >= 2;
+    u8 value = 0;
+    if (!read_bool((void *)g, &value, &d, GD_JUMP_SWAP_FIELD)) { g_btn_swap = 0; return; }
+    g_btn_swap = value != 0;
+}
+void hud_refresh_button_swap(void) { refresh_button_swap(); }
 static u32 mmh3(const char *a, const char *b) {   /* murmur3_32(a + b, seed 0): GameData name hashes */
     u8 buf[96]; u32 n = 0;
     for (u32 i = 0; a[i] && n < 95; i++) buf[n++] = (u8)a[i];
@@ -2081,6 +2127,10 @@ static void slots_draw(SlotBtn *set, const u64 *ctrls, u64 frame, const float *l
             char nm[32];
             u32 i;
             const char *src = !main_set && k == SB_A ? "OotBtnS_Blank" : g_sb_force[k];   /* menu: A unlettered, like X */
+            if (g_btn_swap) {
+                if (!g_shbcfg.bm_simple && k == SB_X) src = "OotBtnS_X";        /* extended: X is the item button */
+                else if (g_shbcfg.bm_simple && k == SB_B) src = "OotBtnS_X";    /* simple: the centre button is X */
+            }
             for (i = 0; i < 31 && src[i]; i++) nm[i] = src[i];
             nm[i] = 0;
             if (nm[0] == 'O' && i > 7 && nm[7] == '_')
@@ -2127,6 +2177,10 @@ static void hud_menu_legend(u64 page) {
     if (pf != g_plus_frame) { g_plus_frame = pf; g_leg_set = 0; g_leg_bar_rec = 0; for (u32 t = 0; t < LEG_N; t++) g_leg_rec[t] = 0; }
     g_leg_dbg[0] = pf;
     if (!pf) return;
+    {   /* Jump/B swap: the B slot is the X button, so the legend destination follows it */
+        const char *dst = g_btn_swap ? "\xee\x81\x82" : "\xee\x81\x81";
+        for (u32 i = 0; i < 4; i++) g_leg_txt[3][i] = dst[i];
+    }
     static const float WHITE[3] = {1.0f, 1.0f, 1.0f}, GOLD[3] = {0.95f, 0.82f, 0.45f};
     u32 no_l = g_shbcfg.bm_l_mode != 0;   /* L is the item selector: nothing to assign there */
     if (!g_leg_bar_rec) g_leg_bar_rec = pane_record(pf, g_legbar_name);
@@ -2256,6 +2310,7 @@ static void slots_reset(void) {
 u32 hud_frame_count(void) { return g_tick; }
 static void hud_frame(void) {
     g_hud_dbg[1] = MARK | ++g_tick;
+    refresh_button_swap();
     if (!g_mp || (int)(g_tick - g_ready_at) < 0) return;
     if (!vptr(g_frame_node)) g_frame_node = 0;
     if (!g_frame_node) {

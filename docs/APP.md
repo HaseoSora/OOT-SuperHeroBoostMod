@@ -114,9 +114,13 @@ The **HUD & buttons** section has a **Quick select** card. It enables the module
 
 The **HUD & buttons** section has a **Manual shield** card (off by default):
 
-- **ZL**: hold to raise the shield, release to lower it.
-- **L**: toggles targeting; **R3** cancels targeting.
-- The option reserves L and ZL during gameplay. With buttonMapping, use another button for an item if L was assigned.
+- **ZL tap**: toggles the lock-on camera.
+- **ZL hold**: raises the shield.
+- **L**: raises the shield only while the lock-on camera is active; with the camera off it keeps its normal function
+  (item button or selector included).
+- **R3**: cancels targeting.
+- It reserves ZL during gameplay and L only while the lock-on camera is active, so buttonMapping can still use L when
+  the camera is off.
 - It is a control preference, not part of a profile, and it works independently of the stamina system.
 
 ## Updates

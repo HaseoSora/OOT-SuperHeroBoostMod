@@ -74,10 +74,12 @@ The module, the HUD, the textures and the app are original work: no third-party 
 
 ### Manual shield
 
-- **Hold ZL** to raise the shield and release to lower it; **L** toggles targeting and **R3** cancels it.
+- **Tap ZL** to toggle the lock-on camera and **hold ZL** to raise the shield.
+- **L** raises the shield only while the lock-on camera is active; with the camera off, L keeps its normal function
+  (item button or selector included).
+- **R3** cancels targeting.
 - Optional: it is off by default and can be enabled in the app's **HUD & buttons** section.
-- It reserves **L** and **ZL** during gameplay. If buttonMapping uses L for an item, assign that item to another
-  button while this option is on.
+- It reserves **ZL** during gameplay and **L** only while the lock-on camera is active.
 - Independent of the stamina system: the stamina config still applies its own held/hit costs when stamina is on.
 
 ### Configuration app

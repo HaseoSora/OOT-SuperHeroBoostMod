@@ -22,8 +22,9 @@ typedef unsigned char u8;
 #define MS_BTN_R3  0x20ull
 #define MS_BTN_ZL  0x100ull
 
-int player_active(void);
 int player_dead(void);
+u64 player_get(void);
+int hud_ingame(void);
 int player_state_is(const char *name);
 int player_state_starts(const char *prefix);
 const char *player_state_name(void);
@@ -41,20 +42,39 @@ u64 g_ms_iface;          /* the player's AS interface (setter x0, guard componen
 u64 g_ms_equipment;      /* actor table +0x200: shield/equipment request target */
 u8 g_ms_active;          /* manual shield option enabled (read by the wrappers) */
 u8 g_ms_allowed;         /* this frame's guard decision (read by the setter wrapper) */
-u8 g_ms_held;            /* ZL physically held this frame (and not carrying) */
+u8 g_ms_held;            /* guard request for this frame (ZL hold or L while targeting) */
 u8 g_ms_carrying;        /* Link is carrying/lifting something */
-u8 g_ms_targeting;       /* L toggled targeting */
-u8 g_ms_prev_l;          /* previous sampled L, for the toggle edge */
+u8 g_ms_targeting;       /* targeting toggled by a ZL tap */
+u8 g_ms_zl_raw;          /* physical ZL in the latest input sample */
+u8 g_ms_l_raw;           /* physical L in the latest input sample */
+u8 g_ms_zl_guard;        /* ZL has been held past the tap threshold */
+u8 g_ms_zl_prev;         /* previous frame's physical ZL, for tap/hold */
+u8 g_ms_prev_l;          /* previous sampled L (diagnostic) */
 u8 g_ms_last_allowed;    /* previous frame's decision, for the shield draw */
+u32 g_ms_zl_frames;      /* frames the physical ZL has been held */
 u32 g_ms_tick;           /* scheduler frames (manual_shield_on_frame calls) */
 u32 g_ms_last_tick;      /* tick at the previous gameplay HID read */
 u32 g_ms_stale;          /* gameplay HID reads without a scheduler tick */
 
 /* Diagnostic counters for tools/live_check (not used by the game). */
 u32 g_ms_dbg[8] = {0x10000000u, 0, 0, 0, 0, 0, 0, 0};
-/* 0 reads, 1 held, 2 targeting, 3 L toggles, 4 R3 cancels, 5 stale reads, 6 frames, 7 guard entries */
+/* 0 reads, 1 guard, 2 targeting, 3 ZL toggles, 4 R3 cancels, 5 stale reads, 6 frames, 7 guard entries */
+
+#define MS_TAP_FRAMES 6u   /* ZL shorter than this is a target toggle, longer is a held guard */
 
 static u64 rd(u64 p, unsigned off) { return *(volatile u64 *)(p + off); }
+
+/* Gameplay (not a cutscene/event and the player exists). Movement can pause for
+ * a few frames during a hit reaction, so this deliberately does not use
+ * player_active(): the guard must survive those frames. */
+static u32 ms_gameplay_state(void) {
+    if (player_dead() || !player_get()) return 0;
+    if (!hud_ingame()) return 0;   /* pause menu / item overlay covers the game */
+    const char *n = player_state_name();
+    if (!n || !n[0]) return 0;
+    if (n[0] == 'E' && n[1] == 'v' && n[2] == 't') return 0;   /* EvtWait / event camera */
+    return 1;
+}
 
 static u64 current_guard_interface(u64 actor) {
     u64 table = rd(actor, 0x270);
@@ -117,6 +137,11 @@ void manual_shield_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_re
         g_ms_held = 0;
         g_ms_allowed = 0;
         g_ms_targeting = 0;
+        g_ms_zl_raw = 0;
+        g_ms_l_raw = 0;
+        g_ms_zl_guard = 0;
+        g_ms_zl_prev = 0;
+        g_ms_zl_frames = 0;
         g_ms_prev_l = 0;
         return;
     }
@@ -127,63 +152,67 @@ void manual_shield_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_re
     HidView view = {a0, count, 0};
 
     /* The scheduler frame tells us which reads belong to a new frame. While the
-     * player scheduler is paused the game keeps polling this path: reserve L/ZL
-     * there too, so a paused menu cannot change the targeting state. */
+     * player scheduler is paused (menus) this path still runs: pass every button
+     * through untouched so the pause menu keeps its own L/ZL navigation. */
     u32 tick = g_ms_tick;
     if (tick == g_ms_last_tick) ++g_ms_stale;
     else { g_ms_last_tick = tick; g_ms_stale = 0; }
     if (g_ms_stale > 8) {
-        g_ms_prev_l = (u8)((hid_get_buttons(&view, 0) & MS_BTN_L) != 0);
+        g_ms_zl_raw = 0;
+        g_ms_l_raw = 0;
+        g_ms_zl_guard = 0;
+        g_ms_zl_frames = 0;
         g_ms_held = 0;
         g_ms_allowed = 0;
-        for (u32 i = 0; i < count; i++)
-            hid_set_buttons(&view, i, hid_get_buttons(&view, i) & ~(MS_BTN_L | MS_BTN_ZL));
         g_ms_dbg[5]++;
         return;
     }
     if (player_dead()) {   /* death ragdoll / game over: never filter the screen's input */
-        g_ms_prev_l = (u8)((hid_get_buttons(&view, 0) & MS_BTN_L) != 0);
+        g_ms_zl_raw = 0;
+        g_ms_l_raw = 0;
+        g_ms_zl_guard = 0;
+        g_ms_zl_frames = 0;
         g_ms_held = 0;
         g_ms_allowed = 0;
         g_ms_targeting = 0;
         g_ms_last_allowed = 0;
         return;
     }
-    if (!player_active()) {   /* title, loading, pause: keep the toggles from firing spuriously */
-        g_ms_prev_l = (u8)((hid_get_buttons(&view, 0) & MS_BTN_L) != 0);
+    if (!ms_gameplay_state()) {   /* title, loading, pause or event camera: keep the state from firing */
+        g_ms_zl_raw = 0;
+        g_ms_l_raw = 0;
+        g_ms_zl_guard = 0;
+        g_ms_zl_frames = 0;
         g_ms_held = 0;
         g_ms_allowed = 0;
-        for (u32 i = 0; i < count; i++)
-            hid_set_buttons(&view, i, hid_get_buttons(&view, i) & ~(MS_BTN_L | MS_BTN_ZL));
         return;
     }
 
-    u32 held_guard = 0, held_l = 0, held_r3 = 0;
+    u64 all = hid_merge_buttons(&view);
+    u8 zl = (u8)((all & MS_BTN_ZL) != 0 && !g_ms_carrying);
+    u8 l = (u8)((all & MS_BTN_L) != 0);
+    u8 r3 = (u8)((all & MS_BTN_R3) != 0);
+    g_ms_zl_raw = zl;
+    g_ms_l_raw = l;
+    g_ms_prev_l = l;
+    if (r3) { g_ms_targeting = 0; g_ms_dbg[4]++; }
+    g_ms_dbg[1] = g_ms_held;
+    g_ms_dbg[2] = g_ms_targeting;
+
+    /* L is only ours while the lock-on camera is up (or while we are already
+     * guarding). Otherwise it keeps the game's normal behaviour. */
+    u32 guard_active = g_ms_held != 0;
+    u32 target_active = g_ms_targeting != 0 || guard_active || player_state_starts("LockOn");
+
     for (u32 i = 0; i < count; i++) {
-        u64 bits = hid_get_buttons(&view, i);
-        if (i == 0) {
-            held_guard = (bits & MS_BTN_ZL) != 0 && !g_ms_carrying;
-            held_l = (bits & MS_BTN_L) != 0;
-            held_r3 = (bits & MS_BTN_R3) != 0;
-        }
-        /* consume the physical guard and L selector; ZL is synthesised below */
-        hid_set_buttons(&view, i, bits & ~(MS_BTN_L | MS_BTN_ZL));
-    }
-
-    u32 targeting = g_ms_targeting;
-    if (held_l && !g_ms_prev_l) { targeting ^= 1u; g_ms_dbg[3]++; }
-    if (held_r3) { targeting = 0; g_ms_dbg[4]++; }
-    g_ms_prev_l = (u8)(held_l != 0);
-    g_ms_targeting = (u8)(targeting != 0);
-    g_ms_held = (u8)(held_guard != 0);
-
-    if (targeting || held_guard) {
-        for (u32 i = 0; i < count; i++)
-            hid_set_buttons(&view, i, hid_get_buttons(&view, i) | MS_BTN_ZL);
+        u64 b = hid_get_buttons(&view, i);
+        b &= ~MS_BTN_ZL;                       /* ZL is the mode button: always consumed */
+        if (target_active) b &= ~MS_BTN_L;     /* L guards only with the target camera */
+        /* native ZL is synthesised while targeting or holding the guard */
+        if (g_ms_targeting || guard_active) b |= MS_BTN_ZL;
+        hid_set_buttons(&view, i, b);
     }
     g_ms_dbg[0]++;
-    g_ms_dbg[1] = held_guard;
-    g_ms_dbg[2] = targeting;
 }
 
 void manual_shield_on_frame(void *scheduler) {
@@ -199,6 +228,11 @@ void manual_shield_on_frame(void *scheduler) {
         g_ms_stale = 0;
         g_ms_held = 0;
         g_ms_targeting = 0;
+        g_ms_zl_raw = 0;
+        g_ms_l_raw = 0;
+        g_ms_zl_guard = 0;
+        g_ms_zl_prev = 0;
+        g_ms_zl_frames = 0;
         g_ms_prev_l = 0;
         g_ms_last_allowed = 0;
         return;
@@ -206,6 +240,34 @@ void manual_shield_on_frame(void *scheduler) {
     g_ms_active = 1;
     ++g_ms_tick;
     g_ms_dbg[6]++;
+    g_ms_held = 0;
+
+    /* ZL gesture: a short tap toggles targeting, a held ZL raises the guard.
+     * This runs once per scheduler frame, so the input reads cannot repeat it. */
+    if (ms_gameplay_state()) {
+        u8 zl = g_ms_zl_raw;
+        if (zl) {
+            if (!g_ms_zl_prev) { g_ms_zl_guard = 0; g_ms_zl_frames = 0; }
+            if (g_ms_zl_frames < 1000u) g_ms_zl_frames++;
+            if (g_ms_zl_frames >= MS_TAP_FRAMES) g_ms_zl_guard = 1;
+        } else {
+            if (g_ms_zl_prev && g_ms_zl_frames < MS_TAP_FRAMES) {
+                g_ms_targeting ^= 1u;
+                g_ms_dbg[3]++;
+            }
+            g_ms_zl_guard = 0;
+            g_ms_zl_frames = 0;
+        }
+        g_ms_zl_prev = zl;
+    } else {
+        g_ms_zl_raw = 0;
+        g_ms_l_raw = 0;
+        g_ms_zl_guard = 0;
+        g_ms_zl_prev = 0;
+        g_ms_zl_frames = 0;
+        g_ms_targeting = 0;
+        g_ms_last_allowed = 0;
+    }
 
     if (!scheduler) return;
     u64 state = (u64)resolve_player(scheduler);
@@ -214,6 +276,10 @@ void manual_shield_on_frame(void *scheduler) {
     u64 actor = rd(state, 0x18);
     if (!actor) return;
     g_ms_carrying = (u8)player_carrying(actor);
+    {
+        u32 target_active = g_ms_targeting || g_ms_zl_guard || player_state_starts("LockOn");
+        g_ms_held = (u8)(!g_ms_carrying && (g_ms_zl_guard || (g_ms_l_raw && target_active)));
+    }
     u64 component = get_guard_component((void *)actor);
     if (!component) return;
 
@@ -226,7 +292,7 @@ void manual_shield_on_frame(void *scheduler) {
     /* The option is standalone: no stamina gate (the stamina feature still
      * charges its own held/hit costs if it is enabled). */
     u32 held = g_ms_held != 0;
-    u32 alive = player_active() && !player_dead();
+    u32 alive = ms_gameplay_state();
     u32 allowed = iface && held && alive && !guard_busy(iface, state);
     g_ms_allowed = (u8)(allowed != 0);
 

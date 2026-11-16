@@ -38,7 +38,6 @@ extern void item_actor_name(void *mgr, const char **out, u64 item);     /* main+
 extern char ITEM_MGR_SLOT[], ITEM_NAME_DEFAULT[];
 extern void *memcpy(void *d, const void *s, unsigned long n);
 extern long set_text(void *pane, const void *ref, int zero);   /* stock text-pane setter (main+0x439520) */
-__attribute__((weak)) int quick_select_text(char *b, u32 cap);   /* features/quick_select */
 extern char GAMEDATA_MGR[];                                      /* main+0x4E842A8: GameData manager pointer slot */
 extern u32 read_bool(void *, u8 *, void *, u32);                 /* main+0x179F70: GameData struct Bool member */
 
@@ -1227,7 +1226,6 @@ static void hud_rupee_values(int *cur, int *mx) {
     if (*mx <= 0) *mx = 200;
 }
 static u32 hud_clock_text(char *b, int sec) {
-    if (quick_select_text && quick_select_text(b, 16)) { u32 n = 0; while (b[n]) n++; return n; }
     int h = sec / 3600, m = (sec / 60) % 60, hh = h;
     if (!g_shbcfg.clock_24h) { hh = h % 12; if (!hh) hh = 12; }
     u32 n = 0;
@@ -1356,7 +1354,7 @@ static void plates_update(u64 frame) {
     static const float GREEN[3] = {0.38f, 0.95f, 0.25f};
     /* text panes are centre-aligned: P[7] is the centre of the text area (right of the icon) */
     float ty = P[8];
-    {   /* clock (or the quick-select text while it is open) */
+    {   /* clock */
         char b[16];
         hud_clock_text(b, sec);
         put_text(frame, 0, b, (float)bxc + txo, BY + ty, show_c, WHITE);

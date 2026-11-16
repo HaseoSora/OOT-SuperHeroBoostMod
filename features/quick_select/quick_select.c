@@ -43,18 +43,8 @@ static u32 g_latch;        /* a switch was made: wait for the button release */
 static u32 g_release;      /* consecutive calls without the button (the same frame may call us several times) */
 static u64 g_hold_btn;
 static u32 g_last_frame;
-u32 g_qs_dbg[8] = {0x10000000u, 0, 0, 0, 0, 0, 0, 0};   /* calls, max hold, switches, cur, ok, what, kind, buttons */
 char g_qs_cur[64];
 static char g_mask_last[64];   /* the mask to come back to when leaving the Lens of Truth */
-static char g_qs_lbl[16];      /* feedback shown in the clock plate after a switch */
-static u32 g_qs_lbl_until;
-
-static void label(const char *s, u32 frames) {
-    u32 i = 0;
-    for (; i < 15u && s[i]; i++) g_qs_lbl[i] = s[i];
-    g_qs_lbl[i] = 0;
-    g_qs_lbl_until = hud_frame_count() + frames;
-}
 
 static int same(const char *a, const char *b) {
     u32 i = 0;
@@ -130,21 +120,17 @@ static u32 toggle_boots(void) {
         if (!hud_owns_name(NAME_HOVER)) return 0;
         gd_set_string(18u, NAME_HOVER);
         apply_equip(NAME_HOVER);
-        label("HOVER", 90u);
     } else if (same(cur, NAME_HOVER)) {
         if (!hud_owns_name(NAME_HEAVY)) return 0;
         gd_set_string(18u, NAME_HEAVY);
         apply_equip(NAME_HEAVY);
-        label("HIERRO", 90u);
     } else {                                      /* default (Kokiri) boots: go to iron, else hover */
         if (hud_owns_name(NAME_HEAVY)) {
             gd_set_string(18u, NAME_HEAVY);
             apply_equip(NAME_HEAVY);
-            label("HIERRO", 90u);
         } else if (hud_owns_name(NAME_HOVER)) {
             gd_set_string(18u, NAME_HOVER);
             apply_equip(NAME_HOVER);
-            label("HOVER", 90u);
         } else return 0;
     }
     return 1;
@@ -159,25 +145,13 @@ static u32 toggle_mask(void) {
         if (!g_mask_last[0] || !hud_owns_name(g_mask_last)) return 0;
         gd_set_string(20u, g_mask_last);
         apply_equip(g_mask_last);
-        label("MASCARA", 90u);
         return 1;
     }
     if (!hud_owns_name(NAME_LENS)) return 0;
     if (cur[0]) copy64(g_mask_last, cur);         /* remember the mask we are wearing */
     gd_set_string(20u, NAME_LENS);
     apply_equip(NAME_LENS);
-    label("LENTES", 90u);
     return 1;
-}
-
-/* What the clock plate shows for a moment after a switch. */
-int quick_select_text(char *b, u32 cap) {
-    if (!g_qs_lbl[0]) return 0;
-    if ((int)(hud_frame_count() - g_qs_lbl_until) >= 0) { g_qs_lbl[0] = 0; return 0; }
-    u32 i = 0;
-    while (g_qs_lbl[i] && i + 1u < cap) { b[i] = g_qs_lbl[i]; i++; }
-    b[i] = 0;
-    return (int)i;
 }
 
 void quick_select_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_result) {
@@ -189,8 +163,6 @@ void quick_select_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_res
     if (count == 0 || count > 64) return;
     HidView view = {a0, count, 0};
     u64 buttons = hid_merge_buttons(&view);
-    g_qs_dbg[0]++;
-    g_qs_dbg[7] = (u32)buttons;
 
     u32 now = hud_frame_count();
     u32 new_frame = (now != g_last_frame);
@@ -213,12 +185,10 @@ void quick_select_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_res
         g_latch = 0;
     }
     if (new_frame && !g_latch) g_hold++;
-    if (g_hold > g_qs_dbg[1]) g_qs_dbg[1] = g_hold;
     if (g_hold >= HOLD_FRAMES && !g_latch) {
         u32 kind = held == DPAD_DOWN ? 1u : 2u;
-        u32 ok = kind == 1u ? toggle_boots() : toggle_mask();
-        if (ok) g_qs_dbg[2]++;
-        g_qs_dbg[3] = kind; g_qs_dbg[4] = ok; g_qs_dbg[5] = kind == 1u ? 1u : 2u; g_qs_dbg[6] = kind;
+        if (kind == 1u) toggle_boots();
+        else toggle_mask();
         g_latch = 1;
         g_hold = 0;
     }

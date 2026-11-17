@@ -6,6 +6,27 @@ Gameplay module for the console remake (update **v131072**) and its cross-platfo
 Current release: **0.5.1**, with the enemy-speed rework (all movement speeds together and separate
 projectiles), the new controls (target on R3, L3 sprint) and the 0.5.0 Longshot/DLSS/ReLink fixes.
 
+### Changes since 0.5.1 (unreleased)
+
+- **ReLink: every feature works.** ReLink's translator writes each function in address order and starts at its lowest
+  address; a tail call to a function placed lower in the module made the caller's own start unreachable. Under
+  ReLink the input dispatcher ran only the quick select, so stamina never drained (and flashed yellow on every
+  action), the manual shield's L, the button mapping assignment and the R3/L3 controls did nothing. The module is
+  now built without tail calls and the build fails if one appears. **Rebuild the game once** for the new module.
+- **Manual shield.** With **Hold** targeting, only the held target button counts as a target (the game's lock-on
+  state lingers after release and after attacks, which raised the shield without a target). With no target, **L
+  keeps its default game function**; it is ours only while targeting or guarding, until it is released.
+- **Button positions.** New button mapping option: **Nintendo** (default), **A and B swapped** or **Xbox** (A/B and
+  X/Y swapped), to match the button layout chosen in Longshot or ReLink. The HUD and the pause menu draw each face
+  button, its item and its label where it is on the controller; the game's **Swap Jump Controls** option still
+  applies on top.
+- **Game button prompts are a separate, optional choice** in the **HUD** section (None / PlayStation / Xbox, None by
+  default). The button style now only picks the button mapping's own pictures; Longshot and ReLink already ship
+  their own prompts.
+- **App.** A **Play** button opens the emulator or the recompiled game's launcher; the scrollbars follow the app's
+  theme; on a recompiled game, the main switch of each feature shows a red **Requires rebuild** tag (sub-options do
+  not). New `--bm-layout` and `--game-layout` flags.
+
 ### What's new in 0.5.1
 
 - **Enemy speed reworked.** Movement now scales every base and attack speed together (walk, run, dash, jog, strafe,
@@ -102,9 +123,12 @@ The module, the HUD, the textures and the app are original work: no third-party 
   describes the original order. Known bug: press up and down a couple of times before the teleport menu responds.
 - **Own button mapping** (`buttonMapping`):
   - **B, L, R and ZR** item buttons on the HUD, assignable from the **Items** tab of the pause menu.
-  - **Switch / PlayStation / Xbox** button styles. The chosen style also changes the **game's own prompts** and the
-    controller picture: PlayStation and Xbox download their archive once (~70 MB) from GameBanana and cache it;
-    Switch needs nothing.
+  - **Switch / PlayStation / Xbox** button pictures for the mapping HUD.
+  - **Button positions**: Nintendo, A and B swapped, or Xbox (A/B and X/Y swapped), to match the recompilers'
+    button layout. Only where the buttons are drawn changes; the game's logical buttons stay the same.
+- **Game button prompts** (HUD section, optional): replace the game's own prompts, font and controller picture with
+  PlayStation or Xbox ones, downloaded once (~70 MB) from GameBanana and cached. None by default; Longshot and
+  ReLink already include their own.
   - **Extended** layout (B, L, R, ZR, X, Y, A and the sword) or **simple** layout (only the assignable buttons, with
     B centred and L / R / ZR repositioned so there are no gaps).
   - **L button modes**: item or the game's item selector.
@@ -126,8 +150,9 @@ The module, the HUD, the textures and the app are original work: no third-party 
 
 - **ZL follows the game's Targeting Type option** (System > Options): in **Hold Target**, hold ZL to target; in
   **Toggle Target**, press ZL to toggle.
-- **L is reserved while the manual shield is enabled**: it raises the shield only with the target camera and never
-  triggers its item/selector/default function, including during shield-hit reactions and hit-stop.
+- **L raises the shield only while targeting.** With no target it keeps its default game function; while targeting
+  or guarding (including shield-hit reactions and hit-stop) it is reserved until it is released, so the item
+  selector never opens in the middle of a guard. In Hold Target only the held target button counts as a target.
 - **R3** cancels targeting, unless the target-on-R3 swap is enabled.
 - Optional: it is off by default and can be enabled in the app's **Controls** section.
 - In Hold Target the physical ZL stays native; in Toggle Target the mod synthesises it.
@@ -146,6 +171,9 @@ The module, the HUD, the textures and the app are original work: no third-party 
 - GUI for Windows, macOS and Linux (Python 3.10+ with Tkinter).
 - Profiles, per-section settings, install and uninstall into the emulator's mod folder, including a
   **Controls** section for the R3 target swap and the L3 sprint.
+- **Play** opens the emulator (or the recompiled game's launcher) directly.
+- On Longshot, Hookshot and ReLink, a red **Requires rebuild** tag marks the feature switches whose change needs the
+  builder; their sub-options do not.
 - **Quick select**: boots and mask switching from the D-pad.
 - Checks GitHub Releases on startup and offers to download a newer version; on Windows it replaces itself and
   restarts.
@@ -209,7 +237,8 @@ stamina, item buttons, collectible counter) has to be built into the game.
   `HookshotBuilder` folder. The procedure is otherwise identical.
 - **ReLink: supported.** Its game is `bin/relink-game`, its exefs `.relink_exefs` and its builder
   `%LOCALAPPDATA%\ReLink\versions\<version>\ReLink` (or the Linux/macOS data folder). The same install, rebuild
-  and uninstall steps apply. The install, backup and builder detection are tested; a full ReLink build has not been verified on a real ReLink install yet.
+  and uninstall steps apply. Tested with a full ReLink 0.7.9 build: stamina, manual shield, button mapping and
+  controls work after rebuilding with the current module (see "Changes since 0.5.1").
 - The app finds the builder of the game's own flavor on Windows, Linux and macOS, and shows whether it was detected
   or chosen by hand. `LONGSHOT_BUILDER`, `HOOKSHOT_BUILDER` and `RELINK_BUILDER` override it.
 
@@ -232,6 +261,7 @@ python app/main.py --cli --emu "EMULATOR_PATH" --profile recommended --bm-l sele
 python app/main.py --cli --emu "EMULATOR_PATH" --profile recommended --quick-boots --quick-mask
 python app/main.py --cli --emu "EMULATOR_PATH" --profile base --enemy-move 1 --enemy-anim 2 --enemy-attack 2 --enemy-proj 2
 python app/main.py --cli --emu "EMULATOR_PATH" --profile recommended --target-r3 --sprint-l3
+python app/main.py --cli --emu "EMULATOR_PATH" --profile recommended --bm-layout xbox --game-layout none
 ```
 
 `--profile` applies a complete profile; individual flags override it. `--list-profiles` shows the list. The

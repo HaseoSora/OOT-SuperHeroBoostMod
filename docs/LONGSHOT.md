@@ -30,10 +30,15 @@ code is already inside the executable.
 So:
 
 - **RomFS only** (button textures, patched event flows, resource size tables, enemy packs): copy the romfs files to
-  `<game>/mods/Super-Hero-Boost/romfs/`. That is all the recompiler reads at run time. The HUD, stamina, item
+  `<game>/mods/zz-Super-Hero-Boost/romfs/`. That is all the recompiler reads at run time. The HUD, stamina, item
   buttons and collectible counter are code, so they will not appear (and the item buttons also need their textures
   here).
 - **The whole mod**: rebuild the game with the mod's code included in the translation.
+
+> **Load order.** ReLink and the emulators resolve a file by taking the mod whose path sorts **last**
+> (`zz-...` > `02-...`). That is why the folder is `zz-Super-Hero-Boost`: its resource size table must win over
+> other mods' tables (a costume pack or the controller UI ship one too). If a mod sorts after this one and brings its
+> own table, the app merges both when you install and warns you in the result.
 
 ## Rebuilding the game with the mod
 
@@ -57,8 +62,8 @@ update again.
 ```bash
 # reuse the profile and the romfs files of an existing emulator install
 python tools/install_longshot.py --game "F:\Switch2\Longshot" ^
-    --config "E:\...\00-Super-Hero-Boost\exefs\subsdk9" ^
-    --romfs  "E:\...\00-Super-Hero-Boost\romfs"
+    --config "E:\...\zz-Super-Hero-Boost\exefs\subsdk9" ^
+    --romfs  "E:\...\zz-Super-Hero-Boost\romfs"
 
 # or the payload defaults (Switch buttons, no optional romfs files)
 python tools/install_longshot.py --game "F:\Switch2\Longshot"
@@ -108,7 +113,7 @@ python tools/install_longshot.py --game "F:\Switch2\Longshot" --config "...\subs
 ```
 
 The romfs side (button textures, Great Fairy, Farore, no heart drops, enemy options) is a separate copy in
-`<game>/mods/Super-Hero-Boost/romfs`; it can be replaced at any time with the game closed.
+`<game>/mods/zz-Super-Hero-Boost/romfs`; it can be replaced at any time with the game closed.
 
 ## Verified on the reference build
 

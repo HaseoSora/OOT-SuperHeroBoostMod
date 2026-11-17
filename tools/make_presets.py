@@ -7,7 +7,7 @@ all of them into:
     release/SuperHeroBoost-<version>-presets.zip
 
 The zip has no executables: README.txt plus one numbered folder per profile, each holding a
-`00-Super-Hero-Boost` folder to copy into `user/load/0400486024DEC000`.
+`zz-Super-Hero-Boost` folder to copy into `user/load/0400486024DEC000`.
 
 Run it after `tools/make_release.py` (the payload must be staged) or just run `tools/build_app.py`,
 which calls it at the end.
@@ -94,12 +94,12 @@ def main() -> None:
             "=" * (24 + len(VERSION)),
             "",
             "One zip with every game profile of the companion app. Each numbered folder contains",
-            "a ready-to-install `00-Super-Hero-Boost` folder; pick one profile.",
+            "a ready-to-install `zz-Super-Hero-Boost` folder; pick one profile.",
             "",
             "INSTALL",
             "-------",
             "1. Close the game and back up your save.",
-            "2. Copy the `00-Super-Hero-Boost` folder from the profile you want into:",
+            "2. Copy the `zz-Super-Hero-Boost` folder from the profile you want into:",
             "",
             "   user/load/0400486024DEC000",
             "",
@@ -135,7 +135,7 @@ def main() -> None:
             "",
             "UNINSTALL",
             "---------",
-            "Delete the `00-Super-Hero-Boost` folder.",
+            "Delete the `zz-Super-Hero-Boost` folder.",
             "",
             "CREDITS",
             "-------",

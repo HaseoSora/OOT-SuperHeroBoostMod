@@ -58,7 +58,8 @@ HUD (optional, one switch per element)
 BUTTONS (optional)
 - B, L, R and ZR item buttons on the HUD, assignable from the pause menu's Items tab with X / L / R / A.
 - The buttons show the exact bottle content for potions, blue fire, fish, bug, fairy, milk, half milk, letter, Poe, Big Poe and empty bottles.
-- Switch, PlayStation and Xbox button styles.
+- Switch, PlayStation and Xbox button styles, applied to the HUD and to the game's own prompts. PlayStation and Xbox
+  download their archive once (~70 MB) from the GameBanana controller-UI mod; Switch needs nothing.
 - Extended layout (B, L, R, ZR, X, Y, A and the sword) or simple layout (only the assignable buttons, with B centred).
 - L as an item button or as the game's own item selector.
 - Songbook autoplay: select a learned song in the native songbook (ZL) and Link plays it with its effect. Learned songs only, not the Scarecrow's Song.
@@ -94,7 +95,7 @@ REQUIREMENTS
 EMULATOR - QUICK INSTALL (PRESETS ZIP)
 1. Download SuperHeroBoost-0.5.1-presets.zip from the Files tab and extract it.
 2. Open the folder of the profile you want (01 Recommended, 02 Base, 03 Hero Mode, ...).
-3. Copy its 00-Super-Hero-Boost folder into user/load/0400486024DEC000 (merge it if that folder already exists).
+3. Copy its zz-Super-Hero-Boost folder into user/load/0400486024DEC000 (merge it if that folder already exists).
 4. Start the game.
 Only one profile can be installed at a time: they all use the same folder name, so replace the previous one.
 
@@ -105,7 +106,7 @@ EMULATOR - CUSTOM SETTINGS (APP)
 2. Save your progress. On Windows the app closes the game for you before installing / building.
 3. On the game profile, choose a preset (Recommended turns everything on) or adjust each section by hand: Stamina, Difficulty, HUD, Modifications.
 4. Choose your emulator folder: the one that contains "user" (the app also detects a custom load_directory).
-5. Press Install. It creates 00-Super-Hero-Boost inside user/load/0400486024DEC000 and patches the configuration you selected.
+5. Press Install. It creates zz-Super-Hero-Boost inside user/load/0400486024DEC000 and patches the configuration you selected.
 6. Start the game.
 
 LONGSHOT, HOOKSHOT AND RELINK (use the app)
@@ -131,7 +132,7 @@ IN GAME
 - HUD: rupees and clock stay visible; under them you get the Gold Skulltula and heart-piece counter of the current area.
 - Stamina: the ring next to Link shows what is left; it refills when you stop.
 - Quick select: hold D-pad Down for boots or Up for masks; release/tap normally keeps the game's behaviour.
-- To remove the mod, press Uninstall in the app (or delete the 00-Super-Hero-Boost folder).
+- To remove the mod, press Uninstall in the app (or delete the zz-Super-Hero-Boost folder).
 
 INSTALLATION APP
 - Prebuilt apps for Windows, Linux (x86_64) and macOS (Apple Silicon); also GUI and command-line modes from source (Python 3.10+ with Tkinter).

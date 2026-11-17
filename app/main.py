@@ -18,6 +18,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import installer as I  # noqa: E402
+import layouts  # noqa: E402
 import paths  # noqa: E402
 import recomp as R  # noqa: E402
 import updater as U  # noqa: E402
@@ -61,7 +62,8 @@ def cli(argv) -> int:
     ap.add_argument("--preset", type=int, choices=range(4), default=None,
                     help="stamina style: 0 hardcore, 1 combat only, 2 sprint only, 3 advanced")
     ap.add_argument("--no-button-mapping", action="store_true", help="no extra item buttons (button mapping)")
-    ap.add_argument("--button-style", choices=I.BUTTON_STYLES, default=None, help="button mapping: button pictures")
+    ap.add_argument("--button-style", choices=I.BUTTON_STYLES, default=None,
+                    help="button mapping: button pictures and the game's own prompts")
     ap.add_argument("--bm-simple", action="store_true", help="button mapping: simple layout (assignable buttons only)")
     ap.add_argument("--bm-l", choices=I.L_MODES, default=None,
                     help="button mapping: L is an item button (assign) or the game's item selector")
@@ -194,7 +196,17 @@ def cli(argv) -> int:
         s.clock_24h = True
 
     try:
-        r = I.install(Path(a.emu), s, a.name)
+        last = [-1]
+
+        def cli_progress(done, total):
+            if not total:
+                return
+            step = done * 5 // total          # 20% steps
+            if step != last[0]:
+                last[0] = step
+                print("  layout download: %d%%" % min(100, done * 100 // total), flush=True)
+
+        r = I.install(Path(a.emu), s, a.name, progress=cli_progress)
     except I.InstallError as e:
         print("error:", e.key, e.arg)
         return 1
@@ -802,6 +814,8 @@ def gui() -> None:
             return
         if not messagebox.askyesno(L("recomp_confirm_title"), L("recomp_confirm")):
             return
+        if not need_layout():
+            return
         show_section("install")
         set_busy(True)
         clear_log()
@@ -886,6 +900,8 @@ def gui() -> None:
         if game is None:
             messagebox.showerror(L("err_title"), L("e_recomp_no_game", a=recomp_path.get()))
             return
+        if not need_layout():
+            return
         try:
             if R.is_built(game):
                 R.apply_settings(game, settings())
@@ -908,6 +924,9 @@ def gui() -> None:
         try:
             status.set(L("working"))
             root.update_idletasks()
+            if not need_layout():
+                status.set("")
+                return
             r = I.install(Path(emu.get().strip()).expanduser(), settings())
             remember()
             msg = L("done_msg", n=r.target.name)
@@ -959,7 +978,9 @@ def gui() -> None:
                 w.config(state="normal" if stam else "disabled")
         on = bmap.get()
         if "variant" in ui:
-            ui["variant"].config(state="readonly" if on else "disabled")
+            # the style is global: it also changes the game's own prompts, so it stays editable
+            ui["variant"].config(state="readonly")
+            refresh_layout_note()
         for w in ui.get("bm", []):
             w.config(state="normal" if on else "disabled")
         ui["note"].config(text="" if stam else L("stamina_off_note"), fg=AMBER)
@@ -1277,6 +1298,94 @@ def gui() -> None:
         label(body, L("quick_mask_desc"), size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=(20, 0))
         label(body, L("quick_note"), size=9, color=AMBER, bg=PANEL).pack(anchor="w", pady=(8, 0))
 
+    def refresh_layout_note(*_):
+        note, btn = ui.get("layout_note"), ui.get("layout_dl")
+        if note is None:
+            return
+        style = bstyle.get()
+        if style == "switch":
+            note.config(text=L("layout_note_switch"), fg=DIM)
+            if btn is not None:
+                btn.pack_forget()
+            return
+        name = L("g_" + style)
+        if layouts.available(style):
+            note.config(text=L("layout_note_ready", a=name), fg=ACCENT)
+            if btn is not None:
+                btn.pack_forget()
+        else:
+            note.config(text=L("layout_note_missing", a=name), fg=AMBER)
+            if btn is not None and not btn.winfo_manager():
+                btn.pack(side="left", padx=(8, 0))
+
+    def download_layout(style, ask=True):
+        """Download the game-wide layout with a progress window; True when it is ready."""
+        if style not in layouts.FILES or layouts.available(style):
+            refresh_layout_note()
+            return True
+        name = L("g_" + style)
+        if ask and not messagebox.askyesno(L("layout_title"), L("layout_confirm", a=name), parent=root):
+            return False
+        win = tk.Toplevel(root)
+        win.title(L("layout_title"))
+        win.configure(bg=BG)
+        win.transient(root)
+        win.resizable(False, False)
+        win.geometry("460x120")
+        lbl = tk.Label(win, text=L("layout_downloading", a=name, p=0), bg=BG, fg=TEXT,
+                       font=(FAM, 10), anchor="w")
+        lbl.pack(fill="x", padx=16, pady=(16, 8))
+        bar = ttk.Progressbar(win, style="SHB.Horizontal.TProgressbar", mode="determinate", maximum=100)
+        bar.pack(fill="x", padx=16)
+        win.protocol("WM_DELETE_WINDOW", lambda: None)
+        win.grab_set()
+        qq = queue.Queue()
+        ok = {"value": False}
+
+        def progress(done, total):
+            qq.put(("p", int(done * 100 / total) if total else 0))
+
+        def work():
+            try:
+                layouts.ensure(style, progress=progress)
+            except Exception:
+                qq.put(("err",))
+                return
+            qq.put(("ok",))
+
+        def poll():
+            try:
+                while True:
+                    msg = qq.get_nowait()
+                    if msg[0] == "p":
+                        bar.configure(value=msg[1])
+                        lbl.configure(text=L("layout_downloading", a=name, p=msg[1]))
+                        continue
+                    ok["value"] = msg[0] == "ok"
+                    try:
+                        win.grab_release()
+                    except Exception:
+                        pass
+                    win.destroy()
+                    return
+            except queue.Empty:
+                pass
+            win.after(80, poll)
+
+        threading.Thread(target=work, daemon=True).start()
+        win.after(80, poll)
+        win.wait_window()
+        if ok["value"]:
+            status.set(L("layout_note_ready", a=name))
+        else:
+            messagebox.showerror(L("err_title"), L("e_layout", a=name), parent=root)
+        refresh_layout_note()
+        return ok["value"]
+
+    def need_layout() -> bool:
+        style = bstyle.get()
+        return style == "switch" or layouts.available(style) or download_layout(style)
+
     def build_buttons(parent):
         body = card(parent, L("buttons_title"), L("buttons_desc"))
         check(body, L("bm_on"), bmap).pack(anchor="w")
@@ -1292,8 +1401,15 @@ def gui() -> None:
         ui["variant_values"] = names
         cb = combo(row, names, vvar, width=16)
         cb.pack(side="left")
-        cb.bind("<<ComboboxSelected>>", lambda e: bstyle.set(I.BUTTON_STYLES[cb.current()]))
+        cb.bind("<<ComboboxSelected>>", lambda e: (bstyle.set(I.BUTTON_STYLES[cb.current()]),
+                                                   refresh_layout_note()))
         ui["variant"] = cb
+        ui["layout_dl"] = button(row, L("layout_btn"), lambda: download_layout(bstyle.get()))
+        ui["layout_dl"].pack(side="left", padx=(8, 0))
+        note = label(body, "", size=9, color=DIM, bg=PANEL)
+        note.pack(anchor="w", pady=(2, 0))
+        ui["layout_note"] = note
+        refresh_layout_note()
 
         label(body, L("bm_layout"), size=10, color=ACCENT, bold=True, bg=PANEL).pack(anchor="w", pady=(10, 0))
         for value, key in ((False, "bm_ext"), (True, "bm_simple")):

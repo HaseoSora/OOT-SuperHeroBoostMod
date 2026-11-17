@@ -102,7 +102,9 @@ The module, the HUD, the textures and the app are original work: no third-party 
   describes the original order. Known bug: press up and down a couple of times before the teleport menu responds.
 - **Own button mapping** (`buttonMapping`):
   - **B, L, R and ZR** item buttons on the HUD, assignable from the **Items** tab of the pause menu.
-  - **Switch / PlayStation / Xbox** button styles.
+  - **Switch / PlayStation / Xbox** button styles. The chosen style also changes the **game's own prompts** and the
+    controller picture: PlayStation and Xbox download their archive once (~70 MB) from GameBanana and cache it;
+    Switch needs nothing.
   - **Extended** layout (B, L, R, ZR, X, Y, A and the sword) or **simple** layout (only the assignable buttons, with
     B centred and L / R / ZR repositioned so there are no gaps).
   - **L button modes**: item or the game's item selector.
@@ -171,12 +173,12 @@ everything*) turn them on together with the rest of the configuration.
 3. Pick a profile or adjust the sections one by one.
 4. Select the emulator folder. The app finds the mods folder, including a custom `load_directory` from
    `qt-config.ini`.
-5. Press **Install**. The app creates the `00-Super-Hero-Boost` folder with the module, the button textures and the
+5. Press **Install**. The app creates the `zz-Super-Hero-Boost` folder with the module, the button textures and the
    optional romfs files, and patches the selected configuration.
 6. Close the game before uninstalling. On Windows the app closes a running game before installing and during
    a rebuild (it cannot replace a running executable); save your progress first.
 
-To remove the mod, press **Uninstall** in the app or delete the `00-Super-Hero-Boost` folder.
+To remove the mod, press **Uninstall** in the app or delete the `zz-Super-Hero-Boost` folder.
 
 Prebuilt binaries are published on the [Releases](https://github.com/kuribox/OOT-SuperHeroBoostMod/releases) page;
 you can also build the app from source with the steps below.
@@ -194,7 +196,7 @@ The Windows build is the only one with a `.exe` extension; the Linux one is a pl
 ### Longshot, Hookshot and ReLink
 
 Hookshot, Longshot and ReLink are static recompilations, not emulators: they translate the game to native code and
-ignore `exefs` mods by design. The romfs files work from `<game>/mods/Super-Hero-Boost/romfs`, but the module (HUD,
+ignore `exefs` mods by design. The romfs files work from `<game>/mods/zz-Super-Hero-Boost/romfs`, but the module (HUD,
 stamina, item buttons, collectible counter) has to be built into the game.
 
 - **Longshot: supported and tested.** The app's **Longshot** target patches the game's `main`, copies the module to

@@ -1049,7 +1049,7 @@ _BM = {
         bm_l_assign="Item button", bm_l_assign_d="L holds an item, like B and R.",
         bm_l_selector="Item selector", bm_l_selector_d="L always opens the game's item selector for ZR. Nothing can be "
                                                        "assigned to L.",
-        bm_note="Close the game before installing. The button style only changes the button pictures.",
+        bm_note="Close the game before installing. The style changes the HUD pictures and the game's own prompts.",
         bm_swap_note="If the game's Swap Jump Controls option is on, the B item slot moves to X automatically; B stays jump.",
         hud_desc="Always show the game's clock and rupee counter, and the extra item buttons (button mapping).",
         p_recommended_d="Everything on: Hero Mode difficulty, hardcore stamina, HUD and button mapping.",
@@ -1068,7 +1068,7 @@ _BM = {
         bm_l_assign="Botón de objeto", bm_l_assign_d="L lleva un objeto, como B y R.",
         bm_l_selector="Selector de objetos", bm_l_selector_d="L abre siempre el selector de objetos del juego para ZR. "
                                                              "No se puede asignar nada a L.",
-        bm_note="Cierra el juego antes de instalar. El estilo solo cambia el dibujo de los botones.",
+        bm_note="Cierra el juego antes de instalar. El estilo cambia los iconos del HUD y los del propio juego.",
         bm_swap_note="Si la opción Cambiar controles de salto del juego está activa, el botón de objeto B pasa automáticamente a X; B sigue siendo salto.",
         hud_desc="Muestra siempre el reloj y el contador de rupias del juego, y los botones de objeto extra "
                  "(mapeo de botones).",
@@ -1088,7 +1088,7 @@ _BM = {
         bm_l_assign="Botão de item", bm_l_assign_d="L guarda um item, como B e R.",
         bm_l_selector="Seletor de itens", bm_l_selector_d="L sempre abre o seletor de itens do jogo para o ZR. Nada "
                                                           "pode ser atribuído ao L.",
-        bm_note="Feche o jogo antes de instalar. O estilo só muda o desenho dos botões.",
+        bm_note="Feche o jogo antes de instalar. O estilo muda os ícones do HUD e os do próprio jogo.",
         bm_swap_note="Se a opção Trocar controles de salto do jogo estiver ativa, o botão de item B passa automaticamente para X; B continua sendo salto.",
         hud_desc="Mostra sempre o relógio e o contador de rupias do jogo, e os botões de item extras "
                  "(mapeamento de botões).",
@@ -1108,7 +1108,7 @@ _BM = {
         bm_l_assign="Bouton d'objet", bm_l_assign_d="L porte un objet, comme B et R.",
         bm_l_selector="Sélecteur d'objets", bm_l_selector_d="L ouvre toujours le sélecteur d'objets du jeu pour ZR. "
                                                             "Rien ne peut être attribué à L.",
-        bm_note="Fermez le jeu avant d'installer. Le style ne change que le dessin des boutons.",
+        bm_note="Fermez le jeu avant d'installer. Le style change les icônes du HUD et celles du jeu.",
         bm_swap_note="Si l'option Échanger les commandes de saut du jeu est active, le bouton d'objet B passe automatiquement sur X ; B reste le saut.",
         hud_desc="Affiche toujours l'horloge et le compteur de rubis du jeu, et les boutons d'objet supplémentaires "
                  "(mappage des boutons).",
@@ -1128,7 +1128,7 @@ _BM = {
         bm_l_assign="Item-Taste", bm_l_assign_d="L trägt ein Item, wie B und R.",
         bm_l_selector="Item-Auswahl", bm_l_selector_d="L öffnet immer die Item-Auswahl des Spiels für ZR. L kann "
                                                       "nicht belegt werden.",
-        bm_note="Schließe das Spiel vor der Installation. Der Stil ändert nur das Aussehen der Tasten.",
+        bm_note="Schließe das Spiel vor der Installation. Der Stil ändert die HUD-Symbole und die des Spiels.",
         bm_swap_note="Wenn die Spieloption Sprungtasten tauschen aktiv ist, wandert der B-Gegenstand automatisch auf X; B bleibt Springen.",
         hud_desc="Zeigt immer die Uhr und den Rubinzähler des Spiels sowie die zusätzlichen Item-Tasten "
                  "(Tastenbelegung).",
@@ -1148,7 +1148,7 @@ _BM = {
         bm_l_assign="Tasto oggetto", bm_l_assign_d="L tiene un oggetto, come B e R.",
         bm_l_selector="Selettore oggetti", bm_l_selector_d="L apre sempre il selettore oggetti del gioco per ZR. Non "
                                                            "si può assegnare nulla a L.",
-        bm_note="Chiudi il gioco prima di installare. Lo stile cambia solo il disegno dei tasti.",
+        bm_note="Chiudi il gioco prima di installare. Lo stile cambia le icone dell'HUD e quelle del gioco.",
         bm_swap_note="Se l'opzione Scambia comandi di salto del gioco è attiva, il tasto oggetto B passa automaticamente a X; B resta il salto.",
         hud_desc="Mostra sempre l'orologio e il contatore di rupie del gioco, e i tasti oggetto extra "
                  "(mappatura tasti).",
@@ -1424,6 +1424,136 @@ _RECOMP2 = {
 }
 for _lang, _txt in _RECOMP2.items():
     T[_lang].update(_txt)
+
+
+# game-wide controller layout: the PlayStation / Xbox archives are downloaded once from GameBanana
+_LAYOUT = {
+    "en": dict(
+        n_layout_mods="These mods also replace the game's button icons and font: {a}. Remove them so the game loads the layout you chose; if both provide the same file, only one wins.",
+        layout_btn="Download",
+        layout_note_switch="Switch: the game keeps its own button prompts.",
+        layout_note_ready="{a} layout ready (cached).",
+        layout_note_missing="{a}: the game's own prompts need a one-time download (~70 MB).",
+        layout_title="Controller layout",
+        layout_confirm="Download the {a} layout from GameBanana? About 70 MB, once. It changes the game's own "
+                       "prompts and the controller picture.",
+        layout_downloading="Downloading the {a} layout... {p}%",
+        e_layout="Could not get the {a} layout from GameBanana. Check the connection and try again, or choose "
+                 "Switch. Manual download: gamebanana.com/mods/737074.",
+    ),
+    "es": dict(
+        n_layout_mods="Estos mods también reemplazan los iconos y la fuente de los botones del juego: {a}. Quítalos para que el juego cargue el layout que elegiste; si los dos dan el mismo archivo, solo gana uno.",
+        layout_btn="Descargar",
+        layout_note_switch="Switch: el juego mantiene sus propios iconos.",
+        layout_note_ready="Layout {a} listo (en caché).",
+        layout_note_missing="{a}: los iconos del propio juego necesitan una descarga única (~70 MB).",
+        layout_title="Layout del mando",
+        layout_confirm="¿Descargar el layout {a} de GameBanana? Unos 70 MB, una sola vez. Cambia los iconos del "
+                       "propio juego y el dibujo del mando.",
+        layout_downloading="Descargando el layout {a}... {p}%",
+        e_layout="No se pudo descargar el layout {a} de GameBanana. Comprueba la conexión y reinténtalo, o elige "
+                 "Switch. Descarga manual: gamebanana.com/mods/737074.",
+    ),
+    "pt": dict(
+        n_layout_mods="Estes mods também substituem os ícones e a fonte dos botões do jogo: {a}. Remove-os para que o jogo carregue o layout que escolheste; se ambos fornecem o mesmo ficheiro, só um ganha.",
+        layout_btn="Transferir",
+        layout_note_switch="Switch: o jogo mantém os seus próprios ícones.",
+        layout_note_ready="Layout {a} pronto (em cache).",
+        layout_note_missing="{a}: os ícones do próprio jogo precisam de um download único (~70 MB).",
+        layout_title="Layout do comando",
+        layout_confirm="Transferir o layout {a} do GameBanana? Cerca de 70 MB, uma só vez. Muda os ícones do "
+                       "próprio jogo e a imagem do comando.",
+        layout_downloading="A transferir o layout {a}... {p}%",
+        e_layout="Não foi possível obter o layout {a} do GameBanana. Verifica a ligação e tenta de novo, ou escolhe "
+                 "Switch. Download manual: gamebanana.com/mods/737074.",
+    ),
+    "fr": dict(
+        n_layout_mods="Ces mods remplacent aussi les icônes et la police des boutons du jeu : {a}. Retirez-les pour que le jeu charge la disposition choisie ; si les deux fournissent le même fichier, un seul gagne.",
+        layout_btn="Télécharger",
+        layout_note_switch="Switch : le jeu garde ses propres icônes.",
+        layout_note_ready="Disposition {a} prête (en cache).",
+        layout_note_missing="{a} : les icônes du jeu demandent un téléchargement unique (~70 Mo).",
+        layout_title="Disposition de la manette",
+        layout_confirm="Télécharger la disposition {a} depuis GameBanana ? Environ 70 Mo, une seule fois. Elle "
+                       "change les icônes du jeu et l'image de la manette.",
+        layout_downloading="Téléchargement de la disposition {a}... {p} %",
+        e_layout="Impossible d'obtenir la disposition {a} depuis GameBanana. Vérifiez la connexion et réessayez, "
+                 "ou choisissez Switch. Téléchargement manuel : gamebanana.com/mods/737074.",
+    ),
+    "de": dict(
+        n_layout_mods="Diese Mods ersetzen auch die Symbole und die Schrift der Tasten: {a}. Entferne sie, damit das Spiel das gewählte Layout lädt; liefern beide dieselbe Datei, gewinnt nur eine.",
+        layout_btn="Herunterladen",
+        layout_note_switch="Switch: das Spiel behält seine eigenen Symbole.",
+        layout_note_ready="Layout {a} bereit (zwischengespeichert).",
+        layout_note_missing="{a}: die Symbole des Spiels brauchen einen einmaligen Download (~70 MB).",
+        layout_title="Controller-Layout",
+        layout_confirm="Das {a}-Layout von GameBanana herunterladen? Etwa 70 MB, einmalig. Es ändert die Symbole "
+                       "des Spiels und das Controller-Bild.",
+        layout_downloading="{a}-Layout wird heruntergeladen ... {p} %",
+        e_layout="Das {a}-Layout konnte nicht von GameBanana geladen werden. Prüfe die Verbindung und versuche es "
+                 "erneut, oder wähle Switch. Manuell: gamebanana.com/mods/737074.",
+    ),
+    "it": dict(
+        n_layout_mods="Anche questi mod sostituiscono le icone e il font dei tasti: {a}. Rimuovili così il gioco carica il layout scelto; se entrambi forniscono lo stesso file, ne vince uno solo.",
+        layout_btn="Scarica",
+        layout_note_switch="Switch: il gioco mantiene le sue icone.",
+        layout_note_ready="Layout {a} pronto (in cache).",
+        layout_note_missing="{a}: le icone del gioco richiedono un download unico (~70 MB).",
+        layout_title="Layout del controller",
+        layout_confirm="Scaricare il layout {a} da GameBanana? Circa 70 MB, una sola volta. Cambia le icone del "
+                       "gioco e l'immagine del controller.",
+        layout_downloading="Download del layout {a}... {p}%",
+        e_layout="Impossibile scaricare il layout {a} da GameBanana. Controlla la connessione e riprova, oppure "
+                 "scegli Switch. Download manuale: gamebanana.com/mods/737074.",
+    ),
+}
+for _lang, _txt in _LAYOUT.items():
+    T[_lang].update(_txt)
+
+
+
+# resource size table notes (the last mod wins a file: ours must sort last and merge the others)
+_TABLE = {
+    "en": dict(
+        tables_merged="Merged the resource size tables of: {a} (their files keep their sizes, and ours keeps the "
+                      "layout and enemy sizes).",
+        table_later="These mods load after this one and bring their own resource size table, so the game uses "
+                    "theirs: {a}. Remove them, or rename this mod so it sorts after them.",
+    ),
+    "es": dict(
+        tables_merged="Se fusionaron las tablas de tamaños de: {a} (sus archivos conservan su tamaño y la nuestra "
+                      "mantiene el del layout y los enemigos).",
+        table_later="Estos mods cargan después de este y traen su propia tabla de tamaños, así que el juego usa la "
+                    "suya: {a}. Quítalos o renombra este mod para que ordene después de ellos.",
+    ),
+    "pt": dict(
+        tables_merged="Tabelas de tamanhos fundidas: {a} (os ficheiros deles mantêm o tamanho e a nossa mantém o do "
+                      "layout e dos inimigos).",
+        table_later="Estes mods carregam depois deste e trazem a sua própria tabela de tamanhos, por isso o jogo usa "
+                    "a deles: {a}. Remove-os ou renomeia este mod para ordenar depois deles.",
+    ),
+    "fr": dict(
+        tables_merged="Tables de tailles fusionnées : {a} (leurs fichiers gardent leur taille et la nôtre garde "
+                      "celle du layout et des ennemis).",
+        table_later="Ces mods se chargent après celui-ci et apportent leur propre table de tailles, donc le jeu "
+                    "utilise la leur : {a}. Retirez-les ou renommez ce mod pour qu'il se classe après eux.",
+    ),
+    "de": dict(
+        tables_merged="Größentabellen zusammengeführt: {a} (ihre Dateien behalten ihre Größe, unsere behält Layout "
+                      "und Gegner).",
+        table_later="Diese Mods laden nach dieser und bringen ihre eigene Größentabelle, also nutzt das Spiel ihre: "
+                    "{a}. Entferne sie oder benenne diesen Mod so um, dass er nach ihnen sortiert.",
+    ),
+    "it": dict(
+        tables_merged="Tabelle delle dimensioni unite: {a} (i loro file mantengono la dimensione e la nostra "
+                      "mantiene layout e nemici).",
+        table_later="Questi mod caricano dopo questo e portano la propria tabella delle dimensioni, quindi il gioco "
+                    "usa la loro: {a}. Rimuovili o rinomina questo mod perché venga dopo di loro.",
+    ),
+}
+for _lang, _txt in _TABLE.items():
+    T[_lang].update(_txt)
+
 
 def tr(lang: str, key: str, **kw) -> str:
     s = T.get(lang, T["en"]).get(key) or T["en"].get(key, key)

@@ -9,7 +9,7 @@ project.
 | Feature | How it works |
 |---|---|
 | Extra item buttons B / L / R / ZR | the slot's item is equipped into the game's item box (item index forced on the `main+0x1211C00` call) and ZR is held while the button is held |
-| Button styles | three texture sets: Switch (`OotBtnS_*`), Xbox (`OotBtnX_*`) and PlayStation (`OotBtnP_*`); style byte 0 / 1 / 2 |
+| Button styles | three texture sets: Switch (`OotBtnS_*`), Xbox (`OotBtnX_*`) and PlayStation (`OotBtnP_*`); style byte 0 / 1 / 2. The style is global: for PlayStation or Xbox the installer also downloads (once, ~70 MB) the game's own button glyphs, External font and controller picture from the GameBanana controller-UI mod, and merges its resource size table with ours |
 | Extended layout | B, L, R, ZR, X, Y, A and the sword |
 | Simple layout | only the assignable B, L, R and ZR buttons; hides X, Y, A and the sword and repositions L / R / ZR in place with B centred and closer, in a zigzag, both on the HUD and on the pause menu's Items tab |
 | L mode: item | L is one more item slot |
@@ -78,3 +78,10 @@ layout at 39 and L mode at 40.
 
 `tools/make_buttons.py` draws the three button sets with shapes and text, without game material. Each style produces
 its own `OotBtn*_*` textures and the installer copies only the set for the chosen style.
+
+The game's own prompts (the `OcarinaButton*_00` and `KeyTexFont*_00` textures inside `Common.Product.100...bntx`,
+the External font glyphs and the controller picture) are game data and are not drawn here. For PlayStation or Xbox
+the app downloads the community controller-UI archive from GameBanana on demand and caches it; the Switch style keeps
+the game's files. Its `ResourceSizeTable` raises the External font entry (`0x3A08` -> `0x5000`), which is why it is
+merged with ours instead of replacing it: a single table sizes every resource, so copying theirs would drop our bigger
+Common layout budget and the enemy-pack sizes.

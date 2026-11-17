@@ -15,9 +15,15 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "app" / "payload"
 BUILD_ID = "E0F3CCFAF50065AE4EA01EB5AEB13B1A45DA3348"
-VARIANTS = {"standalone": "0x4F80000"}
+VARIANTS = {"standalone": "0x4F80000", "relink": "0x4F80000"}
 # buttonMapping needs the equip-call hooks too (--slots)
-VARIANT_ARGS = {"standalone": ["--features", "controls,manual_shield,stamina,songbook,button_mapping,quick_select", "--slots"]}
+VARIANT_ARGS = {
+    "standalone": ["--features", "controls,manual_shield,stamina,songbook,button_mapping,quick_select", "--slots"],
+    # ReLink: no lazy-binding check in the input wrappers (its translator turns that check into a
+    # tail call and drops the dispatch, so no control/stamina feature would ever run)
+    "relink": ["--features", "controls,manual_shield,stamina,songbook,button_mapping,quick_select", "--slots",
+               "--no-lazy"],
+}
 
 
 def stage_rupee_ips():
@@ -54,7 +60,7 @@ def main():
     man = {"build_id": BUILD_ID, "variants": {}}
     for name, base in VARIANTS.items():
         subprocess.run([sys.executable, str(ROOT / "tools" / "build_core.py"), *VARIANT_ARGS[name],
-                        "--compat", "--base", base], check=True, cwd=ROOT)
+                        "--base", base], check=True, cwd=ROOT)
         d = OUT / name
         d.mkdir(parents=True)
         src = ROOT / "build" / "native" / "exefs"

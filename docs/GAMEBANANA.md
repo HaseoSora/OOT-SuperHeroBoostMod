@@ -48,7 +48,8 @@ on Windows/Linux/macOS, ReLink is supported and the app closes the running game.
 
 **Buttons**
 - B, L, R and ZR item buttons on the HUD, assignable from the pause menu's Items tab by pressing X / L / R.
-- Switch, PlayStation and Xbox button styles.
+- Switch, PlayStation and Xbox button styles, applied to the HUD and to the game's own prompts. PlayStation and Xbox
+  download their archive once (~70 MB) from the GameBanana controller-UI mod; Switch needs nothing.
 - Extended layout (B, L, R, ZR, X, Y, A and the sword) or simple layout (only the assignable buttons, with B
   centred).
 - L as an item button or as the game's own item selector.
@@ -88,7 +89,7 @@ on Windows/Linux/macOS, ReLink is supported and the app closes the running game.
   [Releases page](https://github.com/kuribox/OOT-SuperHeroBoostMod/releases).
 
 Inside the zip: `README.txt` plus one numbered folder per profile (`01 Recommended`, `02 Base`, `03 Hero Mode`, …
-`12 Beta - everything`). Every folder contains a `00-Super-Hero-Boost` folder with the module (patched for that
+`12 Beta - everything`). Every folder contains a `zz-Super-Hero-Boost` folder with the module (patched for that
 profile), the IPS patch, the Switch button textures and the optional romfs files that profile uses (Great Fairy,
 Farore, no-heart-drop, enemy duplication/speed). Pick one; only one profile can be installed at a time.
 
@@ -98,7 +99,7 @@ Farore, no-heart-drop, enemy duplication/speed). Pick one; only one profile can 
    saves; on Windows the app closes the game before installing or rebuilding.
 2. Download **`SuperHeroBoost-0.5.1-presets.zip`** and extract it.
 3. Open the folder of the profile you want (`01 Recommended`, `02 Base`, …) and copy its
-   **`00-Super-Hero-Boost`** folder into `user/load/0400486024DEC000` (the folder that contains your mods; merge
+   **`zz-Super-Hero-Boost`** folder into `user/load/0400486024DEC000` (the folder that contains your mods; merge
    it if it already exists). Install one profile at a time.
 4. Start the game.
 5. In game:
@@ -110,7 +111,7 @@ Farore, no-heart-drop, enemy duplication/speed). Pick one; only one profile can 
    - **Stamina**: the ring next to Link (or the bar under the magic gauge, if you pick that in the app) shows what
      is left; it refills when you stop.
 6. To change options, use the app: pick a profile or tune each section and press **Install** over the same folder.
-   To remove the mod, delete `00-Super-Hero-Boost`.
+   To remove the mod, delete `zz-Super-Hero-Boost`.
 
 The app saves your settings automatically, but changes only reach the game after pressing **Install**.
 

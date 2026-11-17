@@ -2,22 +2,29 @@
 inside the prebuilt module, merges the IPS patch files and copies files into the emulator's mod folder.
 User-facing problems are raised as InstallError(key, arg) so the window can show them in the chosen language."""
 import json
+import os
 import re
 import shutil
 import struct
+import subprocess
 import sys
 import zstandard
 from dataclasses import dataclass, field
 from pathlib import Path
 
+import layouts
+
 TITLE_ID = "0400486024DEC000"
 BUILD_ID = "E0F3CCFAF50065AE4EA01EB5AEB13B1A45DA3348"
-MOD_NAME = "00-Super-Hero-Boost"
+MOD_NAME = "zz-Super-Hero-Boost"   # must sort last: ReLink/emulators let the last mod win each file
 MARKER = ".super-hero-boost"
 BUTTON_STYLES = ("switch", "playstation", "xbox")   # buttonMapping button art (the config byte: 0 Switch, 1 Xbox, 2 PS)
 HUD_MODES = ("wide", "simple", "map")
 HUD_MODE_BYTE = {"wide": 0, "simple": 1, "map": 2}
 STYLE_BYTE = {"switch": 0, "xbox": 1, "playstation": 2}
+GAME_LAYOUTS = ("none", "playstation", "xbox")   # game-wide prompts download (optional; recompilers have their own)
+BM_LAYOUTS = ("nintendo", "ab", "xbox")         # where the face buttons sit (the recompilers' button remap)
+BM_LAYOUT_BYTE = {"nintendo": 0, "ab": 1, "xbox": 2}
 L_MODES = ("assign", "selector")           # buttonMapping L: an item slot or the game's item selector
 L_MODE_VALUES = {"assign": 0, "selector": 2}
 ENEMY_LEVELS = (0, 10, 11, 4, 1, 5, 2, 6, 3, 7, 8, 9)   # display order: off, x0.5 .. x6
@@ -77,7 +84,9 @@ class Settings:
     great_fairy: bool = False        # reorder the three Great Fairy magic rewards
     farore_outdoor: bool = False     # allow Farore's Wind points outside dungeons
     button_mapping: bool = True      # buttonMapping: our own item buttons B / L / R / ZR on the HUD
-    button_style: str = "switch"     # one of BUTTON_STYLES
+    button_style: str = "switch"     # one of BUTTON_STYLES: the button mapping's own button pictures
+    bm_layout: str = "nintendo"      # one of BM_LAYOUTS: face button positions of the button mapping HUD
+    game_layout: str = "none"        # one of GAME_LAYOUTS: download the game's own PS/Xbox prompts (optional)
     bm_simple: bool = False          # simple layout: only the assignable buttons (no A / X / Y)
     bm_l_mode: str = "assign"        # one of L_MODES
     stamina_bar: bool = False        # stamina UI: segmented horizontal bar instead of the ring
@@ -118,6 +127,48 @@ def _load_directory(emu: Path) -> Path | None:
     return None
 
 
+EMU_EXES = ("eden", "citron", "sudachi", "suyu", "torzu", "yuzu", "ryujinx", "kenji-nx", "kenjinx")
+EMU_SKIP = ("maintenance", "update", "uninst", "crash", "cmd", "room", "tester")
+
+
+def emulator_exe(emu: Path) -> Path | None:
+    """The emulator program in the chosen folder (or a few folders above it, when the path points at its
+    user/load or title folder): a known name first, then any other program there."""
+    if not emu:
+        return None
+    p = Path(emu).expanduser()
+    if p.is_file():
+        return p
+    ext = (".exe",) if os.name == "nt" else ("", ".AppImage")
+    for d in [p, *list(p.parents)[:4]]:
+        if not d.is_dir():
+            continue
+        try:
+            files = [f for f in d.iterdir() if f.is_file()]
+        except OSError:
+            continue
+        progs = [f for f in files if (f.suffix.lower() in ext if os.name == "nt" else
+                                      (f.suffix in ext and os.access(f, os.X_OK)))]
+        for name in EMU_EXES:
+            for f in progs:
+                if f.stem.lower().startswith(name) and not any(s in f.stem.lower() for s in EMU_SKIP):
+                    return f
+        if os.name == "nt":
+            other = [f for f in progs if not any(s in f.stem.lower() for s in EMU_SKIP)]
+            if len(other) == 1:
+                return other[0]
+    return None
+
+
+def launch(exe: Path, args=()) -> None:
+    """Start a program detached from the app, in its own folder."""
+    flags = 0
+    if os.name == "nt":
+        flags = getattr(subprocess, "DETACHED_PROCESS", 0) | getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
+    subprocess.Popen([str(exe), *args], cwd=str(exe.parent), creationflags=flags, close_fds=True,
+                     stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+
 def find_mods_dir(emu: Path) -> Path | None:
     """Find the folder that holds the per-title mod folders.
 
@@ -147,6 +198,63 @@ def other_exefs_mods(mods: Path, skip: set[str]) -> list[str]:
     if mods.exists():
         for d in sorted(mods.iterdir()):
             if d.name not in skip and (d / "exefs").exists() and any((d / "exefs").glob("*.ips")):
+                out.append(d.name)
+    return out
+
+
+def other_layout_mods(mods: Path, skip: set[str]) -> list[str]:
+    """Mods that also replace the game's button font or UI atlas (they fight our layout)."""
+    out = []
+    if mods.exists():
+        for d in sorted(mods.iterdir()):
+            if d.name in skip:
+                continue
+            rom = d / "romfs"
+            if ((rom / layouts.REL["font"]).exists() or (rom / layouts.REL["atlas"]).exists()):
+                out.append(d.name)
+    return out
+
+
+def our_mod_folders(mods: Path) -> list[Path]:
+    """Every folder this app installed, including names used by older versions."""
+    out = []
+    if mods.exists():
+        for d in sorted(mods.iterdir()):
+            if d.is_dir() and (d / MARKER).exists():
+                out.append(d)
+    return out
+
+
+def merge_other_tables(mods: Path, skip: set[str], dst: Path) -> list[str]:
+    """Merge the resource size table of the other mods into ours (max per entry).
+
+    A game has a single table; ours is raised for the HUD and the button layout, and another
+    mod (a costume pack, the controller UI) raises sizes for its own files. Keeping the
+    biggest value of each entry makes both work, whichever mod the loader would pick.
+    """
+    merged = []
+    if not dst.is_file() or not mods.exists():
+        return merged
+    for d in sorted(mods.iterdir()):
+        if d.name in skip or not d.is_dir():
+            continue
+        other = d / "romfs" / layouts.REL["table"]
+        if not other.is_file():
+            continue
+        try:
+            layouts.merge_table(other, dst)
+            merged.append(d.name)
+        except Exception:
+            pass
+    return merged
+
+
+def later_table_mods(mods: Path, name: str) -> list[str]:
+    """Mods that sort after ours and bring their own table: the loader would use theirs."""
+    out = []
+    if mods.exists():
+        for d in sorted(mods.iterdir()):
+            if d.is_dir() and d.name.lower() > name.lower() and (d / "romfs" / layouts.REL["table"]).is_file():
                 out.append(d.name)
     return out
 
@@ -194,7 +302,7 @@ def patch_config(nso: bytes, s: Settings) -> bytes:
     b[f + 2], b[f + 3], b[f + 4] = int(s.jump), int(s.attack), int(s.sprint)
     b[f + 5], b[f + 6], b[f + 7] = int(s.block), int(s.shoot), int(s.roll)
     b[f + 8] = int(s.combat_only)
-    b[f + 9] = 0                      # reserved legacy flag (always 0)
+    b[f + 9] = BM_LAYOUT_BYTE.get(s.bm_layout, 0)   # face button positions (was a reserved 0 byte)
     struct.pack_into("<HH", b, f + 10, int(s.enemy_hp), int(s.damage))
     b[f + 14], b[f + 15], b[f + 16] = 0, 0, int(s.clock_24h)
     b[f + 17] = int(s.no_heart_drop)
@@ -327,16 +435,32 @@ class Result:
     notes: list = field(default_factory=list)      # (key, arg) pairs, localized by the window
 
 
-def install(emu: Path, s: Settings, name: str = MOD_NAME) -> Result:
+def ensure_layout(s: "Settings", progress=None) -> str | None:
+    """Download (once) the game-wide controller layout the user chose; None when there is none (optional)."""
+    style = s.game_layout if s.game_layout in GAME_LAYOUTS else "none"
+    if style == "none":
+        return None
+    try:
+        layouts.ensure(style, progress=progress)
+    except layouts.LayoutError as ex:
+        raise InstallError("layout", style) from ex
+    return style
+
+
+def install(emu: Path, s: Settings, name: str = MOD_NAME, progress=None) -> Result:
     mods = find_mods_dir(emu)
     if mods is None:
         raise InstallError("no_mods_dir")
+    style = ensure_layout(s, progress)
     variant = "standalone"
     pay = resource_dir() / variant
     if not (pay / "subsdk9").exists():
         raise InstallError("no_payload", variant)
     target = mods / name
     mods.mkdir(parents=True, exist_ok=True)
+    for old in our_mod_folders(mods):        # older versions used other folder names (00-, Super-Hero-Boost)
+        if old.name != name:
+            shutil.rmtree(old, ignore_errors=True)
     if target.exists():
         if not (target / MARKER).exists():
             raise InstallError("exists_not_ours", str(target))
@@ -380,17 +504,33 @@ def install(emu: Path, s: Settings, name: str = MOD_NAME) -> Result:
         else:
             res.notes.append((opt + "_missing", ""))
     res.notes.extend(install_enemy_mods(target / "romfs", s, pay.parent))
+    if style:   # last: the layout table is merged over the final one (font 0x5000 keeps our layout/enemy entries)
+        layouts.apply(target / "romfs", style)
+    merged = merge_other_tables(mods, {target.name}, target / "romfs" / layouts.REL["table"])
+    if merged:
+        res.notes.append(("tables_merged", ", ".join(merged)))
+    later = later_table_mods(mods, target.name)
+    if later:
+        res.notes.append(("table_later", ", ".join(later)))
 
     conflicts = other_exefs_mods(mods, {name})
     if conflicts:
         res.notes.append(("conflicts", ", ".join(conflicts)))
+    fighting = other_layout_mods(mods, {name})
+    if fighting:
+        res.notes.append(("layout_mods", ", ".join(fighting)))
     return res
 
 
 def uninstall(emu: Path, name: str = MOD_NAME) -> bool:
     mods = find_mods_dir(emu)
-    t = mods / name if mods else None
-    if t and t.exists() and (t / MARKER).exists():
-        shutil.rmtree(t)
-        return True
-    return False
+    if mods is None:
+        return False
+    gone = False
+    for d in our_mod_folders(mods):
+        try:
+            shutil.rmtree(d)
+            gone = True
+        except OSError:
+            pass
+    return gone

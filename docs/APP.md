@@ -10,10 +10,14 @@ The app only:
    combat only, enemy health, damage taken, rupee counter / clock / 24 h, sprint speed, button mapping style,
    layout and L mode
    (field table in [GUIA-DESARROLLO.md](GUIA-DESARROLLO.md#33-runtime-configuration-coreconfigh)),
-3. copies the button textures for the chosen style (Switch / PlayStation / Xbox) into the mod's romfs,
+3. copies the button textures for the chosen style (Switch / PlayStation / Xbox) into the mod's romfs; for PlayStation
+   or Xbox it also installs the game's own prompts, the External font and the controller picture, downloaded once
+   (~70 MB) from the GameBanana controller-UI submission and cached in the user folder. Its resource size table is
+   merged with ours entry by entry, so the bigger font budget and our Common-layout/enemy sizes are all kept,
 4. with "no heart drops", copies the generated romfs option (if that optional file was not built from the user's game
    dump, the app installs everything else and shows a note instead of failing),
-5. writes everything as the mod folder `00-Super-Hero-Boost` and warns about other exefs mods that may conflict.
+5. writes everything as the mod folder `zz-Super-Hero-Boost` and warns about other exefs mods or button-icon mods
+   that may conflict.
 
 ## Files
 
@@ -35,7 +39,8 @@ per-user configuration folder (see the README). The app never needs administrato
 A profile sets **every** gameplay option. The fixed profiles include the HUD, the button mapping and the Songbook,
 except **Manual Shield**, which installs only the shield. Changing any option afterwards switches the profile to
 **Custom** and keeps your value. The button style (Switch / PlayStation / Xbox), layout, L mode, the language and the
-emulator folder are not part of a profile. **Recommended** is the default and enables everything.
+emulator folder are not part of a profile; the button style is global (HUD and the game's own prompts).
+**Recommended** is the default and enables everything.
 
 Sprint is always **×1.25** in the profiles. It is only a starting point and can be changed by hand in the Stamina
 section; the profiles never use ×1.75, ×2 or ×3.

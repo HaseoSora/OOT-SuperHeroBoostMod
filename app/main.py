@@ -18,6 +18,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import installer as I  # noqa: E402
+import layouts  # noqa: E402
 import paths  # noqa: E402
 import recomp as R  # noqa: E402
 import updater as U  # noqa: E402
@@ -61,7 +62,12 @@ def cli(argv) -> int:
     ap.add_argument("--preset", type=int, choices=range(4), default=None,
                     help="stamina style: 0 hardcore, 1 combat only, 2 sprint only, 3 advanced")
     ap.add_argument("--no-button-mapping", action="store_true", help="no extra item buttons (button mapping)")
-    ap.add_argument("--button-style", choices=I.BUTTON_STYLES, default=None, help="button mapping: button pictures")
+    ap.add_argument("--button-style", choices=I.BUTTON_STYLES, default=None,
+                    help="button mapping: button pictures")
+    ap.add_argument("--bm-layout", choices=I.BM_LAYOUTS, default=None,
+                    help="button mapping: face button positions (match the recompiler's A/B or Xbox remap)")
+    ap.add_argument("--game-layout", choices=I.GAME_LAYOUTS, default=None,
+                    help="download the game's own PlayStation/Xbox prompts (optional; none keeps the game's)")
     ap.add_argument("--bm-simple", action="store_true", help="button mapping: simple layout (assignable buttons only)")
     ap.add_argument("--bm-l", choices=I.L_MODES, default=None,
                     help="button mapping: L is an item button (assign) or the game's item selector")
@@ -134,6 +140,10 @@ def cli(argv) -> int:
         s.button_mapping = False
     if a.button_style:
         s.button_style = a.button_style
+    if a.bm_layout:
+        s.bm_layout = a.bm_layout
+    if a.game_layout:
+        s.game_layout = a.game_layout
     if a.bm_simple:
         s.bm_simple = True
     if a.bm_l:
@@ -194,7 +204,17 @@ def cli(argv) -> int:
         s.clock_24h = True
 
     try:
-        r = I.install(Path(a.emu), s, a.name)
+        last = [-1]
+
+        def cli_progress(done, total):
+            if not total:
+                return
+            step = done * 5 // total          # 20% steps
+            if step != last[0]:
+                last[0] = step
+                print("  layout download: %d%%" % min(100, done * 100 // total), flush=True)
+
+        r = I.install(Path(a.emu), s, a.name, progress=cli_progress)
     except I.InstallError as e:
         print("error:", e.key, e.arg)
         return 1
@@ -223,9 +243,11 @@ class ScrollArea:
 
     def __init__(self, parent, bg):
         import tkinter as tk
+        from tkinter import ttk
         self.frame = tk.Frame(parent, bg=bg)
         self.canvas = tk.Canvas(self.frame, bg=bg, highlightthickness=0)
-        self.bar = tk.Scrollbar(self.frame, orient="vertical", command=self.canvas.yview)
+        self.bar = ttk.Scrollbar(self.frame, orient="vertical", command=self.canvas.yview,
+                                 style="SHB.Vertical.TScrollbar")
         self.canvas.configure(yscrollcommand=self.bar.set)
         self.canvas.pack(side="left", fill="both", expand=True)
         self.bar.pack(side="right", fill="y")
@@ -320,6 +342,10 @@ def gui() -> None:
     bmap = tk.BooleanVar(value=bool(cfg.get("button_mapping", True)))
     # button style, layout and L mode: personal choices, not part of a profile
     bstyle = tk.StringVar(value=cfg.get("button_style") if cfg.get("button_style") in I.BUTTON_STYLES else "switch")
+    bplace = tk.StringVar(value=cfg.get("bm_layout") if cfg.get("bm_layout") in I.BM_LAYOUTS else "nintendo")
+    # the game-wide prompts used to follow the button style: keep that choice for configs saved before the split
+    _gl = cfg.get("game_layout", cfg.get("button_style") if cfg.get("button_style") in I.GAME_LAYOUTS else "none")
+    glayout = tk.StringVar(value=_gl if _gl in I.GAME_LAYOUTS else "none")
     bsimple = tk.BooleanVar(value=bool(cfg.get("bm_simple", False)))
     blmode = tk.StringVar(value=cfg.get("bm_l_mode") if cfg.get("bm_l_mode") in I.L_MODES else "assign")
     stamina = tk.BooleanVar(value=bool(cfg.get("stamina", True)))
@@ -383,6 +409,16 @@ def gui() -> None:
                     arrowcolor=ACCENT, bordercolor=BORDER, lightcolor=PANEL, darkcolor=PANEL,
                     selectbackground=PANEL2, selectforeground=TEXT)
     style.map("SHB.TCombobox", fieldbackground=[("readonly", PANEL2)], foreground=[("readonly", TEXT)])
+    # Scrollbars: a slim gold thumb on the dark trough, no arrows (the main page and the combobox lists)
+    for sb in ("SHB.Vertical.TScrollbar", "Vertical.TScrollbar"):
+        style.layout(sb, [("Vertical.Scrollbar.trough", {"sticky": "ns", "children": [
+            ("Vertical.Scrollbar.thumb", {"expand": "1", "sticky": "nswe"})]})])
+        style.configure(sb, troughcolor=PANEL2, background=ACCENT_DARK, bordercolor=PANEL2,
+                        lightcolor=ACCENT_DARK, darkcolor=ACCENT_DARK, arrowcolor=ACCENT, gripcount=0,
+                        relief="flat", borderwidth=0, width=10, arrowsize=10)
+        style.map(sb, background=[("pressed", ACCENT), ("active", ACCENT)],
+                  lightcolor=[("pressed", ACCENT), ("active", ACCENT)],
+                  darkcolor=[("pressed", ACCENT), ("active", ACCENT)])
     style.configure("SHB.Horizontal.TProgressbar", troughcolor=PANEL2, background=ACCENT,
                     bordercolor=BORDER, lightcolor=ACCENT, darkcolor=ACCENT, thickness=14)
     root.option_add("*TCombobox*Listbox.background", PANEL2)
@@ -405,11 +441,32 @@ def gui() -> None:
         return tk.Label(parent, text=text, bg=kw.pop("bg", PANEL), fg=color, font=(FAM, size, style_name),
                         justify="left", anchor="w", wraplength=wrap, **kw)
 
-    def card(parent, title, desc=None):
+    def rb_tag(parent):
+        """'Requires rebuild' tag: options stored in the module's configuration (subsdk9). Shown only for a
+        recompiled game (Longshot, Hookshot, ReLink): their exefs is translated into the program, so a change
+        there needs the builder. Romfs options never carry it. refresh() sets its text."""
+        t = tk.Label(parent, text="", bg=PANEL, fg=RED, font=(FAM, 9, "bold"), anchor="w")
+        ui.setdefault("rb_tags", []).append(t)
+        return t
+
+    def check_rb(parent, text, var, **pack):
+        """A feature's main switch: turning it on or off needs the builder on a recompiled game (its sub-options
+        do not), so the 'requires rebuild' tag sits beside it."""
+        row = tk.Frame(parent, bg=PANEL)
+        row.pack(anchor="w", **pack)
+        c = check(row, text, var)
+        c.pack(side="left")
+        rb_tag(row).pack(side="left", padx=(10, 0))
+        return c
+
+    def card(parent, title, desc=None, rebuild=False):
         f = tk.Frame(parent, bg=PANEL, highlightbackground=BORDER, highlightthickness=1)
         f.pack(fill="x", padx=4, pady=(0, 12))
-        tk.Label(f, text=title, bg=PANEL, fg=ACCENT, font=(DISPLAY, 13, "bold"), anchor="w").pack(
-            anchor="w", padx=14, pady=(10, 0))
+        head = tk.Frame(f, bg=PANEL)
+        head.pack(anchor="w", fill="x", padx=14, pady=(10, 0))
+        tk.Label(head, text=title, bg=PANEL, fg=ACCENT, font=(DISPLAY, 13, "bold"), anchor="w").pack(side="left")
+        if rebuild:
+            rb_tag(head).pack(side="left", padx=(10, 0), pady=(3, 0))
         if desc:
             label(f, desc, size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=14, pady=(2, 8))
         body = tk.Frame(f, bg=PANEL)
@@ -526,7 +583,7 @@ def gui() -> None:
         refresh()
         autosave()
 
-    for var in (bstyle, bsimple, blmode):
+    for var in (bstyle, bplace, glayout, bsimple, blmode):
         var.trace_add("write", on_pref_change)
     stamina_bar.trace_add("write", on_pref_change)   # display preference: does not switch to Custom
 
@@ -539,6 +596,7 @@ def gui() -> None:
 
     def settings():
         return I.Settings(button_mapping=bmap.get(), button_style=bstyle.get(), bm_simple=bsimple.get(),
+                          bm_layout=bplace.get(), game_layout=glayout.get(),
                           bm_l_mode=blmode.get(), stamina=stamina.get(), stamina_bar=stamina_bar.get(),
                           songbook=songbook.get(),
                           quick_boots=quick_boots.get(), quick_mask=quick_mask.get(),
@@ -562,6 +620,7 @@ def gui() -> None:
             "lang": lang.get(), "emu": emu.get(), "profile": profile.get(),
             "target": target.get(), "recomp": recomp_path.get(), "recomp_builder": recomp_builder.get(),
             "button_mapping": bmap.get(), "button_style": bstyle.get(), "bm_simple": bsimple.get(),
+            "bm_layout": bplace.get(), "game_layout": glayout.get(),
             "bm_l_mode": blmode.get(),
             "stamina": stamina.get(), "stamina_bar": stamina_bar.get(), "songbook": songbook.get(),
             "quick_boots": quick_boots.get(), "quick_mask": quick_mask.get(),
@@ -742,7 +801,7 @@ def gui() -> None:
                 w.config(state="disabled" if on else "normal")
             except Exception:
                 pass
-        for key in ("install", "uninstall", "rebuild", "builder_btn", "builder_auto", "builder_change"):
+        for key in ("install", "uninstall", "launch", "rebuild", "builder_btn", "builder_auto", "builder_change"):
             w = ui.get(key)
             if w is not None:
                 w.config(state="disabled" if on else "normal")
@@ -801,6 +860,8 @@ def gui() -> None:
             messagebox.showerror(L("err_title"), L("e_recomp_no_game", a=recomp_path.get()))
             return
         if not messagebox.askyesno(L("recomp_confirm_title"), L("recomp_confirm")):
+            return
+        if not need_layout():
             return
         show_section("install")
         set_busy(True)
@@ -886,6 +947,8 @@ def gui() -> None:
         if game is None:
             messagebox.showerror(L("err_title"), L("e_recomp_no_game", a=recomp_path.get()))
             return
+        if not need_layout():
+            return
         try:
             if R.is_built(game):
                 R.apply_settings(game, settings())
@@ -908,6 +971,9 @@ def gui() -> None:
         try:
             status.set(L("working"))
             root.update_idletasks()
+            if not need_layout():
+                status.set("")
+                return
             r = I.install(Path(emu.get().strip()).expanduser(), settings())
             remember()
             msg = L("done_msg", n=r.target.name)
@@ -920,6 +986,27 @@ def gui() -> None:
             messagebox.showerror(L("err_title"), L("e_" + ex.key, a=ex.arg))
         except Exception as ex:
             status.set("")
+            messagebox.showerror(L("err_title"), str(ex))
+
+    def do_launch():
+        """Open the emulator, or the recompiled game through its launcher."""
+        if target.get() == "recomp":
+            game = ok_recomp()
+            exe = R.launcher_of(game) if game else None
+            if exe is None:
+                messagebox.showerror(L("err_title"), L("e_launch_recomp", a=recomp_path.get()))
+                return
+            if busy["on"]:
+                return
+        else:
+            exe = I.emulator_exe(Path(emu.get().strip())) if emu.get().strip() else None
+            if exe is None:
+                messagebox.showerror(L("err_title"), L("e_launch_emu", a=emu.get()))
+                return
+        try:
+            I.launch(exe)
+            status.set(L("launched", a=exe.name))
+        except OSError as ex:
             messagebox.showerror(L("err_title"), str(ex))
 
     def do_remove():
@@ -958,12 +1045,18 @@ def gui() -> None:
             if w is not None:
                 w.config(state="normal" if stam else "disabled")
         on = bmap.get()
-        if "variant" in ui:
-            ui["variant"].config(state="readonly" if on else "disabled")
+        if "game_layout" in ui:   # the game-wide prompts do not depend on the button mapping
+            ui["game_layout"].config(state="readonly")
+            refresh_layout_note()
         for w in ui.get("bm", []):
-            w.config(state="normal" if on else "disabled")
+            w.config(state=("readonly" if isinstance(w, ttk.Combobox) else "normal") if on else "disabled")
         ui["note"].config(text="" if stam else L("stamina_off_note"), fg=AMBER)
         rec = target.get() == "recomp"
+        for t in ui.get("rb_tags", []):
+            try:
+                t.config(text=L("needs_rebuild") if rec else "")
+            except Exception:
+                pass
         mods = ok_emu()
         if rec:
             game = ok_recomp()
@@ -1043,10 +1136,12 @@ def gui() -> None:
             idx = SPEEDS.index(speed.get()) if speed.get() in SPEEDS else 0
             ui["sprint_var"].set(ui["sprint_values"][idx])
             ui["sprint"].current(idx)
-        if "variant" in ui:
-            idx = I.BUTTON_STYLES.index(bstyle.get()) if bstyle.get() in I.BUTTON_STYLES else 0
-            ui["variant_var"].set(ui["variant_values"][idx])
-            ui["variant"].current(idx)
+        for key, var, choices in (("variant", bstyle, I.BUTTON_STYLES), ("bm_place", bplace, I.BM_LAYOUTS),
+                                  ("game_layout", glayout, I.GAME_LAYOUTS)):
+            if key in ui:
+                idx = choices.index(var.get()) if var.get() in choices else 0
+                ui[key + "_var"].set(ui[key + "_values"][idx])
+                ui[key].current(idx)
         if "clock" in ui:
             idx = CLOCK_MODES.index(clock_mode.get()) if clock_mode.get() in CLOCK_MODES else 0
             ui["clock_var"].set(ui["clock_values"][idx])
@@ -1157,7 +1252,7 @@ def gui() -> None:
 
     def build_stamina(parent):
         body = card(parent, L("stamina_title"), L("stamina_desc"))
-        check(body, L("stamina_on"), stamina).pack(anchor="w")
+        check_rb(body, L("stamina_on"), stamina)
         label(body, L("stamina_on_desc"), size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=(20, 0))
         label(body, L("stamina_display"), size=10, color=ACCENT, bold=True, bg=PANEL).pack(anchor="w", pady=(10, 0))
         for value, key in ((False, "stamina_ring"), (True, "stamina_bar")):
@@ -1250,13 +1345,35 @@ def gui() -> None:
         check(body, L("hud_collectibles"), hud_collectibles).pack(anchor="w", pady=(8, 0))
         label(body, L("hud_collectibles_desc"), size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=(20, 0))
         label(body, L("hud_note"), size=9, color=DIM, bg=PANEL).pack(anchor="w", pady=(8, 0))
+        build_game_prompts(parent)
+
+    def build_game_prompts(parent):
+        """HUD section: the game's own button prompts (independent of the button mapping, optional)."""
+        body = card(parent, L("game_layout"), L("game_layout_d"))
+        row = tk.Frame(body, bg=PANEL)
+        row.pack(anchor="w")
+        gnames = [L("game_layout_none" if k == "none" else "g_" + k) for k in I.GAME_LAYOUTS]
+        gvar = tk.StringVar(value=gnames[I.GAME_LAYOUTS.index(glayout.get())])
+        ui["game_layout_var"] = gvar
+        ui["game_layout_values"] = gnames
+        gcb = combo(row, gnames, gvar, width=16)
+        gcb.pack(side="left")
+        gcb.bind("<<ComboboxSelected>>", lambda e: (glayout.set(I.GAME_LAYOUTS[gcb.current()]),
+                                                    refresh_layout_note()))
+        ui["game_layout"] = gcb
+        ui["layout_dl"] = button(row, L("layout_btn"), lambda: download_layout(glayout.get()))
+        ui["layout_dl"].pack(side="left", padx=(8, 0))
+        note = label(body, "", size=9, color=DIM, bg=PANEL)
+        note.pack(anchor="w", pady=(2, 0))
+        ui["layout_note"] = note
+        refresh_layout_note()
 
     def build_controls(parent):
         body = card(parent, L("controls_title"), L("controls_desc"))
-        check(body, L("target_r3_on"), target_r3).pack(anchor="w")
+        check_rb(body, L("target_r3_on"), target_r3)
         label(body, L("target_r3_desc"), size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=(20, 0))
         label(body, L("target_r3_note"), size=9, color=AMBER, bg=PANEL).pack(anchor="w", padx=(20, 0), pady=(2, 8))
-        check(body, L("sprint_l3_on"), sprint_l3).pack(anchor="w")
+        check_rb(body, L("sprint_l3_on"), sprint_l3)
         label(body, L("sprint_l3_desc"), size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=(20, 0))
         build_manual_shield(parent)
         build_buttons(parent)
@@ -1264,22 +1381,110 @@ def gui() -> None:
 
     def build_manual_shield(parent):
         body = card(parent, L("ms_title"), L("ms_desc"))
-        check(body, L("ms_on"), manual_shield).pack(anchor="w")
+        check_rb(body, L("ms_on"), manual_shield)
         label(body, L("ms_on_desc"), size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=(20, 0), pady=(0, 8))
         label(body, L("ms_controls"), size=9, color=DIM, bg=PANEL).pack(anchor="w")
         label(body, L("ms_note"), size=9, color=AMBER, bg=PANEL).pack(anchor="w", pady=(8, 0))
 
     def build_quick_select(parent):
         body = card(parent, L("quick_title"), L("quick_desc"))
-        check(body, L("quick_boots_on"), quick_boots).pack(anchor="w")
+        check_rb(body, L("quick_boots_on"), quick_boots)
         label(body, L("quick_boots_desc"), size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=(20, 0), pady=(0, 8))
-        check(body, L("quick_mask_on"), quick_mask).pack(anchor="w")
+        check_rb(body, L("quick_mask_on"), quick_mask)
         label(body, L("quick_mask_desc"), size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=(20, 0))
         label(body, L("quick_note"), size=9, color=AMBER, bg=PANEL).pack(anchor="w", pady=(8, 0))
 
+    def refresh_layout_note(*_):
+        note, btn = ui.get("layout_note"), ui.get("layout_dl")
+        if note is None:
+            return
+        style = glayout.get()
+        if style == "none":
+            note.config(text=L("layout_note_none"), fg=DIM)
+            if btn is not None:
+                btn.pack_forget()
+            return
+        name = L("g_" + style)
+        if layouts.available(style):
+            note.config(text=L("layout_note_ready", a=name), fg=ACCENT)
+            if btn is not None:
+                btn.pack_forget()
+        else:
+            note.config(text=L("layout_note_missing", a=name), fg=AMBER)
+            if btn is not None and not btn.winfo_manager():
+                btn.pack(side="left", padx=(8, 0))
+
+    def download_layout(style, ask=True):
+        """Download the game-wide layout with a progress window; True when it is ready."""
+        if style not in layouts.FILES or layouts.available(style):
+            refresh_layout_note()
+            return True
+        name = L("g_" + style)
+        if ask and not messagebox.askyesno(L("layout_title"), L("layout_confirm", a=name), parent=root):
+            return False
+        win = tk.Toplevel(root)
+        win.title(L("layout_title"))
+        win.configure(bg=BG)
+        win.transient(root)
+        win.resizable(False, False)
+        win.geometry("460x120")
+        lbl = tk.Label(win, text=L("layout_downloading", a=name, p=0), bg=BG, fg=TEXT,
+                       font=(FAM, 10), anchor="w")
+        lbl.pack(fill="x", padx=16, pady=(16, 8))
+        bar = ttk.Progressbar(win, style="SHB.Horizontal.TProgressbar", mode="determinate", maximum=100)
+        bar.pack(fill="x", padx=16)
+        win.protocol("WM_DELETE_WINDOW", lambda: None)
+        win.grab_set()
+        qq = queue.Queue()
+        ok = {"value": False}
+
+        def progress(done, total):
+            qq.put(("p", int(done * 100 / total) if total else 0))
+
+        def work():
+            try:
+                layouts.ensure(style, progress=progress)
+            except Exception:
+                qq.put(("err",))
+                return
+            qq.put(("ok",))
+
+        def poll():
+            try:
+                while True:
+                    msg = qq.get_nowait()
+                    if msg[0] == "p":
+                        bar.configure(value=msg[1])
+                        lbl.configure(text=L("layout_downloading", a=name, p=msg[1]))
+                        continue
+                    ok["value"] = msg[0] == "ok"
+                    try:
+                        win.grab_release()
+                    except Exception:
+                        pass
+                    win.destroy()
+                    return
+            except queue.Empty:
+                pass
+            win.after(80, poll)
+
+        threading.Thread(target=work, daemon=True).start()
+        win.after(80, poll)
+        win.wait_window()
+        if ok["value"]:
+            status.set(L("layout_note_ready", a=name))
+        else:
+            messagebox.showerror(L("err_title"), L("e_layout", a=name), parent=root)
+        refresh_layout_note()
+        return ok["value"]
+
+    def need_layout() -> bool:
+        style = glayout.get()
+        return style == "none" or layouts.available(style) or download_layout(style)
+
     def build_buttons(parent):
         body = card(parent, L("buttons_title"), L("buttons_desc"))
-        check(body, L("bm_on"), bmap).pack(anchor="w")
+        check_rb(body, L("bm_on"), bmap)
         label(body, L("bm_on_desc"), size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=(20, 0))
         ui["bm"] = []
         row = tk.Frame(body, bg=PANEL)
@@ -1294,6 +1499,22 @@ def gui() -> None:
         cb.pack(side="left")
         cb.bind("<<ComboboxSelected>>", lambda e: bstyle.set(I.BUTTON_STYLES[cb.current()]))
         ui["variant"] = cb
+        ui["bm"].append(cb)
+        label(body, L("variant_d"), size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=(20, 0))
+
+        row = tk.Frame(body, bg=PANEL)
+        row.pack(anchor="w", pady=(8, 0))
+        label(row, L("bm_place") + ":", size=10, bg=PANEL).pack(side="left", padx=(0, 8))
+        pnames = [L("bm_place_" + k) for k in I.BM_LAYOUTS]
+        pvar = tk.StringVar(value=pnames[I.BM_LAYOUTS.index(bplace.get())])
+        ui["bm_place_var"] = pvar
+        ui["bm_place_values"] = pnames
+        pcb = combo(row, pnames, pvar, width=22)
+        pcb.pack(side="left")
+        pcb.bind("<<ComboboxSelected>>", lambda e: bplace.set(I.BM_LAYOUTS[pcb.current()]))
+        ui["bm_place"] = pcb
+        ui["bm"].append(pcb)
+        label(body, L("bm_place_d"), size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=(20, 0))
 
         label(body, L("bm_layout"), size=10, color=ACCENT, bold=True, bg=PANEL).pack(anchor="w", pady=(10, 0))
         for value, key in ((False, "bm_ext"), (True, "bm_simple")):
@@ -1310,6 +1531,7 @@ def gui() -> None:
             label(body, L("bm_l_" + value + "_d"), size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=(20, 0))
         label(body, L("bm_note"), size=9, color=AMBER, bg=PANEL).pack(anchor="w", pady=(8, 0))
         label(body, L("bm_swap_note"), size=9, color=DIM, bg=PANEL).pack(anchor="w", pady=(2, 0))
+
 
     def build_enemies(parent):
         body = card(parent, L("enemies_title"), L("enemies_desc"))
@@ -1339,7 +1561,7 @@ def gui() -> None:
     def build_misc(parent):
         body = card(parent, L("misc_title"), L("misc_desc"))
         label(body, L("songbook_title"), size=11, color=ACCENT, bold=True, bg=PANEL).pack(anchor="w", pady=(2, 0))
-        check(body, L("songbook_on"), songbook).pack(anchor="w", pady=(2, 0))
+        check_rb(body, L("songbook_on"), songbook, pady=(2, 0))
         label(body, L("songbook_desc"), size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=(20, 0))
         label(body, L("songbook_note"), size=9, color=AMBER, bg=PANEL).pack(anchor="w", pady=(8, 0))
 
@@ -1449,6 +1671,8 @@ def gui() -> None:
         ui["install"].pack(side="right")
         ui["uninstall"] = button(ft, L("uninstall"), do_remove)
         ui["uninstall"].pack(side="right", padx=(0, 8))
+        ui["launch"] = button(ft, L("launch"), do_launch)
+        ui["launch"].pack(side="right", padx=(0, 8))
         # Shown only for a Hookshot/Longshot target (refresh): rebuild, builder and cancel.
         ui["rebuild"] = button(ft, L("recomp_rebuild"), run_recomp)
         ui["builder_btn"] = button(ft, L("recomp_builder_btn"), browse_builder)
@@ -1472,6 +1696,7 @@ def gui() -> None:
             w.destroy()
         ui["nav"] = {}
         ui["sections"] = {}
+        ui["rb_tags"] = []
         shell = tk.Frame(root, bg=BG)
         shell.pack(fill="both", expand=True)
         build_header(shell)
@@ -1492,7 +1717,7 @@ def gui() -> None:
     elif profile.get() != "custom":
         apply_profile(profile.get(), save=False)
 
-    for v in (emu, bmap, bstyle, bsimple, blmode, stamina, songbook, quick_boots, quick_mask, hud_collectibles,
+    for v in (emu, bmap, bstyle, bplace, glayout, bsimple, blmode, stamina, songbook, quick_boots, quick_mask, hud_collectibles,
               target_r3, sprint_l3,
               enemy_double, enemy_move, enemy_anim, enemy_attack, enemy_proj, stamina_bar,
               great_fairy, farore_outdoor, mode, combat, hp, dmg, speed,

@@ -1694,14 +1694,27 @@ static const float g_sb_simple[PART_N][2] = {
     {1120.4f, 872.3f}, {0.0f, 0.0f}, {1445.2f, 872.3f}, {0.0f, 0.0f}, {0.0f, 0.0f},
     {1677.2f, 680.0f}, {1292.6f, 680.0f},
     {1095.1f, 897.6f}, {1419.9f, 897.6f}, {0.0f, 0.0f}, {1651.9f, 705.3f}, {1267.3f, 705.3f}};
+/* Pad layout (ShbConfig.bm_layout, the recompilers' own button remap): the place of each face button on the
+ * diamond. The game still sees the same logical buttons; only where we draw them moves. 0 Nintendo (A right,
+ * B bottom, X top, Y left), 1 A/B swapped (A bottom, B right), 2 Xbox (A/B and X/Y swapped: X left, Y top). */
+static u32 face_place(u32 k) {
+    u32 l = g_shbcfg.bm_layout;
+    if (l >= 1 && (k == SB_A || k == SB_B)) return k == SB_A ? SB_B : SB_A;
+    if (l == 2 && (k == SB_X || k == SB_Y)) return k == SB_X ? SB_Y : SB_X;
+    return k;
+}
 static void sb_xy(const float *lay, u32 k, int simple, float *x, float *y) {
     float bx = g_sb_pos[k][0], by = g_sb_pos[k][1];
     if (simple) {
         bx = g_sb_simple[k][0]; by = g_sb_simple[k][1];
-    } else if (g_btn_swap && k == 11) {
-        /* B item slot follows the X button when Jump and B are swapped */
-        bx = g_sb_pos[SB_X][0] + (g_sb_pos[11][0] - g_sb_pos[SB_B][0]);
-        by = g_sb_pos[SB_X][1] + (g_sb_pos[11][1] - g_sb_pos[SB_B][1]);
+    } else {
+        /* the button a part sits on (items keep their offset from it); the B item follows X when the game's
+         * Jump/B swap is on, then the pad layout moves that button */
+        u32 home = k == 9 ? SB_Y : k == 11 ? SB_B : k;
+        u32 on = (k == 11 && g_btn_swap) ? SB_X : home;
+        u32 at = home < SB_NBTN ? face_place(on) : on;
+        bx = g_sb_pos[at][0] + (g_sb_pos[k][0] - g_sb_pos[home][0]);
+        by = g_sb_pos[at][1] + (g_sb_pos[k][1] - g_sb_pos[home][1]);
     }
     *x = SB_CX + (bx - SB_CX) * lay[0] + lay[2];
     *y = SB_CY + (by - SB_CY) * lay[0] + lay[3];
@@ -2479,6 +2492,7 @@ u32 g_menu_sel_n;
 extern void button_mapping_on_open(const char *path, int mode) __attribute__((weak));
 void hud_on_code(u32 id, void *a0, void *a1, void *a2, void *regs) {
     (void)a1; (void)a2;
+    if (id >= 22) return;   /* diagnostic sites (hook_code_frame4/speed4): only counted in g_code_entry */
     if (id == 5) { player_track((u64)a0); return; }
     if (id >= 6 && id <= 9) { player_guard_event(id); return; }
     if (id == 10) { if (stamina_speed_hook) stamina_speed_hook(regs); return; }   /* ground movement: sprint speed */

@@ -25,7 +25,7 @@ The mod is two pieces loaded next to the game by the emulator:
 
 The **app** (`release/SuperHeroBoostConfig` on Windows/macOS/Linux) compiles nothing: it carries the prebuilt module,
 writes the user's options into a configuration block inside `subsdk9` and copies everything into the mod folder
-(`00-Super-Hero-Boost`).
+(`zz-Super-Hero-Boost`).
 
 Change flow:
 

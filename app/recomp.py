@@ -5,7 +5,7 @@ Hookshot and Longshot are static recompilations: the game's code is translated t
 ("the code is compiled ahead of time"), so the module has to be built into the game. This module:
 
   * patches `.longshot_exefs/main` and writes `subsdk9` (with the chosen configuration) before a rebuild,
-  * copies the selected romfs files to `<game>/mods/Super-Hero-Boost/romfs` (the recompilers' own mod layout),
+  * copies the selected romfs files to `<game>/mods/zz-Super-Hero-Boost/romfs` (the recompilers' own mod layout),
   * can update the configuration and romfs without rebuilding (the config block lives in `image.bin` too),
   * runs the builder's `nx2/make_game.py --update` with its bundled toolchain, streaming progress,
   * restores the original executable and image from `.shb-backup` on uninstall.
@@ -15,7 +15,9 @@ All errors are `InstallError(key, arg)` so the window can translate them.
 from __future__ import annotations
 
 import json
+import hashlib
 import os
+import re
 import shutil
 import struct
 import subprocess
@@ -27,7 +29,7 @@ from pathlib import Path
 
 import installer as I
 
-MOD_NAME = "Super-Hero-Boost"
+MOD_NAME = I.MOD_NAME   # must sort last: the last mod wins a file (see installer.MOD_NAME)
 BACKUP = ".shb-backup"
 CONFIG_MAGIC = b"SHBCFG01"
 CONFIG_SIZE = 76
@@ -250,6 +252,15 @@ def exefs_of(game: Path) -> Path:
     raise I.InstallError("recomp_no_game", str(game))
 
 
+def launcher_of(game: Path) -> Path | None:
+    """What opens the game: the launcher beside it (ReLink.exe, longshot.exe...), else the game in bin/."""
+    for n in LAUNCHER_NAMES:
+        p = game / n
+        if p.is_file():
+            return p
+    return exe_of(game)
+
+
 def exe_of(game: Path) -> Path | None:
     for e in EXE_NAMES:
         if (game / e).exists():
@@ -372,14 +383,42 @@ def find_work(game: Path | None = None) -> Path | None:
             if f == "relink" and ((base / "build_times.json").is_file() or (base / "objcache").is_dir()):
                 return base   # ReLink keeps objcache/, image/, build_times.json in its own folder
     if game:
+        # (a `temp` beside the game may hold another copy's cache: reuse it only when it was lifted from this game's
+        # exefs, or a rebuild links code translated from other game files)
         for cand in (game.parent / "temp", game / ".shb-work"):
-            if cand.is_dir():
+            if cand.is_dir() and _work_matches(cand, game):
                 return cand
     return None
 
 
+def _work_matches(work: Path, game: Path) -> bool:
+    """The lift cache in <work>/sa/gen was made from this game's exefs (same main build id), not another copy."""
+    try:
+        bid = main_build_id(exefs_of(game) / "main")
+    except (I.InstallError, OSError):
+        return False
+    gen = Path(work) / "sa" / "gen" / "hos_image.c"
+    try:
+        text = gen.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return True      # nothing cached there yet: safe as a fresh work folder
+    m = re.search(r'char hos_main_build_id\[\] = "([0-9a-f]+)"', text)
+    if not (m and bid):
+        return True
+    # (main's module id is zero-padded past the build id: the builders call the first 8 characters the build)
+    return m.group(1)[:16] == bid[:16]
+
+
 def payload_dir() -> Path:
     return I.resource_dir()
+
+
+def payload_variant(game: Path) -> str:
+    """The module build for this loader: ReLink needs the input wrappers without the lazy
+    PLT check (the static translator turns that check into a tail call and drops the dispatch)."""
+    if flavor(game) == "relink" and (payload_dir() / "relink" / "subsdk9").exists():
+        return "relink"
+    return "standalone"
 
 
 def game_running() -> bool:
@@ -796,9 +835,10 @@ def _restore_backup(game: Path, bak: Path) -> bool:
 
 
 def write_module(game: Path, s: I.Settings) -> None:
-    src = payload_dir() / "standalone" / "subsdk9"
+    variant = payload_variant(game)
+    src = payload_dir() / variant / "subsdk9"
     if not src.exists():
-        raise I.InstallError("no_payload", "standalone")
+        raise I.InstallError("no_payload", variant)
     (exefs_of(game) / "subsdk9").write_bytes(_patch_bytes(src.read_bytes(), s))
 
 
@@ -818,6 +858,11 @@ def install_romfs(game: Path, s: I.Settings) -> tuple[int, list]:
     pay = payload_dir()
     target = game / "mods" / MOD_NAME / "romfs"
     notes = []
+    style = s.button_style if s.button_style in I.BUTTON_STYLES else "switch"   # the button mapping's pictures
+    game_layout = I.ensure_layout(s)       # optional game-wide prompts; cached, fails before touching the game
+    for old in I.our_mod_folders(game / "mods"):   # older versions used other folder names
+        if old.name != MOD_NAME:
+            shutil.rmtree(old, ignore_errors=True)
     if target.parent.exists():
         shutil.rmtree(target.parent)
     copied = 0
@@ -835,7 +880,6 @@ def install_romfs(game: Path, s: I.Settings) -> tuple[int, list]:
         return True
 
     if s.button_mapping:
-        style = s.button_style if s.button_style in I.BUTTON_STYLES else "switch"
         copy(pay / "button_romfs" / style)
         copy(pay / "button_romfs" / "common")
     if s.no_heart_drop and not copy(pay / "romfs_opts" / "no_heart_drop"):
@@ -846,9 +890,23 @@ def install_romfs(game: Path, s: I.Settings) -> tuple[int, list]:
         if enabled and not copy(pay / "romfs_opts" / opt):
             notes.append((opt + "_missing", ""))
     notes.extend(I.install_enemy_mods(target, s, pay))
+    if game_layout:            # last: the game's own prompts, font and controller picture (table merged)
+        I.layouts.apply(target, game_layout)
+        copied += 3
+    fighting = I.other_layout_mods(game / "mods", {MOD_NAME})
+    if fighting:
+        notes.append(("layout_mods", ", ".join(fighting)))
+    merged = I.merge_other_tables(game / "mods", {MOD_NAME}, target / I.layouts.REL["table"])
+    if merged:
+        notes.append(("tables_merged", ", ".join(merged)))
+    later = I.later_table_mods(game / "mods", MOD_NAME)
+    if later:
+        notes.append(("table_later", ", ".join(later)))
     if copied:
+        variant = payload_variant(game)
+        sha = hashlib.sha256((payload_dir() / variant / "subsdk9").read_bytes()).hexdigest()
         (target.parent / ".super-hero-boost").write_text(
-            json.dumps({"variant": "recomp", **s.to_dict()}, indent=1))
+            json.dumps({"variant": "recomp", "module": variant, "module_sha": sha, **s.to_dict()}, indent=1))
     return copied, notes
 
 
@@ -1080,9 +1138,10 @@ def install(game_path, s: I.Settings, rebuild: bool = True, builder_path=None, w
             if not dest.exists():
                 ex.rename(dest)
     exefs = exefs_of(game)
-    ips = payload_dir() / "standalone" / "ours.ips"
+    variant = payload_variant(game)
+    ips = payload_dir() / variant / "ours.ips"
     if not ips.exists():
-        raise I.InstallError("no_payload", "standalone")
+        raise I.InstallError("no_payload", variant)
     bid = main_build_id(exefs / "main")
     if bid and not bid.startswith(MODULE_BUILD):
         raise I.InstallError("recomp_bad_build", bid[:8])
@@ -1097,7 +1156,10 @@ def install(game_path, s: I.Settings, rebuild: bool = True, builder_path=None, w
             raise I.InstallError("recomp_no_builder", str(builder_path or ""))
         w = Path(work).expanduser() if work else find_work(game)
         build(game, Path(builder), w, progress=progress, log=log)
-        write_image(game, s)          # the new image may have been written by the lift
+        # (the lift writes a new image.bin: the module reads its configuration from there, so patch it again and say
+        # so when this build cannot have it, instead of reporting a finished install)
+        if not write_image(game, s):
+            raise I.InstallError("recomp_needs_build", str(game))
     return Result(game, rebuild, notes)
 
 
@@ -1110,6 +1172,14 @@ def apply_settings(game_path, s: I.Settings) -> Result:
     if _game_processes(game):
         raise I.InstallError("recomp_running", str(game))
     if not (exefs_of(game) / "subsdk9").exists():
+        raise I.InstallError("recomp_needs_build", str(game))
+    src = payload_dir() / payload_variant(game) / "subsdk9"
+    try:
+        cfg = json.loads((game / "mods" / MOD_NAME / ".super-hero-boost").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        cfg = {}
+    current = hashlib.sha256(src.read_bytes()).hexdigest() if src.exists() else None
+    if src.exists() and (cfg.get("module") != payload_variant(game) or cfg.get("module_sha") != current):
         raise I.InstallError("recomp_needs_build", str(game))
     bid = main_build_id(exefs_of(game) / "main")
     if bid and not bid.startswith(MODULE_BUILD):
@@ -1154,8 +1224,10 @@ def uninstall(game_path) -> bool:
         if p.exists():
             p.unlink()
             restored = True
-    mods = game / "mods" / MOD_NAME
-    if mods.exists():
-        shutil.rmtree(mods)
-        restored = True
+    for d in I.our_mod_folders(game / "mods"):
+        try:
+            shutil.rmtree(d)
+            restored = True
+        except OSError:
+            pass
     return restored

@@ -54,6 +54,10 @@ CODE_SITES = (
     (0x439520, "hook_code_settext", 20),   # text-pane text setter (x0 pane, x1 {chars, len}): A action label
     (0x152F8F0, "hook_code_inst", 4),   # part instance creation (x1 layout, x2 pane): diagnostics
     (0x43A6F8, "hook_ui", 2),            # UI resource build (x0 = handle, x1 = config)
+    # Diagnostic: the second instruction of the frame and speed functions. If these fire while the
+    # entry hooks (ids 0 and 10) do not, the calls enter the body and the entry is bypassed.
+    (0x2B30DE4, "hook_code_frame4", 22, 0xA9BD7BFD),
+    (0x9352F4, "hook_code_speed4", 23, 0xD100C3FF),
 )
 # Mid-function store hooks: the stock instruction at `site` is replaced by a
 # branch to a wrapper that saves the registers, calls our handler, executes the

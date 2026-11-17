@@ -31,8 +31,8 @@ Prebuilt apps: `SuperHeroBoostConfig.exe` (Windows), `SuperHeroBoostConfig-linux
 - Controls: target with R3 (swaps ZL/R3), hold L3 to sprint with the native animation, and the manual
   shield keeps L reserved.
 - Quick select (normal feature): hold D-pad Down/Up to switch boots/masks; the named profiles include it.
-- Button mapping: B / L / R / ZR, Switch / PlayStation / Xbox styles, extended or simple layout, L in item or
-  selector mode, songbook autoplay.
+- Button mapping: B / L / R / ZR, Switch / PlayStation / Xbox styles (global: the game's own prompts too, downloaded
+  once from the GameBanana controller-UI mod), extended or simple layout, L in item or selector mode, songbook autoplay.
 - Optional world changes (Great Fairy rewards, Farore outdoors) and beta enemy options (duplication, movement,
   animation, attack cadence and projectile speed), generated from your own game files.
 - Install and uninstall into the emulator's `user/load/0400486024DEC000` folder.
@@ -52,7 +52,7 @@ Prebuilt apps: `SuperHeroBoostConfig.exe` (Windows), `SuperHeroBoostConfig-linux
 3. Run `SuperHeroBoostConfig.exe`.
 4. Pick a profile or tune each section, choose the emulator/game folder and press **Install** (or **Rebuild game**
    for Longshot).
-5. Start the game. To remove the mod, press **Uninstall** or delete `00-Super-Hero-Boost`.
+5. Start the game. To remove the mod, press **Uninstall** or delete `zz-Super-Hero-Boost`.
 
 ## Files
 

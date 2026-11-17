@@ -338,8 +338,11 @@ def edit_autoplace(path, size_changes):
             for k, v in list(node.items()):
                 if k in ("CreateActorCountMinAtOnce", "CreateActorCountMaxAtOnce",
                          "MinExistActorCountToCreate") and isinstance(v, byml.Val) and isinstance(v.v, int):
-                    node[k] = byml.Val(v.t, max(1, v.v * 2))
-                    changed = True
+                    # 0 means the spawn is off there (Enemy_Stalchild_Adult: no Stalchildren for adult Link): keep
+                    # it off instead of turning it on with a minimum of 1
+                    if v.v > 0:
+                        node[k] = byml.Val(v.t, v.v * 2)
+                        changed = True
                 elif k in ("IntervalToCreateFrame", "IntervalRandomToCreateFrame") and isinstance(v, byml.Val) \
                         and isinstance(v.v, (int, float)):
                     node[k] = byml.Val(v.t, v.v / 2.0)

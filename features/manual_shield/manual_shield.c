@@ -66,6 +66,7 @@ u32 g_ms_target_value = 0xFFFFFFFFu;  /* diagnostic: raw GameData enum value */
 u32 g_ms_tick;           /* scheduler frames (manual_shield_on_frame calls) */
 u32 g_ms_last_tick;      /* tick at the previous gameplay HID read */
 u32 g_ms_stale;          /* gameplay HID reads without a scheduler tick */
+u32 g_ms_state_class;    /* last proof about targeting: 1 LockOn* state, 2 plain locomotion, 0 none */
 
 /* Diagnostic counters for tools/live_check (not used by the game). */
 u32 g_ms_dbg[8] = {0x10000000u, 0, 0, 0, 0, 0, 0, 0};
@@ -173,6 +174,18 @@ static u32 ms_target_active(void) {
     return g_ms_zl_raw;
 }
 
+/* What the current action proves about targeting. The targeting states are all prefixed "LockOn" (LockOnWait,
+ * LockOnMove, LockOnTurn...), while the plain locomotion states only exist without a target. Attacks (CutS1,
+ * ChargeWait...), guards, jumps and hit reactions prove nothing: they are shared by both and must keep the
+ * previous value, otherwise the target latch drops in the middle of an attack and a fresh L press reaches the
+ * game's item selector. */
+static u32 ms_target_class(void) {
+    if (player_state_starts("LockOn")) return 1;
+    if (player_state_is("Wait") || player_state_is("Move") || player_state_is("Walk") ||
+        player_state_is("Brake") || player_state_is("Turn") || player_state_is("Idle")) return 2;
+    return 0;
+}
+
 static void set_native_bool(u64 iface, u32 id, u32 value) {
     u64 vtable = *(volatile u64 *)iface;
     if (!vtable) return;
@@ -193,6 +206,7 @@ void manual_shield_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_re
         g_ms_zl_prev = 0;
         g_ms_prev_l = 0;
         g_ms_l_latch = 0;
+        g_ms_state_class = 0;
         return;
     }
     g_ms_active = 1;
@@ -214,9 +228,9 @@ void manual_shield_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_re
         g_ms_allowed = 0;
         g_ms_dbg[5]++;
         /* A hit stop can pause the player scheduler for a few frames without leaving gameplay. While the
-         * shield is up L is still ours there: consume it so the default L/item function cannot fire in the
-         * middle of the hit. */
-        if (g_ms_last_allowed && ms_gameplay_state()) {
+         * shield is up, or a target is held, L is still ours there: consume it so the default L/item
+         * function cannot fire in the middle of the hit or the attack. */
+        if ((g_ms_last_allowed || g_ms_targeting || g_ms_l_latch) && ms_gameplay_state()) {
             for (u32 i = 0; i < count; i++) {
                 u64 b = hid_get_buttons(&view, i);
                 hid_set_buttons(&view, i, b & ~MS_BTN_L);
@@ -230,6 +244,7 @@ void manual_shield_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_re
         g_ms_held = 0;
         g_ms_allowed = 0;
         g_ms_targeting = 0;
+        g_ms_state_class = 0;
         g_ms_last_allowed = 0;
         return;
     }
@@ -300,6 +315,7 @@ void manual_shield_on_frame(void *scheduler) {
         g_ms_last_allowed = 0;
         g_ms_toggle_mode = 1;
         g_ms_target_value = 0xFFFFFFFFu;
+        g_ms_state_class = 0;
         return;
     }
     g_ms_active = 1;
@@ -311,20 +327,28 @@ void manual_shield_on_frame(void *scheduler) {
      * few times per second so the ZL behaviour follows the setting. */
     if (g_ms_tick == 1u || (g_ms_tick % 10u) == 0u) refresh_target_mode();
 
-    /* Toggle Target: ZL is a latched target toggle (one rising edge per press).
-     * Hold Target: the game itself owns the hold; keep our latch off. */
+    /* Toggle Target: the target button (ZL, or R3 when target_r3 swaps them and controls.c has already
+     * exchanged the bits) is a latched toggle, one rising edge per press. Hold Target: the game itself owns
+     * the hold; keep our latch off. */
     if (ms_gameplay_state()) {
         u8 zl = g_ms_zl_raw;
-        if (g_shbcfg.target_r3) {
-            /* The swapped ZL/R3 is native: the game's Toggle/Hold owns the target. */
-            g_ms_targeting = 0;
-        } else if (g_ms_toggle_mode) {
+        if (g_ms_toggle_mode) {
             if (zl && !g_ms_zl_prev) {
                 g_ms_targeting ^= 1u;
                 g_ms_dbg[3]++;
             }
+            /* The game is the other half of the latch: the target can end (the target dies, the game
+             * cancels it) or start without our button. Follow the state when it proves something, so the
+             * latch also survives the attack states where neither the button nor a LockOn* name is there. */
+            u32 cls = ms_target_class();
+            if (cls && cls != g_ms_state_class) {
+                g_ms_targeting = (u8)(cls == 1);
+                g_ms_state_class = cls;
+            }
         } else {
+            /* Hold Target: the button itself says whether Link is targeting, keep the latch off. */
             g_ms_targeting = 0;
+            g_ms_state_class = 0;
         }
         g_ms_zl_prev = zl;
     } else {
@@ -332,6 +356,7 @@ void manual_shield_on_frame(void *scheduler) {
         g_ms_l_raw = 0;
         g_ms_zl_prev = 0;
         g_ms_targeting = 0;
+        g_ms_state_class = 0;
         g_ms_last_allowed = 0;
     }
 

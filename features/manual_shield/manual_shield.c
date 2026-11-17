@@ -78,6 +78,9 @@ u32 hud_frame_count(void);
 extern u32 g_sw_cancel_frame;   /* features/controls: frame the player dropped the target (long press), 0 none */
 u64 attention_locked_actor(void);   /* features/controls: the actor the game has locked on, or 0 */
 u64 g_ms_lock_actor;            /* the enemy locked on in the previous frame (automatic next target) */
+u8 g_ms_r3_prev;                /* previous R3 (the shield's cancel button without the swap) */
+u8 g_ms_r3_own;                 /* this R3 press cancelled the target: hidden from the game until let go */
+u8 g_ms_cancel;                 /* reads left with our target press that drops the target */
 
 /* The enemy is dead (its Life record at 0), or gone: its component chain no longer reads as an actor. */
 static u32 ms_actor_dead(u64 actor) {
@@ -193,8 +196,11 @@ static u32 guard_busy(u64 iface, u64 state) {
  * R3 swap leaves the target to the game). Hold Target: only while the target button is held; the game's
  * LockOn* states linger after it is let go and also follow an attack, so they do not count. */
 static u32 ms_target_active(void) {
-    if (g_ms_toggle_mode) return g_ms_targeting || player_state_starts("LockOn");
-    return g_ms_zl_raw;
+    /* The game's own lock link (features/controls): valid while an enemy is locked, through attacks and hit
+     * reactions too. The LockOn* action names are not used: they also show up near enemies without a target. In
+     * Hold Target the held button also counts (the target camera without an enemy). */
+    if (attention_locked_actor()) return 1;
+    return !g_ms_toggle_mode && g_ms_zl_raw;
 }
 
 /* What the current action proves about targeting. The targeting states are all prefixed "LockOn" (LockOnWait,
@@ -303,7 +309,16 @@ void manual_shield_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_re
     g_ms_zl_raw = zl;
     g_ms_l_raw = l;
     g_ms_prev_l = l;
-    if (ms && r3 && !g_shbcfg.target_r3) { g_ms_targeting = 0; g_ms_dbg[4]++; }   /* the shield's R3 cancel */
+    /* The shield's R3 cancel (without the ZL/R3 swap): a press of R3 while locked drops the target with a short
+     * press of the target button of ours (the game's toggle lets go), and R3 itself does not reach the game. */
+    if (ms && !g_shbcfg.target_r3 && g_ms_toggle_mode && r3 && !g_ms_r3_prev && attention_locked_actor()) {
+        g_ms_r3_own = 1;
+        g_ms_cancel = 4;
+        g_sw_cancel_frame = hud_frame_count() | 1u;   /* (the automatic next target ignores this drop) */
+        g_ms_dbg[4]++;
+    }
+    if (!r3) g_ms_r3_own = 0;
+    g_ms_r3_prev = r3;
     g_ms_dbg[1] = g_ms_held;
     g_ms_dbg[2] = g_ms_targeting;
 
@@ -315,25 +330,23 @@ void manual_shield_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_re
     /* An L press that started as ours stays ours until it is let go (letting go of the target while
      * holding L must not open the item selector halfway through the press). */
     g_ms_l_latch = (u8)(l && own_l);
-    /* With the R3/ZL swap the target button is native: pass it through instead of latching it. */
-    u32 native_zl = g_shbcfg.target_r3 || !ms;   /* without the shield the game's own toggle is left alone */
-
+    (void)toggle;
+    /* The target button always reaches the game as the player presses it (the game's own Hold/Toggle decides);
+     * only the presses of ours below are added. (It used to be re-created from a latch fed by the LockOn*
+     * action names, which also show up near enemies: the game then locked on by itself.) */
     for (u32 i = 0; i < count; i++) {
         u64 b = hid_get_buttons(&view, i);
-        if (toggle && !native_zl) b &= ~MS_BTN_ZL;   /* toggle mode: ZL is consumed and re-synthesised */
         /* While targeting or guarding L is ours, including during shield-hit reactions
          * (Guard/Repelled/GuardBreak): otherwise the default L (item/selector) fires for a frame in the
          * middle of the hit. */
         if (own_l) b &= ~MS_BTN_L;
-        /* toggle mode: synth native ZL from our latch or an active L guard; the
-         * native LockOn state alone must not keep itself alive. Hold mode leaves
-         * the physical ZL untouched. */
-        if (toggle && !native_zl && (g_ms_targeting || guard_active)) b |= MS_BTN_ZL;
+        if (g_ms_r3_own) b &= ~MS_BTN_R3;
         /* The target died: press target again so the game picks the next one. The game sees ZL (controls.c
-         * already swapped R3 into it), and a short hold is one press for the toggle. */
-        if (g_ms_retarget) b |= MS_BTN_ZL;
+         * already swapped R3 into it), and a short hold is one press for the toggle. Also the R3 cancel. */
+        if (g_ms_retarget || g_ms_cancel) b |= MS_BTN_ZL;
         hid_set_buttons(&view, i, b);
     }
+    if (g_ms_cancel) g_ms_cancel--;
     g_ms_dbg[0]++;
 }
 

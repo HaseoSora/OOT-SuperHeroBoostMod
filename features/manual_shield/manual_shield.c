@@ -73,13 +73,23 @@ u32 g_ms_press_tick;     /* tick of the last real target press, to ignore the ga
 u8 g_ms_drop;            /* consecutive plain locomotion frames (proof that the target is gone) */
 u8 g_ms_drop_target;     /* we were targeting when those frames started */
 u32 g_ms_retargets;      /* diagnostic: automatic target presses */
-u8 g_ms_switch_req;      /* the switch button was pressed while targeting */
-u8 g_ms_switch_step;     /* 1 cancel, 2 turn towards the next enemy, 3 lock again */
-u8 g_ms_switch;          /* frames left in the current step */
-u8 g_ms_r3_prev;         /* previous physical R3 (the switch button) */
-int g_ms_sw_x;           /* stick direction towards the next enemy */
-int g_ms_sw_y;
-u32 g_ms_switches;       /* diagnostic: manual target switches */
+
+u32 hud_frame_count(void);
+extern u32 g_sw_cancel_frame;   /* features/controls: frame the player dropped the target (long press), 0 none */
+u64 attention_locked_actor(void);   /* features/controls: the actor the game has locked on, or 0 */
+u64 g_ms_lock_actor;            /* the enemy locked on in the previous frame (automatic next target) */
+
+/* The enemy is dead (its Life record at 0), or gone: its component chain no longer reads as an actor. */
+static u32 ms_actor_dead(u64 actor) {
+    if (actor < 0x10000 || (actor & 7)) return 1;
+    u64 table = *(volatile u64 *)(actor + 0x270);
+    if (table < 0x10000 || (table & 7)) return 1;
+    u64 life = *(volatile u64 *)(table + 0x2B8);
+    if (life < 0x10000 || (life & 7)) return 1;
+    u64 rec = *(volatile u64 *)(life + 0x1C10);
+    if (rec < 0x10000 || (rec & 7)) return 1;
+    return *(volatile int *)(rec + 8) <= 0;
+}
 
 /* Diagnostic counters for tools/live_check (not used by the game). */
 u32 g_ms_dbg[8] = {0x10000000u, 0, 0, 0, 0, 0, 0, 0};
@@ -179,74 +189,6 @@ static u32 guard_busy(u64 iface, u64 state) {
     return 0;
 }
 
-/* Enemies tracked by core/player.c (actor, squared distance, stamp, chase). */
-typedef struct { u64 actor; float d2; u32 stamp; u32 chase; } MsEnemy;
-extern MsEnemy g_em[24];
-
-/* No libm in the module: Newton's method is plenty for the distances used here. */
-static float ms_sqrtf(float x) {
-    if (x <= 0.0f) return 0.0f;
-    float r = x > 1.0f ? x * 0.5f : 1.0f;
-    for (int i = 0; i < 20; i++) r = 0.5f * (r + x / r);
-    return r;
-}
-
-static void ms_pos(u64 actor, float out[3]) {
-    const volatile float *p = (const volatile float *)(actor + 0x31C);
-    out[0] = p[0]; out[1] = p[1]; out[2] = p[2];
-}
-
-static u32 ms_enemy_alive(u64 actor) {
-    u64 table = rd(actor, 0x270);
-    if (!table) return 0;
-    u64 life = rd(table, 0x2B8);
-    if (!life) return 0;
-    u64 rec = rd(life, 0x1C10);
-    return rec && *(volatile int *)(rec + 8) > 0;
-}
-
-/* Stick direction (NpadFullKeyState left stick) towards the enemy the game marks as the next target: the
- * nearest alive one that is not the locked one. Forward is the direction to the current target, which is
- * what the targeting camera looks along; no trigonometry needed, just the projection on that basis. */
-static u32 ms_turn_to_next(u64 actor, u64 state, int *out_x, int *out_y) {
-    if (!actor || !state) return 0;
-    float pp[3], tp[3];
-    ms_pos(actor, pp);
-    ms_pos(state, tp);
-    const volatile float *cached = (const volatile float *)(state + 0x1BF0);
-    float cx = cached[0], cy = cached[1], cz = cached[2];
-    float fx = cx - pp[0], fz = cz - pp[2];
-    float fl = ms_sqrtf(fx * fx + fz * fz);
-    if (fl < 0.01f) return 0;
-    fx /= fl; fz /= fl;
-    float best = 0.0f;
-    float bx = 0.0f, bz = 0.0f;
-    for (u32 i = 0; i < 24; i++) {
-        u64 e = g_em[i].actor;
-        if (!e) continue;
-        float ep[3];
-        ms_pos(e, ep);
-        float dx = ep[0] - cx, dz = ep[2] - cz;
-        if (dx * dx + dz * dz < 0.36f) continue;          /* the locked enemy itself */
-        if (!ms_enemy_alive(e)) continue;
-        float ex = ep[0] - pp[0], ez = ep[2] - pp[2];
-        float d2 = ex * ex + ez * ez;
-        if (d2 < 0.25f || d2 > 400.0f) continue;          /* out of reach */
-        if (!best || d2 < best) { best = d2; bx = ex; bz = ez; }
-    }
-    if (!best) return 0;
-    float bl = ms_sqrtf(bx * bx + bz * bz);
-    bx /= bl; bz /= bl;
-    float sx = bx * fz - bz * fx;                          /* right */
-    float sy = bx * fx + bz * fz;                          /* forward */
-    float sl = ms_sqrtf(sx * sx + sy * sy);
-    if (sl < 0.01f) return 0;
-    *out_x = (int)(sx / sl * 28000.0f);
-    *out_y = (int)(sy / sl * 28000.0f);
-    (void)tp;
-    return 1;
-}
-
 /* Is Link targeting right now? Toggle Target: our latch (or the native lock-on state, the only signal when the
  * R3 swap leaves the target to the game). Hold Target: only while the target button is held; the game's
  * LockOn* states linger after it is let go and also follow an attack, so they do not count. */
@@ -274,10 +216,17 @@ static void set_native_bool(u64 iface, u32 id, u32 value) {
     if (setter) setter((void *)iface, id, value);
 }
 
+/* Target tracking (the toggle latch and the automatic next target after a death) is shared
+ * by two independent options: it runs when either is on. Only the manual shield itself owns L, re-creates
+ * ZL and touches the guard. */
+static u32 ms_tracking(void) {
+    return g_shbcfg.manual_shield || g_shbcfg.auto_target;
+}
+
 void manual_shield_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_result) {
     (void)a2;
     if (site != 3 || !a0) return;
-    if (!g_shbcfg.manual_shield) {
+    if (!ms_tracking()) {
         g_ms_active = 0;
         g_ms_held = 0;
         g_ms_allowed = 0;
@@ -292,11 +241,11 @@ void manual_shield_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_re
         g_ms_retry = 0;
         g_ms_drop = 0;
         g_ms_drop_target = 0;
-        g_ms_switch_step = 0;
-        g_ms_switch_req = 0;
         return;
     }
-    g_ms_active = 1;
+    const u32 ms = g_shbcfg.manual_shield;
+    g_ms_active = (u8)(ms != 0);
+    if (!ms) { g_ms_held = 0; g_ms_allowed = 0; g_ms_l_latch = 0; g_ms_last_allowed = 0; }
     u32 count = (u32)(unsigned long)a1;
     if (count == 0 || count > 64) count = stock_result;
     if (count == 0 || count > 64) return;
@@ -317,7 +266,7 @@ void manual_shield_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_re
         /* A hit stop can pause the player scheduler for a few frames without leaving gameplay. While the
          * shield is up, or a target is held, L is still ours there: consume it so the default L/item
          * function cannot fire in the middle of the hit or the attack. */
-        if ((g_ms_last_allowed || g_ms_targeting || g_ms_l_latch) && ms_gameplay_state()) {
+        if (ms && (g_ms_last_allowed || g_ms_targeting || g_ms_l_latch) && ms_gameplay_state()) {
             for (u32 i = 0; i < count; i++) {
                 u64 b = hid_get_buttons(&view, i);
                 hid_set_buttons(&view, i, b & ~MS_BTN_L);
@@ -351,16 +300,10 @@ void manual_shield_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_re
     u8 zl = (u8)((all & MS_BTN_ZL) != 0);
     u8 l = (u8)((all & MS_BTN_L) != 0);
     u8 r3 = (u8)((all & MS_BTN_R3) != 0);
-    /* Manual target switch: the other shoulder button (R3, or ZL with the swap) while targeting. The
-     * sequence itself runs in on_frame; here it only raises the request once per press. */
-    if (r3 && !g_ms_r3_prev && g_shbcfg.switch_target && !g_ms_switch_step && g_ms_toggle_mode &&
-        ms_target_active())
-        g_ms_switch_req = 1;
-    g_ms_r3_prev = r3;
     g_ms_zl_raw = zl;
     g_ms_l_raw = l;
     g_ms_prev_l = l;
-    if (r3 && !g_shbcfg.target_r3) { g_ms_targeting = 0; g_ms_dbg[4]++; }
+    if (ms && r3 && !g_shbcfg.target_r3) { g_ms_targeting = 0; g_ms_dbg[4]++; }   /* the shield's R3 cancel */
     g_ms_dbg[1] = g_ms_held;
     g_ms_dbg[2] = g_ms_targeting;
 
@@ -368,12 +311,12 @@ void manual_shield_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_re
      * reactions); with no target it reaches the game and keeps its default function. */
     u32 toggle = g_ms_toggle_mode;
     u32 guard_active = g_ms_held != 0;
-    u32 own_l = ms_target_active() || guard_active || g_ms_last_allowed || g_ms_l_latch;
+    u32 own_l = ms && (ms_target_active() || guard_active || g_ms_last_allowed || g_ms_l_latch);
     /* An L press that started as ours stays ours until it is let go (letting go of the target while
      * holding L must not open the item selector halfway through the press). */
     g_ms_l_latch = (u8)(l && own_l);
     /* With the R3/ZL swap the target button is native: pass it through instead of latching it. */
-    u32 native_zl = g_shbcfg.target_r3;
+    u32 native_zl = g_shbcfg.target_r3 || !ms;   /* without the shield the game's own toggle is left alone */
 
     for (u32 i = 0; i < count; i++) {
         u64 b = hid_get_buttons(&view, i);
@@ -389,16 +332,6 @@ void manual_shield_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_re
         /* The target died: press target again so the game picks the next one. The game sees ZL (controls.c
          * already swapped R3 into it), and a short hold is one press for the toggle. */
         if (g_ms_retarget) b |= MS_BTN_ZL;
-        /* Manual switch sequence: cancel, walk towards the next enemy, lock again. */
-        if (g_ms_switch_step) {
-            b &= ~MS_BTN_R3;                       /* the switch press is ours */
-            if (g_ms_switch_step != 2) b |= MS_BTN_ZL;
-            else {
-                volatile int *st = (volatile int *)((unsigned char *)view.samples + (u64)i * HID_STRIDE + 0x10);
-                st[0] = g_ms_sw_x;
-                st[1] = g_ms_sw_y;
-            }
-        }
         hid_set_buttons(&view, i, b);
     }
     g_ms_dbg[0]++;
@@ -409,7 +342,7 @@ void manual_shield_on_frame(void *scheduler) {
     g_ms_equipment = 0;
     g_ms_carrying = 0;
     g_ms_allowed = 0;
-    if (!g_shbcfg.manual_shield) {
+    if (!ms_tracking()) {
         g_ms_active = 0;
         g_ms_state = 0;
         g_ms_tick = 0;
@@ -432,7 +365,8 @@ void manual_shield_on_frame(void *scheduler) {
         g_ms_drop_target = 0;
         return;
     }
-    g_ms_active = 1;
+    const u32 ms = g_shbcfg.manual_shield;
+    g_ms_active = (u8)(ms != 0);   /* the guard wrappers (manual_shield.S) act only for the shield itself */
     ++g_ms_tick;
     g_ms_dbg[6]++;
     g_ms_held = 0;
@@ -462,20 +396,32 @@ void manual_shield_on_frame(void *scheduler) {
                  * Only after the plain state lasts a few frames (a one-frame Move in the middle of a
                  * targeting transition must not cancel a target that is still there), and once per lost
                  * target, so a failed press does not turn into a loop. */
-                if (!g_ms_drop) g_ms_drop_target = g_ms_targeting;
                 if (g_ms_drop < 200u) g_ms_drop++;
-                if (g_ms_drop == 3u && g_ms_drop_target && !zl && g_shbcfg.auto_target && !g_ms_retry &&
-                    !g_ms_switch_step && (g_ms_tick - g_ms_press_tick) > 10u) {
-                    g_ms_retarget = 3;
-                    g_ms_retry = 1;
-                    g_ms_press_tick = g_ms_tick;
-                    g_ms_retargets++;
-                }
                 g_ms_targeting = 0;
             } else {
                 g_ms_drop = 0;   /* attacks, guards, jumps and hit reactions: no proof either way */
             }
             g_ms_state_class = cls;
+            /* Automatic next target. The game's own lock link (features/controls) says which enemy is locked;
+             * the LockOn* action names do not, they also show up near enemies without a target. When the
+             * game lets go of an enemy that has died, press target once so it locks on to the next one (it
+             * does nothing when there is none). A target the player dropped (a long press of the target
+             * button) is never followed by a press of ours. */
+            {
+                u64 cur = attention_locked_actor();
+                if (cur) {
+                    g_ms_lock_actor = cur;
+                } else if (g_ms_lock_actor) {
+                    u64 lost = g_ms_lock_actor;
+                    g_ms_lock_actor = 0;
+                    u32 dropped = g_sw_cancel_frame && hud_frame_count() - g_sw_cancel_frame < 90u;
+                    if (g_shbcfg.auto_target && !dropped && !zl && ms_actor_dead(lost)) {
+                        g_ms_retarget = 3;
+                        g_ms_press_tick = g_ms_tick;
+                        g_ms_retargets++;
+                    }
+                }
+            }
             /* The player's own press (the game's toggle): one rising edge per press. */
             if (zl && !g_ms_zl_prev) {
                 g_ms_targeting ^= 1u;
@@ -521,21 +467,8 @@ void manual_shield_on_frame(void *scheduler) {
     u64 equipment = table ? rd(table, 0x200) : 0;
     if (iface && equipment) g_ms_equipment = equipment;
 
-    /* Manual target switch: cancel, turn towards the marked enemy, lock again. */
-    if (g_ms_switch_step) {
-        if (g_ms_switch > 1) g_ms_switch--;
-        else if (g_ms_switch_step == 1) { g_ms_switch_step = 2; g_ms_switch = 12; }
-        else if (g_ms_switch_step == 2) { g_ms_switch_step = 3; g_ms_switch = 3; }
-        else g_ms_switch_step = 0;
-    }
-    if (g_ms_switch_req) {
-        g_ms_switch_req = 0;
-        if (ms_turn_to_next(actor, state, &g_ms_sw_x, &g_ms_sw_y)) {
-            g_ms_switch_step = 1;
-            g_ms_switch = 2;
-            g_ms_switches++;
-        }
-    }
+    /* Without the manual shield the guard stays the game's own: no flags, no setter, nothing drawn. */
+    if (!ms) { g_ms_held = 0; g_ms_last_allowed = 0; return; }
 
     /* The option is standalone: no stamina gate (the stamina feature still
      * charges its own held/hit costs if it is enabled). */

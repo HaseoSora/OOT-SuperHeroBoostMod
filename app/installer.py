@@ -2,9 +2,11 @@
 inside the prebuilt module, merges the IPS patch files and copies files into the emulator's mod folder.
 User-facing problems are raised as InstallError(key, arg) so the window can show them in the chosen language."""
 import json
+import os
 import re
 import shutil
 import struct
+import subprocess
 import sys
 import zstandard
 from dataclasses import dataclass, field
@@ -123,6 +125,48 @@ def _load_directory(emu: Path) -> Path | None:
             if p.exists():
                 return p
     return None
+
+
+EMU_EXES = ("eden", "citron", "sudachi", "suyu", "torzu", "yuzu", "ryujinx", "kenji-nx", "kenjinx")
+EMU_SKIP = ("maintenance", "update", "uninst", "crash", "cmd", "room", "tester")
+
+
+def emulator_exe(emu: Path) -> Path | None:
+    """The emulator program in the chosen folder (or a few folders above it, when the path points at its
+    user/load or title folder): a known name first, then any other program there."""
+    if not emu:
+        return None
+    p = Path(emu).expanduser()
+    if p.is_file():
+        return p
+    ext = (".exe",) if os.name == "nt" else ("", ".AppImage")
+    for d in [p, *list(p.parents)[:4]]:
+        if not d.is_dir():
+            continue
+        try:
+            files = [f for f in d.iterdir() if f.is_file()]
+        except OSError:
+            continue
+        progs = [f for f in files if (f.suffix.lower() in ext if os.name == "nt" else
+                                      (f.suffix in ext and os.access(f, os.X_OK)))]
+        for name in EMU_EXES:
+            for f in progs:
+                if f.stem.lower().startswith(name) and not any(s in f.stem.lower() for s in EMU_SKIP):
+                    return f
+        if os.name == "nt":
+            other = [f for f in progs if not any(s in f.stem.lower() for s in EMU_SKIP)]
+            if len(other) == 1:
+                return other[0]
+    return None
+
+
+def launch(exe: Path, args=()) -> None:
+    """Start a program detached from the app, in its own folder."""
+    flags = 0
+    if os.name == "nt":
+        flags = getattr(subprocess, "DETACHED_PROCESS", 0) | getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
+    subprocess.Popen([str(exe), *args], cwd=str(exe.parent), creationflags=flags, close_fds=True,
+                     stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
 def find_mods_dir(emu: Path) -> Path | None:

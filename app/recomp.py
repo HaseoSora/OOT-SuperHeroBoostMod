@@ -252,6 +252,15 @@ def exefs_of(game: Path) -> Path:
     raise I.InstallError("recomp_no_game", str(game))
 
 
+def launcher_of(game: Path) -> Path | None:
+    """What opens the game: the launcher beside it (ReLink.exe, longshot.exe...), else the game in bin/."""
+    for n in LAUNCHER_NAMES:
+        p = game / n
+        if p.is_file():
+            return p
+    return exe_of(game)
+
+
 def exe_of(game: Path) -> Path | None:
     for e in EXE_NAMES:
         if (game / e).exists():

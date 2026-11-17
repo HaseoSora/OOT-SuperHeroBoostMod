@@ -243,9 +243,11 @@ class ScrollArea:
 
     def __init__(self, parent, bg):
         import tkinter as tk
+        from tkinter import ttk
         self.frame = tk.Frame(parent, bg=bg)
         self.canvas = tk.Canvas(self.frame, bg=bg, highlightthickness=0)
-        self.bar = tk.Scrollbar(self.frame, orient="vertical", command=self.canvas.yview)
+        self.bar = ttk.Scrollbar(self.frame, orient="vertical", command=self.canvas.yview,
+                                 style="SHB.Vertical.TScrollbar")
         self.canvas.configure(yscrollcommand=self.bar.set)
         self.canvas.pack(side="left", fill="both", expand=True)
         self.bar.pack(side="right", fill="y")
@@ -407,6 +409,16 @@ def gui() -> None:
                     arrowcolor=ACCENT, bordercolor=BORDER, lightcolor=PANEL, darkcolor=PANEL,
                     selectbackground=PANEL2, selectforeground=TEXT)
     style.map("SHB.TCombobox", fieldbackground=[("readonly", PANEL2)], foreground=[("readonly", TEXT)])
+    # Scrollbars: a slim gold thumb on the dark trough, no arrows (the main page and the combobox lists)
+    for sb in ("SHB.Vertical.TScrollbar", "Vertical.TScrollbar"):
+        style.layout(sb, [("Vertical.Scrollbar.trough", {"sticky": "ns", "children": [
+            ("Vertical.Scrollbar.thumb", {"expand": "1", "sticky": "nswe"})]})])
+        style.configure(sb, troughcolor=PANEL2, background=ACCENT_DARK, bordercolor=PANEL2,
+                        lightcolor=ACCENT_DARK, darkcolor=ACCENT_DARK, arrowcolor=ACCENT, gripcount=0,
+                        relief="flat", borderwidth=0, width=10, arrowsize=10)
+        style.map(sb, background=[("pressed", ACCENT), ("active", ACCENT)],
+                  lightcolor=[("pressed", ACCENT), ("active", ACCENT)],
+                  darkcolor=[("pressed", ACCENT), ("active", ACCENT)])
     style.configure("SHB.Horizontal.TProgressbar", troughcolor=PANEL2, background=ACCENT,
                     bordercolor=BORDER, lightcolor=ACCENT, darkcolor=ACCENT, thickness=14)
     root.option_add("*TCombobox*Listbox.background", PANEL2)
@@ -429,11 +441,32 @@ def gui() -> None:
         return tk.Label(parent, text=text, bg=kw.pop("bg", PANEL), fg=color, font=(FAM, size, style_name),
                         justify="left", anchor="w", wraplength=wrap, **kw)
 
-    def card(parent, title, desc=None):
+    def rb_tag(parent):
+        """'Requires rebuild' tag: options stored in the module's configuration (subsdk9). Shown only for a
+        recompiled game (Longshot, Hookshot, ReLink): their exefs is translated into the program, so a change
+        there needs the builder. Romfs options never carry it. refresh() sets its text."""
+        t = tk.Label(parent, text="", bg=PANEL, fg=RED, font=(FAM, 9, "bold"), anchor="w")
+        ui.setdefault("rb_tags", []).append(t)
+        return t
+
+    def check_rb(parent, text, var, **pack):
+        """A feature's main switch: turning it on or off needs the builder on a recompiled game (its sub-options
+        do not), so the 'requires rebuild' tag sits beside it."""
+        row = tk.Frame(parent, bg=PANEL)
+        row.pack(anchor="w", **pack)
+        c = check(row, text, var)
+        c.pack(side="left")
+        rb_tag(row).pack(side="left", padx=(10, 0))
+        return c
+
+    def card(parent, title, desc=None, rebuild=False):
         f = tk.Frame(parent, bg=PANEL, highlightbackground=BORDER, highlightthickness=1)
         f.pack(fill="x", padx=4, pady=(0, 12))
-        tk.Label(f, text=title, bg=PANEL, fg=ACCENT, font=(DISPLAY, 13, "bold"), anchor="w").pack(
-            anchor="w", padx=14, pady=(10, 0))
+        head = tk.Frame(f, bg=PANEL)
+        head.pack(anchor="w", fill="x", padx=14, pady=(10, 0))
+        tk.Label(head, text=title, bg=PANEL, fg=ACCENT, font=(DISPLAY, 13, "bold"), anchor="w").pack(side="left")
+        if rebuild:
+            rb_tag(head).pack(side="left", padx=(10, 0), pady=(3, 0))
         if desc:
             label(f, desc, size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=14, pady=(2, 8))
         body = tk.Frame(f, bg=PANEL)
@@ -768,7 +801,7 @@ def gui() -> None:
                 w.config(state="disabled" if on else "normal")
             except Exception:
                 pass
-        for key in ("install", "uninstall", "rebuild", "builder_btn", "builder_auto", "builder_change"):
+        for key in ("install", "uninstall", "launch", "rebuild", "builder_btn", "builder_auto", "builder_change"):
             w = ui.get(key)
             if w is not None:
                 w.config(state="disabled" if on else "normal")
@@ -955,6 +988,27 @@ def gui() -> None:
             status.set("")
             messagebox.showerror(L("err_title"), str(ex))
 
+    def do_launch():
+        """Open the emulator, or the recompiled game through its launcher."""
+        if target.get() == "recomp":
+            game = ok_recomp()
+            exe = R.launcher_of(game) if game else None
+            if exe is None:
+                messagebox.showerror(L("err_title"), L("e_launch_recomp", a=recomp_path.get()))
+                return
+            if busy["on"]:
+                return
+        else:
+            exe = I.emulator_exe(Path(emu.get().strip())) if emu.get().strip() else None
+            if exe is None:
+                messagebox.showerror(L("err_title"), L("e_launch_emu", a=emu.get()))
+                return
+        try:
+            I.launch(exe)
+            status.set(L("launched", a=exe.name))
+        except OSError as ex:
+            messagebox.showerror(L("err_title"), str(ex))
+
     def do_remove():
         if target.get() == "recomp":
             game = ok_recomp()
@@ -998,6 +1052,11 @@ def gui() -> None:
             w.config(state=("readonly" if isinstance(w, ttk.Combobox) else "normal") if on else "disabled")
         ui["note"].config(text="" if stam else L("stamina_off_note"), fg=AMBER)
         rec = target.get() == "recomp"
+        for t in ui.get("rb_tags", []):
+            try:
+                t.config(text=L("needs_rebuild") if rec else "")
+            except Exception:
+                pass
         mods = ok_emu()
         if rec:
             game = ok_recomp()
@@ -1193,7 +1252,7 @@ def gui() -> None:
 
     def build_stamina(parent):
         body = card(parent, L("stamina_title"), L("stamina_desc"))
-        check(body, L("stamina_on"), stamina).pack(anchor="w")
+        check_rb(body, L("stamina_on"), stamina)
         label(body, L("stamina_on_desc"), size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=(20, 0))
         label(body, L("stamina_display"), size=10, color=ACCENT, bold=True, bg=PANEL).pack(anchor="w", pady=(10, 0))
         for value, key in ((False, "stamina_ring"), (True, "stamina_bar")):
@@ -1311,10 +1370,10 @@ def gui() -> None:
 
     def build_controls(parent):
         body = card(parent, L("controls_title"), L("controls_desc"))
-        check(body, L("target_r3_on"), target_r3).pack(anchor="w")
+        check_rb(body, L("target_r3_on"), target_r3)
         label(body, L("target_r3_desc"), size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=(20, 0))
         label(body, L("target_r3_note"), size=9, color=AMBER, bg=PANEL).pack(anchor="w", padx=(20, 0), pady=(2, 8))
-        check(body, L("sprint_l3_on"), sprint_l3).pack(anchor="w")
+        check_rb(body, L("sprint_l3_on"), sprint_l3)
         label(body, L("sprint_l3_desc"), size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=(20, 0))
         build_manual_shield(parent)
         build_buttons(parent)
@@ -1322,16 +1381,16 @@ def gui() -> None:
 
     def build_manual_shield(parent):
         body = card(parent, L("ms_title"), L("ms_desc"))
-        check(body, L("ms_on"), manual_shield).pack(anchor="w")
+        check_rb(body, L("ms_on"), manual_shield)
         label(body, L("ms_on_desc"), size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=(20, 0), pady=(0, 8))
         label(body, L("ms_controls"), size=9, color=DIM, bg=PANEL).pack(anchor="w")
         label(body, L("ms_note"), size=9, color=AMBER, bg=PANEL).pack(anchor="w", pady=(8, 0))
 
     def build_quick_select(parent):
         body = card(parent, L("quick_title"), L("quick_desc"))
-        check(body, L("quick_boots_on"), quick_boots).pack(anchor="w")
+        check_rb(body, L("quick_boots_on"), quick_boots)
         label(body, L("quick_boots_desc"), size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=(20, 0), pady=(0, 8))
-        check(body, L("quick_mask_on"), quick_mask).pack(anchor="w")
+        check_rb(body, L("quick_mask_on"), quick_mask)
         label(body, L("quick_mask_desc"), size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=(20, 0))
         label(body, L("quick_note"), size=9, color=AMBER, bg=PANEL).pack(anchor="w", pady=(8, 0))
 
@@ -1425,7 +1484,7 @@ def gui() -> None:
 
     def build_buttons(parent):
         body = card(parent, L("buttons_title"), L("buttons_desc"))
-        check(body, L("bm_on"), bmap).pack(anchor="w")
+        check_rb(body, L("bm_on"), bmap)
         label(body, L("bm_on_desc"), size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=(20, 0))
         ui["bm"] = []
         row = tk.Frame(body, bg=PANEL)
@@ -1502,7 +1561,7 @@ def gui() -> None:
     def build_misc(parent):
         body = card(parent, L("misc_title"), L("misc_desc"))
         label(body, L("songbook_title"), size=11, color=ACCENT, bold=True, bg=PANEL).pack(anchor="w", pady=(2, 0))
-        check(body, L("songbook_on"), songbook).pack(anchor="w", pady=(2, 0))
+        check_rb(body, L("songbook_on"), songbook, pady=(2, 0))
         label(body, L("songbook_desc"), size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=(20, 0))
         label(body, L("songbook_note"), size=9, color=AMBER, bg=PANEL).pack(anchor="w", pady=(8, 0))
 
@@ -1612,6 +1671,8 @@ def gui() -> None:
         ui["install"].pack(side="right")
         ui["uninstall"] = button(ft, L("uninstall"), do_remove)
         ui["uninstall"].pack(side="right", padx=(0, 8))
+        ui["launch"] = button(ft, L("launch"), do_launch)
+        ui["launch"].pack(side="right", padx=(0, 8))
         # Shown only for a Hookshot/Longshot target (refresh): rebuild, builder and cancel.
         ui["rebuild"] = button(ft, L("recomp_rebuild"), run_recomp)
         ui["builder_btn"] = button(ft, L("recomp_builder_btn"), browse_builder)
@@ -1635,6 +1696,7 @@ def gui() -> None:
             w.destroy()
         ui["nav"] = {}
         ui["sections"] = {}
+        ui["rb_tags"] = []
         shell = tk.Frame(root, bg=BG)
         shell.pack(fill="both", expand=True)
         build_header(shell)

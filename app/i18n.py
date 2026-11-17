@@ -1615,6 +1615,44 @@ for _lang, _txt in _PADS.items():
     T[_lang].update(_txt)
 
 
+# launch button (emulator / recompiled game)
+_LAUNCH = {
+    "en": dict(launch="Play", launched="Opening {a}...",
+               e_launch_emu="No emulator program was found in {a}. Choose the emulator's folder.",
+               e_launch_recomp="No launcher or game was found in {a}. Choose the game folder."),
+    "es": dict(launch="Jugar", launched="Abriendo {a}...",
+               e_launch_emu="No se encontró el programa del emulador en {a}. Elige la carpeta del emulador.",
+               e_launch_recomp="No se encontró el launcher ni el juego en {a}. Elige la carpeta del juego."),
+    "pt": dict(launch="Jogar", launched="A abrir {a}...",
+               e_launch_emu="O programa do emulador não foi encontrado em {a}. Escolhe a pasta do emulador.",
+               e_launch_recomp="O launcher ou o jogo não foram encontrados em {a}. Escolhe a pasta do jogo."),
+    "fr": dict(launch="Jouer", launched="Ouverture de {a}...",
+               e_launch_emu="Aucun émulateur trouvé dans {a}. Choisissez le dossier de l'émulateur.",
+               e_launch_recomp="Aucun lanceur ni jeu trouvé dans {a}. Choisissez le dossier du jeu."),
+    "de": dict(launch="Spielen", launched="{a} wird geöffnet ...",
+               e_launch_emu="In {a} wurde kein Emulator gefunden. Wähle den Ordner des Emulators.",
+               e_launch_recomp="In {a} wurde weder Launcher noch Spiel gefunden. Wähle den Spielordner."),
+    "it": dict(launch="Gioca", launched="Apertura di {a}...",
+               e_launch_emu="Nessun emulatore trovato in {a}. Scegli la cartella dell'emulatore.",
+               e_launch_recomp="Nessun launcher o gioco trovato in {a}. Scegli la cartella del gioco."),
+}
+for _lang, _txt in _LAUNCH.items():
+    T[_lang].update(_txt)
+
+
+# options stored in the module (subsdk9): a recompiled game needs the builder for them
+_RB = {
+    "en": dict(needs_rebuild="Requires rebuild"),
+    "es": dict(needs_rebuild="Requiere rebuild"),
+    "pt": dict(needs_rebuild="Requer rebuild"),
+    "fr": dict(needs_rebuild="Nécessite un rebuild"),
+    "de": dict(needs_rebuild="Erfordert Rebuild"),
+    "it": dict(needs_rebuild="Richiede rebuild"),
+}
+for _lang, _txt in _RB.items():
+    T[_lang].update(_txt)
+
+
 
 # resource size table notes (the last mod wins a file: ours must sort last and merge the others)
 _TABLE = {

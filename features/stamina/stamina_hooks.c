@@ -41,6 +41,7 @@ void stamina_speed_hook(void *regs) {
     g_speed_dbg[1]++;
 }
 int player_state_is(const char *name);
+int player_state_starts(const char *prefix);
 int player_active(void);
 int player_dead(void);
 int player_max_life(void);
@@ -365,6 +366,8 @@ void stamina_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_result) 
         strip |= BTN_A;                           /* combat-only presets: sprinting is still limited out of combat */
     }
     if (g_stamina.in_combat && g_stamina.stamina <= 0.0f && cost_on(K_ATTACK)) strip |= BTN_Y;   /* no sword at 0 */
+    /* Dialogues, shops and other events (Evt* states) choose with the stick and confirm with A / B: never filtered. */
+    if (player_state_starts("Evt")) { strip = 0; lock = 0; }
     if (lock && preset != 2 && m2 > STICK_FAST2) halve_stick(&view);   /* exhausted: walk only */
     g_sprint_a = sprint_held && !(strip & BTN_A);
     if (strip) {

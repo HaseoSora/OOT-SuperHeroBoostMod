@@ -70,7 +70,6 @@ after a rebuild, and the app picking a ReLink or Hookshot builder for a Longshot
 - The three Great Fairy magic rewards are reordered: Hyrule Castle (child) gives **Nayru's Love**, Death Mountain
   Crater gives the **magic spin attack** and Desert Colossus gives **double magic**.
 - **Farore's Wind** warp points can be placed outdoors.
-- Known bug: press up and down a couple of times before the teleport menu responds.
 
 **Profiles**
 - Recommended, Souls controls, Souls controls + Hero Mode, Base, Manual Shield, Hero Mode, Hero + Stamina,

@@ -1623,7 +1623,6 @@ def gui() -> None:
         label(body, L("farore"), size=10, color=ACCENT, bold=True, bg=PANEL).pack(anchor="w")
         check(body, L("farore_on"), farore_outdoor).pack(anchor="w")
         label(body, L("farore_desc"), size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=(20, 0))
-        label(body, L("farore_note"), size=9, color=AMBER, bg=PANEL).pack(anchor="w", padx=(20, 0), pady=(4, 0))
 
     def open_github():
         import webbrowser

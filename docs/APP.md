@@ -110,7 +110,7 @@ display on the ring, and the enemy speed components off.
     overview dialogue still describes the original order, so trust the fountain itself.
   - **Farore's Wind outdoors**: allows placing Farore's Wind warp points outside dungeons. The real forbidden areas
     inside dungeons (for example the FireTemple areas) stay blocked. It is a patched event flow, installed as a romfs
-    file. **Known bug**: press up and down a couple of times before the teleport menu responds.
+    file.
 - **About**: credits, the material/third-party notice and **Check for updates**.
 
 The bottom bar always shows the install state and the **Install / Uninstall** buttons. Changes are saved

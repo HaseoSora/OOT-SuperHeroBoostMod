@@ -27,6 +27,15 @@ mod's HUD labels in the game's language; the 0.6.0 ReLink fix, manual shield and
 - **HUD labels follow the game's language.** The labels the mod draws itself (Jump / Attack / Roll and the menu's
   Assign:) were always in Spanish; the installer reads the game's language (ReLink/Longshot `language.txt`, the
   emulators' settings) and the HUD uses it. `--lang` forces one.
+- **Button mapping.** ZR is always the game's own item: a B / L / R item is used and the box goes back to the ZR
+  item once Link stands or walks again (not while aiming, so a bow on R shoots its own arrow), a tap uses the item,
+  and assigning the ZR item to a button (or a button's item to ZR) swaps them for real. R never opens the item
+  selector while you play, and L only in the selector mode. With an item on B, **A while standing still puts the
+  sword / item away** (B's own function); A still talks, opens and rolls as usual.
+- **Menus with invisible options (fixed).** The mod's HUD buttons are clones of the game's item box and kept its
+  "focusable" flag, so the cursor went onto them: past the Megaton Hammer on the Items page, and in shops, dialogues,
+  the game-over screen and the Farore's Wind menu you had to press up / down a few times first. They are no longer
+  focusable. The songbook also stopped reading the ocarina outside the ocarina.
 - **Enemy duplicator (beta).** Stalchildren now double too: each spawn zone in the maps carries its own group size
   (2 small, 1 big, the larger groups by the road), which the duplicator never touched; it now doubles every count
   of those zones and the scene's cap on them. It also no longer turns on spawns the game keeps off (adult Link got
@@ -148,7 +157,7 @@ The module, the HUD, the textures and the app are original work: no third-party 
 - **World changes**: reorders the three Great Fairy magic rewards (Hyrule Castle child gives **Nayru's Love**, Death
   Mountain Crater the **magic spin attack** and Desert Colossus **double magic**) and allows placing **Farore's Wind**
   warp points outside dungeons. Each fountain keeps her own model and dialogue; the Din fairy's overview still
-  describes the original order. Known bug: press up and down a couple of times before the teleport menu responds.
+  describes the original order.
 - **Own button mapping** (`buttonMapping`):
   - **B, L, R and ZR** item buttons on the HUD, assignable from the **Items** tab of the pause menu.
   - **Switch / PlayStation / Xbox** button pictures for the mapping HUD.

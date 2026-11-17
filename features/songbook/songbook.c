@@ -123,6 +123,14 @@ static u64 button_for_note(u32 code) {
 void songbook_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_result) {
     (void)a2;
     if (!g_shbcfg.songbook_enabled || site != 3 || !a0) return;
+    /* Only while the ocarina is open: its context is freed when it closes, and that memory is reused by other
+     * menus (shops, dialogues, game over ...). Reading a "selection" there armed a song whose notes then took
+     * A / X / Y / L / R away from the player in that menu until the melody was over. */
+    if (!g_songbook_active) {
+        g_songbook_pending = NO_SONG;
+        g_songbook_inj_tick = 0;
+        return;
+    }
     u64 ctx = g_songbook_ctx;
     if (!valid_ptr(ctx)) return;
 

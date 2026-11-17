@@ -1571,7 +1571,7 @@ static const char *slot_anim_name(u32 i) {
     case 8: return "UnSelect"; case 9: return "Decide"; default: return "Assign";
     }
 }
-typedef struct { u64 part, anim[SA_N], rec, rep, ctrl, hide[9], ic, sh, num_rec; u32 icon_set, shown_name; int shown_item; int num_val, num_item, num_idx; char forced[32]; char num_txt[8]; } SlotBtn;
+typedef struct { u64 part, anim[SA_N], rec, rep, ctrl, uctl, hide[9], ic, sh, num_rec; u32 icon_set, shown_name; int shown_item; int num_val, num_item, num_idx; char forced[32]; char num_txt[8]; } SlotBtn;
 static SlotBtn g_sb[PART_N];
 u64 g_sb_dbg[PART_N];       /* part object per button (diagnostic) */
 int g_sb_stock[PART_N];     /* quantity read for each HUD button (diagnostic; -1 = no quantity) */
@@ -2166,6 +2166,35 @@ static int bm_part_hidden(u32 k) {
     if (g_shbcfg.bm_l_mode && (k == SB_L || k == 7)) return 1;   /* L opens the item selector: no L button */
     return 0;
 }
+/* Our parts are clones of the stock item box and each gets that box's UI control. The stock box's control has its
+ * "focusable" flag (+0x40 bit 0x10) off; ours kept it, so the menu cursor moved onto our invisible parts (Items page,
+ * right of the hammer) and the HUD layout held the focus on one of them (shops, dialogues, game over, Farore's Wind:
+ * the stick went through invisible options first). The control is in its frame's control list ([part + 0x28] + 0x38
+ * is the list's head object, links at +8), vtable main+0x4C216E8, its part at +0x20; byte +0x38 is its state
+ * (3 = focused) and virtual +0xF8 sets it. Measured live (Fritchii). */
+extern char UI_CTRL_VT[];
+static u64 part_ctrl(u64 part) {
+    u64 fr = vptr(part) ? ptr(part, 0x28) : 0;
+    u64 head = vptr(fr) ? ptr(fr, 0x38) : 0;
+    if (!vptr(head)) return 0;
+    u64 first = head + 8, n = first;
+    for (u32 i = 0; i < 1024; i++) {
+        n = ptr(n, 8);
+        if (!vptr(n) || n == first) return 0;
+        u64 o = n - 8;
+        if (ptr(o, 0) == (u64)UI_CTRL_VT && ptr(o, 0x20) == part) return o;
+    }
+    return 0;
+}
+static void ctrl_unfocusable(u64 c) {
+    if (!vptr(c) || ptr(c, 0) != (u64)UI_CTRL_VT) return;
+    volatile u32 *fl = (volatile u32 *)(c + 0x40);
+    if (*fl & 0x10u) *fl &= ~0x10u;
+    if (*(volatile u8 *)(c + 0x38) == 3) {   /* it has the focus: let it go (the game's own state change) */
+        u64 vt = ptr(c, 0);
+        ((void (*)(u64, u32))(void *)ptr(vt, 0xF8))(c, 0);
+    }
+}
 static void slots_draw(SlotBtn *set, const u64 *ctrls, u64 frame, const float *lay, int main_set) {
     for (u32 k = 0; k < PART_N; k++) {
         SlotBtn *b = &set[k];
@@ -2193,8 +2222,10 @@ static void slots_draw(SlotBtn *set, const u64 *ctrls, u64 frame, const float *l
             b->num_rec = part_child(p, "T_ItemNum_00");   /* the box's own count text */
             b->num_val = -2;
             b->num_item = -2;
+            b->uctl = part_ctrl(p);
             b->part = p;
         }
+        ctrl_unfocusable(b->uctl);
         /* an item part with no item (and no fixed texture, like the sword) is hidden */
         u32 empty = (k >= SB_NBTN && g_sb_item[k] < 0 && g_sb_force[k][0] <= 1) || bm_part_hidden(k);
         float sc = empty || !BTNMAP ? 0.0f : g_sb_sc[k] * lay[1];

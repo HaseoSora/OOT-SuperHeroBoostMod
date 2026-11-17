@@ -56,8 +56,16 @@ int hud_item_owned(int item);    /* core/hud.c: IsGet.<item> */
 
 enum { PH_IDLE = 0, PH_EQUIP, PH_HOLD, PH_GAP, PH_RESTORE, PH_ZRBACK };
 #define EQUIP_TICKS 4
+#define HOLD_MIN 3
+#define EQUIP_MAX 16
 #define GAP_TICKS 20           /* input frames Link must be free after a use before the ZR item goes back */
 #define GAP_BOOMERANG 90       /* the boomerang flies back while Link is free: wait for it */
+/* A while standing still with an item on B: B's own "put away" (sword, item in hand) is on A then. A reaches the
+ * game first (talk, open, check ...); when Link is still standing A_PUTAWAY_WAIT reads later, A did nothing and the
+ * B button's own press is sent for A_PUTAWAY_PRESS reads. */
+#define A_PUTAWAY_WAIT 8
+#define A_PUTAWAY_PRESS 4
+static int g_a_watch, g_a_press;
 static int g_zr_tap;           /* ZRBACK: ZR was let go before the box had the ZR item: replay the press */
 static int g_zr_inject;        /* input frames ZR is still pressed for that replay */
 
@@ -102,6 +110,7 @@ static int g_menu_box = -3;
 static int g_a_recent;           /* menu frames left since A was pressed */      /* the game's box on the previous menu frame (-3: not in the menu) */
 int hud_box_item(void);          /* core/hud.c: the game's item box from GameData (-1 empty, -2 unknown) */
 int hud_box_set(int item);       /* core/hud.c: write it (-1 empty) */
+extern u32 g_songbook_active;    /* features/songbook: the ocarina is open */
 /* The game's item box: GameData (exact, also under the menu); the HUD icon's item when GameData has no index for it. */
 static int read_box(void) {
     int b = hud_box_item();
@@ -360,7 +369,16 @@ void button_mapping_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_r
     int free_now = ingame && (player_state_is("Wait") || player_state_is("Move") ||
                               player_state_starts("LockOn"));   /* LockOn*: ZL held (target or free), aiming */
     int using = g_phase == PH_EQUIP || g_phase == PH_HOLD || g_phase == PH_ZRBACK;
+    /* With our item buttons the game's item selector opens only from L in the selector mode: R (and L as an item
+     * button) never reach the game while Link plays, whatever he is doing (sword, hookshot, bow ...). Events
+     * (dialogues, shops) and the ocarina (L / R are notes there) keep them. */
+    u64 no_sel = 0;
+    if (g_shbcfg.button_mapping && ingame && !player_state_starts("Evt") && !g_songbook_active) {
+        if (!l_selector) no_sel |= BTN_R;
+        if (g_shbcfg.bm_l_mode != 2) no_sel |= BTN_L;
+    }
     if (!g_shbcfg.button_mapping || (!free_now && !using)) {
+        if (no_sel) set_all(&view, no_sel, 0);
         if (g_phase == PH_GAP) g_phase_t = 0;   /* the gap counts free frames in a row */
         if (ingame && (pressed & (slot_mask(SLOT_B) | slot_mask(SLOT_L) | slot_mask(SLOT_R)))) {   /* remember why a slot button did nothing */
             const char *n = player_state_name();
@@ -433,19 +451,35 @@ void button_mapping_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_r
         }
     }
 
+    /* A standing still: put away (B's own function, B holds an item) */
+    u64 put_away = 0;
+    if (g_assign[SLOT_B] >= 0 && slot_enabled(SLOT_B)) {
+        if ((pressed & BTN_A) && g_phase != PH_HOLD && player_state_is("Wait")) g_a_watch = 1;
+        else if (g_a_watch) {
+            if (!player_state_is("Wait")) g_a_watch = 0;        /* A did something (roll, talk ...) */
+            else if (++g_a_watch > A_PUTAWAY_WAIT) { g_a_watch = 0; g_a_press = A_PUTAWAY_PRESS; }
+        }
+        if (g_a_press > 0) { g_a_press--; put_away = slot_mask(SLOT_B); }
+    } else { g_a_watch = 0; g_a_press = 0; }
+
     /* Assigned slot buttons never reach the game directly: the item is used through ZR. */
-    u64 set = 0, clear = all_slot;
+    u64 set = put_away, clear = all_slot | no_sel;
     switch (g_phase) {
     case PH_EQUIP:                             /* let the equip settle before using it */
-        if (++g_phase_t >= EQUIP_TICKS) g_phase = PH_HOLD;
+        /* until the game's box really has the slot item (else the ZR item would be used), at most EQUIP_MAX */
+        ++g_phase_t;
+        if ((box == g_borrow_item && g_phase_t >= EQUIP_TICKS) || g_phase_t >= EQUIP_MAX) { g_phase = PH_HOLD; g_phase_t = 0; }
         break;
     case PH_HOLD:                              /* ZR follows the slot button (aim while held, throw on release) */
-        if (buttons & slot_mask((u32)g_active)) set = BTN_ZR;
+        /* a tap still uses the item: ZR is held at least HOLD_MIN reads */
+        if ((buttons & slot_mask((u32)g_active)) || g_phase_t < HOLD_MIN) { set = BTN_ZR; g_phase_t++; }
         else { g_phase = PH_GAP; g_phase_t = 0; }
         break;
     case PH_GAP:                               /* the use is over once Link is free for a while (nothing mid-use) */
         if (!g_borrowed) { g_phase = PH_IDLE; break; }
-        g_phase_t = free_now ? g_phase_t + 1 : 0;
+        /* only standing or walking: aiming (bow, hookshot, slingshot) is a LockOn* state too, and the item must
+         * stay in the box until the shot is over (else the ZR item is drawn or shot instead) */
+        g_phase_t = (player_state_is("Wait") || player_state_is("Move")) ? g_phase_t + 1 : 0;
         if (g_phase_t >= (u32)(g_borrow_item == 3 ? GAP_BOOMERANG : GAP_TICKS)) {
             box_put(g_saved);
             g_phase = PH_RESTORE;

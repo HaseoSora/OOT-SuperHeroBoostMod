@@ -40,6 +40,7 @@ ENEMY_ANIM_DIR = {1: "enemy_anim_x15", 2: "enemy_anim_x2", 3: "enemy_anim_x3",
                   4: "enemy_anim_x125", 5: "enemy_anim_x175", 6: "enemy_anim_x25",
                   7: "enemy_anim_x4", 8: "enemy_anim_x5", 9: "enemy_anim_x6",
                   10: "enemy_anim_x05", 11: "enemy_anim_x075"}
+BOSS_ANIM_DIR = {k: v.replace("enemy_anim_", "boss_anim_") for k, v in ENEMY_ANIM_DIR.items()}
 # HUD row: hud.c draws the 1014-unit plates at 0.46 (rupee, clock) and 0.42 (the two collectible plates), so the
 # installer can pack the enabled blocks with the same gap between plate edges (layout units, root-relative).
 HUD_X0 = -1518
@@ -87,6 +88,8 @@ class Settings:
     enemy_anim: int = 0              # enemy animation playback: same levels
     enemy_attack: int = 0            # enemy attack cadence: same levels
     enemy_proj: int = 0              # enemy projectile speed: same levels
+    boss_move: int = 0               # bosses and minibosses (left out of the enemy options): movement, same levels
+    boss_anim: int = 0               # bosses and minibosses: animation playback, same levels
     great_fairy: bool = False        # reorder the three Great Fairy magic rewards
     farore_outdoor: bool = False     # allow Farore's Wind points outside dungeons
     button_mapping: bool = True      # buttonMapping: our own item buttons B / L / R / ZR on the HUD
@@ -104,6 +107,7 @@ class Settings:
     lang: str = "en"                 # language of the mod's own HUD labels (one of LANGS)
     no_magic_drop: bool = False      # dropped magic jars become green rupees (romfs file)
     hide_minimap: bool = False       # hide the corner minimap while playing
+    sprint_l3_toggle: bool = False   # sprint_l3: L3 turns the sprint on / off instead of holding it
 
     def to_dict(self): return dict(self.__dict__)
 
@@ -452,6 +456,7 @@ def patch_config(nso: bytes, s: Settings) -> bytes:
             if size >= 0x50:                            # 0.8.0: the two bytes after lang
                 b[f + 60] = int(s.no_magic_drop)        # struct 76: magic jars become rupees (romfs)
                 b[f + 61] = int(s.hide_minimap)         # struct 77: hide the corner minimap
+                b[f + 62] = int(s.sprint_l3_toggle)     # struct 78 (was padding): L3 sprint as a toggle
     return bytes(b)
 
 
@@ -495,51 +500,67 @@ def _copy_tree(src: Path, dst: Path) -> bool:
     return True
 
 
+def _patch_packs(opts: Path, romfs: Path, base_name: str, manifest_name: str,
+                 move: int, attack: int, proj: int) -> bool:
+    """Write the base packs of a manifest with the movement (m), attack cadence (a) and projectile (p) floats
+    scaled. False when the payload part is missing or unreadable."""
+    base = opts / base_name
+    manifest_path = opts / manifest_name
+    dictionary_path = opts / "enemy_speed_pack.zsdic"
+    if not (base.is_dir() and manifest_path.exists() and dictionary_path.exists()):
+        return False
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        dictionary = zstandard.ZstdCompressionDict(dictionary_path.read_bytes())
+        move_scale = ENEMY_FACTORS.get(move, 1.0)
+        attack_scale = 1.0 / ENEMY_FACTORS[attack] if attack else 1.0
+        proj_scale = ENEMY_FACTORS.get(proj, 1.0)
+        for pack in manifest.get("packs", []):
+            fields = pack.get("fields", [])
+            if not any((f.get("k") == "m" and move) or (f.get("k") == "a" and attack)
+                       or (f.get("k") == "p" and proj) for f in fields):
+                continue
+            raw = (base / pack["path"]).read_bytes()
+            data = bytearray(zstandard.ZstdDecompressor(dict_data=dictionary).decompress(
+                raw, max_output_size=200_000_000))
+            for f in fields:
+                kind = f.get("k")
+                scale = move_scale if kind == "m" else attack_scale if kind == "a" else proj_scale
+                if scale != 1.0:
+                    struct.pack_into("<f", data, int(f["o"]), float(f["v"]) * scale)
+            out = zstandard.ZstdCompressor(dict_data=dictionary).compress(bytes(data))
+            dst = romfs / Path(pack["path"])
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            dst.write_bytes(out)
+    except (OSError, ValueError, KeyError, zstandard.ZstdError):
+        return False
+    return True
+
+
+def boss_levels(s: Settings) -> tuple[int, int]:
+    return tuple(int(v) if int(v) in ENEMY_FACTORS else 0 for v in (s.boss_move, s.boss_anim))
+
+
 def install_enemy_mods(romfs: Path, s: Settings, payload: Path | None = None) -> list[tuple[str, str]]:
-    """Install the selected enemy-speed components (patched base packs + one animation folder)."""
+    """Install the selected enemy-speed components (patched base packs + one animation folder), and the bosses'
+    own movement / animation (separate files: bosses and minibosses are left out of the enemy options)."""
     move, anim, attack, proj = enemy_levels(s)
-    if not (move or anim or attack or proj):
+    bmove, banim = boss_levels(s)
+    if not (move or anim or attack or proj or bmove or banim):
         return []
     opts = (payload or resource_dir()) / "romfs_opts"
     notes: list[tuple[str, str]] = []
     missing = False
 
     if move or attack or proj:
-        base = opts / "enemy_speed_base"
-        manifest_path = opts / "enemy_speed_manifest.json"
-        dictionary_path = opts / "enemy_speed_pack.zsdic"
-        if not (base.is_dir() and manifest_path.exists() and dictionary_path.exists()):
+        if not _patch_packs(opts, romfs, "enemy_speed_base", "enemy_speed_manifest.json", move, attack, proj):
             missing = True
-        else:
-            try:
-                manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-                dictionary = zstandard.ZstdCompressionDict(dictionary_path.read_bytes())
-                move_scale = ENEMY_FACTORS.get(move, 1.0)
-                attack_scale = 1.0 / ENEMY_FACTORS[attack] if attack else 1.0
-                proj_scale = ENEMY_FACTORS.get(proj, 1.0)
-                for pack in manifest.get("packs", []):
-                    fields = pack.get("fields", [])
-                    if not any((f.get("k") == "m" and move) or (f.get("k") == "a" and attack)
-                               or (f.get("k") == "p" and proj) for f in fields):
-                        continue
-                    raw = (base / pack["path"]).read_bytes()
-                    data = bytearray(zstandard.ZstdDecompressor(dict_data=dictionary).decompress(
-                        raw, max_output_size=200_000_000))
-                    for f in fields:
-                        kind = f.get("k")
-                        scale = move_scale if kind == "m" else attack_scale if kind == "a" else proj_scale
-                        if scale != 1.0:
-                            struct.pack_into("<f", data, int(f["o"]), float(f["v"]) * scale)
-                    out = zstandard.ZstdCompressor(dict_data=dictionary).compress(bytes(data))
-                    dst = romfs / Path(pack["path"])
-                    dst.parent.mkdir(parents=True, exist_ok=True)
-                    dst.write_bytes(out)
-            except (OSError, ValueError, KeyError, zstandard.ZstdError):
-                missing = True
-
-    if anim:
-        if not _copy_tree(opts / ENEMY_ANIM_DIR[anim], romfs):
-            missing = True
+    if anim and not _copy_tree(opts / ENEMY_ANIM_DIR[anim], romfs):
+        missing = True
+    if bmove and not _patch_packs(opts, romfs, "boss_speed_base", "boss_speed_manifest.json", bmove, 0, 0):
+        missing = True
+    if banim and not _copy_tree(opts / BOSS_ANIM_DIR[banim], romfs):
+        missing = True
 
     if missing:
         notes.append(("enemy_speed_missing", ""))

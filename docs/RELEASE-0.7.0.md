@@ -62,6 +62,18 @@ language. The 0.6.0 ReLink fix, manual shield and button positions remain.
   the old "known bug" of Farore's Wind outdoors).
 - The songbook no longer reads the ocarina while it is closed.
 
+## Boss speed (beta)
+
+- Bosses and minibosses (dungeon bosses, Dark Link, Iron Knuckles, Flare Dancer, Dead Hand, Poe sisters' Meg ...)
+  are left out of the enemy speed; they now have their own **movement** and **animation** multipliers in the Beta
+  tab, built the same way from your game dump.
+- Some bosses move by script (Morpha, Volvagia, Bongo Bongo): animation is what speeds them up.
+
+## L3 sprint as a toggle
+
+- New sub-option of the L3 sprint: one press of L3 starts the sprint, the next one stops it. It also stops when
+  stamina runs out, when you press A (your own roll / sprint takes over) and in dialogues and shops.
+
 ## Enemy duplicator (beta)
 
 - Stalchildren now double as well. Each spawn zone in the maps carries its own group size (2 small, 1 big, larger

@@ -155,8 +155,27 @@ static u32 g_l3_a;         /* A is being injected for L3 */
 static u32 g_l3_neutral;   /* frames left with the stick centred (avoid the roll) */
 static u32 g_l3_frame;     /* last rendered frame seen here */
 
+/* Toggle mode (sprint_l3_toggle): a press of L3 turns the sprint on, the next one off. It also stops when stamina
+ * runs out, when the player presses A (their own roll / sprint takes over) and in events (dialogues, shops: an
+ * injected A would answer them). */
+static u32 g_l3_on, g_l3_prev;
+/* L3 is sprinting (held, or toggled on) */
+static u32 l3_sprint(u64 b) {
+    if (!g_shbcfg.sprint_l3) return 0;
+    return g_shbcfg.sprint_l3_toggle ? g_l3_on : (b & BTN_L3) != 0;
+}
 static void l3_inject_a(const HidView *v, u64 buttons, u32 moving) {
-    if (!(g_shbcfg.sprint_l3 && (buttons & BTN_L3)) || (buttons & BTN_A)) {
+    u32 l3 = (buttons & BTN_L3) != 0, want;
+    if (g_shbcfg.sprint_l3 && g_shbcfg.sprint_l3_toggle) {
+        if (l3 && !g_l3_prev) g_l3_on = !g_l3_on;
+        if ((buttons & BTN_A) || g_exhausted || player_state_starts("Evt")) g_l3_on = 0;
+        want = g_l3_on;
+    } else {
+        g_l3_on = 0;
+        want = g_shbcfg.sprint_l3 && l3;
+    }
+    g_l3_prev = l3;
+    if (!want || (buttons & BTN_A)) {
         g_l3_a = 0;
         g_l3_neutral = 0;
         return;
@@ -204,6 +223,7 @@ void stamina_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_result) 
     if (player_dead()) {     /* death ragdoll / game over: never filter the menu's buttons */
         g_sprint_a = 0;
         g_l3_a = 0;
+        g_l3_on = 0;
         g_l3_neutral = 0;
         player_take_events();
         hud_set_tired(0);
@@ -213,7 +233,7 @@ void stamina_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_result) 
     if (!g_shbcfg.stamina_enabled) {   /* stamina system switched off in the config */
         u64 b = hid_merge_buttons(&view);
         l3_inject_a(&view, b, stick_mag2(&view) > STICK_MOVE2);
-        g_sprint_a = ((b & BTN_A) || (g_shbcfg.sprint_l3 && (b & BTN_L3))) != 0;
+        g_sprint_a = ((b & BTN_A) || l3_sprint(b)) != 0;
         player_take_events();
         hud_set_tired(0);
         hud_set_stamina(g_stamina.stamina, g_stamina.cap, 0.0f);
@@ -230,7 +250,7 @@ void stamina_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_result) 
     u32 moving = m2 > STICK_MOVE2;
     /* Sprint: A held, or L3 held when the app option is on (L3 is injected as A further down,
      * so the game's sprint animation plays; the stick is centred on the press to avoid the roll). */
-    u32 sprint_held = ((buttons & BTN_A) || (g_shbcfg.sprint_l3 && (buttons & BTN_L3))) != 0;
+    u32 sprint_held = ((buttons & BTN_A) || l3_sprint(buttons)) != 0;
     u32 running = sprint_held && moving;
 
     /* State advances once per rendered frame (the reader can run more than once). */

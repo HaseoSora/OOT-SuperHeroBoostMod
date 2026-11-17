@@ -36,6 +36,10 @@ mod's HUD labels in the game's language; the 0.6.0 ReLink fix, manual shield and
   "focusable" flag, so the cursor went onto them: past the Megaton Hammer on the Items page, and in shops, dialogues,
   the game-over screen and the Farore's Wind menu you had to press up / down a few times first. They are no longer
   focusable. The songbook also stopped reading the ocarina outside the ocarina.
+- **Boss speed (beta).** Bosses and minibosses were left out of the enemy speed on purpose; they now have their own
+  movement and animation multipliers (Beta tab). Some bosses move by script, so animation is what speeds them up.
+- **L3 sprint as a toggle.** A sub-option of the L3 sprint: one press of L3 starts the sprint and the next stops it;
+  it also stops when stamina runs out, when you press A, and in dialogues.
 - **Enemy duplicator (beta).** Stalchildren now double too: each spawn zone in the maps carries its own group size
   (2 small, 1 big, the larger groups by the road), which the duplicator never touched; it now doubles every count
   of those zones and the scene's cap on them. It also no longer turns on spawns the game keeps off (adult Link got

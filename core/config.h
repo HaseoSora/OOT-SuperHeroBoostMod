@@ -60,6 +60,8 @@ typedef struct {
                                      * 0 English, 1 Spanish, 2 Portuguese, 3 French, 4 German, 5 Italian */
     unsigned char no_magic_drop;    /* informational (done through a romfs file): dropped magic jars become rupees */
     unsigned char hide_minimap;     /* hide the corner minimap while playing (the map screen still works) */
+    unsigned char sprint_l3_toggle; /* sprint_l3: 0 sprint while L3 is held, 1 L3 turns the sprint on / off (it also
+                                     * stops when stamina runs out or A is pressed) */
 } ShbConfig;
 
 extern volatile ShbConfig g_shbcfg;

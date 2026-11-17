@@ -43,6 +43,15 @@ ANIM_DIR = {1: "enemy_anim_x15", 2: "enemy_anim_x2", 3: "enemy_anim_x3",
             7: "enemy_anim_x4", 8: "enemy_anim_x5", 9: "enemy_anim_x6",
             10: "enemy_anim_x05", 11: "enemy_anim_x075"}
 BASE_DIR = "enemy_speed_base"
+# Bosses and minibosses: their own option (the enemy options leave them out). Same files, own folders.
+BOSS_KEYS = ("DungeonBoss", "MiddleBoss", "IronKnuckle", "DeadHand", "Guay_Boss", "PhantomGanonHorse")
+BOSS_ANIM_DIR = {k: v.replace("enemy_anim_", "boss_anim_") for k, v in ANIM_DIR.items()}
+BOSS_BASE_DIR = "boss_speed_base"
+BOSS_MANIFEST = OUT / "boss_speed_manifest.json"
+
+
+def is_boss(stem):
+    return stem.startswith("Enemy_") and any(k in stem for k in BOSS_KEYS) and "GhostPicture" not in stem
 MANIFEST = OUT / "enemy_speed_manifest.json"
 PACK_DICT = OUT / "enemy_speed_pack.zsdic"
 
@@ -410,13 +419,14 @@ def main():
         return
     import shutil
     DICTS = load_dicts()
-    for name in ("enemy_double", "enemy_speed", BASE_DIR, *ANIM_DIR.values()):
+    for name in ("enemy_double", "enemy_speed", BASE_DIR, *ANIM_DIR.values(), BOSS_BASE_DIR, *BOSS_ANIM_DIR.values()):
         d = OUT / name
         if d.exists():
             shutil.rmtree(d)
         if name != "enemy_speed":          # the old combined x2 folder is retired
             d.mkdir(parents=True, exist_ok=True)
     MANIFEST.unlink(missing_ok=True)
+    BOSS_MANIFEST.unlink(missing_ok=True)
     rng = random.Random(0x5A17B005)
     size_changes = []
 
@@ -439,14 +449,17 @@ def main():
             dst.parent.mkdir(parents=True, exist_ok=True)
             dst.write_bytes(out)
 
-    # Enemy animation: ASB frame-controller playback rates, one ready-made folder per multiplier.
+    # Enemy animation: ASB frame-controller playback rates, one ready-made folder per multiplier
+    # (bosses into their own folders).
     for level, factor in FACTORS.items():
         for p in sorted((ROMFS / "AS").glob("Enemy_*.root.asb.zs")):
-            if any(x in p.stem for x in BLOCK):
+            stem = p.name.split(".")[0]
+            boss = is_boss(stem)
+            if not boss and any(x in p.stem for x in BLOCK):
                 continue
             out = edit_asb(p, DICTS["zs.zsdic"], factor)
             if out:
-                dst = OUT / ANIM_DIR[level] / p.relative_to(ROMFS)
+                dst = OUT / (BOSS_ANIM_DIR if boss else ANIM_DIR)[level] / p.relative_to(ROMFS)
                 dst.parent.mkdir(parents=True, exist_ok=True)
                 dst.write_bytes(out)
 
@@ -465,6 +478,20 @@ def main():
         packs.append({"path": rel, "fields": fields})
     MANIFEST.write_text(json.dumps({"version": 2, "factors": {str(k): v for k, v in FACTORS.items()},
                                     "packs": packs}, separators=(",", ":")), encoding="utf-8")
+    boss_packs = []
+    for p in sorted((ROMFS / "Pack/Actor").glob("Enemy_*.pack.zs")):
+        if not is_boss(p.name.split(".")[0]):
+            continue
+        fields = scan_pack(p, DICTS)
+        if not fields:
+            continue
+        rel = str(p.relative_to(ROMFS)).replace("\\", "/")
+        dst = OUT / BOSS_BASE_DIR / p.relative_to(ROMFS)
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(p, dst)
+        boss_packs.append({"path": rel, "fields": fields})
+    BOSS_MANIFEST.write_text(json.dumps({"version": 2, "factors": {str(k): v for k, v in FACTORS.items()},
+                                         "packs": boss_packs}, separators=(",", ":")), encoding="utf-8")
     PACK_DICT.write_bytes(DICTS["pack.zsdic"])
 
     # Start from the buttonMapping size table when it exists (it carries the bigger UI budget): the installed
@@ -477,6 +504,7 @@ def main():
         dst.write_bytes(table)
     print("enemy options written to", OUT)
     print("  base packs:", len(packs), "(%d floats)" % sum(len(p["fields"]) for p in packs))
+    print("  boss packs:", len(boss_packs), "(%d floats)" % sum(len(p["fields"]) for p in boss_packs))
     for level, folder in ANIM_DIR.items():
         n = sum(1 for _ in (OUT / folder / "AS").glob("*.asb.zs")) if (OUT / folder / "AS").exists() else 0
         print("  %s: %d animation files" % (folder, n))

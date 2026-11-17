@@ -95,6 +95,12 @@ def cli(argv) -> int:
                     help="enemy attack cadence: same levels as --enemy-move")
     ap.add_argument("--enemy-proj", type=int, choices=I.ENEMY_LEVELS, default=None,
                     help="enemy projectile speed: same levels as --enemy-move")
+    ap.add_argument("--sprint-l3-toggle", action="store_true",
+                    help="with --sprint-l3: L3 turns the sprint on / off (stops when stamina runs out or A is pressed)")
+    ap.add_argument("--boss-move", type=int, choices=I.ENEMY_LEVELS, default=None,
+                    help="boss and miniboss movement: same levels as --enemy-move")
+    ap.add_argument("--boss-anim", type=int, choices=I.ENEMY_LEVELS, default=None,
+                    help="boss and miniboss animation: same levels as --enemy-move")
     ap.add_argument("--stamina-bar", action="store_true", help="draw stamina as a segmented horizontal bar instead of the ring")
     ap.add_argument("--great-fairy", action="store_true", help="reorder the three Great Fairy magic rewards (romfs)")
     ap.add_argument("--farore-outdoor", action="store_true", help="allow Farore's Wind points outside dungeons (romfs)")
@@ -140,7 +146,7 @@ def cli(argv) -> int:
                    hud_rupees=v["hud_rupees"], hud_clock=v["hud_clock"], clock_24h=v["clock_24h"],
                    hud_collectibles=v["hud_collectibles"], hud_mode=v["hud_mode"],
                    enemy_move=v["enemy_move"], enemy_anim=v["enemy_anim"], enemy_attack=v["enemy_attack"],
-                   enemy_proj=v.get("enemy_proj", 0),
+                   enemy_proj=v.get("enemy_proj", 0), boss_move=v.get("boss_move", 0), boss_anim=v.get("boss_anim", 0),
                    stamina_bar=bool(v["stamina_bar"]), manual_shield=v["manual_shield"],
                    auto_target=v["auto_target"], switch_target=v["switch_target"],
                    target_r3=bool(v["target_r3"]), sprint_l3=bool(v["sprint_l3"]))
@@ -175,6 +181,8 @@ def cli(argv) -> int:
         s.target_r3 = True
     if a.sprint_l3:
         s.sprint_l3 = True
+    if a.sprint_l3_toggle:
+        s.sprint_l3_toggle = True
     if a.auto_target:
         s.auto_target = True
     if a.switch_target:
@@ -191,6 +199,10 @@ def cli(argv) -> int:
         s.enemy_attack = a.enemy_attack
     if a.enemy_proj is not None:
         s.enemy_proj = a.enemy_proj
+    if a.boss_move is not None:
+        s.boss_move = a.boss_move
+    if a.boss_anim is not None:
+        s.boss_anim = a.boss_anim
     if a.stamina_bar:
         s.stamina_bar = True
     if a.great_fairy:
@@ -375,6 +387,7 @@ def gui() -> None:
     manual_shield = tk.BooleanVar(value=bool(cfg.get("manual_shield", False)))
     target_r3 = tk.BooleanVar(value=bool(cfg.get("target_r3", False)))
     sprint_l3 = tk.BooleanVar(value=bool(cfg.get("sprint_l3", False)))
+    sprint_l3_toggle = tk.BooleanVar(value=bool(cfg.get("sprint_l3_toggle", False)))
     auto_target = tk.BooleanVar(value=bool(cfg.get("auto_target", False)))
     switch_target = tk.BooleanVar(value=bool(cfg.get("switch_target", False)))
     hud_collectibles = tk.BooleanVar(value=bool(cfg.get("hud_collectibles", False)))
@@ -390,6 +403,8 @@ def gui() -> None:
                              if cfg.get("enemy_attack", _legacy_speed) in I.ENEMY_LEVELS else 0)
     enemy_proj = tk.IntVar(value=cfg.get("enemy_proj", 0)
                            if cfg.get("enemy_proj", 0) in I.ENEMY_LEVELS else 0)
+    boss_move = tk.IntVar(value=cfg.get("boss_move", 0) if cfg.get("boss_move", 0) in I.ENEMY_LEVELS else 0)
+    boss_anim = tk.IntVar(value=cfg.get("boss_anim", 0) if cfg.get("boss_anim", 0) in I.ENEMY_LEVELS else 0)
     great_fairy = tk.BooleanVar(value=bool(cfg.get("great_fairy", False)))
     farore_outdoor = tk.BooleanVar(value=bool(cfg.get("farore_outdoor", False)))
     mode = tk.StringVar(value=cfg.get("stamina_mode") if cfg.get("stamina_mode") in STAMINA_MODES
@@ -552,6 +567,8 @@ def gui() -> None:
         enemy_anim.set(v["enemy_anim"])
         enemy_attack.set(v["enemy_attack"])
         enemy_proj.set(v.get("enemy_proj", 0))
+        boss_move.set(v.get("boss_move", 0))
+        boss_anim.set(v.get("boss_anim", 0))
         great_fairy.set(v["great_fairy"])
         farore_outdoor.set(v["farore_outdoor"])
         manual_shield.set(v["manual_shield"])
@@ -584,10 +601,10 @@ def gui() -> None:
         refresh()
         autosave()
 
-    for var in (bmap, stamina, songbook, quick_boots, quick_mask, manual_shield, target_r3, sprint_l3,
+    for var in (bmap, stamina, songbook, quick_boots, quick_mask, manual_shield, target_r3, sprint_l3, sprint_l3_toggle,
                 auto_target, switch_target,
                 hud_collectibles, hud_mode,
-                enemy_double, enemy_move, enemy_anim, enemy_attack, enemy_proj,
+                enemy_double, enemy_move, enemy_anim, enemy_attack, enemy_proj, boss_move, boss_anim,
                 great_fairy, farore_outdoor, mode,
                 combat, hp, dmg, speed, nodrop, nmagic, hide_min,
                 rupees, clock_mode, *costs.values()):
@@ -636,6 +653,7 @@ def gui() -> None:
                           quick_boots=quick_boots.get(), quick_mask=quick_mask.get(),
                           manual_shield=manual_shield.get(),
                           target_r3=target_r3.get(), sprint_l3=sprint_l3.get(),
+                          sprint_l3_toggle=sprint_l3_toggle.get(),
                           auto_target=auto_target.get(),
                           switch_target=switch_target.get(),
                           lang=I.detect_lang(e, game) or lang.get(),
@@ -644,6 +662,7 @@ def gui() -> None:
                           enemy_double=enemy_double.get(),
                           enemy_move=enemy_move.get(), enemy_anim=enemy_anim.get(),
                           enemy_attack=enemy_attack.get(), enemy_proj=enemy_proj.get(),
+                          boss_move=boss_move.get(), boss_anim=boss_anim.get(),
                           great_fairy=great_fairy.get(), farore_outdoor=farore_outdoor.get(),
                           preset=STAMINA_MODES.index(mode.get()),
                           combat_only=combat.get(),
@@ -664,6 +683,7 @@ def gui() -> None:
             "quick_boots": quick_boots.get(), "quick_mask": quick_mask.get(),
             "manual_shield": manual_shield.get(),
             "target_r3": target_r3.get(), "sprint_l3": sprint_l3.get(),
+            "sprint_l3_toggle": sprint_l3_toggle.get(),
             "auto_target": auto_target.get(),
             "switch_target": switch_target.get(),
             "hud_collectibles": hud_collectibles.get(),
@@ -671,6 +691,7 @@ def gui() -> None:
             "enemy_double": enemy_double.get(),
             "enemy_move": enemy_move.get(), "enemy_anim": enemy_anim.get(),
             "enemy_attack": enemy_attack.get(), "enemy_proj": enemy_proj.get(),
+            "boss_move": boss_move.get(), "boss_anim": boss_anim.get(),
             "great_fairy": great_fairy.get(), "farore_outdoor": farore_outdoor.get(),
             "stamina_mode": mode.get(),
             "costs": {**{k: costs[k].get() for k in KEYS}, "combat_only": combat.get()},
@@ -1420,6 +1441,8 @@ def gui() -> None:
         label(body, L("target_r3_note"), size=9, color=AMBER, bg=PANEL).pack(anchor="w", padx=(20, 0), pady=(2, 8))
         check_rb(body, L("sprint_l3_on"), sprint_l3)
         label(body, L("sprint_l3_desc"), size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=(20, 0))
+        check(body, L("sprint_l3_toggle_on"), sprint_l3_toggle).pack(anchor="w", padx=(20, 0))
+        label(body, L("sprint_l3_toggle_desc"), size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=(40, 0), pady=(0, 8))
         check_rb(body, L("auto_target_on"), auto_target)
         label(body, L("auto_target_desc"), size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=(20, 0))
         label(body, L("auto_target_note"), size=9, color=AMBER, bg=PANEL).pack(anchor="w", padx=(20, 0), pady=(2, 8))
@@ -1607,6 +1630,18 @@ def gui() -> None:
             cb.bind("<<ComboboxSelected>>", lambda e, c=cb, v=var: v.set(I.ENEMY_LEVELS[c.current()]))
             ui["enemy"].append((cb, var))
         label(body, L("enemy_speed_desc"), size=9, color=DIM, bg=PANEL).pack(anchor="w", pady=(6, 0))
+        label(body, L("boss_speed"), size=10, color=ACCENT, bold=True, bg=PANEL).pack(anchor="w", pady=(10, 0))
+        row = tk.Frame(body, bg=PANEL)
+        row.pack(fill="x", pady=(2, 0))
+        for i, (key, var) in enumerate((("enemy_move", boss_move), ("enemy_anim", boss_anim))):
+            label(row, L(key) + ":", size=10, bg=PANEL).grid(row=0, column=i * 2, sticky="w", padx=(0, 6), pady=(0, 2))
+            idx = I.ENEMY_LEVELS.index(var.get()) if var.get() in I.ENEMY_LEVELS else 0
+            svar = tk.StringVar(value=names[idx])
+            cb = combo(row, names, svar, width=7)
+            cb.grid(row=0, column=i * 2 + 1, sticky="w", padx=(0, 18), pady=(0, 2))
+            cb.bind("<<ComboboxSelected>>", lambda e, c=cb, v=var: v.set(I.ENEMY_LEVELS[c.current()]))
+            ui["enemy"].append((cb, var))
+        label(body, L("boss_speed_desc"), size=9, color=DIM, bg=PANEL).pack(anchor="w", pady=(6, 0))
         label(body, L("enemy_beta_note"), size=9, color=AMBER, bg=PANEL).pack(anchor="w", pady=(8, 0))
 
     def build_misc(parent):
@@ -1779,8 +1814,8 @@ def gui() -> None:
         apply_profile(profile.get(), save=False)
 
     for v in (emu, bmap, bstyle, bplace, glayout, bsimple, blmode, stamina, songbook, quick_boots, quick_mask, hud_collectibles,
-              target_r3, sprint_l3,
-              enemy_double, enemy_move, enemy_anim, enemy_attack, enemy_proj, stamina_bar,
+              target_r3, sprint_l3, sprint_l3_toggle,
+              enemy_double, enemy_move, enemy_anim, enemy_attack, enemy_proj, boss_move, boss_anim, stamina_bar,
               great_fairy, farore_outdoor, mode, combat, hp, dmg, speed,
               nodrop, rupees, clock_mode, *costs.values()):
         v.trace_add("write", autosave)

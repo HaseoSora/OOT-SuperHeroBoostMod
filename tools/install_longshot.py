@@ -59,7 +59,7 @@ BACKUP = ".shb-backup"           # beside .longshot_exefs, never inside it
 CONFIG_MAGIC = b"SHBCFG01"
 CONFIG_SIZE = 72                 # ShbConfig, version 1
 BUTTON_STYLES = ("switch", "xbox", "playstation")
-ROMFS_OPTS = ("enemy_double", "farore_outdoor", "great_fairy", "no_heart_drop")
+ROMFS_OPTS = ("enemy_double", "farore_outdoor", "great_fairy", "no_heart_drop", "no_magic_drop")
 sys.path.insert(0, str(ROOT / "app"))
 import installer as I  # noqa: E402
 import recomp as R  # noqa: E402
@@ -230,7 +230,10 @@ def install_romfs(game: Path, src: Path | None, style: str, opts: set[str], enem
                 copied += 1
     else:
         bases = [PAYLOAD / "button_romfs" / "common", PAYLOAD / "button_romfs" / style]
-        bases += [PAYLOAD / "romfs_opts" / o for o in ROMFS_OPTS if o in opts]
+        chosen = [o for o in ROMFS_OPTS if o in opts]
+        if "no_heart_drop" in chosen and "no_magic_drop" in chosen:   # one file carries both changes
+            chosen = [o for o in chosen if o not in ("no_heart_drop", "no_magic_drop")] + ["no_heart_magic_drop"]
+        bases += [PAYLOAD / "romfs_opts" / o for o in chosen]
         for base in bases:
             if not base.is_dir():
                 continue

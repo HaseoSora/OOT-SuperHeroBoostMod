@@ -109,6 +109,8 @@ def cli(argv) -> int:
     ap.add_argument("--enemy-hp", type=int, default=None, help="enemy health, percent (150 = Hero Mode)")
     ap.add_argument("--damage", type=int, default=None, help="damage taken, percent (200 = Hero Mode)")
     ap.add_argument("--no-heart-drop", action="store_true")
+    ap.add_argument("--no-magic-drop", action="store_true", help="dropped magic jars become green rupees (romfs)")
+    ap.add_argument("--hide-minimap", action="store_true", help="hide the minimap while playing")
     ap.add_argument("--sprint-speed", type=int, default=None, help="sprint speed, percent (125 = default)")
     ap.add_argument("--rupees", action="store_true", help="always-visible rupee counter")
     ap.add_argument("--clock", action="store_true", help="always-visible clock")
@@ -209,6 +211,10 @@ def cli(argv) -> int:
         s.sprint_speed = a.sprint_speed
     if a.no_heart_drop:
         s.no_heart_drop = True
+    if a.no_magic_drop:
+        s.no_magic_drop = True
+    if a.hide_minimap:
+        s.hide_minimap = True
     if a.rupees:
         s.hud_rupees = True
     if a.clock:
@@ -400,6 +406,8 @@ def gui() -> None:
     SPEEDS = (100, 125, 150, 175, 200, 250, 300)
     speed = tk.IntVar(value=cfg.get("sprint_speed", 125) if cfg.get("sprint_speed", 125) in SPEEDS else 125)
     nodrop = tk.BooleanVar(value=bool(cfg.get("no_heart_drop", False)))
+    nmagic = tk.BooleanVar(value=bool(cfg.get("no_magic_drop", False)))
+    hide_min = tk.BooleanVar(value=bool(cfg.get("hide_minimap", False)))
     rupees = tk.BooleanVar(value=bool(cfg.get("hud_rupees", False)))
     CLOCK_MODES = ("off", "12", "24")
     _clock = cfg.get("clock_mode")
@@ -581,7 +589,7 @@ def gui() -> None:
                 hud_collectibles, hud_mode,
                 enemy_double, enemy_move, enemy_anim, enemy_attack, enemy_proj,
                 great_fairy, farore_outdoor, mode,
-                combat, hp, dmg, speed, nodrop,
+                combat, hp, dmg, speed, nodrop, nmagic, hide_min,
                 rupees, clock_mode, *costs.values()):
         var.trace_add("write", on_setting_change)
 
@@ -641,6 +649,7 @@ def gui() -> None:
                           combat_only=combat.get(),
                           **{k: costs[k].get() for k in KEYS},
                           enemy_hp=hp.get(), damage=dmg.get(), no_heart_drop=nodrop.get(),
+                          no_magic_drop=nmagic.get(), hide_minimap=hide_min.get(),
                           sprint_speed=speed.get(), hud_rupees=rupees.get(),
                           hud_clock=clock_mode.get() != "off", clock_24h=clock_mode.get() == "24")
 
@@ -667,6 +676,7 @@ def gui() -> None:
             "costs": {**{k: costs[k].get() for k in KEYS}, "combat_only": combat.get()},
             "combat_only": combat.get(),
             "enemy_hp": hp.get(), "damage": dmg.get(), "no_heart_drop": nodrop.get(),
+            "no_magic_drop": nmagic.get(), "hide_minimap": hide_min.get(),
             "sprint_speed": speed.get(), "hud_rupees": rupees.get(),
             "clock_mode": clock_mode.get(),
             "hud_clock": clock_mode.get() != "off", "clock_24h": clock_mode.get() == "24",
@@ -1342,6 +1352,8 @@ def gui() -> None:
         c = check(body, L("no_heart_drop"), nodrop)
         c.pack(anchor="w", pady=(10, 0))
         label(body, L("no_heart_drop_desc"), size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=(20, 0))
+        check(body, L("no_magic_drop"), nmagic).pack(anchor="w", pady=(10, 0))
+        label(body, L("no_magic_drop_desc"), size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=(20, 0))
         label(body, L("difficulty_note"), size=9, color=DIM, bg=PANEL).pack(anchor="w", pady=(8, 0))
         build_enemies(parent)
 
@@ -1375,6 +1387,8 @@ def gui() -> None:
         ui["clock_values"] = values
         check(body, L("hud_collectibles"), hud_collectibles).pack(anchor="w", pady=(8, 0))
         label(body, L("hud_collectibles_desc"), size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=(20, 0))
+        check(body, L("hide_minimap"), hide_min).pack(anchor="w", pady=(8, 0))
+        label(body, L("hide_minimap_desc"), size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=(20, 0))
         label(body, L("hud_note"), size=9, color=DIM, bg=PANEL).pack(anchor="w", pady=(8, 0))
         build_game_prompts(parent)
 

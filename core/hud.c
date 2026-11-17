@@ -1571,9 +1571,10 @@ static const char *slot_anim_name(u32 i) {
     case 8: return "UnSelect"; case 9: return "Decide"; default: return "Assign";
     }
 }
-typedef struct { u64 part, anim[SA_N], rec, rep, ctrl, hide[9], ic, sh; u32 icon_set, shown_name; int shown_item; char forced[32]; } SlotBtn;
+typedef struct { u64 part, anim[SA_N], rec, rep, ctrl, hide[9], ic, sh, num_rec; u32 icon_set, shown_name; int shown_item; int num_val, num_item, num_idx; char forced[32]; char num_txt[8]; } SlotBtn;
 static SlotBtn g_sb[PART_N];
 u64 g_sb_dbg[PART_N];       /* part object per button (diagnostic) */
+int g_sb_stock[PART_N];     /* quantity read for each HUD button (diagnostic; -1 = no quantity) */
 u32 g_sb_anim[PART_N];      /* bit i = anim i found */
 u64 g_sb_rif[PART_N][2];    /* nested Pa_ReplaceIcon_00 frame, its layout (diagnostic) */
 /* item per button (the game's item index, as passed to the equip call main+0x1211C00); -1 = empty */
@@ -1850,6 +1851,24 @@ static void zr_mirror(void) {
  * and our buttons do not act. */
 static u64 g_ps_frame;
 int hud_ingame(void) { return !vptr(g_ps_frame) || (*(volatile u32 *)(g_ps_frame + 0x1A4) & 0x20000u) != 0; }
+/* Corner minimap (MapMenu_00): its own area / floor texts tell us which frame it is; while playing, the scale of
+ * its minimap nodes is zeroed. The map screen (hud_ingame() == 0) keeps them */
+static u64 g_map_frame, g_mm_rec[2], g_mm_frame;
+u64 g_minimap_dbg[3];   /* 0: the captured MapMenu frame, 1/2: its minimap pane records */
+static void hide_minimap(void) {
+    g_minimap_dbg[0] = g_map_frame;
+    if (!g_shbcfg.hide_minimap || !g_map_frame || !hud_ingame()) return;
+    if (g_mm_frame != g_map_frame) {
+        g_mm_frame = g_map_frame;
+        g_mm_rec[0] = pane_record(g_map_frame, "N_MiniMap_00");
+        g_mm_rec[1] = pane_record(g_map_frame, "N_MiniMapCap_00");
+        g_minimap_dbg[1] = g_mm_rec[0]; g_minimap_dbg[2] = g_mm_rec[1];
+    }
+    for (u32 i = 0; i < 2; i++) if (g_mm_rec[i]) {
+        *(float *)(g_mm_rec[i] + 0x60) = 0.0f; *(float *)(g_mm_rec[i] + 0x64) = 0.0f;
+        *(u32 *)g_mm_rec[i] |= 0x6F;
+    }
+}
 /* Pause menu, Items tab: its caption panel (hooked at main+0x2CBD20) has byte +0x28 == 2 only while that tab is
  * open, and the highlighted cell's item index at +0x90 (our item numbering). The cell is owned when its
  * pattern frame ([[entry+0x48]+0x20]+0x18, entry = the panel's list +0x78 / count +0x70 whose +0xE8 is the
@@ -1883,6 +1902,15 @@ static int gd_bool(u32 idx) {
     u64 rec = *(volatile u64 *)(mgr + 8 + 0x10);
     if (!vptr(rec) || idx >= cnt) return -1;
     return *(volatile u8 *)(rec + (u64)idx * 0x18 + 0x16) != 0;
+}
+/* ---- GameData Int values (table 2: records of 0x28 bytes, live value at +0x1C, see the devtool's gdlive.py) ---- */
+static int gd_int(u32 idx) {
+    u64 mgr = *(u64 *)GAMEDATA_MGR;
+    if (!vptr(mgr)) return -1;
+    u32 cnt = *(volatile u32 *)(mgr + 8 + 0x60 * 2 + 8);
+    u64 rec = *(volatile u64 *)(mgr + 8 + 0x60 * 2 + 0x10);
+    if (!vptr(rec) || idx >= cnt) return -1;
+    return *(volatile int *)(rec + (u64)idx * 0x28 + 0x1C);
 }
 /* GameData option: System > Options "Jump and B swapped" (OptionData struct
  * 0x834d9d9e, Bool member 0x3B0FC63F). The option row's type is the member hash;
@@ -1941,6 +1969,21 @@ static u32 mmh3(const char *a, const char *b) {   /* murmur3_32(a + b, seed 0): 
     }
     h ^= n; h ^= h >> 16; h *= 0x85ebca6bu; h ^= h >> 13; h *= 0xc2b2ae35u; h ^= h >> 16;
     return h;
+}
+/* The GameData Int index of a consumable item's quantity (PouchData.<item>.StockNum; table in gd_index.h).
+ * The bow and the slingshot have no own counter: they use the arrows' and the seeds'. -1 = no quantity. */
+static int item_stock_index(int item) {
+    if (item < 0) return -1;
+    const char *nm;
+    if (item == 4) nm = "Item_DekuSeed";            /* slingshot: the seed count */
+    else if (item == 30 || item == 46 || item == 47 || item == 48)
+        nm = "Item_Arrow_Normal";                   /* bow and elemental arrows: the shared arrow count */
+    else nm = item_name(item);
+    if (!nm || nm[0] != 'I') return -1;
+    u32 h = mmh3("", nm), lo = 0, hi = GD_STOCK_N;
+    while (lo < hi) { u32 mid = (lo + hi) / 2; if (GD_STOCK[mid][0] < h) lo = mid + 1; else hi = mid; }
+    if (lo >= GD_STOCK_N || GD_STOCK[lo][0] != h) return -1;
+    return (int)GD_STOCK[lo][1];
 }
 /* Link is a child (Sequence_IsChildhood): 1 / 0, -1 = GameData not there */
 int hud_is_child(void) { return gd_bool(GD_IS_CHILDHOOD); }
@@ -2107,6 +2150,9 @@ static void slots_draw(SlotBtn *set, const u64 *ctrls, u64 frame, const float *l
             }
             b->rec = pane_record(frame, part_name(k));
             for (u32 i = 0; i < 9; i++) b->hide[i] = part_child(p, hide_name(i));
+            b->num_rec = part_child(p, "T_ItemNum_00");   /* the box's own count text */
+            b->num_val = -2;
+            b->num_item = -2;
             b->part = p;
         }
         /* an item part with no item (and no fixed texture, like the sword) is hidden */
@@ -2126,11 +2172,34 @@ static void slots_draw(SlotBtn *set, const u64 *ctrls, u64 frame, const float *l
             }
             *(u32 *)b->sh |= 0x6F;
         }
+        /* item quantity (consumables only): the box's own count text, e.g. 30 bombs / 20 arrows.
+         * The Int index is resolved only when the button's item changes; the value is a plain read. */
+        if (b->num_item != g_sb_item[k]) {
+            b->num_item = g_sb_item[k];
+            b->num_idx = item_stock_index(b->num_item);
+            b->num_val = -2;
+        }
+        int cnt = b->num_idx >= 0 ? gd_int((u32)b->num_idx) : -1;
+        if (main_set) g_sb_stock[k] = cnt;
         for (u32 i = 0; i < 9; i++)
-            if (b->hide[i] && (i < 8 || g_sb_item[k] < 0)) {   /* the count stays on the icon parts */
+            if (b->hide[i] && (i < 8 || cnt < 0)) {   /* the count stays on the icon parts, only with a quantity */
                 *(float *)(b->hide[i] + 0x60) = 0.0f; *(float *)(b->hide[i] + 0x64) = 0.0f;
                 *(u32 *)b->hide[i] |= 0x6F;
             }
+        if (b->hide[8] && cnt >= 0) {   /* the count pane: visible whenever the item has a quantity */
+            *(float *)(b->hide[8] + 0x60) = 1.0f; *(float *)(b->hide[8] + 0x64) = 1.0f;
+            *(u32 *)b->hide[8] |= 0x6F;
+        }
+        if (b->num_rec && cnt >= 0) {
+            if (cnt != b->num_val) {
+                b->num_val = cnt;
+                u32 n = put_int(b->num_txt, cnt);
+                struct { const void *s; u32 len, z; long long m1; } ref = {b->num_txt, n, 0, -1};
+                set_text((void *)b->num_rec, &ref, 0);
+            }
+        } else {
+            b->num_val = cnt;
+        }
         for (u32 i = 0; i < SA_N; i++)
             if (g_sb_animf[i] >= 0.0f && b->anim[i]) set_frame((void *)b->anim[i], g_sb_animf[i]);
         /* fixed texture (buttons, sword, ZR mirror), only when it changes; OotBtn<style>_..: the pad style */
@@ -2353,6 +2422,7 @@ static void hud_frame(void) {
     }
     txt_update(g_frame_node);
     anchor_update();
+    hide_minimap();
     if (g_test_mode) {
         u32 p = (g_tick / 120) % 13;     /* demo sweep 0..100 until the game publishes */
         g_cap = 100.0f;
@@ -2424,6 +2494,9 @@ static void hud_on_settext(u64 pane, const u64 *ref, u64 lr, const u64 *regs) {
     if (!s || !vptr((u64)s)) return;
     /* Minus map: append the area heart-piece count to the native Skulltula counter's total text. */
     const char *nm = (const char *)regs[0xF0 / 8];
+    if (nm && vptr((u64)nm) && (str_eq(nm, "T_MapTitle_00") || str_eq(nm, "T_Floor_00") ||
+                                str_eq(nm, "T_NoMap_00")))
+        g_map_frame = (u64)regs[0xF8 / 8];   /* the MapMenu frame: the corner minimap (hide_minimap) */
     if (g_shbcfg.hud_map_hearts && nm && vptr((u64)nm) && str_eq(nm, "T_NumTotal_00") && len < 40) {
         g_map_set_frame = regs[0xF8 / 8];
         u32 sd = 0, st = 0, hd = 0, ht = 0;

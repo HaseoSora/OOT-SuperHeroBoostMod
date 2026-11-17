@@ -426,3 +426,30 @@ Both mods are generated from the user's own dump by `tools/make_enemy_opts.py`; 
   `core/gd_index.h` (`GD_ACTOR_BOX`). The HUD controller path (+0x150 -> +0x1F0 -> +0x38) is not reliable
   for the box name (garbage in some saves); it is only the fallback now.
 - In the pause menu, A sets the box only when the menu closes (GameData unchanged until then).
+
+## Item quantities on the buttonMapping HUD (Nov 17)
+
+- The stock item box's count is the text pane `T_ItemNum_00` inside `N_Num_00` (`PaItemBtn_00.buil`, which is
+  the asset of `Pa_SelectItem_00`). The button clones already have both; the count was simply never written.
+- Current quantities are GameData **Int** `PouchData.<item>.StockNum`. The Int table is k = 2 in the manager
+  (`mgr + 8 + 0x60 * 2`), records of `0x28` bytes, live value at `+0x1C` (the devtool's `gdlive.py`
+  LAYOUT). `tools/gen_gd_index.py` writes `GD_STOCK[] = {murmur3(item actor name), Int index}` from the 70
+  `PouchData.Item_*` entries; the bow has no own counter (uses `Item_Arrow_Normal`) and the slingshot uses
+  `Item_DekuSeed`.
+- The HUD resolves the index only when a button's item changes, then reads the Int each frame and writes the text
+  only when the number changes. `N_Num_00` is hidden when the item has no quantity.
+
+## Hiding the corner minimap (Nov 17)
+
+- The corner map is the `MapMenu_00` layout (`Common.Product.100...blarc`): `N_MiniMap_00` is the minimap and
+  `N_MiniMapCap_00` its caps (`P_MiniMapFrame_00`/`N_FadeMiniMap_*` are around them). The map's own texts
+  (`T_MapTitle_00`, `T_Floor_00`, `T_NoMap_00`) identify its frame in the set-text hook (x22 = frame).
+- While playing (PlayerStatus frame `+0x1A4` bit `0x20000`) the option zeroes the scale of those two nodes every
+  HUD frame; the map screen (the bit clear) is not touched.
+
+## Magic jar drops (Nov 17)
+
+- `DropGlobalParam` has `HpActor` (heart) and `MpActor` (magic jar, `Obj_MagicJar_Small`). Pointing either at
+  `Obj_Rupee_Green` blocks that drop with a same-size string-index swap (heart: no_heart_drop, magic: no_magic_drop).
+- Both options edit the same file, so when both are on the installer uses one combined copy
+  (`no_heart_magic_drop`); copying the two single files one after the other would leave only the last one.

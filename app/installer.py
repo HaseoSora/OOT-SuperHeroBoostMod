@@ -102,6 +102,8 @@ class Settings:
     auto_target: bool = False        # when the target dies, press target again for the next enemy
     switch_target: bool = False      # the other shoulder button switches to the next target
     lang: str = "en"                 # language of the mod's own HUD labels (one of LANGS)
+    no_magic_drop: bool = False      # dropped magic jars become green rupees (romfs file)
+    hide_minimap: bool = False       # hide the corner minimap while playing
 
     def to_dict(self): return dict(self.__dict__)
 
@@ -447,6 +449,9 @@ def patch_config(nso: bytes, s: Settings) -> bytes:
             b[f + 57] = int(s.auto_target)              # struct 73: next target when the current one dies
             b[f + 58] = int(s.switch_target)            # struct 74: switch target with the other shoulder button
             b[f + 59] = LANG_VALUES.get(s.lang, 0)      # struct 75: language of the mod's own HUD labels
+            if size >= 0x50:                            # 0.8.0: the two bytes after lang
+                b[f + 60] = int(s.no_magic_drop)        # struct 76: magic jars become rupees (romfs)
+                b[f + 61] = int(s.hide_minimap)         # struct 77: hide the corner minimap
     return bytes(b)
 
 
@@ -598,14 +603,22 @@ def install(emu: Path, s: Settings, name: str = MOD_NAME, progress=None) -> Resu
             shutil.copytree(rep / "common", target / "romfs", dirs_exist_ok=True)
 
     res = Result(target, variant)
-    if s.no_heart_drop:                       # romfs files generated from the game's own data (tools/make_romfs_opts.py)
-        src = pay.parent / "romfs_opts" / "no_heart_drop"
+    # romfs files generated from the game's own data (tools/make_romfs_opts.py). The heart and the magic drop are
+    # two changes to the same table, so when both are on one combined file is installed.
+    drops = (["no_heart_drop"] if s.no_heart_drop else []) + (["no_magic_drop"] if s.no_magic_drop else [])
+    if len(drops) == 2:
+        drops = ["no_heart_magic_drop"]
+    for opt in drops:
+        src = pay.parent / "romfs_opts" / opt
         if src.exists():
             shutil.copytree(src, target / "romfs", dirs_exist_ok=True)
         else:
             # The option needs a file generated from the user's own game dump. Never block the
             # rest of the installation just because this optional file was not built.
-            res.notes.append(("no_heart_drop_missing", ""))
+            missing = ("no_heart_drop_missing", "no_magic_drop_missing") if opt == "no_heart_magic_drop" \
+                else (opt + "_missing",)
+            for key in missing:
+                res.notes.append((key, ""))
 
     for opt, enabled in (("enemy_double", s.enemy_double),
                          ("farore_outdoor", s.farore_outdoor),

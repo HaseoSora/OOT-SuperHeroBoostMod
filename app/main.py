@@ -63,7 +63,11 @@ def cli(argv) -> int:
                     help="stamina style: 0 hardcore, 1 combat only, 2 sprint only, 3 advanced")
     ap.add_argument("--no-button-mapping", action="store_true", help="no extra item buttons (button mapping)")
     ap.add_argument("--button-style", choices=I.BUTTON_STYLES, default=None,
-                    help="button mapping: button pictures and the game's own prompts")
+                    help="button mapping: button pictures")
+    ap.add_argument("--bm-layout", choices=I.BM_LAYOUTS, default=None,
+                    help="button mapping: face button positions (match the recompiler's A/B or Xbox remap)")
+    ap.add_argument("--game-layout", choices=I.GAME_LAYOUTS, default=None,
+                    help="download the game's own PlayStation/Xbox prompts (optional; none keeps the game's)")
     ap.add_argument("--bm-simple", action="store_true", help="button mapping: simple layout (assignable buttons only)")
     ap.add_argument("--bm-l", choices=I.L_MODES, default=None,
                     help="button mapping: L is an item button (assign) or the game's item selector")
@@ -136,6 +140,10 @@ def cli(argv) -> int:
         s.button_mapping = False
     if a.button_style:
         s.button_style = a.button_style
+    if a.bm_layout:
+        s.bm_layout = a.bm_layout
+    if a.game_layout:
+        s.game_layout = a.game_layout
     if a.bm_simple:
         s.bm_simple = True
     if a.bm_l:
@@ -332,6 +340,10 @@ def gui() -> None:
     bmap = tk.BooleanVar(value=bool(cfg.get("button_mapping", True)))
     # button style, layout and L mode: personal choices, not part of a profile
     bstyle = tk.StringVar(value=cfg.get("button_style") if cfg.get("button_style") in I.BUTTON_STYLES else "switch")
+    bplace = tk.StringVar(value=cfg.get("bm_layout") if cfg.get("bm_layout") in I.BM_LAYOUTS else "nintendo")
+    # the game-wide prompts used to follow the button style: keep that choice for configs saved before the split
+    _gl = cfg.get("game_layout", cfg.get("button_style") if cfg.get("button_style") in I.GAME_LAYOUTS else "none")
+    glayout = tk.StringVar(value=_gl if _gl in I.GAME_LAYOUTS else "none")
     bsimple = tk.BooleanVar(value=bool(cfg.get("bm_simple", False)))
     blmode = tk.StringVar(value=cfg.get("bm_l_mode") if cfg.get("bm_l_mode") in I.L_MODES else "assign")
     stamina = tk.BooleanVar(value=bool(cfg.get("stamina", True)))
@@ -538,7 +550,7 @@ def gui() -> None:
         refresh()
         autosave()
 
-    for var in (bstyle, bsimple, blmode):
+    for var in (bstyle, bplace, glayout, bsimple, blmode):
         var.trace_add("write", on_pref_change)
     stamina_bar.trace_add("write", on_pref_change)   # display preference: does not switch to Custom
 
@@ -551,6 +563,7 @@ def gui() -> None:
 
     def settings():
         return I.Settings(button_mapping=bmap.get(), button_style=bstyle.get(), bm_simple=bsimple.get(),
+                          bm_layout=bplace.get(), game_layout=glayout.get(),
                           bm_l_mode=blmode.get(), stamina=stamina.get(), stamina_bar=stamina_bar.get(),
                           songbook=songbook.get(),
                           quick_boots=quick_boots.get(), quick_mask=quick_mask.get(),
@@ -574,6 +587,7 @@ def gui() -> None:
             "lang": lang.get(), "emu": emu.get(), "profile": profile.get(),
             "target": target.get(), "recomp": recomp_path.get(), "recomp_builder": recomp_builder.get(),
             "button_mapping": bmap.get(), "button_style": bstyle.get(), "bm_simple": bsimple.get(),
+            "bm_layout": bplace.get(), "game_layout": glayout.get(),
             "bm_l_mode": blmode.get(),
             "stamina": stamina.get(), "stamina_bar": stamina_bar.get(), "songbook": songbook.get(),
             "quick_boots": quick_boots.get(), "quick_mask": quick_mask.get(),
@@ -977,12 +991,11 @@ def gui() -> None:
             if w is not None:
                 w.config(state="normal" if stam else "disabled")
         on = bmap.get()
-        if "variant" in ui:
-            # the style is global: it also changes the game's own prompts, so it stays editable
-            ui["variant"].config(state="readonly")
+        if "game_layout" in ui:   # the game-wide prompts do not depend on the button mapping
+            ui["game_layout"].config(state="readonly")
             refresh_layout_note()
         for w in ui.get("bm", []):
-            w.config(state="normal" if on else "disabled")
+            w.config(state=("readonly" if isinstance(w, ttk.Combobox) else "normal") if on else "disabled")
         ui["note"].config(text="" if stam else L("stamina_off_note"), fg=AMBER)
         rec = target.get() == "recomp"
         mods = ok_emu()
@@ -1064,10 +1077,12 @@ def gui() -> None:
             idx = SPEEDS.index(speed.get()) if speed.get() in SPEEDS else 0
             ui["sprint_var"].set(ui["sprint_values"][idx])
             ui["sprint"].current(idx)
-        if "variant" in ui:
-            idx = I.BUTTON_STYLES.index(bstyle.get()) if bstyle.get() in I.BUTTON_STYLES else 0
-            ui["variant_var"].set(ui["variant_values"][idx])
-            ui["variant"].current(idx)
+        for key, var, choices in (("variant", bstyle, I.BUTTON_STYLES), ("bm_place", bplace, I.BM_LAYOUTS),
+                                  ("game_layout", glayout, I.GAME_LAYOUTS)):
+            if key in ui:
+                idx = choices.index(var.get()) if var.get() in choices else 0
+                ui[key + "_var"].set(ui[key + "_values"][idx])
+                ui[key].current(idx)
         if "clock" in ui:
             idx = CLOCK_MODES.index(clock_mode.get()) if clock_mode.get() in CLOCK_MODES else 0
             ui["clock_var"].set(ui["clock_values"][idx])
@@ -1271,6 +1286,28 @@ def gui() -> None:
         check(body, L("hud_collectibles"), hud_collectibles).pack(anchor="w", pady=(8, 0))
         label(body, L("hud_collectibles_desc"), size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=(20, 0))
         label(body, L("hud_note"), size=9, color=DIM, bg=PANEL).pack(anchor="w", pady=(8, 0))
+        build_game_prompts(parent)
+
+    def build_game_prompts(parent):
+        """HUD section: the game's own button prompts (independent of the button mapping, optional)."""
+        body = card(parent, L("game_layout"), L("game_layout_d"))
+        row = tk.Frame(body, bg=PANEL)
+        row.pack(anchor="w")
+        gnames = [L("game_layout_none" if k == "none" else "g_" + k) for k in I.GAME_LAYOUTS]
+        gvar = tk.StringVar(value=gnames[I.GAME_LAYOUTS.index(glayout.get())])
+        ui["game_layout_var"] = gvar
+        ui["game_layout_values"] = gnames
+        gcb = combo(row, gnames, gvar, width=16)
+        gcb.pack(side="left")
+        gcb.bind("<<ComboboxSelected>>", lambda e: (glayout.set(I.GAME_LAYOUTS[gcb.current()]),
+                                                    refresh_layout_note()))
+        ui["game_layout"] = gcb
+        ui["layout_dl"] = button(row, L("layout_btn"), lambda: download_layout(glayout.get()))
+        ui["layout_dl"].pack(side="left", padx=(8, 0))
+        note = label(body, "", size=9, color=DIM, bg=PANEL)
+        note.pack(anchor="w", pady=(2, 0))
+        ui["layout_note"] = note
+        refresh_layout_note()
 
     def build_controls(parent):
         body = card(parent, L("controls_title"), L("controls_desc"))
@@ -1302,9 +1339,9 @@ def gui() -> None:
         note, btn = ui.get("layout_note"), ui.get("layout_dl")
         if note is None:
             return
-        style = bstyle.get()
-        if style == "switch":
-            note.config(text=L("layout_note_switch"), fg=DIM)
+        style = glayout.get()
+        if style == "none":
+            note.config(text=L("layout_note_none"), fg=DIM)
             if btn is not None:
                 btn.pack_forget()
             return
@@ -1383,8 +1420,8 @@ def gui() -> None:
         return ok["value"]
 
     def need_layout() -> bool:
-        style = bstyle.get()
-        return style == "switch" or layouts.available(style) or download_layout(style)
+        style = glayout.get()
+        return style == "none" or layouts.available(style) or download_layout(style)
 
     def build_buttons(parent):
         body = card(parent, L("buttons_title"), L("buttons_desc"))
@@ -1401,15 +1438,24 @@ def gui() -> None:
         ui["variant_values"] = names
         cb = combo(row, names, vvar, width=16)
         cb.pack(side="left")
-        cb.bind("<<ComboboxSelected>>", lambda e: (bstyle.set(I.BUTTON_STYLES[cb.current()]),
-                                                   refresh_layout_note()))
+        cb.bind("<<ComboboxSelected>>", lambda e: bstyle.set(I.BUTTON_STYLES[cb.current()]))
         ui["variant"] = cb
-        ui["layout_dl"] = button(row, L("layout_btn"), lambda: download_layout(bstyle.get()))
-        ui["layout_dl"].pack(side="left", padx=(8, 0))
-        note = label(body, "", size=9, color=DIM, bg=PANEL)
-        note.pack(anchor="w", pady=(2, 0))
-        ui["layout_note"] = note
-        refresh_layout_note()
+        ui["bm"].append(cb)
+        label(body, L("variant_d"), size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=(20, 0))
+
+        row = tk.Frame(body, bg=PANEL)
+        row.pack(anchor="w", pady=(8, 0))
+        label(row, L("bm_place") + ":", size=10, bg=PANEL).pack(side="left", padx=(0, 8))
+        pnames = [L("bm_place_" + k) for k in I.BM_LAYOUTS]
+        pvar = tk.StringVar(value=pnames[I.BM_LAYOUTS.index(bplace.get())])
+        ui["bm_place_var"] = pvar
+        ui["bm_place_values"] = pnames
+        pcb = combo(row, pnames, pvar, width=22)
+        pcb.pack(side="left")
+        pcb.bind("<<ComboboxSelected>>", lambda e: bplace.set(I.BM_LAYOUTS[pcb.current()]))
+        ui["bm_place"] = pcb
+        ui["bm"].append(pcb)
+        label(body, L("bm_place_d"), size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=(20, 0))
 
         label(body, L("bm_layout"), size=10, color=ACCENT, bold=True, bg=PANEL).pack(anchor="w", pady=(10, 0))
         for value, key in ((False, "bm_ext"), (True, "bm_simple")):
@@ -1426,6 +1472,7 @@ def gui() -> None:
             label(body, L("bm_l_" + value + "_d"), size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=(20, 0))
         label(body, L("bm_note"), size=9, color=AMBER, bg=PANEL).pack(anchor="w", pady=(8, 0))
         label(body, L("bm_swap_note"), size=9, color=DIM, bg=PANEL).pack(anchor="w", pady=(2, 0))
+
 
     def build_enemies(parent):
         body = card(parent, L("enemies_title"), L("enemies_desc"))
@@ -1608,7 +1655,7 @@ def gui() -> None:
     elif profile.get() != "custom":
         apply_profile(profile.get(), save=False)
 
-    for v in (emu, bmap, bstyle, bsimple, blmode, stamina, songbook, quick_boots, quick_mask, hud_collectibles,
+    for v in (emu, bmap, bstyle, bplace, glayout, bsimple, blmode, stamina, songbook, quick_boots, quick_mask, hud_collectibles,
               target_r3, sprint_l3,
               enemy_double, enemy_move, enemy_anim, enemy_attack, enemy_proj, stamina_bar,
               great_fairy, farore_outdoor, mode, combat, hp, dmg, speed,

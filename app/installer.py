@@ -20,6 +20,9 @@ BUTTON_STYLES = ("switch", "playstation", "xbox")   # buttonMapping button art (
 HUD_MODES = ("wide", "simple", "map")
 HUD_MODE_BYTE = {"wide": 0, "simple": 1, "map": 2}
 STYLE_BYTE = {"switch": 0, "xbox": 1, "playstation": 2}
+GAME_LAYOUTS = ("none", "playstation", "xbox")   # game-wide prompts download (optional; recompilers have their own)
+BM_LAYOUTS = ("nintendo", "ab", "xbox")         # where the face buttons sit (the recompilers' button remap)
+BM_LAYOUT_BYTE = {"nintendo": 0, "ab": 1, "xbox": 2}
 L_MODES = ("assign", "selector")           # buttonMapping L: an item slot or the game's item selector
 L_MODE_VALUES = {"assign": 0, "selector": 2}
 ENEMY_LEVELS = (0, 10, 11, 4, 1, 5, 2, 6, 3, 7, 8, 9)   # display order: off, x0.5 .. x6
@@ -79,7 +82,9 @@ class Settings:
     great_fairy: bool = False        # reorder the three Great Fairy magic rewards
     farore_outdoor: bool = False     # allow Farore's Wind points outside dungeons
     button_mapping: bool = True      # buttonMapping: our own item buttons B / L / R / ZR on the HUD
-    button_style: str = "switch"     # one of BUTTON_STYLES
+    button_style: str = "switch"     # one of BUTTON_STYLES: the button mapping's own button pictures
+    bm_layout: str = "nintendo"      # one of BM_LAYOUTS: face button positions of the button mapping HUD
+    game_layout: str = "none"        # one of GAME_LAYOUTS: download the game's own PS/Xbox prompts (optional)
     bm_simple: bool = False          # simple layout: only the assignable buttons (no A / X / Y)
     bm_l_mode: str = "assign"        # one of L_MODES
     stamina_bar: bool = False        # stamina UI: segmented horizontal bar instead of the ring
@@ -253,7 +258,7 @@ def patch_config(nso: bytes, s: Settings) -> bytes:
     b[f + 2], b[f + 3], b[f + 4] = int(s.jump), int(s.attack), int(s.sprint)
     b[f + 5], b[f + 6], b[f + 7] = int(s.block), int(s.shoot), int(s.roll)
     b[f + 8] = int(s.combat_only)
-    b[f + 9] = 0                      # reserved legacy flag (always 0)
+    b[f + 9] = BM_LAYOUT_BYTE.get(s.bm_layout, 0)   # face button positions (was a reserved 0 byte)
     struct.pack_into("<HH", b, f + 10, int(s.enemy_hp), int(s.damage))
     b[f + 14], b[f + 15], b[f + 16] = 0, 0, int(s.clock_24h)
     b[f + 17] = int(s.no_heart_drop)
@@ -387,9 +392,9 @@ class Result:
 
 
 def ensure_layout(s: "Settings", progress=None) -> str | None:
-    """Download (once) the game-wide controller layout the user chose; None for Switch."""
-    style = s.button_style if s.button_style in BUTTON_STYLES else "switch"
-    if style == "switch":
+    """Download (once) the game-wide controller layout the user chose; None when there is none (optional)."""
+    style = s.game_layout if s.game_layout in GAME_LAYOUTS else "none"
+    if style == "none":
         return None
     try:
         layouts.ensure(style, progress=progress)

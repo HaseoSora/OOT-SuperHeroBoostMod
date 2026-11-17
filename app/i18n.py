@@ -1511,6 +1511,110 @@ for _lang, _txt in _LAYOUT.items():
     T[_lang].update(_txt)
 
 
+# button mapping pictures / positions and the optional game-wide prompts (separate choices)
+_PADS = {
+    "en": dict(
+        variant_d="The button pictures of the button mapping HUD only.",
+        bm_place="Button positions",
+        bm_place_nintendo="Nintendo (default)", bm_place_ab="A and B swapped", bm_place_xbox="Xbox (A/B and X/Y swapped)",
+        bm_place_d="Match the button layout chosen in Longshot or ReLink: the HUD moves the buttons (jump, items) to "
+                   "where they are on your controller. The game's Swap Jump Controls option still works on top.",
+        game_layout="Game button prompts",
+        game_layout_d="Optional: replace the game's own prompts, font and controller picture with PlayStation or Xbox "
+                      "ones (GameBanana download, ~70 MB). Longshot and ReLink already include their own prompts.",
+        game_layout_none="None (keep the game's)",
+        layout_note_none="The game keeps its own button prompts.",
+        bm_note="Close the game before installing.",
+        e_layout="Could not get the {a} layout from GameBanana. Check the connection and try again, or choose "
+                 "None. Manual download: gamebanana.com/mods/737074.",
+    ),
+    "es": dict(
+        variant_d="Solo las imágenes de los botones del HUD de mapeo.",
+        bm_place="Posición de los botones",
+        bm_place_nintendo="Nintendo (por defecto)", bm_place_ab="A y B invertidos",
+        bm_place_xbox="Xbox (A/B y X/Y invertidos)",
+        bm_place_d="Elige el mismo esquema de botones que en Longshot o ReLink: el HUD mueve los botones (salto, "
+                   "objetos) a donde están en tu mando. La opción Cambiar controles de salto del juego sigue funcionando.",
+        game_layout="Iconos de botones del juego",
+        game_layout_d="Opcional: cambia los iconos, la fuente y la imagen del mando del propio juego por los de "
+                      "PlayStation o Xbox (descarga de GameBanana, ~70 MB). Longshot y ReLink ya traen los suyos.",
+        game_layout_none="Ninguno (los del juego)",
+        layout_note_none="El juego mantiene sus propios iconos de botones.",
+        bm_note="Cierra el juego antes de instalar.",
+        e_layout="No se pudo descargar el layout {a} de GameBanana. Comprueba la conexión y reinténtalo, o elige "
+                 "Ninguno. Descarga manual: gamebanana.com/mods/737074.",
+    ),
+    "pt": dict(
+        variant_d="Só as imagens dos botões do HUD de mapeamento.",
+        bm_place="Posição dos botões",
+        bm_place_nintendo="Nintendo (padrão)", bm_place_ab="A e B trocados", bm_place_xbox="Xbox (A/B e X/Y trocados)",
+        bm_place_d="Escolhe o mesmo esquema de botões do Longshot ou do ReLink: o HUD move os botões (salto, itens) "
+                   "para onde estão no teu comando. A opção Trocar controles de salto do jogo continua a funcionar.",
+        game_layout="Ícones de botões do jogo",
+        game_layout_d="Opcional: troca os ícones, a fonte e a imagem do comando do próprio jogo pelos de PlayStation "
+                      "ou Xbox (download do GameBanana, ~70 MB). O Longshot e o ReLink já trazem os seus.",
+        game_layout_none="Nenhum (os do jogo)",
+        layout_note_none="O jogo mantém os seus próprios ícones de botões.",
+        bm_note="Fecha o jogo antes de instalar.",
+        e_layout="Não foi possível obter o layout {a} do GameBanana. Verifica a ligação e tenta de novo, ou escolhe "
+                 "Nenhum. Download manual: gamebanana.com/mods/737074.",
+    ),
+    "fr": dict(
+        variant_d="Seulement les images des boutons du HUD de mappage.",
+        bm_place="Position des boutons",
+        bm_place_nintendo="Nintendo (par défaut)", bm_place_ab="A et B inversés",
+        bm_place_xbox="Xbox (A/B et X/Y inversés)",
+        bm_place_d="Choisissez la même disposition que dans Longshot ou ReLink : le HUD place les boutons (saut, "
+                   "objets) là où ils sont sur votre manette. L'option Échanger les commandes de saut du jeu "
+                   "fonctionne toujours.",
+        game_layout="Icônes de boutons du jeu",
+        game_layout_d="Optionnel : remplace les icônes, la police et l'image de la manette du jeu par celles de "
+                      "PlayStation ou Xbox (téléchargement GameBanana, ~70 Mo). Longshot et ReLink ont déjà les leurs.",
+        game_layout_none="Aucune (celles du jeu)",
+        layout_note_none="Le jeu garde ses propres icônes de boutons.",
+        bm_note="Fermez le jeu avant d'installer.",
+        e_layout="Impossible d'obtenir la disposition {a} depuis GameBanana. Vérifiez la connexion et réessayez, "
+                 "ou choisissez Aucune. Téléchargement manuel : gamebanana.com/mods/737074.",
+    ),
+    "de": dict(
+        variant_d="Nur die Tastenbilder des Tastenbelegungs-HUD.",
+        bm_place="Tastenpositionen",
+        bm_place_nintendo="Nintendo (Standard)", bm_place_ab="A und B getauscht",
+        bm_place_xbox="Xbox (A/B und X/Y getauscht)",
+        bm_place_d="Wähle dasselbe Tastenschema wie in Longshot oder ReLink: das HUD setzt die Tasten (Springen, "
+                   "Gegenstände) dorthin, wo sie auf deinem Controller liegen. Die Spieloption Sprungtasten tauschen "
+                   "funktioniert weiterhin.",
+        game_layout="Tastensymbole des Spiels",
+        game_layout_d="Optional: ersetzt die Symbole, die Schrift und das Controllerbild des Spiels durch PlayStation "
+                      "oder Xbox (Download von GameBanana, ~70 MB). Longshot und ReLink bringen eigene mit.",
+        game_layout_none="Keine (die des Spiels)",
+        layout_note_none="Das Spiel behält seine eigenen Tastensymbole.",
+        bm_note="Schließe das Spiel vor der Installation.",
+        e_layout="Das {a}-Layout konnte nicht von GameBanana geladen werden. Prüfe die Verbindung und versuche es "
+                 "erneut, oder wähle Keine. Manuell: gamebanana.com/mods/737074.",
+    ),
+    "it": dict(
+        variant_d="Solo le immagini dei tasti dell'HUD di mappatura.",
+        bm_place="Posizione dei tasti",
+        bm_place_nintendo="Nintendo (predefinito)", bm_place_ab="A e B invertiti",
+        bm_place_xbox="Xbox (A/B e X/Y invertiti)",
+        bm_place_d="Scegli lo stesso schema di tasti di Longshot o ReLink: l'HUD sposta i tasti (salto, oggetti) "
+                   "dove si trovano sul tuo controller. L'opzione Scambia comandi di salto del gioco continua a "
+                   "funzionare.",
+        game_layout="Icone dei tasti del gioco",
+        game_layout_d="Facoltativo: sostituisce icone, font e immagine del controller del gioco con quelle "
+                      "PlayStation o Xbox (download da GameBanana, ~70 MB). Longshot e ReLink hanno già le loro.",
+        game_layout_none="Nessuna (quelle del gioco)",
+        layout_note_none="Il gioco mantiene le sue icone dei tasti.",
+        bm_note="Chiudi il gioco prima di installare.",
+        e_layout="Impossibile scaricare il layout {a} da GameBanana. Controlla la connessione e riprova, oppure "
+                 "scegli Nessuna. Download manuale: gamebanana.com/mods/737074.",
+    ),
+}
+for _lang, _txt in _PADS.items():
+    T[_lang].update(_txt)
+
+
 
 # resource size table notes (the last mod wins a file: ours must sort last and merge the others)
 _TABLE = {

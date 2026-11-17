@@ -849,9 +849,8 @@ def install_romfs(game: Path, s: I.Settings) -> tuple[int, list]:
     pay = payload_dir()
     target = game / "mods" / MOD_NAME / "romfs"
     notes = []
-    style = s.button_style if s.button_style in I.BUTTON_STYLES else "switch"
-    if style != "switch":
-        I.ensure_layout(s)                 # cached after the first download; fails before touching the game
+    style = s.button_style if s.button_style in I.BUTTON_STYLES else "switch"   # the button mapping's pictures
+    game_layout = I.ensure_layout(s)       # optional game-wide prompts; cached, fails before touching the game
     for old in I.our_mod_folders(game / "mods"):   # older versions used other folder names
         if old.name != MOD_NAME:
             shutil.rmtree(old, ignore_errors=True)
@@ -882,8 +881,8 @@ def install_romfs(game: Path, s: I.Settings) -> tuple[int, list]:
         if enabled and not copy(pay / "romfs_opts" / opt):
             notes.append((opt + "_missing", ""))
     notes.extend(I.install_enemy_mods(target, s, pay))
-    if style != "switch":      # last: the game's own prompts, font and controller picture (table merged)
-        I.layouts.apply(target, style)
+    if game_layout:            # last: the game's own prompts, font and controller picture (table merged)
+        I.layouts.apply(target, game_layout)
         copied += 3
     fighting = I.other_layout_mods(game / "mods", {MOD_NAME})
     if fighting:

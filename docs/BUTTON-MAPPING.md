@@ -9,7 +9,9 @@ project.
 | Feature | How it works |
 |---|---|
 | Extra item buttons B / L / R / ZR | the slot's item is equipped into the game's item box (item index forced on the `main+0x1211C00` call) and ZR is held while the button is held |
-| Button styles | three texture sets: Switch (`OotBtnS_*`), Xbox (`OotBtnX_*`) and PlayStation (`OotBtnP_*`); style byte 0 / 1 / 2. The style is global: for PlayStation or Xbox the installer also downloads (once, ~70 MB) the game's own button glyphs, External font and controller picture from the GameBanana controller-UI mod, and merges its resource size table with ours |
+| Button styles | three texture sets: Switch (`OotBtnS_*`), Xbox (`OotBtnX_*`) and PlayStation (`OotBtnP_*`); style byte 0 / 1 / 2. They only change the button mapping's own pictures |
+| Button positions | `bm_layout` (config offset 25): 0 Nintendo, 1 A/B swapped, 2 Xbox (A/B and X/Y swapped), to match the button remap of Longshot / ReLink. `face_place()` in `core/hud.c` moves where each face button (and its item, label) is drawn on the HUD and the pause menu; the logical buttons do not change, and the game's Jump/B swap is applied first |
+| Game prompts (optional) | a separate app choice (`game_layout`: none / PlayStation / Xbox). Only when it is set, the installer downloads (once, ~70 MB) the game's own button glyphs, External font and controller picture from the GameBanana controller-UI mod and merges its resource size table with ours. Longshot and ReLink already ship their own prompts, so the default is none |
 | Extended layout | B, L, R, ZR, X, Y, A and the sword |
 | Simple layout | only the assignable B, L, R and ZR buttons; hides X, Y, A and the sword and repositions L / R / ZR in place with B centred and closer, in a zigzag, both on the HUD and on the pause menu's Items tab |
 | L mode: item | L is one more item slot |

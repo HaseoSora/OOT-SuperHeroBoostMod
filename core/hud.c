@@ -1851,20 +1851,31 @@ static void zr_mirror(void) {
  * and our buttons do not act. */
 static u64 g_ps_frame;
 int hud_ingame(void) { return !vptr(g_ps_frame) || (*(volatile u32 *)(g_ps_frame + 0x1A4) & 0x20000u) != 0; }
-/* Corner minimap (MapMenu_00): its own area / floor texts tell us which frame it is; while playing, the scale of
- * its minimap nodes is zeroed. The map screen (hud_ingame() == 0) keeps them */
-static u64 g_map_frame, g_mm_rec[2], g_mm_frame;
-u64 g_minimap_dbg[3];   /* 0: the captured MapMenu frame, 1/2: its minimap pane records */
+/* Corner minimap (MapMenu_00): the layout is captured at its part instantiation (hook id 4) and its frame is
+ * layout + 0xB0 (the PlayerStatus layout uses the same field). While playing, the scale of every map node is zeroed;
+ * the map screen (hud_ingame() == 0) keeps them. */
+static u64 g_map_frame, g_mm_frame;
+static u64 g_map_layout;
+u64 g_minimap_dbg[3];   /* 0: the captured MapMenu frame, 1/2: two of its pane records */
+/* The nodes that make up the corner map: the paper map, its caps, the player arrow and map icons, the frame and the
+ * world-map thumbnail. Arrays, not pointer tables (the module has no relocations). */
+#define MM_N 6
+static const char g_mm_names[MM_N][20] = {"N_MiniMap_00", "N_MiniMapCap_00", "N_Common_00",
+                                          "N_MapIcon_00", "P_MiniMapFrame_00", "N_WorldMap_00"};
+static u64 g_mm_rec[MM_N];
 static void hide_minimap(void) {
+    if (g_map_layout) {
+        u64 f = ptr(g_map_layout, 0xB0);
+        if (f && vptr(f) && ptr(f, 0x80) == g_map_layout) g_map_frame = f;
+    }
     g_minimap_dbg[0] = g_map_frame;
     if (!g_shbcfg.hide_minimap || !g_map_frame || !hud_ingame()) return;
     if (g_mm_frame != g_map_frame) {
         g_mm_frame = g_map_frame;
-        g_mm_rec[0] = pane_record(g_map_frame, "N_MiniMap_00");
-        g_mm_rec[1] = pane_record(g_map_frame, "N_MiniMapCap_00");
+        for (u32 i = 0; i < MM_N; i++) g_mm_rec[i] = pane_record(g_map_frame, g_mm_names[i]);
         g_minimap_dbg[1] = g_mm_rec[0]; g_minimap_dbg[2] = g_mm_rec[1];
     }
-    for (u32 i = 0; i < 2; i++) if (g_mm_rec[i]) {
+    for (u32 i = 0; i < MM_N; i++) if (g_mm_rec[i]) {
         *(float *)(g_mm_rec[i] + 0x60) = 0.0f; *(float *)(g_mm_rec[i] + 0x64) = 0.0f;
         *(u32 *)g_mm_rec[i] |= 0x6F;
     }
@@ -1970,10 +1981,19 @@ static u32 mmh3(const char *a, const char *b) {   /* murmur3_32(a + b, seed 0): 
     h ^= n; h ^= h >> 16; h *= 0x85ebca6bu; h ^= h >> 13; h *= 0xc2b2ae35u; h ^= h >> 16;
     return h;
 }
+/* Items whose button shows a quantity: the stackable consumables. Unique items (boomerang, hookshot, ocarina...)
+ * also have a PouchData StockNum (1), so an allowlist is what keeps the "1" off their buttons. */
+static int item_has_count(int item) {
+    switch (item) {
+    case 0: case 1: case 2: case 4: case 9: case 13:                    /* stick, nut, bomb, seeds, bombchu, bean */
+    case 30: case 46: case 47: case 48: return 1;                       /* bow and elemental arrows */
+    default: return 0;
+    }
+}
 /* The GameData Int index of a consumable item's quantity (PouchData.<item>.StockNum; table in gd_index.h).
  * The bow and the slingshot have no own counter: they use the arrows' and the seeds'. -1 = no quantity. */
 static int item_stock_index(int item) {
-    if (item < 0) return -1;
+    if (!item_has_count(item)) return -1;
     const char *nm;
     if (item == 4) nm = "Item_DekuSeed";            /* slingshot: the seed count */
     else if (item == 30 || item == 46 || item == 47 || item == 48)
@@ -2014,6 +2034,26 @@ static int box_item(void) {
     if (v == GD_EMPTY_HASH) return -1;
     for (int it = 0; it < 64; it++) if (item_box_value(it) == v) return it;
     return -2;
+}
+/* features/button_mapping: the game's item box straight from GameData (also under the pause menu, where the HUD
+ * icon is not read): item index, -1 empty, -2 unknown */
+int hud_box_item(void) { return box_item(); }
+/* ... and set it there (-1 empty): the menu shows and keeps what GameData has. 0 if the item has no box value. */
+void hud_box_empty(int child);
+int hud_box_set(int item) {
+    if (item < 0) { int ch = gd_bool(GD_IS_CHILDHOOD); if (ch < 0) return 0; hud_box_empty(ch); return 1; }
+    if (item >= 64) return 0;
+    u32 v = item_box_value(item);
+    if (v <= 1) return 0;
+    int ch = gd_bool(GD_IS_CHILDHOOD);
+    u64 mgr = *(u64 *)GAMEDATA_MGR;
+    if (ch < 0 || !vptr(mgr)) return 0;
+    u32 cnt = *(volatile u32 *)(mgr + 8 + 0x60 * 6 + 8);
+    u64 rec = *(volatile u64 *)(mgr + 8 + 0x60 * 6 + 0x10);
+    u32 i = ch ? GD_BOX_CHILD : GD_BOX_ADULT;
+    if (!rec || i >= cnt) return 0;
+    *(volatile u32 *)(rec + (u64)i * 0x38 + 0x1C) = v;
+    return 1;
 }
 /* Empty the game's item box (ZR): PlayerStatus.AssignableItem.Child / .Adult (Enum table k = 6, 0x38-byte records,
  * live value at +0x1C = the hash of the value name) = "Empty". The HUD box follows. */
@@ -2173,10 +2213,13 @@ static void slots_draw(SlotBtn *set, const u64 *ctrls, u64 frame, const float *l
             *(u32 *)b->sh |= 0x6F;
         }
         /* item quantity (consumables only): the box's own count text, e.g. 30 bombs / 20 arrows.
-         * The Int index is resolved only when the button's item changes; the value is a plain read. */
-        if (b->num_item != g_sb_item[k]) {
-            b->num_item = g_sb_item[k];
-            b->num_idx = item_stock_index(b->num_item);
+         * The Int index is resolved only when the button's item changes; the value is a plain read.
+         * ZR does not go through g_sb_item: it mirrors the game's own box (hud_zr_item). */
+        int count_item = g_sb_item[k];
+        if (count_item < 0 && k == 10) count_item = hud_zr_item();
+        if (b->num_item != count_item) {
+            b->num_item = count_item;
+            b->num_idx = item_stock_index(count_item);
             b->num_val = -2;
         }
         int cnt = b->num_idx >= 0 ? gd_int((u32)b->num_idx) : -1;
@@ -2355,6 +2398,19 @@ static void slots_update(u64 frame) {
  * is up its N_InOut_00 / N_A_00 alpha (pane record +0x78) is 1; it fades to 0 when there is nothing to do. */
 u64 g_aguide_frame;
 char g_aguide_text[48];
+/* Diagnostic: the last 32 game texts set through the set-text-by-name call (pane name + first bytes), used to find
+ * the names a layout writes (e.g. the map's). Read by tools/live_check.py. */
+u32 g_stxt_n = 0x10000000u;
+struct { char nm[24]; char s[24]; u32 len; } g_stxt[32];
+static void stxt_log(const char *nm, const char *s, u32 len) {
+    u32 e = (g_stxt_n - 0x10000000u) % 32, j;
+    g_stxt_n++;
+    for (j = 0; j < 23 && nm && nm[j]; j++) g_stxt[e].nm[j] = nm[j];
+    g_stxt[e].nm[j] = 0;
+    for (j = 0; j < 23 && s && j < len && s[j]; j++) g_stxt[e].s[j] = s[j];
+    g_stxt[e].s[j] = 0;
+    g_stxt[e].len = len;
+}
 char g_sb_a_label[16] = "";   /* context action of A (empty: the button shows its letter) */
 extern int player_state_is(const char *name);
 extern int player_state_starts(const char *prefix);
@@ -2494,9 +2550,7 @@ static void hud_on_settext(u64 pane, const u64 *ref, u64 lr, const u64 *regs) {
     if (!s || !vptr((u64)s)) return;
     /* Minus map: append the area heart-piece count to the native Skulltula counter's total text. */
     const char *nm = (const char *)regs[0xF0 / 8];
-    if (nm && vptr((u64)nm) && (str_eq(nm, "T_MapTitle_00") || str_eq(nm, "T_Floor_00") ||
-                                str_eq(nm, "T_NoMap_00")))
-        g_map_frame = (u64)regs[0xF8 / 8];   /* the MapMenu frame: the corner minimap (hide_minimap) */
+    if (nm && vptr((u64)nm)) stxt_log(nm, s, len);
     if (g_shbcfg.hud_map_hearts && nm && vptr((u64)nm) && str_eq(nm, "T_NumTotal_00") && len < 40) {
         g_map_set_frame = regs[0xF8 / 8];
         u32 sd = 0, st = 0, hd = 0, ht = 0;
@@ -2609,6 +2663,7 @@ void hud_on_code(u32 id, void *a0, void *a1, void *a2, void *regs) {
         u64 arr = ptr(layout, 0x100);
         const u8 *lr = layout ? (const u8 *)ptr(layout, 0xF8) : 0;
         const char *asset = lr ? (const char *)q(lr, 0x18) : 0;
+        if (asset && str_eq(asset, "MapMenu_00")) g_map_layout = layout;   /* the corner minimap layout */
         if (!asset || !str_eq(asset, "PlayerStatus_00")) return;
         {   /* child frame object the caller prepared: x0 -> [x0+8] -> [0]; null = creation failed */
             u64 o = (u64)a0, c = 0;

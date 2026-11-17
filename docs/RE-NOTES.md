@@ -437,15 +437,22 @@ Both mods are generated from the user's own dump by `tools/make_enemy_opts.py`; 
   `PouchData.Item_*` entries; the bow has no own counter (uses `Item_Arrow_Normal`) and the slingshot uses
   `Item_DekuSeed`.
 - The HUD resolves the index only when a button's item changes, then reads the Int each frame and writes the text
-  only when the number changes. `N_Num_00` is hidden when the item has no quantity.
+  only when the number changes. `N_Num_00` is hidden when the item has no quantity. Only an allowlist of stackable
+  items shows a count (stick, nut, bomb, seeds, bombchu, bean, bow and elemental arrows): every item, unique ones
+  included, has a `PouchData.StockNum`, so a generic lookup put "1" on the boomerang, hookshot, etc. ZR is the game's
+  own box item and does not go through the button slots: its count comes from `hud_zr_item()`.
 
 ## Hiding the corner minimap (Nov 17)
 
-- The corner map is the `MapMenu_00` layout (`Common.Product.100...blarc`): `N_MiniMap_00` is the minimap and
-  `N_MiniMapCap_00` its caps (`P_MiniMapFrame_00`/`N_FadeMiniMap_*` are around them). The map's own texts
-  (`T_MapTitle_00`, `T_Floor_00`, `T_NoMap_00`) identify its frame in the set-text hook (x22 = frame).
-- While playing (PlayerStatus frame `+0x1A4` bit `0x20000`) the option zeroes the scale of those two nodes every
-  HUD frame; the map screen (the bit clear) is not touched.
+- The corner map is the `MapMenu_00` layout (`Common.Product.100...blarc`). It has no text of its own while playing,
+  so the set-text hook never saw it: the frame is taken from the layout instead. Hook id 4 (part instantiation)
+  already reads `layout + 0xF8 -> UIL resource -> +0x18` (the asset name); the left of the layout, `layout + 0xB0`,
+  is its frame (the PlayerStatus layout uses the same field). The first `MapMenu_00` part instantiation gives the
+  minimap layout.
+- While playing (PlayerStatus frame `+0x1A4` bit `0x20000`) the option zeroes the scale of `N_MiniMap_00`,
+  `N_MiniMapCap_00`, `N_Common_00` (player arrow and map icons), `N_MapIcon_00`, `P_MiniMapFrame_00` and
+  `N_WorldMap_00`. The map screen (the bit clear) is not touched. Diagnostics: `g_minimap_dbg[0]` = frame,
+  `[1]`/`[2]` = the first two pane records.
 
 ## Magic jar drops (Nov 17)
 

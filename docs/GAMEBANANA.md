@@ -20,7 +20,7 @@ from your own game files.
 
 There has been a lot of feedback about Longshot problems since 0.4.0: crashes while loading a save or an
 area, a rebuild that stopped near 90% ("Longshot is still running from this folder"), DLSS disappearing
-after a rebuild, and the app picking a ReLink or Hookshot builder for a Longshot game. 0.5.0 fixed those; 0.5.1 includes them and adds the new controls and enemy options:
+after a rebuild, and the app picking a ReLink or Hookshot builder for a Longshot game. 0.5.0 fixed those; 0.6.0 includes them and the ReLink fix (every feature works), the new controls and enemy options, the button positions and the game prompts:
 the module no longer relies on condition flags across calls, DLSS/FSR are kept, the right builder is found
 on Windows/Linux/macOS, ReLink is supported and the app closes the running game. Rebuild the game once.
 
@@ -82,7 +82,7 @@ on Windows/Linux/macOS, ReLink is supported and the app closes the running game.
 
 ## Download
 
-- **`SuperHeroBoost-0.5.1-presets.zip`** — one zip with **all 12 named profiles of the app**, each ready to install.
+- **`SuperHeroBoost-0.6.0-presets.zip`** — one zip with **all 12 named profiles of the app**, each ready to install.
   **No executable inside.** SHA-256: $preset.
 - The companion app **SuperHeroBoostConfig** is a third-party program, so it belongs in the game's **Tools** section
   (https://gamebanana.com/tools/games/7534), not in the Mods file. Source and binaries are also on the project's
@@ -97,7 +97,7 @@ Farore, no-heart-drop, enemy duplication/speed). Pick one; only one profile can 
 
 1. **Requirements**: the game on update **v131072** and an emulator that loads mods from `user/load`. Back up your
    saves; on Windows the app closes the game before installing or rebuilding.
-2. Download **`SuperHeroBoost-0.5.1-presets.zip`** and extract it.
+2. Download **`SuperHeroBoost-0.6.0-presets.zip`** and extract it.
 3. Open the folder of the profile you want (`01 Recommended`, `02 Base`, …) and copy its
    **`zz-Super-Hero-Boost`** folder into `user/load/0400486024DEC000` (the folder that contains your mods; merge
    it if it already exists). Install one profile at a time.
@@ -127,8 +127,8 @@ The app saves your settings automatically, but changes only reach the game after
 - **Emulators: tested** on **lichii** and **Fritchii**.
 - **Longshot: supported and tested** since 0.2.0. Longshot is a static recompilation, so the module has to be built
   into the game: the app's **Longshot** target rebuilds it and installs the profile and romfs options (25-45 minutes
-  the first time; later code changes are incremental and profile/romfs changes need no rebuild). 0.5.1 includes
-  the 0.5.0 crash fixes and adds the new controls; rebuild the game once with 0.5.1.
+  the first time; later code changes are incremental and profile/romfs changes need no rebuild). 0.6.0 includes
+  the 0.5.0 crash fixes and every ReLink feature; rebuild the game once with 0.6.0.
 - **Hookshot: expected to work, not tested yet.** It uses the same builder and `nx2/make_game.py --update`.
 - **ReLink: supported.** `bin/relink-game`, `.relink_exefs` and the `RELINK_*` variables. Install/backup tested; the full build has not been verified on a real ReLink install yet.
 - Real hardware: not tested.

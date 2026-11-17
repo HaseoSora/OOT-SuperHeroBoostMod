@@ -8,7 +8,7 @@ GameBanana classifies third-party programs as Tools; the Mods file must stay fre
 **Tagline:** Configure and install Super Hero Boost: profiles, stamina, difficulty, HUD, item buttons and optional
 world changes from one window.
 
-**Version:** 0.5.1
+**Version:** 0.6.0
 
 ## Summary
 
@@ -31,8 +31,12 @@ Prebuilt apps: `SuperHeroBoostConfig.exe` (Windows), `SuperHeroBoostConfig-linux
 - Controls: target with R3 (swaps ZL/R3), hold L3 to sprint with the native animation, and the manual
   shield keeps L reserved.
 - Quick select (normal feature): hold D-pad Down/Up to switch boots/masks; the named profiles include it.
-- Button mapping: B / L / R / ZR, Switch / PlayStation / Xbox styles (global: the game's own prompts too, downloaded
-  once from the GameBanana controller-UI mod), extended or simple layout, L in item or selector mode, songbook autoplay.
+- Button mapping: B / L / R / ZR, Switch / PlayStation / Xbox pictures, **Nintendo / A-B swapped / Xbox** button
+  positions, extended or simple layout, L in item or selector mode, songbook autoplay.
+- Game button prompts: a separate, optional **None / PlayStation / Xbox** choice in the HUD section; Longshot and
+  ReLink already ship their own.
+- **Play** button, themed scrollbars and, on a recompiled game, a red **Requires rebuild** tag on the main switch of
+  each feature.
 - Optional world changes (Great Fairy rewards, Farore outdoors) and beta enemy options (duplication, movement,
   animation, attack cadence and projectile speed), generated from your own game files.
 - Install and uninstall into the emulator's `user/load/0400486024DEC000` folder.
@@ -40,7 +44,9 @@ Prebuilt apps: `SuperHeroBoostConfig.exe` (Windows), `SuperHeroBoostConfig-linux
   itself and restarts (the SHA-256 of the downloaded asset is verified when GitHub provides it).
 - Longshot target: patches `main`, copies the module to `.longshot_exefs`, installs the romfs options and runs the
   builder's update with progress, log and cancel. It keeps DLSS/FSR, closes a running game on Windows, detects the
-  right builder and supports **Hookshot** (same builder) and **ReLink** (`.relink_exefs`, `bin/relink-game`).
+  right builder and supports **Hookshot** (same builder) and **ReLink** (`.relink_exefs`, `bin/relink-game`). Under
+  ReLink every feature works: the module is built without tail calls (the translator skips the rest of a function
+  whose start is reached only through a backward tail call).
 - Command-line mode with the same options.
 - Spanish, English, Portuguese, French, German and Italian.
 
@@ -57,7 +63,7 @@ Prebuilt apps: `SuperHeroBoostConfig.exe` (Windows), `SuperHeroBoostConfig-linux
 ## Files
 
 - `SuperHeroBoostConfig.exe`
-  SHA-256: `94e3824196e073f62902b95fb0769c2698d0caeac6281814862d99f6136ad015`
+  SHA-256: `27e1e91791763c18d1abd24578e96e4d3c497e3b954ba2615f65bfde4229b715`
 
 The module payload is inside the executable; the app does not download anything.
 

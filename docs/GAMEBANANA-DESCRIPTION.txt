@@ -1,14 +1,30 @@
-LONGSHOT / HOOKSHOT - 0.5.1 NOTICE
+LONGSHOT / HOOKSHOT - 0.6.0 NOTICE
 There has been a lot of feedback about Longshot problems since 0.4.0: crashes while loading a save or an area,
 a rebuild that stopped near 90% with "Longshot is still running from this folder", DLSS disappearing after a
-rebuild, and the app choosing a ReLink or Hookshot builder for a Longshot game. 0.5.0 fixed those; 0.5.1 includes the fixes and adds the new controls and enemy options.
-The module changed, so rebuild the game once with 0.5.1. If a crash remains, attach logs/longshot_log.txt and the
+rebuild, and the app choosing a ReLink or Hookshot builder for a Longshot game. 0.5.0 fixed those; 0.6.0 includes the fixes, the ReLink fix (every feature works) and the new controls, enemy options, button positions and game prompts.
+The module changed, so rebuild the game once with 0.6.0. If a crash remains, attach logs/longshot_log.txt and the
 new file in bug-reports/.
 
 Super Hero Boost is a gameplay and HUD module for the Ocarina of Time remake (update v131072).
 
 WHAT YOU ARE DOWNLOADING
-The file in the Files tab is SuperHeroBoost-0.5.1-presets.zip: the mod itself, with all 12 named profiles of the companion app ready to install in an emulator. Every profile includes the boots/mask quick select. It contains no executable. The configuration app is a separate download (see "Installation app" below); it is not in the Files tab.
+The file in the Files tab is SuperHeroBoost-0.6.0-presets.zip: the mod itself, with all 12 named profiles of the companion app ready to install in an emulator. Every profile includes the boots/mask quick select. It contains no executable. The configuration app is a separate download (see "Installation app" below); it is not in the Files tab.
+
+NEW IN 0.6.0
+- ReLink: every feature works. ReLink's translator writes each function in address order and starts at its lowest; a
+  backward tail call made its caller's start unreachable, so the input dispatcher ran only the quick select (stamina
+  never drained, the manual shield's L, the button mapping and R3/L3 did nothing). The module is now built without tail
+  calls and the build fails if one appears. Rebuild the game once with 0.6.0.
+- Manual shield: with Hold targeting only the held target button counts as a target (the lock-on state lingers); with
+  no target L keeps its default game function.
+- Button positions: Nintendo (default), A-B swapped or Xbox (A/B and X/Y swapped), to match Longshot or ReLink; the HUD
+  and the pause menu draw each face button where it is, and Swap Jump Controls still applies on top.
+- Game button prompts are now a separate, optional choice in the HUD section: None / PlayStation / Xbox (None by
+  default). The button style only picks the button mapping's own pictures; Longshot and ReLink ship their own prompts.
+- App: Play button, themed scrollbars, a red "Requires rebuild" tag on a recompiled game, and --bm-layout / --game-layout.
+- The mod folder is zz-Super-Hero-Boost so its resource size table wins over other mods (the loader lets the mod whose
+  path sorts last win each file); the other mods' tables are merged into ours.
+- 0.5.1's enemy speed and controls and the 0.5.0 fixes remain.
 
 NEW IN 0.5.1
 - Enemy speed reworked: movement scales every base and attack speed together, with separate
@@ -124,7 +140,7 @@ https://github.com/kuribox/OOT-SuperHeroBoostMod/releases
 5. 0.5.0 keeps DLSS / FSR and closes a running copy of the game on Windows so the final swap is not blocked.
 6. Uninstall restores the original bin/longshot.exe, image.bin and exefs/main (and the ReLink files).
 
-0.5.1 includes the 0.5.0 Longshot crash fixes and adds the new controls; rebuild the game once with 0.5.1.
+0.6.0 includes the 0.5.0 Longshot crash fixes and every ReLink feature; rebuild the game once with 0.6.0.
 
 IN GAME
 - Item buttons: pause menu -> Items tab, highlight an item and press X to put it on B, L on L and R on R. The game's own ZR box still works with A.
@@ -136,7 +152,7 @@ IN GAME
 
 INSTALLATION APP
 - Prebuilt apps for Windows, Linux (x86_64) and macOS (Apple Silicon); also GUI and command-line modes from source (Python 3.10+ with Tkinter).
-- Profiles, per-section settings, install and uninstall.
+- Profiles, per-section settings, install and uninstall. A Play button opens the emulator or the recompiled game's launcher; the scrollbars follow the theme; on a recompiled game the main switch of each feature shows when it needs a rebuild.
 - Quick select card: boots and mask switching from the D-pad.
 - Translations: Spanish, English, Portuguese, French, German and Italian.
 - From 0.2.1 the app checks GitHub Releases on startup and offers to download a newer version. On Windows it can replace itself and restart; if the folder is read-only, it shows where the new file was saved.
@@ -144,9 +160,9 @@ INSTALLATION APP
 
 COMPATIBILITY
 - Emulators: tested and working on lichii and Fritchii.
-- Longshot: supported and tested. 0.5.1 includes the 0.5.0 crash fixes and the new controls; rebuild the game once with 0.5.1.
+- Longshot: supported and tested. 0.6.0 includes the 0.5.0 crash fixes and every ReLink feature; rebuild the game once with 0.6.0.
 - Hookshot: expected to work, not tested yet (same builder and make_game.py --update).
-- ReLink: supported (bin/relink-game, .relink_exefs, RELINK_* variables). Install/backup tested; the full build has not been verified on a real ReLink install yet.
+- ReLink: supported and tested. Every feature works (the module is built without tail calls); rebuild the game once with 0.6.0. Do not keep a separate controller-UI mod installed: the app installs the game's own prompts and warns if another mod replaces the button font or the UI atlas.
 - Real hardware: not tested.
 
 CREDITS

@@ -1,3 +1,3 @@
 """Single source of the project version (shown by the app and used by the release tools)."""
 
-VERSION = "0.5.1"
+VERSION = "0.6.0"

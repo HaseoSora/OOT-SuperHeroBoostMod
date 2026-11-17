@@ -3,10 +3,11 @@
 Gameplay module for the console remake (update **v131072**) and its cross-platform configuration app
 **SuperHeroBoostConfig**.
 
-Current release: **0.5.1**, with the enemy-speed rework (all movement speeds together and separate
-projectiles), the new controls (target on R3, L3 sprint) and the 0.5.0 Longshot/DLSS/ReLink fixes.
+Current release: **0.6.0**, with every ReLink feature working (the module is built without tail calls), the
+manual shield refinements, the button positions (Nintendo / A-B swapped / Xbox) and the game's own button prompts as a
+separate choice; the 0.5.1 enemy speed and controls remain.
 
-### Changes since 0.5.1 (unreleased)
+### What's new in 0.6.0
 
 - **ReLink: every feature works.** ReLink's translator writes each function in address order and starts at its lowest
   address; a tail call to a function placed lower in the module made the caller's own start unreachable. Under

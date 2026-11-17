@@ -117,7 +117,9 @@ jobs:
 
   release:
     name: Publish release
-    if: startsWith(github.ref, 'refs/tags/v')
+    # Publish whatever built: a macOS runner that GitHub never assigns cancels that job, and that
+    # must not keep the Linux binary off the release (it happened in 0.6.0).
+    if: ${{ !cancelled() && startsWith(github.ref, 'refs/tags/v') }}
     needs: [windows, linux, macos, presets]
     runs-on: ubuntu-22.04
     steps:
@@ -125,10 +127,14 @@ jobs:
         with:
           sparse-checkout: docs
           sparse-checkout-cone-mode: false
+      # Only the assets that can only be built here. The Windows exe and the presets zip are built
+      # locally and uploaded with documented SHA-256 values; re-uploading the CI builds here used to
+      # replace them with binaries whose hashes did not match the release notes and GameBanana.
       - uses: actions/download-artifact@v4
         with:
           path: dist
           merge-multiple: true
+          pattern: app-linux|app-macos
       - name: List the assets
         run: ls -l dist
       - uses: softprops/action-gh-release@v2

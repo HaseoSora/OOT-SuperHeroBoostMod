@@ -20,9 +20,7 @@ from your own game files.
 
 There has been a lot of feedback about Longshot problems since 0.4.0: crashes while loading a save or an
 area, a rebuild that stopped near 90% ("Longshot is still running from this folder"), DLSS disappearing
-after a rebuild, and the app picking a ReLink or Hookshot builder for a Longshot game. 0.5.0 fixed those; 0.6.0 includes them and the ReLink fix (every feature works), the new controls and enemy options, the button positions and the game prompts:
-the module no longer relies on condition flags across calls, DLSS/FSR are kept, the right builder is found
-on Windows/Linux/macOS, ReLink is supported and the app closes the running game. Rebuild the game once.
+after a rebuild, and the app picking a ReLink or Hookshot builder for a Longshot game. 0.5.0 fixed those; 0.7.0 includes them, the ReLink support, the new controls and enemy options, the button positions, the game prompts and the souls-like targeting: the module no longer relies on condition flags across calls, DLSS/FSR are kept, the right builder is found on Windows/Linux/macOS, ReLink is supported and the app closes the running game. Rebuild the game once.
 
 ## Features
 
@@ -56,9 +54,11 @@ on Windows/Linux/macOS, ReLink is supported and the app closes the running game.
 - Songbook autoplay: pick a learned song in the native songbook (ZL) and Link plays it with its effect.
 
 **Controls**
-- Target with R3: swaps ZL and R3 (R3 targets, ZL resets the camera); set Targeting Type to Hold.
+- Target with R3: swaps ZL and R3 (R3 targets, ZL resets the camera); set Targeting Type to Toggle.
+- Switch target: tap the target button to lock the enemy the game marks in red, hold it to drop the target.
+- Next target: when the locked enemy dies, the target moves to the next enemy (its own option).
 - Hold L3 to sprint with the game's sprint animation, without rolling.
-- Manual shield: L reserved during hit reactions and hit-stop; R3 cancels unless the target-on-R3 swap is on.
+- Manual shield: the target button always reaches the game; L reserved during hit reactions and hit-stop; R3 cancels unless the target-on-R3 swap is on.
 
 **Quick select**
 - Hold **D-pad Down** to switch between the **Iron Boots** and **Hover Boots**; hold **D-pad Up** to switch between
@@ -73,8 +73,8 @@ on Windows/Linux/macOS, ReLink is supported and the app closes the running game.
 - Known bug: press up and down a couple of times before the teleport menu responds.
 
 **Profiles**
-- Recommended, Base, Manual Shield, Hero Mode, Hero + Stamina, Hero Explorer, Super Hero, Ultra Hero, Survival,
-  World changes and two beta combinations, plus a fully custom setup.
+- Recommended, Souls controls, Souls controls + Hero Mode, Base, Manual Shield, Hero Mode, Hero + Stamina,
+  Hero Explorer, Super Hero, Ultra Hero, Survival, World changes and two beta combinations, plus a fully custom setup.
 
 **Beta (optional, generated from your own game files)**
 - Enemy duplication (Option A).
@@ -82,7 +82,7 @@ on Windows/Linux/macOS, ReLink is supported and the app closes the running game.
 
 ## Download
 
-- **`SuperHeroBoost-0.6.0-presets.zip`** — one zip with **all 12 named profiles of the app**, each ready to install.
+- **`SuperHeroBoost-0.7.0-presets.zip`** — one zip with **all 14 named profiles of the app**, each ready to install.
   **No executable inside.** SHA-256: $preset.
 - The companion app **SuperHeroBoostConfig** is a third-party program, so it belongs in the game's **Tools** section
   (https://gamebanana.com/tools/games/7534), not in the Mods file. Source and binaries are also on the project's

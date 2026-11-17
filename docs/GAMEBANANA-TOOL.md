@@ -8,7 +8,7 @@ GameBanana classifies third-party programs as Tools; the Mods file must stay fre
 **Tagline:** Configure and install Super Hero Boost: profiles, stamina, difficulty, HUD, item buttons and optional
 world changes from one window.
 
-**Version:** 0.6.0
+**Version:** 0.7.0
 
 ## Summary
 
@@ -24,12 +24,13 @@ Prebuilt apps: `SuperHeroBoostConfig.exe` (Windows), `SuperHeroBoostConfig-linux
 
 ## Features
 
-- Profiles: Recommended, Base, Hero Mode, Hero + Stamina, Hero Explorer, Super Hero, Ultra Hero, Survival, World
-  changes, two beta combinations and a fully custom setup.
+- Profiles: Recommended, Souls controls, Souls controls + Hero Mode, Base, Hero Mode, Hero + Stamina, Hero Explorer,
+  Super Hero, Ultra Hero, Survival, World changes, two beta combinations and a fully custom setup.
 - Stamina style and per-action costs, enemy HP/damage multipliers, sprint speed, no-heart-drop.
 - HUD: rupees, clock (12/24 h) and per-area collectible counter, in three layouts (Wide, Simple, Minimal).
-- Controls: target with R3 (swaps ZL/R3), hold L3 to sprint with the native animation, and the manual
-  shield keeps L reserved.
+- Controls: target with R3 (swaps ZL/R3), souls-like target switch (tap the target button for the enemy the game marks
+  in red, hold it to release, next enemy when the locked one dies), hold L3 to sprint with the native animation, and
+  the manual shield keeps L reserved.
 - Quick select (normal feature): hold D-pad Down/Up to switch boots/masks; the named profiles include it.
 - Button mapping: B / L / R / ZR, Switch / PlayStation / Xbox pictures, **Nintendo / A-B swapped / Xbox** button
   positions, extended or simple layout, L in item or selector mode, songbook autoplay.
@@ -48,7 +49,8 @@ Prebuilt apps: `SuperHeroBoostConfig.exe` (Windows), `SuperHeroBoostConfig-linux
   ReLink every feature works: the module is built without tail calls (the translator skips the rest of a function
   whose start is reached only through a backward tail call).
 - Command-line mode with the same options.
-- Spanish, English, Portuguese, French, German and Italian.
+- Spanish, English, Portuguese, French, German and Italian. The labels the mod draws in game (Jump / Attack / Roll and
+  the pause menu's Assign:) follow the game's language; the app's language is the fallback.
 
 ## How to use
 
@@ -63,7 +65,7 @@ Prebuilt apps: `SuperHeroBoostConfig.exe` (Windows), `SuperHeroBoostConfig-linux
 ## Files
 
 - `SuperHeroBoostConfig.exe`
-  SHA-256: `27e1e91791763c18d1abd24578e96e4d3c497e3b954ba2615f65bfde4229b715`
+  SHA-256: `18fc679315b85061c3010c2414be3da47e2024fcc7c76b678275b8eb2983ad3e`
 
 The module payload is inside the executable; the app does not download anything.
 

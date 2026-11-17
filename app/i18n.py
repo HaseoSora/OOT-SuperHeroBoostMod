@@ -55,6 +55,12 @@ T = {
         "target_r3_note": "For this mode, set System > Options > Targeting Type to Toggle.",
         "sprint_l3_on": "Hold L3 to sprint",
         "sprint_l3_desc": "L3 sprints while held, without rolling (game sprint animation).",
+    "auto_target_on": "Switch to the next target when it dies",
+    "auto_target_desc": "With a target held, if it dies the target button is pressed again automatically so the game locks on to the next enemy; nothing happens when there is none.",
+    "auto_target_note": "Needs System > Options > Targeting Type set to Toggle.",
+    "switch_target_on": "Switch target with the target button",
+    "switch_target_desc": "While targeting, tap the target button (ZL, or R3 with the ZL/R3 swap) to move the lock to the enemy with the red marker; hold it to drop the target. With no target the button locks on as usual.",
+    "switch_target_note": "Needs System > Options > Targeting Type set to Toggle.",
         "ms_title": "Manual shield",
         "ms_desc": "Follows the game's Targeting Type setting: in Hold Target, hold ZL to target; in Toggle Target, press ZL to toggle. Hold L to raise the shield while targeting.",
         "ms_on": "Enable manual shield",
@@ -231,6 +237,12 @@ T = {
         "target_r3_note": "Para este modo, poné Sistema > Opciones > Tipo de fijación en Alternar.",
         "sprint_l3_on": "Mantené L3 para sprintar",
         "sprint_l3_desc": "L3 activa el sprint mientras está mantenido, sin rodar (con la animación de sprint del juego).",
+    "auto_target_on": "Cambiar al siguiente objetivo al morir",
+    "auto_target_desc": "Con el objetivo fijado, si muere se pulsa otra vez el botón de fijar automáticamente para enganchar al siguiente enemigo; si no hay ninguno, no hace nada.",
+    "auto_target_note": "Requiere Sistema > Opciones > Tipo de fijación en Alternar.",
+    "switch_target_on": "Cambiar de objetivo con el botón de fijar",
+    "switch_target_desc": "Con el objetivo fijado, tocá el botón de fijar (ZL, o R3 si tenés el intercambio ZL/R3) para pasar al enemigo con el marcador rojo; mantenelo apretado para soltar el objetivo. Sin objetivo, el botón fija como siempre.",
+    "switch_target_note": "Requiere Sistema > Opciones > Tipo de fijación en Alternar.",
         "ms_title": "Escudo manual",
         "ms_desc": "Respeta la opción Tipo de fijación del juego: en Mantener, mantené ZL para fijar; en Alternar, presioná ZL para alternar. Mantené L para levantar el escudo mientras hay fijación.",
         "ms_on": "Activar escudo manual",
@@ -407,6 +419,12 @@ T = {
         "target_r3_note": "Para este modo, coloque Sistema > Opções > Tipo de Mira em Alternar.",
         "sprint_l3_on": "Segure L3 para correr",
         "sprint_l3_desc": "L3 ativa a corrida enquanto está segurado, sem rolar (com a animação de sprint do jogo).",
+    "auto_target_on": "Trocar para o próximo alvo quando ele morre",
+    "auto_target_desc": "Com o alvo fixado, se ele morrer o botão de mirar é pressionado de novo automaticamente para mirar no próximo inimigo; se não houver nenhum, nada acontece.",
+    "auto_target_note": "Requer Sistema > Opções > Tipo de Mira em Alternar.",
+    "switch_target_on": "Trocar de alvo com o botão de mira",
+    "switch_target_desc": "Com o alvo fixado, toque no botão de mira (ZL, ou R3 com a troca ZL/R3) para passar ao inimigo com o marcador vermelho; mantenha-o pressionado para soltar o alvo. Sem alvo, o botão mira como sempre.",
+    "switch_target_note": "Requer Sistema > Opções > Tipo de Mira em Alternar.",
         "ms_title": "Escudo manual",
         "ms_desc": "Segue a opção Tipo de Mira do jogo: em Segurar, segure ZL para mirar; em Alternar, pressione ZL para alternar. Segure L para levantar o escudo enquanto estiver mirando.",
         "ms_on": "Ativar escudo manual",
@@ -575,6 +593,12 @@ T = {
         "target_r3_note": "Pour ce mode, réglez Système > Options > Type de visée sur Basculer.",
         "sprint_l3_on": "Maintenir L3 pour sprinter",
         "sprint_l3_desc": "L3 sprinte tant qu'il est maintenu, sans rouler (animation de sprint du jeu).",
+    "auto_target_on": "Passer à la cible suivante quand elle meurt",
+    "auto_target_desc": "Avec une cible verrouillée, si elle meurt le bouton de visée est réappuyé automatiquement pour viser l'ennemi suivant ; rien ne se passe s'il n'y en a pas.",
+    "auto_target_note": "Nécessite Système > Options > Type de visée sur Basculer.",
+    "switch_target_on": "Changer de cible avec le bouton de visée",
+    "switch_target_desc": "Pendant la visée, touchez le bouton de visée (ZL, ou R3 avec l'échange ZL/R3) pour passer à l'ennemi au marqueur rouge ; maintenez-le pour relâcher la cible. Sans cible, le bouton vise comme d'habitude.",
+    "switch_target_note": "Nécessite Système > Options > Type de visée sur Basculer.",
         "ms_title": "Bouclier manuel",
         "ms_desc": "Suit l'option Type de visée du jeu : en Maintenir, maintenez ZL pour viser ; en Basculer, appuyez sur ZL pour basculer. Maintenez L pour lever le bouclier pendant la visée.",
         "ms_on": "Activer le bouclier manuel",
@@ -743,6 +767,12 @@ T = {
         "target_r3_note": "Für diesen Modus System > Optionen > Zieltyp auf Umschalten stellen.",
         "sprint_l3_on": "L3 halten zum Sprinten",
         "sprint_l3_desc": "L3 sprintet, solange es gehalten wird, ohne zu rollen (mit der Sprint-Animation des Spiels).",
+    "auto_target_on": "Beim Tod auf das nächste Ziel wechseln",
+    "auto_target_desc": "Ist ein Ziel fixiert und stirbt es, wird die Ziel-Taste automatisch erneut gedrückt, damit das Spiel den nächsten Gegner anvisiert; ohne Gegner passiert nichts.",
+    "auto_target_note": "Benötigt System > Optionen > Zieltyp auf Umschalten.",
+    "switch_target_on": "Ziel mit der Zieltaste wechseln",
+    "switch_target_desc": "Beim Zielen die Zieltaste (ZL, oder R3 mit dem ZL/R3-Tausch) kurz drücken, um auf den Gegner mit der roten Markierung zu wechseln; gedrückt halten, um das Ziel zu lösen. Ohne Ziel fixiert die Taste wie gewohnt.",
+    "switch_target_note": "Benötigt System > Optionen > Zieltyp auf Umschalten.",
         "ms_title": "Manueller Schild",
         "ms_desc": "Folgt der Spieloption Zieltyp: bei Halten ZL halten, bei Umschalten ZL drücken. L halten hebt den Schild während des Zielens.",
         "ms_on": "Manuellen Schild aktivieren",
@@ -911,6 +941,12 @@ T = {
         "target_r3_note": "Per questa modalità, imposta Sistema > Opzioni > Tipo di mira su Alterna.",
         "sprint_l3_on": "Tieni L3 per sprintare",
         "sprint_l3_desc": "L3 attiva lo sprint finché è tenuto, senza rotolare (con l'animazione di sprint del gioco).",
+    "auto_target_on": "Passa al prossimo bersaglio quando muore",
+    "auto_target_desc": "Con un bersaglio fissato, se muore il tasto di mira viene premuto di nuovo automaticamente per agganciare il nemico successivo; se non ce n'è nessuno non succede nulla.",
+    "auto_target_note": "Richiede Sistema > Opzioni > Tipo di mira su Alterna.",
+    "switch_target_on": "Cambia bersaglio con il tasto di mira",
+    "switch_target_desc": "Durante la mira, tocca il tasto di mira (ZL, o R3 con lo scambio ZL/R3) per passare al nemico con il segnalino rosso; tienilo premuto per lasciare il bersaglio. Senza bersaglio, il tasto mira come sempre.",
+    "switch_target_note": "Richiede Sistema > Opzioni > Tipo di mira su Alterna.",
         "ms_title": "Scudo manuale",
         "ms_desc": "Segue l'opzione Tipo di mira del gioco: in Tieni, tieni ZL per mirare; in Alterna, premi ZL per alternare. Tieni L per alzare lo scudo durante la mira.",
         "ms_on": "Attiva scudo manuale",
@@ -1650,6 +1686,73 @@ _RB = {
     "it": dict(needs_rebuild="Richiede rebuild"),
 }
 for _lang, _txt in _RB.items():
+    T[_lang].update(_txt)
+
+
+# 0.7.0: the Souls profiles and the targeting in the combat profiles
+_SOULS = {
+    "en": dict(
+        p_souls="Souls controls",
+        p_souls_d="Souls-like controls on the vanilla difficulty: hardcore stamina shown as a bar, lock-on with R3 "
+                  "(Targeting Type: Toggle), tap it to switch to the red-marked enemy, hold it to drop the target, "
+                  "the next enemy when the locked one dies, and the manual shield on L.",
+        p_souls_hero="Souls controls + Hero Mode",
+        p_souls_hero_d="The Souls controls with Hero Mode: x1.5 enemy health, x2 damage and no heart drops.",
+        p_recommended_d="Everything on: Hero Mode difficulty, hardcore stamina, HUD, button mapping, the manual "
+                        "shield and the targeting (switch with the target button, next enemy when one dies).",
+    ),
+    "es": dict(
+        p_souls="Controles Souls",
+        p_souls_d="Controles al estilo Souls con la dificultad original: estamina hardcore en barra, fijación con "
+                  "R3 (Tipo de fijación: Alternar), un toque cambia al enemigo con el marcador rojo, mantenerlo "
+                  "suelta el objetivo, el siguiente enemigo cuando muere el fijado y el escudo manual en L.",
+        p_souls_hero="Controles Souls + Modo héroe",
+        p_souls_hero_d="Los controles Souls con el modo héroe: vida de enemigos x1.5, daño x2 y sin corazones.",
+        p_recommended_d="Activa todo: dificultad de modo héroe, estamina hardcore, HUD, mapeo de botones, escudo "
+                        "manual y la fijación (cambiar con el botón de fijar, siguiente enemigo al morir).",
+    ),
+    "pt": dict(
+        p_souls="Controles Souls",
+        p_souls_d="Controles no estilo Souls na dificuldade original: estamina hardcore em barra, mira com R3 "
+                  "(Tipo de Mira: Alternar), um toque troca para o inimigo com o marcador vermelho, segurar solta "
+                  "o alvo, o próximo inimigo quando o fixado morre e o escudo manual no L.",
+        p_souls_hero="Controles Souls + Modo herói",
+        p_souls_hero_d="Os controles Souls com o modo herói: vida dos inimigos x1.5, dano x2 e sem corações.",
+        p_recommended_d="Tudo ligado: dificuldade modo herói, estamina hardcore, HUD, mapeamento de botões, escudo "
+                        "manual e a mira (trocar com o botão de mira, próximo inimigo quando um morre).",
+    ),
+    "fr": dict(
+        p_souls="Contrôles Souls",
+        p_souls_d="Contrôles façon Souls en difficulté d'origine : endurance hardcore en barre, visée avec R3 "
+                  "(Type de visée : Basculer), un appui passe à l'ennemi au marqueur rouge, le maintenir relâche "
+                  "la cible, l'ennemi suivant quand la cible meurt et le bouclier manuel sur L.",
+        p_souls_hero="Contrôles Souls + mode héros",
+        p_souls_hero_d="Les contrôles Souls avec le mode héros : vie des ennemis x1.5, dégâts x2 et sans cœurs.",
+        p_recommended_d="Tout activé : difficulté mode héros, endurance hardcore, HUD, mappage des boutons, "
+                        "bouclier manuel et la visée (changer avec le bouton de visée, ennemi suivant à sa mort).",
+    ),
+    "de": dict(
+        p_souls="Souls-Steuerung",
+        p_souls_d="Steuerung im Souls-Stil mit Originalschwierigkeit: Hardcore-Ausdauer als Leiste, Anvisieren "
+                  "mit R3 (Zieltyp: Umschalten), kurz drücken wechselt zum rot markierten Gegner, halten löst "
+                  "das Ziel, der nächste Gegner, wenn das Ziel stirbt, und der manuelle Schild auf L.",
+        p_souls_hero="Souls-Steuerung + Heldenmodus",
+        p_souls_hero_d="Die Souls-Steuerung mit Heldenmodus: Gegnerleben x1.5, Schaden x2 und keine Herzen.",
+        p_recommended_d="Alles an: Heldenmodus-Schwierigkeit, Hardcore-Ausdauer, HUD, Tastenbelegung, manueller "
+                        "Schild und das Anvisieren (Wechsel mit der Zieltaste, nächster Gegner, wenn einer stirbt).",
+    ),
+    "it": dict(
+        p_souls="Controlli Souls",
+        p_souls_d="Controlli in stile Souls con la difficoltà originale: stamina hardcore a barra, mira con R3 "
+                  "(Tipo di mira: Alterna), un tocco passa al nemico con il segnalino rosso, tenerlo premuto "
+                  "lascia il bersaglio, il nemico successivo quando quello fissato muore e lo scudo manuale su L.",
+        p_souls_hero="Controlli Souls + Modalità eroe",
+        p_souls_hero_d="I controlli Souls con la modalità eroe: vita dei nemici x1.5, danni x2 e niente cuori.",
+        p_recommended_d="Tutto attivo: difficoltà modalità eroe, stamina hardcore, HUD, mappatura tasti, scudo "
+                        "manuale e la mira (cambio con il tasto di mira, nemico successivo quando uno muore).",
+    ),
+}
+for _lang, _txt in _SOULS.items():
     T[_lang].update(_txt)
 
 

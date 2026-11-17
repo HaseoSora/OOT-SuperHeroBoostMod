@@ -42,6 +42,11 @@ except **Manual Shield**, which installs only the shield. Changing any option af
 emulator folder are not part of a profile; the button style is global (HUD and the game's own prompts).
 **Recommended** is the default and enables everything.
 
+The language selector translates the window, and it is also the fallback for the few labels the mod draws in game
+(the jump label, the A fallbacks and the pause menu's `Assign:` legend): those follow the **game's language** when the
+installer can read it from the emulator settings or from `language.txt` next to a recompiled game, so the HUD matches
+the game's own prompts. `--lang` on the command line forces one.
+
 Sprint is always **×1.25** in the profiles. It is only a starting point and can be changed by hand in the Stamina
 section; the profiles never use ×1.75, ×2 or ×3.
 
@@ -165,6 +170,7 @@ python app/main.py --cli --emu "EMULATOR_PATH" --preset 3 --off jump,shoot --com
 python app/main.py --cli --emu "EMULATOR_PATH" --profile hero-explorer --rupees --clock --clock24
 python app/main.py --cli --emu "EMULATOR_PATH" --profile recommended --no-songbook
 python app/main.py --cli --emu "EMULATOR_PATH" --profile base --enemy-move 1 --enemy-anim 2 --enemy-attack 2 --enemy-proj 2 --stamina-bar
+python app/main.py --cli --emu "EMULATOR_PATH" --profile recommended --lang en
 python app/main.py --list-profiles
 ```
 

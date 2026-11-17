@@ -43,10 +43,12 @@ def settings_for(key: str) -> I.Settings:
         hud_collectibles=v["hud_collectibles"], hud_mode=v["hud_mode"],
         enemy_double=v["enemy_double"],
         enemy_move=v["enemy_move"], enemy_anim=v["enemy_anim"], enemy_attack=v["enemy_attack"],
-        stamina_bar=v["stamina_bar"],
+        stamina_bar=bool(v["stamina_bar"]),
         great_fairy=v["great_fairy"], farore_outdoor=v["farore_outdoor"],
         button_style="switch", bm_simple=False, bm_l_mode="assign",
         manual_shield=v["manual_shield"],
+        auto_target=v["auto_target"], switch_target=v["switch_target"],
+        target_r3=bool(v["target_r3"]), sprint_l3=bool(v["sprint_l3"]),
     )
 
 

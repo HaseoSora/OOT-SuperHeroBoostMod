@@ -47,6 +47,11 @@ SECTIONS
     set_text = 0x439520;
     WORLD_MGR = 0x4E7EAB0;
     GAMEDATA_MGR = 0x4E842A8;
+    ATTENTION_SYS = 0x4E24B28;  /* AttentionSystem *: actor link of the lock-on target at +0xB68 (entry +0x70, id +0x78) */
+    os_mutex_lock = 0x3C42460;  /* import stubs (GOT 0x4CBF3F8 / 0x4CBF400) */
+    os_mutex_unlock = 0x3C42470;
+    GOT_MUTEX_LOCK = 0x4CBF3F8;
+    GOT_MUTEX_UNLOCK = 0x4CBF400;
     read_enum = 0x17BF90;   /* gmd::readEnum(manager, out, descriptor, field_hash) */
     read_bool = 0x179F70;   /* gmd::readBool(manager, out, descriptor, field_hash) */
     RES_GUARD0 = 0x27F7D04;

@@ -27,6 +27,10 @@ mod's HUD labels in the game's language; the 0.6.0 ReLink fix, manual shield and
 - **HUD labels follow the game's language.** The labels the mod draws itself (Jump / Attack / Roll and the menu's
   Assign:) were always in Spanish; the installer reads the game's language (ReLink/Longshot `language.txt`, the
   emulators' settings) and the HUD uses it. `--lang` forces one.
+- **Enemy duplicator (beta).** Stalchildren now double too: each spawn zone in the maps carries its own group size
+  (2 small, 1 big, the larger groups by the road), which the duplicator never touched; it now doubles every count
+  of those zones and the scene's cap on them. It also no longer turns on spawns the game keeps off (adult Link got
+  Stalchildren from the doubled "0" of the adult spawn).
 - Install 0.7.0 and **rebuild the game once** on Longshot, Hookshot or ReLink: the module changed.
 
 ### What's new in 0.6.0

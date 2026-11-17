@@ -43,6 +43,14 @@ language. The 0.6.0 ReLink fix, manual shield and button positions remain.
 - The installer reads the language the game is played in (`language.txt` next to a recompiled game, the emulators'
   settings) and the HUD uses it; the app's language is the fallback. `--lang` forces one.
 
+## Enemy duplicator (beta)
+
+- Stalchildren now double as well. Each spawn zone in the maps carries its own group size (2 small, 1 big, larger
+  groups by the road); the duplicator only cloned hand-placed enemies and never touched those zones. It now doubles
+  every count of the spawn zones and the scene's cap on them.
+- It no longer turns on spawns the game keeps off: adult Link got Stalchildren from the doubled "0" of the adult
+  spawn.
+
 ## Updating
 
 - **Emulator:** install 0.7.0 from the app.

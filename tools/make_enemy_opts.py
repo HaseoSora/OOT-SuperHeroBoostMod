@@ -290,6 +290,20 @@ def duplicate_banc(path, rng, size_changes):
     if actors is None:
         return None
     used = {a.get("Hash").v for a in actors if isinstance(a, dict) and a.get("Hash") is not None}
+    # Spawn zones (StalchildAutoPlacementArea...): the group each one creates is in the zone itself
+    # (CreateStalchildCountMin/Max and the AtAdultNight variants; adult Link's Stalchildren only come from these,
+    # the scene parameter keeps them off). Double every count above 0.
+    areas = 0
+    for a in actors:
+        g = a.get("Gyaml")
+        dyn = a.get("Dynamic")
+        if g is None or "AutoPlacementArea" not in g.v or not isinstance(dyn, byml.BDict):
+            continue
+        for k, v in list(dyn.items()):
+            if k.startswith("Create") and "Count" in k and ("Min" in k or "Max" in k) \
+                    and isinstance(v, byml.Val) and isinstance(v.v, int) and v.v > 0:
+                dyn[k] = byml.Val(v.t, v.v * 2)
+                areas += 1
     add = []
     for a in actors:
         g = a.get("Gyaml")
@@ -315,7 +329,7 @@ def duplicate_banc(path, rng, size_changes):
             tr[0] = byml.Val(byml.T_FLOAT, tr[0].v + 2.5)
             tr[2] = byml.Val(byml.T_FLOAT, tr[2].v + 2.5)
         add.append(c)
-    if not add:
+    if not add and not areas:
         return None
     actors.extend(add)
     out = byml.write(tree, version=b.version, e=b.e)
@@ -337,7 +351,8 @@ def edit_autoplace(path, size_changes):
         if isinstance(node, byml.BDict):
             for k, v in list(node.items()):
                 if k in ("CreateActorCountMinAtOnce", "CreateActorCountMaxAtOnce",
-                         "MinExistActorCountToCreate") and isinstance(v, byml.Val) and isinstance(v.v, int):
+                         "MinExistActorCountToCreate", "MaxCreateStalchildByFixedSpawn") \
+                        and isinstance(v, byml.Val) and isinstance(v.v, int):
                     # 0 means the spawn is off there (Enemy_Stalchild_Adult: no Stalchildren for adult Link): keep
                     # it off instead of turning it on with a minimum of 1
                     if v.v > 0:

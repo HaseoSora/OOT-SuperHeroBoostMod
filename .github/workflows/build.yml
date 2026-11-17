@@ -130,11 +130,15 @@ jobs:
       # Only the assets that can only be built here. The Windows exe and the presets zip are built
       # locally and uploaded with documented SHA-256 values; re-uploading the CI builds here used to
       # replace them with binaries whose hashes did not match the release notes and GameBanana.
+      # One step per artifact: download-artifact's `pattern` is a glob, not a regex ("a|b" never matches).
       - uses: actions/download-artifact@v4
         with:
+          name: app-linux
           path: dist
-          merge-multiple: true
-          pattern: app-linux|app-macos
+      - uses: actions/download-artifact@v4
+        with:
+          name: app-macos
+          path: dist
       - name: List the assets
         run: ls -l dist
       - uses: softprops/action-gh-release@v2

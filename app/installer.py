@@ -27,6 +27,12 @@ BM_LAYOUTS = ("nintendo", "ab", "xbox")         # where the face buttons sit (th
 BM_LAYOUT_BYTE = {"nintendo": 0, "ab": 1, "xbox": 2}
 L_MODES = ("assign", "selector")           # buttonMapping L: an item slot or the game's item selector
 L_MODE_VALUES = {"assign": 0, "selector": 2}
+LANGS = ("en", "es", "pt", "fr", "de", "it")   # the app's UI languages, also the mod's HUD labels
+LANG_VALUES = {"en": 0, "es": 1, "pt": 2, "fr": 3, "de": 4, "it": 5}
+# game language, as the mod's own HUD labels follow the language the game is played in
+LANG_INDEX = {1: "en", 2: "en", 3: "fr", 4: "de", 5: "es", 6: "it", 7: "pt", 8: "pt"}   # the emulators' system language
+LANG_NAMES = (("english", "en"), ("french", "fr"), ("german", "de"),
+              ("spanish", "es"), ("italian", "it"), ("portuguese", "pt"))
 ENEMY_LEVELS = (0, 10, 11, 4, 1, 5, 2, 6, 3, 7, 8, 9)   # display order: off, x0.5 .. x6
 ENEMY_FACTORS = {1: 1.5, 2: 2.0, 3: 3.0, 4: 1.25, 5: 1.75, 6: 2.5, 7: 4.0, 8: 5.0, 9: 6.0,
                  10: 0.5, 11: 0.75}
@@ -95,6 +101,7 @@ class Settings:
     sprint_l3: bool = False          # L3 (left stick click) presses A while held (sprint)
     auto_target: bool = False        # when the target dies, press target again for the next enemy
     switch_target: bool = False      # the other shoulder button switches to the next target
+    lang: str = "en"                 # language of the mod's own HUD labels (one of LANGS)
 
     def to_dict(self): return dict(self.__dict__)
 
@@ -193,6 +200,85 @@ def find_mods_dir(emu: Path) -> Path | None:
     if (emu / "user").exists():
         return emu / "user" / "load" / TITLE_ID
     return None
+
+
+def lang_code(value: str) -> str:
+    """A language code or name (en-US, es-419, pt-BR, EnglishAmerican...) as one of LANG_VALUES, or ""."""
+    t = (value or "").strip().lower().replace("_", "-").replace(" ", "")
+    if not t or t.startswith("#"):
+        return ""
+    if t in LANG_VALUES:
+        return t
+    head = t.split("-")[0]
+    if head in LANG_VALUES:
+        return head
+    for name, code in LANG_NAMES:
+        if t.startswith(name):
+            return code
+    return ""
+
+
+def _first_line(path: Path) -> str:
+    try:
+        for line in path.read_text(errors="replace").splitlines():
+            line = line.strip()
+            if line and not line.startswith("#"):
+                return line
+    except OSError:
+        pass
+    return ""
+
+
+def detect_lang(emu: Path | None = None, game: Path | None = None) -> str:
+    """The language the game is played in, so the mod's own HUD labels match the game's text.
+
+    ReLink / Longshot / Hookshot keep it in language.txt next to the game (or in rc/). The emulators keep it in
+    their settings: `language_index` (the console language) in the yuzu family, `system_language` in Ryujinx.
+    Empty when it cannot be read: the caller then falls back to the app's own language."""
+    if game:
+        g = Path(game).expanduser()
+        for p in (g / "language.txt", g / "rc" / "language.txt"):
+            code = lang_code(_first_line(p))
+            if code:
+                return code
+    seen: set[Path] = set()
+    bases = []
+    if emu:
+        p = Path(emu).expanduser()
+        bases = [p, *list(p.parents)[:4]]
+    for base in bases:
+        for rel in (Path("user") / "config" / "qt-config.ini", Path("config") / "qt-config.ini"):
+            cfg = base / rel
+            if cfg in seen or not cfg.exists():
+                continue
+            seen.add(cfg)
+            try:
+                txt = cfg.read_text(errors="replace")
+            except OSError:
+                continue
+            m = re.search(r"^\s*language_index\s*=\s*(\d+)\s*$", txt, re.M)
+            if m:
+                code = LANG_INDEX.get(int(m.group(1)), "")
+                if code:
+                    return code
+            m = re.search(r"^\s*Paths\\language\s*=\s*([^\s#]+)", txt, re.M)
+            if m:
+                code = lang_code(m.group(1))
+                if code:
+                    return code
+        for rel in (Path("portable") / "Config.json", Path("Config.json")):
+            cfg = base / rel
+            if cfg in seen or not cfg.exists():
+                continue
+            seen.add(cfg)
+            try:
+                data = json.loads(cfg.read_text(errors="replace"))
+            except (OSError, ValueError):
+                continue
+            code = lang_code(str(data.get("system_language", "")))
+            if code:
+                return code
+    return ""
 
 
 def other_exefs_mods(mods: Path, skip: set[str]) -> list[str]:
@@ -360,7 +446,30 @@ def patch_config(nso: bytes, s: Settings) -> bytes:
         if size >= 0x4c:                                # 0.6.0 already had this byte as trailing padding
             b[f + 57] = int(s.auto_target)              # struct 73: next target when the current one dies
             b[f + 58] = int(s.switch_target)            # struct 74: switch target with the other shoulder button
+            b[f + 59] = LANG_VALUES.get(s.lang, 0)      # struct 75: language of the mod's own HUD labels
     return bytes(b)
+
+
+def set_installed_lang(mods: Path, name: str, code: str) -> bool:
+    """Patch only the HUD-language byte of an already installed module, so changing the language in the app
+    does not need a reinstall. It takes effect the next time the game starts."""
+    mod = mods / name / "exefs" / "subsdk9"
+    try:
+        data = bytearray(mod.read_bytes())
+    except OSError:
+        return False
+    i = data.find(b"SHBCFG01")
+    if i < 0:
+        return False
+    size = struct.unpack_from("<I", data, i + 12)[0]
+    if size < 0x4C or i + size > len(data):
+        return False
+    data[i + 75] = LANG_VALUES.get(code, 0)   # struct 75 (the magic is at struct 0)
+    try:
+        mod.write_bytes(bytes(data))
+    except OSError:
+        return False
+    return True
 
 
 # ---------- enemy speed components ----------

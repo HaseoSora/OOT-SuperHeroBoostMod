@@ -92,4 +92,5 @@ open("a.bin", "wb").write(raw)
 
 ## ShbConfig offsets (76 bytes, magic `SHBCFG01`)
 
-70 manual_shield, 71 target_r3, 72 sprint_l3, 73 auto_target, 74 switch_target.
+70 manual_shield, 71 target_r3, 72 sprint_l3, 73 auto_target, 74 switch_target, 75 lang (the mod's HUD labels:
+0 en, 1 es, 2 pt, 3 fr, 4 de, 5 it).

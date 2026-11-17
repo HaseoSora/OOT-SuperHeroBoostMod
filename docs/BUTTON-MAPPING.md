@@ -17,12 +17,19 @@ project.
 | L mode: item | L is one more item slot |
 | L mode: selector | L opens the game's item selector; the L button is hidden in both layouts and the menu legend removes L |
 | Pause assignment | Items tab: B / L / R on the highlighted item; an item already in another slot is swapped |
-| Jump/B swap | if the game's System > Options **Swap Jump Controls** is on, the B slot moves to **X**: X triggers the item, the icon is drawn over the X button, the X button texture and the menu legend follow, the B button becomes an unlettered jump button, and the **Saltar** label moves from X to B |
+| Jump/B swap | if the game's System > Options **Swap Jump Controls** is on, the B slot moves to **X**: X triggers the item, the icon is drawn over the X button, the X button texture and the menu legend follow, the B button becomes an unlettered jump button, and the **Jump** label moves from X to B |
 | Icons | `PaItemBtn_00` parts with the item icon and its shadow, like the native item box |
 
 The swap option is read live from GameData (OptionData struct `0x834d9d9e`, Bool member `0x3B0FC63F`, via
 `read_bool` at `main+0x179F70`). It is refreshed every HUD frame and while the pause menu is open, so changing it in
 **System > Options** takes effect without reinstalling.
+
+The labels the module draws itself — the jump label, the A fallbacks (`Attack` / `Roll` when the game's control
+guide is not up) and the `Assign:` title of the pause menu legend — follow the **game's language** (en / es / pt /
+fr / de / it). The installer reads it from the emulator (`[System] language_index`, or `system_language` in
+Ryujinx) or from `language.txt` next to a recompiled game, and writes it in config byte 75; when it cannot be read
+the app's own language is used. The game's own prompts already come in the game's language, so the HUD stays
+consistent. `--lang` on the command line overrides it.
 
 The module is enabled by the `button_mapping` byte in the configuration (`core/config.h`): style at offset 38, simple
 layout at 39 and L mode at 40.

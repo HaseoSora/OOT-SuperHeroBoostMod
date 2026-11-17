@@ -2172,10 +2172,23 @@ static void slots_draw(SlotBtn *set, const u64 *ctrls, u64 frame, const float *l
 }
 /* Pause menu, Items tab: the cluster drawn on the menu page itself. Neither the HUD layer nor its frame update
  * run under the menu, so this is driven by the input hook (features/button_mapping), every frame. */
+/* HUD language of the mod: the installer writes the language the game is played in into the config block (byte 75),
+ * and the few labels the mod draws itself follow it. The game's own prompts already come in the game's language.
+ * 0 English, 1 Spanish, 2 Portuguese, 3 French, 4 German, 5 Italian. */
+enum { HL_EN, HL_ES, HL_PT, HL_FR, HL_DE, HL_IT, HL_N };
+/* arrays, not pointer tables: our read-only data is not relocated (see the build's jump-table note) */
+static const char g_hl_jump[HL_N][12] = {"Jump", "Saltar", "Pular", "Sauter", "Springen", "Saltare"};
+static const char g_hl_attack[HL_N][12] = {"Attack", "Atacar", "Atacar", "Attaquer", "Angreifen", "Attaccare"};
+static const char g_hl_roll[HL_N][12] = {"Roll", "Rodar", "Rolar", "Rouler", "Rollen", "Rotolare"};
+static const char g_hl_assign[HL_N][12] = {"Assign:", "Asignar:", "Atribuir:", "Assigner:", "Zuweisen:", "Assegna:"};
+static const char *hl(const char (*t)[12]) {
+    u32 l = g_shbcfg.lang;
+    return t[l < HL_N ? l : HL_EN];
+}
 /* Assign legend on the Items tab, bottom right above the game's own guide: which menu button assigns to which
  * slot. g_leg_pos = x of the first text, y, x step, text scale (layout units of PlusMenu_00, y up); g_leg_bar = the
  * dark bar behind it, like the game's own guide bar below. */
-static char g_leg_txt[LEG_N][16] = {"Asignar:", "\xee\x81\x82", "\xe2\x80\xba", "\xee\x81\x81", "\xee\x81\x84", "\xe2\x80\xba", "\xee\x81\x84", "\xee\x81\x85", "\xe2\x80\xba", "\xee\x81\x85", "\xee\x81\x80", "\xe2\x80\xba", "\xee\x81\x87"};   /* Asignar: X > B  L > L  R > R  A > ZR */
+static char g_leg_txt[LEG_N][16] = {"", "\xee\x81\x82", "\xe2\x80\xba", "\xee\x81\x81", "\xee\x81\x84", "\xe2\x80\xba", "\xee\x81\x84", "\xee\x81\x85", "\xe2\x80\xba", "\xee\x81\x85", "\xee\x81\x80", "\xe2\x80\xba", "\xee\x81\x87"};   /* Assign: X > B  L > L  R > R  A > ZR */
 float g_leg_pos[4] = {690.0f, -905.0f, 252.0f, 1.0f};   /* right above the game's guide bar */
 float g_leg_geo[3] = {215.0f, 62.0f, 2.0f};   /* title -> first pair, icon -> arrow -> icon spacing, icon scale */
 float g_leg_bar[8] = {1250.0f, -905.0f, 0.66f, 0.27f, 0.85f, 0.07f, 0.06f, 0.05f};   /* backing plate: centre x, y,
@@ -2189,6 +2202,12 @@ static void hud_menu_legend(u64 page) {
     if (pf != g_plus_frame) { g_plus_frame = pf; g_leg_set = 0; g_leg_bar_rec = 0; for (u32 t = 0; t < LEG_N; t++) g_leg_rec[t] = 0; }
     g_leg_dbg[0] = pf;
     if (!pf) return;
+    {   /* the legend title, in the mod's language */
+        const char *s = hl(g_hl_assign);
+        u32 i = 0;
+        for (; i < 15 && s[i]; i++) g_leg_txt[0][i] = s[i];
+        g_leg_txt[0][i] = 0;
+    }
     {   /* Jump/B swap: the B slot is the X button, so the legend destination follows it */
         const char *dst = g_btn_swap ? "\xee\x81\x82" : "\xee\x81\x81";
         for (u32 i = 0; i < 4; i++) g_leg_txt[3][i] = dst[i];
@@ -2262,7 +2281,6 @@ static void slots_update(u64 frame) {
     }
     slots_draw(g_sb, g_sb_ctrl, frame, g_sb_lay, 1);
 }
-char g_sb_jump_label[16] = "Saltar";
 /* The game's control guide (UICtrlGuideScreen, the "A Hablar" prompt next to Link) writes A's context action
  * ("Hablar", "Abrir", "Revisar" ...) into its text pane T_GuideA_00 (captured in hud_on_settext). While the prompt
  * is up its N_InOut_00 / N_A_00 alpha (pane record +0x78) is 1; it fades to 0 when there is nothing to do. */
@@ -2284,8 +2302,8 @@ static int a_guide_up(void) {
 static void a_label_update(void) {
     const char *txt = 0;
     if (a_guide_up()) txt = g_aguide_text;
-    else if (player_state_starts("LockOn") && !player_state_is("LockOnWait")) txt = "Atacar";   /* ZL + moving: jump attack */
-    else if (player_state_is("Move")) txt = "Rodar";   /* running: A rolls */
+    else if (player_state_starts("LockOn") && !player_state_is("LockOnWait")) txt = hl(g_hl_attack);   /* ZL + moving: jump attack */
+    else if (player_state_is("Move")) txt = hl(g_hl_roll);   /* running: A rolls */
     u32 n = 0;
     if (txt) {
         while (txt[n] && n < 15) n++;
@@ -2314,7 +2332,7 @@ static void slots_labels(u64 frame) {
     if (g_btn_swap) sb_xy(g_sb_lay, SB_B, 0, &xx, &xy);   /* B is the jump button: its label moves down */
     g_fld_sc[4] = g_fld_sc[5] = 0.80f * g_sb_lay[1];   /* the labels follow the buttons' size */
     u32 lbl = !g_shbcfg.bm_simple;   /* simple layout: no X / A buttons, so no labels */
-    put_text(frame, 4, g_sb_jump_label, xx, xy, lbl, LABEL);
+    put_text(frame, 4, hl(g_hl_jump), xx, xy, lbl, LABEL);
     put_text(frame, 5, g_sb_a_label, ax, ay, lbl && g_sb_a_label[0] != 0, LABEL);
 }
 static void slots_reset(void) {

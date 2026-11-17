@@ -104,6 +104,8 @@ def cli(argv) -> int:
     ap.add_argument("--off", default=None, help="advanced: comma list of jump,attack,sprint,block,shoot,roll to disable")
     ap.add_argument("--combat-only", action="store_true", default=None)
     ap.add_argument("--name", default=I.MOD_NAME)
+    ap.add_argument("--lang", choices=tuple(LANGS), default=None,
+                    help="language of the mod's own HUD labels (default: the game's language, then the system's)")
     ap.add_argument("--enemy-hp", type=int, default=None, help="enemy health, percent (150 = Hero Mode)")
     ap.add_argument("--damage", type=int, default=None, help="damage taken, percent (200 = Hero Mode)")
     ap.add_argument("--no-heart-drop", action="store_true")
@@ -138,6 +140,7 @@ def cli(argv) -> int:
                    enemy_move=v["enemy_move"], enemy_anim=v["enemy_anim"], enemy_attack=v["enemy_attack"],
                    enemy_proj=v.get("enemy_proj", 0),
                    stamina_bar=v["stamina_bar"], manual_shield=v["manual_shield"])
+    s.lang = a.lang or I.detect_lang(Path(a.emu).expanduser()) or system_lang()
     if a.preset is not None:
         s.preset = a.preset
     if a.no_button_mapping:
@@ -606,6 +609,10 @@ def gui() -> None:
         pending["id"] = root.after(250, remember)
 
     def settings():
+        # The mod's own HUD labels follow the language the game is played in; the app's language is the fallback
+        # when the emulator/recompiler settings cannot be read.
+        game = ok_recomp() if target.get() == "recomp" else None
+        e = Path(emu.get().strip()).expanduser() if emu.get().strip() else None
         return I.Settings(button_mapping=bmap.get(), button_style=bstyle.get(), bm_simple=bsimple.get(),
                           bm_layout=bplace.get(), game_layout=glayout.get(),
                           bm_l_mode=blmode.get(), stamina=stamina.get(), stamina_bar=stamina_bar.get(),
@@ -615,6 +622,7 @@ def gui() -> None:
                           target_r3=target_r3.get(), sprint_l3=sprint_l3.get(),
                           auto_target=auto_target.get(),
                           switch_target=switch_target.get(),
+                          lang=I.detect_lang(e, game) or lang.get(),
                           hud_collectibles=hud_collectibles.get(),
                           hud_mode=hud_mode.get(),
                           enemy_double=enemy_double.get(),
@@ -1653,6 +1661,17 @@ def gui() -> None:
         lang.set(code)
         remember()
         render()
+        # The mod draws a few labels of its own (the jump label, the A fallbacks and the assign legend). They follow
+        # the game's language; only when that cannot be read does the app's language decide, so refresh the byte of
+        # an already installed module (it applies on the next game start).
+        try:
+            if target.get() == "emulator" and emu.get().strip():
+                mods = ok_emu()
+                e = Path(emu.get().strip()).expanduser()
+                if mods:
+                    I.set_installed_lang(mods, I.MOD_NAME, I.detect_lang(e) or code)
+        except Exception:
+            pass
 
     def build_sidebar(shell):
         side = tk.Frame(shell, bg=SIDEBAR, width=190)

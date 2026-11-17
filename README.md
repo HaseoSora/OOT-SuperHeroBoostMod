@@ -3,9 +3,31 @@
 Gameplay module for the console remake (update **v131072**) and its cross-platform configuration app
 **SuperHeroBoostConfig**.
 
-Current release: **0.6.0**, with every ReLink feature working (the module is built without tail calls), the
-manual shield refinements, the button positions (Nintendo / A-B swapped / Xbox) and the game's own button prompts as a
-separate choice; the 0.5.1 enemy speed and controls remain.
+Current release: **0.7.0**, with souls-like targeting (switch to the red-marked enemy with the target button,
+hold it to drop the target, the next enemy when the locked one dies), the new **Souls controls** profiles and the
+mod's HUD labels in the game's language; the 0.6.0 ReLink fix, manual shield and button positions remain.
+
+### What's new in 0.7.0
+
+- **Switch target.** While Link is locked on, a **tap of the target button** (ZL, or R3 with the ZL/R3 swap) moves the
+  lock to the enemy the game marks in **red** (the nearest one that is not locked); **holding it** (~0.3 s) drops the
+  target. With no target the button locks on as usual. It uses the game's own attention list (the player's candidate
+  array: the game locks element 0 and marks element 1), so the camera, the lock triangles and the marker follow by
+  themselves. Its own option in **Controls**; needs System > Options > Targeting Type on **Toggle**.
+- **Next target when the locked enemy dies.** Its own option in **Controls**, independent of the manual shield. It now
+  follows the game's real lock (the AttentionSystem's lock link) and acts only when the locked enemy dies: walking up
+  to enemies, the battle stance and a target you drop yourself no longer lock on by themselves.
+- **Manual shield.** The target button always reaches the game (it used to be re-created from the player's action
+  names, which also show up near enemies without a target: with ZL targeting the game then locked on by itself).
+  "Targeting" is the game's own lock; L is never taken while you only stand near enemies. R3 still cancels the
+  target when the ZL/R3 swap is off.
+- **Profiles.** New **Souls controls** (vanilla difficulty) and **Souls controls + Hero Mode**: hardcore stamina as a
+  bar, lock-on with R3, switch / next target and the manual shield. Every combat profile with the manual shield
+  (Recommended, Hero, Super/Ultra Hero, Survival, Beta: everything) now also turns the switch and next target on.
+- **HUD labels follow the game's language.** The labels the mod draws itself (Jump / Attack / Roll and the menu's
+  Assign:) were always in Spanish; the installer reads the game's language (ReLink/Longshot `language.txt`, the
+  emulators' settings) and the HUD uses it. `--lang` forces one.
+- Install 0.7.0 and **rebuild the game once** on Longshot, Hookshot or ReLink: the module changed.
 
 ### What's new in 0.6.0
 
@@ -96,10 +118,11 @@ The module, the HUD, the textures and the app are original work: no third-party 
 
 ### Gameplay
 
-- **Complete profiles**: Recommended (everything on), Base, Manual Shield, Hero Mode, Hero + Stamina, Hero Explorer,
-  Super Hero, Ultra Hero, Survival, World changes and the two beta combinations (duplicated + fast enemies,
-  everything). They set difficulty, stamina, the HUD, the world changes, the manual shield and the beta mods in one
-  step; changing any option afterwards switches the profile to **Custom**.
+- **Complete profiles**: Recommended (everything on), Souls controls, Souls controls + Hero Mode, Base, Manual Shield,
+  Hero Mode, Hero + Stamina, Hero Explorer, Super Hero, Ultra Hero, Survival, World changes and the two beta
+  combinations (duplicated + fast enemies, everything). They set difficulty, stamina, the HUD, the world changes, the
+  manual shield, the targeting and the beta mods in one step; changing any option afterwards switches the profile to
+  **Custom**. The Souls profiles also turn on the stamina bar and the lock-on with R3.
 - **Stamina** with four styles: hardcore (everything costs), combat only, sprint only and advanced (choose which
   actions cost). Includes exhaustion and regeneration, and costs for rolling, jumping, attacking, shooting,
   sprinting and blocking with the shield.
@@ -153,10 +176,11 @@ The module, the HUD, the textures and the app are original work: no third-party 
   **Toggle Target**, press ZL to toggle.
 - **L raises the shield only while targeting.** With no target it keeps its default game function; while targeting
   or guarding (including shield-hit reactions and hit-stop) it is reserved until it is released, so the item
-  selector never opens in the middle of a guard. In Hold Target only the held target button counts as a target.
+  selector never opens in the middle of a guard. "Targeting" is the game's own lock (and, in Hold Target, the held
+  target button); standing near enemies is not.
 - **R3** cancels targeting, unless the target-on-R3 swap is enabled.
 - Optional: it is off by default and can be enabled in the app's **Controls** section.
-- In Hold Target the physical ZL stays native; in Toggle Target the mod synthesises it.
+- The target button always reaches the game as you press it; the game's Hold/Toggle option decides.
 - Independent of the stamina system: the stamina config still applies its own held/hit costs when stamina is on.
 
 ### Controls
@@ -164,8 +188,13 @@ The module, the HUD, the textures and the app are original work: no third-party 
 - **Target with R3**: swaps ZL and R3, so R3 holds or toggles the target camera and ZL resets it. Recommended with
   the game's **Hold** targeting type.
 - **Hold L3** to sprint: uses the game's sprint flag and animation, without pressing A and without rolling.
-- The manual shield and button mapping are described above and below; the controls are personal preferences, not
-  part of a profile, and they are off by default.
+- **Switch target with the target button**: while locked on, tap the target button (ZL, or R3 with the swap) to move
+  the lock to the enemy with the red marker; hold it to drop the target. With no target it locks on as usual.
+  Needs Targeting Type on **Toggle**.
+- **Next target when it dies**: when the locked enemy dies, the next one is locked on automatically (nothing happens
+  when there is none, or when you dropped the target yourself). Needs Targeting Type on **Toggle**.
+- The manual shield and button mapping are described above and below. Target with R3 and L3 sprint are personal
+  preferences (only the Souls profiles turn R3 on); the switch and next target come with the combat profiles.
 
 ### Configuration app
 

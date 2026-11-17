@@ -1689,6 +1689,73 @@ for _lang, _txt in _RB.items():
     T[_lang].update(_txt)
 
 
+# 0.7.0: the Souls profiles and the targeting in the combat profiles
+_SOULS = {
+    "en": dict(
+        p_souls="Souls controls",
+        p_souls_d="Souls-like controls on the vanilla difficulty: hardcore stamina shown as a bar, lock-on with R3 "
+                  "(Targeting Type: Toggle), tap it to switch to the red-marked enemy, hold it to drop the target, "
+                  "the next enemy when the locked one dies, and the manual shield on L.",
+        p_souls_hero="Souls controls + Hero Mode",
+        p_souls_hero_d="The Souls controls with Hero Mode: x1.5 enemy health, x2 damage and no heart drops.",
+        p_recommended_d="Everything on: Hero Mode difficulty, hardcore stamina, HUD, button mapping, the manual "
+                        "shield and the targeting (switch with the target button, next enemy when one dies).",
+    ),
+    "es": dict(
+        p_souls="Controles Souls",
+        p_souls_d="Controles al estilo Souls con la dificultad original: estamina hardcore en barra, fijación con "
+                  "R3 (Tipo de fijación: Alternar), un toque cambia al enemigo con el marcador rojo, mantenerlo "
+                  "suelta el objetivo, el siguiente enemigo cuando muere el fijado y el escudo manual en L.",
+        p_souls_hero="Controles Souls + Modo héroe",
+        p_souls_hero_d="Los controles Souls con el modo héroe: vida de enemigos x1.5, daño x2 y sin corazones.",
+        p_recommended_d="Activa todo: dificultad de modo héroe, estamina hardcore, HUD, mapeo de botones, escudo "
+                        "manual y la fijación (cambiar con el botón de fijar, siguiente enemigo al morir).",
+    ),
+    "pt": dict(
+        p_souls="Controles Souls",
+        p_souls_d="Controles no estilo Souls na dificuldade original: estamina hardcore em barra, mira com R3 "
+                  "(Tipo de Mira: Alternar), um toque troca para o inimigo com o marcador vermelho, segurar solta "
+                  "o alvo, o próximo inimigo quando o fixado morre e o escudo manual no L.",
+        p_souls_hero="Controles Souls + Modo herói",
+        p_souls_hero_d="Os controles Souls com o modo herói: vida dos inimigos x1.5, dano x2 e sem corações.",
+        p_recommended_d="Tudo ligado: dificuldade modo herói, estamina hardcore, HUD, mapeamento de botões, escudo "
+                        "manual e a mira (trocar com o botão de mira, próximo inimigo quando um morre).",
+    ),
+    "fr": dict(
+        p_souls="Contrôles Souls",
+        p_souls_d="Contrôles façon Souls en difficulté d'origine : endurance hardcore en barre, visée avec R3 "
+                  "(Type de visée : Basculer), un appui passe à l'ennemi au marqueur rouge, le maintenir relâche "
+                  "la cible, l'ennemi suivant quand la cible meurt et le bouclier manuel sur L.",
+        p_souls_hero="Contrôles Souls + mode héros",
+        p_souls_hero_d="Les contrôles Souls avec le mode héros : vie des ennemis x1.5, dégâts x2 et sans cœurs.",
+        p_recommended_d="Tout activé : difficulté mode héros, endurance hardcore, HUD, mappage des boutons, "
+                        "bouclier manuel et la visée (changer avec le bouton de visée, ennemi suivant à sa mort).",
+    ),
+    "de": dict(
+        p_souls="Souls-Steuerung",
+        p_souls_d="Steuerung im Souls-Stil mit Originalschwierigkeit: Hardcore-Ausdauer als Leiste, Anvisieren "
+                  "mit R3 (Zieltyp: Umschalten), kurz drücken wechselt zum rot markierten Gegner, halten löst "
+                  "das Ziel, der nächste Gegner, wenn das Ziel stirbt, und der manuelle Schild auf L.",
+        p_souls_hero="Souls-Steuerung + Heldenmodus",
+        p_souls_hero_d="Die Souls-Steuerung mit Heldenmodus: Gegnerleben x1.5, Schaden x2 und keine Herzen.",
+        p_recommended_d="Alles an: Heldenmodus-Schwierigkeit, Hardcore-Ausdauer, HUD, Tastenbelegung, manueller "
+                        "Schild und das Anvisieren (Wechsel mit der Zieltaste, nächster Gegner, wenn einer stirbt).",
+    ),
+    "it": dict(
+        p_souls="Controlli Souls",
+        p_souls_d="Controlli in stile Souls con la difficoltà originale: stamina hardcore a barra, mira con R3 "
+                  "(Tipo di mira: Alterna), un tocco passa al nemico con il segnalino rosso, tenerlo premuto "
+                  "lascia il bersaglio, il nemico successivo quando quello fissato muore e lo scudo manuale su L.",
+        p_souls_hero="Controlli Souls + Modalità eroe",
+        p_souls_hero_d="I controlli Souls con la modalità eroe: vita dei nemici x1.5, danni x2 e niente cuori.",
+        p_recommended_d="Tutto attivo: difficoltà modalità eroe, stamina hardcore, HUD, mappatura tasti, scudo "
+                        "manuale e la mira (cambio con il tasto di mira, nemico successivo quando uno muore).",
+    ),
+}
+for _lang, _txt in _SOULS.items():
+    T[_lang].update(_txt)
+
+
 
 # resource size table notes (the last mod wins a file: ours must sort last and merge the others)
 _TABLE = {

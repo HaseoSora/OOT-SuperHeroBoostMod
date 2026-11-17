@@ -139,7 +139,9 @@ def cli(argv) -> int:
                    hud_collectibles=v["hud_collectibles"], hud_mode=v["hud_mode"],
                    enemy_move=v["enemy_move"], enemy_anim=v["enemy_anim"], enemy_attack=v["enemy_attack"],
                    enemy_proj=v.get("enemy_proj", 0),
-                   stamina_bar=v["stamina_bar"], manual_shield=v["manual_shield"])
+                   stamina_bar=bool(v["stamina_bar"]), manual_shield=v["manual_shield"],
+                   auto_target=v["auto_target"], switch_target=v["switch_target"],
+                   target_r3=bool(v["target_r3"]), sprint_l3=bool(v["sprint_l3"]))
     s.lang = a.lang or I.detect_lang(Path(a.emu).expanduser()) or system_lang()
     if a.preset is not None:
         s.preset = a.preset
@@ -545,6 +547,12 @@ def gui() -> None:
         great_fairy.set(v["great_fairy"])
         farore_outdoor.set(v["farore_outdoor"])
         manual_shield.set(v["manual_shield"])
+        auto_target.set(v["auto_target"])
+        switch_target.set(v["switch_target"])
+        # personal preferences: only a profile that sets them (the Souls ones) changes them
+        for var, key in ((target_r3, "target_r3"), (sprint_l3, "sprint_l3"), (stamina_bar, "stamina_bar")):
+            if v[key] is not None:
+                var.set(v[key])
         guard["on"] = False
         refresh()
         if save:

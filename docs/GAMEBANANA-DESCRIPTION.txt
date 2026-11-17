@@ -24,7 +24,8 @@ NEW IN 0.7.0
 - Profiles: two new Souls controls profiles (vanilla and Hero Mode) and every combat profile with the manual shield
   now also enables the switch target and the next target.
 - The labels the mod draws itself (Jump / Attack / Roll and the pause menu's Assign:) follow the game's language, read
-  from the emulator settings or language.txt; the app's language is the fallback and --lang forces one.
+  from the emulator settings or language.txt; the app's language is the fallback and --lang forces one. The presets
+  pack installs them in English.
 - Enemy duplication: Stalchildren now double too (the spawn zones' own group sizes and the scene cap), and spawns the
   game keeps off stay off.
 - 0.6.0's ReLink fix, button positions and game prompts remain.

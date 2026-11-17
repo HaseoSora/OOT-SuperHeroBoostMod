@@ -81,6 +81,10 @@ def cli(argv) -> int:
     ap.add_argument("--target-r3", action="store_true",
                     help="swap ZL and R3: target with R3 (recommended with Toggle targeting)")
     ap.add_argument("--sprint-l3", action="store_true", help="L3 (left stick click) holds A while pressed (sprint)")
+    ap.add_argument("--auto-target", action="store_true",
+                    help="when the target dies, press target again to lock on to the next enemy")
+    ap.add_argument("--switch-target", action="store_true",
+                    help="the other shoulder button switches to the next target while targeting")
     ap.add_argument("--enemy-double", action="store_true", help="beta: duplicate generic enemies (romfs)")
     ap.add_argument("--enemy-speed", action="store_true", help="deprecated: enemy movement/animation/attack at x2")
     ap.add_argument("--enemy-move", type=int, choices=I.ENEMY_LEVELS, default=None,
@@ -164,6 +168,10 @@ def cli(argv) -> int:
         s.target_r3 = True
     if a.sprint_l3:
         s.sprint_l3 = True
+    if a.auto_target:
+        s.auto_target = True
+    if a.switch_target:
+        s.switch_target = True
     if a.enemy_double:
         s.enemy_double = True
     if a.enemy_speed:
@@ -356,6 +364,8 @@ def gui() -> None:
     manual_shield = tk.BooleanVar(value=bool(cfg.get("manual_shield", False)))
     target_r3 = tk.BooleanVar(value=bool(cfg.get("target_r3", False)))
     sprint_l3 = tk.BooleanVar(value=bool(cfg.get("sprint_l3", False)))
+    auto_target = tk.BooleanVar(value=bool(cfg.get("auto_target", False)))
+    switch_target = tk.BooleanVar(value=bool(cfg.get("switch_target", False)))
     hud_collectibles = tk.BooleanVar(value=bool(cfg.get("hud_collectibles", False)))
     _hm = cfg.get("hud_mode")
     hud_mode = tk.StringVar(value=_hm if _hm in I.HUD_MODES else "wide")
@@ -556,6 +566,7 @@ def gui() -> None:
         autosave()
 
     for var in (bmap, stamina, songbook, quick_boots, quick_mask, manual_shield, target_r3, sprint_l3,
+                auto_target, switch_target,
                 hud_collectibles, hud_mode,
                 enemy_double, enemy_move, enemy_anim, enemy_attack, enemy_proj,
                 great_fairy, farore_outdoor, mode,
@@ -602,6 +613,8 @@ def gui() -> None:
                           quick_boots=quick_boots.get(), quick_mask=quick_mask.get(),
                           manual_shield=manual_shield.get(),
                           target_r3=target_r3.get(), sprint_l3=sprint_l3.get(),
+                          auto_target=auto_target.get(),
+                          switch_target=switch_target.get(),
                           hud_collectibles=hud_collectibles.get(),
                           hud_mode=hud_mode.get(),
                           enemy_double=enemy_double.get(),
@@ -626,6 +639,8 @@ def gui() -> None:
             "quick_boots": quick_boots.get(), "quick_mask": quick_mask.get(),
             "manual_shield": manual_shield.get(),
             "target_r3": target_r3.get(), "sprint_l3": sprint_l3.get(),
+            "auto_target": auto_target.get(),
+            "switch_target": switch_target.get(),
             "hud_collectibles": hud_collectibles.get(),
             "hud_mode": hud_mode.get(),
             "enemy_double": enemy_double.get(),
@@ -1375,6 +1390,12 @@ def gui() -> None:
         label(body, L("target_r3_note"), size=9, color=AMBER, bg=PANEL).pack(anchor="w", padx=(20, 0), pady=(2, 8))
         check_rb(body, L("sprint_l3_on"), sprint_l3)
         label(body, L("sprint_l3_desc"), size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=(20, 0))
+        check_rb(body, L("auto_target_on"), auto_target)
+        label(body, L("auto_target_desc"), size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=(20, 0))
+        label(body, L("auto_target_note"), size=9, color=AMBER, bg=PANEL).pack(anchor="w", padx=(20, 0), pady=(2, 8))
+        check_rb(body, L("switch_target_on"), switch_target)
+        label(body, L("switch_target_desc"), size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=(20, 0))
+        label(body, L("switch_target_note"), size=9, color=AMBER, bg=PANEL).pack(anchor="w", padx=(20, 0), pady=(2, 8))
         build_manual_shield(parent)
         build_buttons(parent)
         build_quick_select(parent)

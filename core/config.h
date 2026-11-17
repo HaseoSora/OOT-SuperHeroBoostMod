@@ -53,6 +53,8 @@ typedef struct {
     unsigned char manual_shield;    /* ZL holds the guard, L toggles targeting, R3 cancels it */
     unsigned char target_r3;        /* swap ZL and R3: target with R3 (recommended with Toggle targeting) */
     unsigned char sprint_l3;        /* L3 (left stick click) presses A while held, so Link sprints */
+    unsigned char auto_target;      /* when the target dies, press target again to lock on to the next enemy */
+    unsigned char switch_target;    /* the other shoulder button switches to the next target while targeting */
 } ShbConfig;
 
 extern volatile ShbConfig g_shbcfg;

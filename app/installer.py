@@ -93,6 +93,8 @@ class Settings:
     manual_shield: bool = False      # ZL holds the guard, L toggles targeting, R3 cancels
     target_r3: bool = False          # swap ZL and R3 (target on R3; Toggle targeting recommended)
     sprint_l3: bool = False          # L3 (left stick click) presses A while held (sprint)
+    auto_target: bool = False        # when the target dies, press target again for the next enemy
+    switch_target: bool = False      # the other shoulder button switches to the next target
 
     def to_dict(self): return dict(self.__dict__)
 
@@ -352,9 +354,12 @@ def patch_config(nso: bytes, s: Settings) -> bytes:
     struct.pack_into("<hhh", b, f + 46, hy, ioff, tx)   # struct 62/64/66 (the shorts are 2-byte aligned)
     struct.pack_into("<h", b, f + 52, ioff2)            # struct 68: clock/collectible icon offset
     b[f + 54] = int(s.manual_shield)                    # struct 70: manual shield (was reserved)
-    if size >= 0x49:                                    # 73: the two new control bytes
+    if size >= 0x49:                                    # 73: the new control bytes
         b[f + 55] = int(s.target_r3)                    # struct 71: swap ZL/R3
         b[f + 56] = int(s.sprint_l3)                    # struct 72: L3 sprint
+        if size >= 0x4c:                                # 0.6.0 already had this byte as trailing padding
+            b[f + 57] = int(s.auto_target)              # struct 73: next target when the current one dies
+            b[f + 58] = int(s.switch_target)            # struct 74: switch target with the other shoulder button
     return bytes(b)
 
 

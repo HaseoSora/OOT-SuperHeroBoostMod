@@ -43,37 +43,6 @@ language. The 0.6.0 ReLink fix, manual shield and button positions remain.
 - The installer reads the language the game is played in (`language.txt` next to a recompiled game, the emulators'
   settings) and the HUD uses it; the app's language is the fallback. `--lang` forces one.
 
-## Button mapping
-
-- **ZR is always the game's own item.** A B / L / R item is used through the item box, which goes back to the ZR item
-  once Link stands or walks again: not while aiming, so a bow on R shoots its own arrow and a held item is not put
-  away. A tap uses the item too.
-- Assigning the ZR item to a button, or a button's item to ZR (pause menu A, R selector), swaps them for real: the
-  game's own box takes the new ZR item, no item ends up on two buttons.
-- **R never opens the item selector** while you play (mid-swing, hookshot, bow ...); L only in the selector mode.
-- **A while standing still puts the sword / item away** when B holds an item (B's own function). A reaches the game
-  first, so talking, opening and rolling work as before.
-
-## Menus with invisible options
-
-- The mod's HUD buttons are clones of the game's item box and kept its "focusable" flag. The cursor went onto them:
-  past the Megaton Hammer on the Items page, and in shops, dialogues, the game-over screen and the Farore's Wind menu
-  you had to press up / down a few times before the real options responded. They are no longer focusable (this was
-  the old "known bug" of Farore's Wind outdoors).
-- The songbook no longer reads the ocarina while it is closed.
-
-## Boss speed (beta)
-
-- Bosses and minibosses (dungeon bosses, Dark Link, Iron Knuckles, Flare Dancer, Dead Hand, Poe sisters' Meg ...)
-  are left out of the enemy speed; they now have their own **movement** and **animation** multipliers in the Beta
-  tab, built the same way from your game dump.
-- Some bosses move by script (Morpha, Volvagia, Bongo Bongo): animation is what speeds them up.
-
-## L3 sprint as a toggle
-
-- New sub-option of the L3 sprint: one press of L3 starts the sprint, the next one stops it. It also stops when
-  stamina runs out, when you press A (your own roll / sprint takes over) and in dialogues and shops.
-
 ## Enemy duplicator (beta)
 
 - Stalchildren now double as well. Each spawn zone in the maps carries its own group size (2 small, 1 big, larger

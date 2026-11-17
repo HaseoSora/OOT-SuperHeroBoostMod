@@ -1,14 +1,33 @@
-LONGSHOT / HOOKSHOT - 0.7.0 NOTICE
+LONGSHOT / HOOKSHOT - 0.8.0 NOTICE
 There has been a lot of feedback about Longshot problems since 0.4.0: crashes while loading a save or an area,
 a rebuild that stopped near 90% with "Longshot is still running from this folder", DLSS disappearing after a
-rebuild, and the app choosing a ReLink or Hookshot builder for a Longshot game. 0.5.0 fixed those and 0.7.0 includes
-every fix, the ReLink support and the new targeting. The module changed, so rebuild the game once with 0.7.0. If a
-crash remains, attach logs/longshot_log.txt and the new file in bug-reports/.
+rebuild, and the app choosing a ReLink or Hookshot builder for a Longshot game. 0.5.0 fixed those and 0.8.0 includes
+every fix, the ReLink support, the new targeting and the item button work. The module changed, so rebuild the game
+once with 0.8.0. If a crash remains, attach logs/longshot_log.txt and the new file in bug-reports/.
 
 Super Hero Boost is a gameplay and HUD module for the Ocarina of Time remake (update v131072).
 
 WHAT YOU ARE DOWNLOADING
-The file in the Files tab is SuperHeroBoost-0.7.0-presets.zip: the mod itself, with all 14 named profiles of the companion app ready to install in an emulator. Every profile includes the boots/mask quick select. It contains no executable. The configuration app is a separate download (see "Installation app" below); it is not in the Files tab.
+The file in the Files tab is SuperHeroBoost-0.8.0-presets.zip: the mod itself, with all 14 named profiles of the companion app ready to install in an emulator. Every profile includes the boots/mask quick select. It contains no executable. The configuration app is a separate download (see "Installation app" below); it is not in the Files tab.
+
+NEW IN 0.8.0
+- Item quantities: the B / L / R / ZR buttons show how many you have of the consumables (sticks, nuts, bombs, seeds,
+  bombchus, beans and arrows). Unique items show no number.
+- ZR is always the game's own item (R selector, pause menu A, the save). A B / L / R item is used through the item box,
+  which goes back to the ZR item once Link stands or walks again (not while aiming, so a bow on R shoots its own
+  arrow); assigning ZR to a button, or a button's item to ZR, swaps them for real.
+- With an item on B, A while standing still puts the sword or the item in hand away (B's own function); A still talks,
+  opens and rolls as usual.
+- Menus fixed: the mod's HUD buttons kept the game's item-box "focusable" flag and the cursor went onto them. In shops,
+  dialogues, the game-over screen, Farore's Wind and past the Megaton Hammer on the Items page you had to press up /
+  down a few times first. They are no longer focusable; the songbook no longer reads the ocarina while it is closed.
+- New HUD option: hide the corner minimap while playing (the map screen still works).
+- New Difficulty option: dropped magic jars become green rupees, like the heart option. Both can be on together.
+- Boss speed (beta): bosses and minibosses, left out of the enemy speed, get their own movement and animation
+  multipliers. Some bosses move by script, so animation is what speeds them up.
+- L3 sprint as a toggle: one press starts the sprint and the next stops it; it also stops when stamina runs out, when
+  you press A and in dialogues.
+- 0.7.0's souls-like targeting, Souls controls profiles and HUD labels in the game's language remain.
 
 NEW IN 0.7.0
 - Souls-like targeting: while locked on, tap the target button (ZL, or R3 with the ZL/R3 swap) to move the lock to the
@@ -131,7 +150,7 @@ REQUIREMENTS
 - Back up your saves. On Windows the app closes a running game before installing and during a rebuild; save first.
 
 EMULATOR - QUICK INSTALL (PRESETS ZIP)
-1. Download SuperHeroBoost-0.7.0-presets.zip from the Files tab and extract it.
+1. Download SuperHeroBoost-0.8.0-presets.zip from the Files tab and extract it.
 2. Open the folder of the profile you want (01 Recommended, 02 Souls controls, 03 Souls controls + Hero Mode, ...).
 3. Copy its zz-Super-Hero-Boost folder into user/load/0400486024DEC000 (merge it if that folder already exists).
 4. Start the game.
@@ -162,7 +181,7 @@ https://github.com/kuribox/OOT-SuperHeroBoostMod/releases
 5. 0.5.0 keeps DLSS / FSR and closes a running copy of the game on Windows so the final swap is not blocked.
 6. Uninstall restores the original bin/longshot.exe, image.bin and exefs/main (and the ReLink files).
 
-0.7.0 includes the 0.5.0 Longshot crash fixes and every ReLink feature; rebuild the game once with 0.7.0.
+0.8.0 includes the 0.5.0 Longshot crash fixes and every ReLink feature; rebuild the game once with 0.8.0.
 
 IN GAME
 - Item buttons: pause menu -> Items tab, highlight an item and press X to put it on B, L on L and R on R. The game's own ZR box still works with A.
@@ -183,9 +202,9 @@ INSTALLATION APP
 
 COMPATIBILITY
 - Emulators: tested and working on lichii and Fritchii.
-- Longshot: supported and tested. 0.7.0 includes the 0.5.0 crash fixes and every ReLink feature; rebuild the game once with 0.7.0.
+- Longshot: supported and tested. 0.8.0 includes the 0.5.0 crash fixes and every ReLink feature; rebuild the game once with 0.8.0.
 - Hookshot: expected to work, not tested yet (same builder and make_game.py --update).
-- ReLink: supported and tested. Every feature works (the module is built without tail calls); rebuild the game once with 0.7.0. Do not keep a separate controller-UI mod installed: the app installs the game's own prompts and warns if another mod replaces the button font or the UI atlas.
+- ReLink: supported and tested. Every feature works (the module is built without tail calls); rebuild the game once with 0.8.0. Do not keep a separate controller-UI mod installed: the app installs the game's own prompts and warns if another mod replaces the button font or the UI atlas.
 - Real hardware: not tested.
 
 CREDITS

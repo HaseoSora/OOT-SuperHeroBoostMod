@@ -8,7 +8,7 @@ GameBanana classifies third-party programs as Tools; the Mods file must stay fre
 **Tagline:** Configure and install Super Hero Boost: profiles, stamina, difficulty, HUD, item buttons and optional
 world changes from one window.
 
-**Version:** 0.7.0
+**Version:** 0.8.0
 
 ## Summary
 
@@ -65,7 +65,7 @@ Prebuilt apps: `SuperHeroBoostConfig.exe` (Windows), `SuperHeroBoostConfig-linux
 ## Files
 
 - `SuperHeroBoostConfig.exe`
-  SHA-256: `18fc679315b85061c3010c2414be3da47e2024fcc7c76b678275b8eb2983ad3e`
+  SHA-256: `046f40cb94ddab8cca574dfb5fe2091291b04fb588579326260ef49ad3c1ca29`
 
 The module payload is inside the executable; the app does not download anything.
 

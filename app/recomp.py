@@ -882,8 +882,15 @@ def install_romfs(game: Path, s: I.Settings) -> tuple[int, list]:
     if s.button_mapping:
         copy(pay / "button_romfs" / style)
         copy(pay / "button_romfs" / "common")
-    if s.no_heart_drop and not copy(pay / "romfs_opts" / "no_heart_drop"):
-        notes.append(("no_heart_drop_missing", ""))
+    drops = (["no_heart_drop"] if s.no_heart_drop else []) + (["no_magic_drop"] if s.no_magic_drop else [])
+    if len(drops) == 2:        # one file carries both changes (same DropGlobalParam table)
+        drops = ["no_heart_magic_drop"]
+    for opt in drops:
+        if not copy(pay / "romfs_opts" / opt):
+            missing = ("no_heart_drop_missing", "no_magic_drop_missing") if opt == "no_heart_magic_drop" \
+                else (opt + "_missing",)
+            for key in missing:
+                notes.append((key, ""))
     for opt, enabled in (("enemy_double", s.enemy_double),
                          ("farore_outdoor", s.farore_outdoor),
                          ("great_fairy", s.great_fairy)):

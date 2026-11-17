@@ -105,6 +105,7 @@ SECTIONS
     find_anim = 0x43C7A0;
     set_frame = 0x2D2D90;
     ui_btn_anim = 0x3772000;   /* (menu cell button, index): its animation (4 = Decide) */
+    UI_CTRL_VT = 0x4C216E8;   /* UI control (button) vtable: the item box / menu cells (core/hud.c part_ctrl) */
     ui_btn_decide = 0x3772100; /* (menu cell button): the game's own Decide play, with its sound (A on an Items cell) */
     PLT0 = 0x3C41C50;
     GOT0 = 0x4CBF5C0;

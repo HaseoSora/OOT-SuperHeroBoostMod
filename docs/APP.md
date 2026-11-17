@@ -77,8 +77,8 @@ display on the ring, and the enemy speed components off.
 - **Stamina**: on/off, stamina style, what costs stamina (the checkboxes update automatically for each style), sprint
   speed and the stamina display (ring around the hero, or a segmented bar under the magic gauge; yellow, red while
   recharging).
-- **Difficulty**: enemy health, damage taken, heart drops and the two beta enemy tools, generated from the user's
-  dump at build time and installed as extra romfs files:
+- **Difficulty**: enemy health, damage taken, heart and magic-jar drops (both become green rupees) and the two beta
+  enemy tools, generated from the user's dump at build time and installed as extra romfs files:
   - **Duplicate enemies (Option A)**: clones generic enemy placements in `Banc` and doubles field auto-spawn counts.
     Bosses, minibosses and scripted enemies are excluded.
   - **Enemy speed**: movement (all base speeds and attack motions), animation playback, attack cadence and
@@ -89,7 +89,8 @@ display on the ring, and the enemy speed components off.
 - **Controls**: target with R3 (swaps ZL and R3; the app recommends setting the game's Targeting Type to **Toggle**),
   sprint while L3 is held (the game's sprint animation, without rolling), the manual shield, button mapping
   (on/off, style, layout, L mode) and **Quick select**.
-- **HUD**: rupee counter, clock (**off / 12 h / 24 h**, one selector), HUD layout and the area collectibles counter.
+- **HUD**: rupee counter, clock (**off / 12 h / 24 h**, one selector), HUD layout, the area collectibles counter and
+  **hide the minimap** (the corner map is not drawn while playing; the map screen still works).
 - **HUD layout**: **Wide** (the four native-style plates at the bottom), **Simple** (the four counters at the bottom,
   no background) and **Minimal** (rupees and time above the minimap, no plates; the
   Skulltula plate is left to the game, and the current area's heart-piece counter appears next to the native
@@ -109,7 +110,7 @@ display on the ring, and the enemy speed components off.
     overview dialogue still describes the original order, so trust the fountain itself.
   - **Farore's Wind outdoors**: allows placing Farore's Wind warp points outside dungeons. The real forbidden areas
     inside dungeons (for example the FireTemple areas) stay blocked. It is a patched event flow, installed as a romfs
-    file. **Known bug**: press up and down a couple of times before the teleport menu responds.
+    file.
 - **About**: credits, the material/third-party notice and **Check for updates**.
 
 The bottom bar always shows the install state and the **Install / Uninstall** buttons. Changes are saved

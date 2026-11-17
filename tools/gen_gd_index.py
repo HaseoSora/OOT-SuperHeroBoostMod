@@ -1,14 +1,16 @@
-"""Developer step: write core/gd_index.h, the GameData Bool indices the buttonMapping reads.
+"""Developer step: write core/gd_index.h, the GameData indices the HUD and buttonMapping read.
 
   GD_IS_CHILDHOOD          index of Sequence_IsChildhood (1 while Link is a child)
   GD_S64_EQUIP_WEAPON / _SHIELD  String64 indices of the equipped sword / shield (icon names)
   GD_BOX_CHILD / _ADULT    Enum indices of PlayerStatus.AssignableItem.Child / .Adult (the item box), GD_EMPTY_HASH
   GD_ISGET[]               {murmur3("IsGet.<item>"), index} for every IsGet.* Bool, sorted by hash
   GD_ACTOR_BOX[]           {murmur3(item actor name), murmur3(its item-box value)}, sorted (RSDB PouchActorInfo)
+  GD_STOCK[]               {murmur3(item actor name), Int index} for every PouchData.<item>.StockNum, sorted
 
 Bool records are in GameDataList definition order (see the devtool's gdlive.py), so these indices belong to one
 GameDataList (Product.110, game 1.1.1). Needs the devtool's definition cache and names.tsv (names_build.py).
 """
+import os
 import pickle
 import sys
 from pathlib import Path
@@ -59,8 +61,17 @@ def main():
     lines.append("static const unsigned int GD_ACTOR_BOX[GD_ACTOR_BOX_N][2] = {")
     lines += ["    {0x%08Xu, 0x%08Xu}," % (a, v) for a, v in box]
     lines.append("};")
+    ints = [h for h, d in defs.items() if d.type == "Int"]
+    int_index = {h: i for i, h in enumerate(ints)}
+    stock = sorted({(gamedata.mmh(n[len("PouchData."):-len(".StockNum")]), int_index[h])
+                    for h, n in names.items()
+                    if n.startswith("PouchData.Item_") and n.endswith(".StockNum") and h in int_index})
+    lines.append("#define GD_STOCK_N %d" % len(stock))
+    lines.append("static const unsigned int GD_STOCK[GD_STOCK_N][2] = {")
+    lines += ["    {0x%08Xu, %du}," % (h, i) for h, i in stock]
+    lines.append("};")
     OUT.write_text("\n".join(lines) + "\n", encoding="ascii")
-    print("wrote", OUT, len(isget), "IsGet entries")
+    print("wrote", OUT, len(isget), "IsGet entries,", len(stock), "PouchData StockNum entries")
 
 
 if __name__ == "__main__":

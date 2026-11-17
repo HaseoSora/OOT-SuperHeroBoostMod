@@ -19,6 +19,7 @@ project.
 | Pause assignment | Items tab: B / L / R on the highlighted item; an item already in another slot is swapped |
 | Jump/B swap | if the game's System > Options **Swap Jump Controls** is on, the B slot moves to **X**: X triggers the item, the icon is drawn over the X button, the X button texture and the menu legend follow, the B button becomes an unlettered jump button, and the **Jump** label moves from X to B |
 | Icons | `PaItemBtn_00` parts with the item icon and its shadow, like the native item box |
+| Counts | the item buttons show the quantity of consumables (sticks, nuts, bombs, seeds, bombchus, beans and arrows): the box's own `T_ItemNum_00` text is written from GameData `PouchData.<item>.StockNum`, and its pane stays hidden for items without a quantity |
 
 The swap option is read live from GameData (OptionData struct `0x834d9d9e`, Bool member `0x3B0FC63F`, via
 `read_bool` at `main+0x179F70`). It is refreshed every HUD frame and while the pause menu is open, so changing it in

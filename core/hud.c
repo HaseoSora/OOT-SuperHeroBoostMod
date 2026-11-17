@@ -2479,6 +2479,7 @@ u32 g_menu_sel_n;
 extern void button_mapping_on_open(const char *path, int mode) __attribute__((weak));
 void hud_on_code(u32 id, void *a0, void *a1, void *a2, void *regs) {
     (void)a1; (void)a2;
+    if (id >= 22) return;   /* diagnostic sites (hook_code_frame4/speed4): only counted in g_code_entry */
     if (id == 5) { player_track((u64)a0); return; }
     if (id >= 6 && id <= 9) { player_guard_event(id); return; }
     if (id == 10) { if (stamina_speed_hook) stamina_speed_hook(regs); return; }   /* ground movement: sprint speed */

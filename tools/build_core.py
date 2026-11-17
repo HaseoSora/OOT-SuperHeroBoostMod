@@ -16,6 +16,7 @@ from it.
 from __future__ import annotations
 
 import argparse
+import bisect
 import hashlib
 import os
 import struct
@@ -60,6 +61,13 @@ CFLAGS = [
     # flags, the guard stops working and a null pointer reaches the load (the 0.4.0 Longshot crash:
     # read 0x100000000038 / guest 0x38 in hud_on_code). Keep those comparisons inline.
     "-mllvm", "-enable-machine-outliner=never",
+    # No tail calls (`b f` in place of `bl f; ret`). ReLink's translator (a64-kit) builds a function from
+    # everything reachable from its entry and writes it in address order, starting at the lowest address. A
+    # tail call to a function placed BELOW the caller that nothing reaches with `bl` is not an entry of its
+    # own: its code joins the caller's body, comes first, and the caller's real start becomes dead code.
+    # That made mod_on_input run only quick_select_on_input (no stamina, manual shield, button mapping or
+    # controls input) and player.c's classify() run only guard_hit(). check_tail_calls() enforces it.
+    "-fno-optimize-sibling-calls",
     "-Oz",
 ]
 
@@ -109,6 +117,40 @@ def symbol_table(elf: Path) -> dict[str, int]:
         if len(parts) == 3:
             syms[parts[2]] = int(parts[0], 16)
     return syms
+
+
+def check_tail_calls(elf: Path, text: bytes, base: int) -> None:
+    """Fail the build on a `b` to the start of a lower function that no `bl` reaches (see CFLAGS:
+    ReLink's translator would start the caller at that function's code and skip its own)."""
+    funcs: dict[int, str] = {}
+    for line in run([str(NM), "-n", str(elf)]).splitlines():
+        parts = line.split()
+        if len(parts) == 3 and parts[1] in ("T", "t"):
+            funcs.setdefault(int(parts[0], 16), parts[2])
+    starts = sorted(funcs)
+    end = base + len(text)
+    called: set[int] = set()
+    jumps: list[tuple[int, int]] = []
+    for off in range(0, len(text) - 3, 4):
+        w = int.from_bytes(text[off:off + 4], "little")
+        if (w & 0x7C000000) != 0x14000000:
+            continue
+        imm = w & 0x03FFFFFF
+        if imm & 0x02000000:
+            imm -= 1 << 26
+        pc = base + off
+        target = pc + 4 * imm
+        if not base <= target < end:
+            continue            # into main (the hook resumes): not ours
+        (called.add(target) if w & 0x80000000 else jumps.append((pc, target)))
+    bad = []
+    for pc, target in jumps:
+        i = bisect.bisect_right(starts, pc) - 1
+        owner = starts[i] if i >= 0 else None
+        if target in funcs and owner is not None and target < owner and target not in called:
+            bad.append(f"{funcs[owner]}+{pc - owner:#x}: b {funcs[target]}")
+    if bad:
+        raise SystemExit("backward tail calls (ReLink would skip the caller's code):\n  " + "\n  ".join(bad))
 
 
 def dump_section(elf: Path, name: str, scratch: Path) -> bytes:
@@ -254,6 +296,7 @@ def write_handler_table(features: list[str], path: Path) -> None:
     path.write_text("\n".join(lines) + "\n", encoding="ascii")
 
 
+NO_LAZY = False  # --no-lazy: no lazy-binding check in the input wrappers (ReLink)
 COMPAT = False   # --compat: read input through the shared PLT stub (the five input call sites stay stock)
 SLOTS = False    # --slots: also hook the four equip calls (buttonMapping)
 # PLT stub of the input reader used during gameplay: first instruction `adrp x16, GOT3`.
@@ -308,11 +351,14 @@ def main() -> int:
     ap.add_argument("--compat", action="store_true",
                     help="PLT-stub input hook (the release build) and the module placed at --base")
     ap.add_argument("--base", default="0x4F88000", help="module base used with --compat")
+    ap.add_argument("--no-lazy", action="store_true",
+                    help="input wrappers without the lazy-binding check (ReLink build)")
     ap.add_argument("--slots", action="store_true",
                     help="hook the equip calls too (buttonMapping)")
     args = ap.parse_args()
-    global COMPAT, BASE, LINK_SCRIPT, SLOTS
+    global COMPAT, NO_LAZY, BASE, LINK_SCRIPT, SLOTS
     SLOTS = args.slots
+    NO_LAZY = args.no_lazy
     if args.compat:
         COMPAT = True
         BASE = int(args.base, 0)
@@ -350,6 +396,8 @@ def main() -> int:
         rel = src.relative_to(ROOT).as_posix().replace("/", "__")
         obj = OUT / (rel + ".o")
         extra = ["-DBUTTON_PROBE"] if os.environ.get("BUTTON_PROBE") else []
+        if NO_LAZY:
+            extra.append("-DSHB_NO_LAZY")
         if "button_mapping" in features:
             extra.append("-DBUTTON_MAPPING")   # core/hud.c draws the buttonMapping buttons
         run([str(CLANG), *CFLAGS, *extra, "-I", str(OUT), "-I", str(CORE_SRC),
@@ -365,7 +413,8 @@ def main() -> int:
         raise SystemExit(f"unexpected .text address {text_addr:#x}")
 
     text = dump_section(elf, ".text", OUT / "text.bin")
-    text += b"\0" * ((0x1000 - len(text) % 0x1000) % 0x1000)
+    check_tail_calls(elf, text, BASE)
+    text +=b"\0" * ((0x1000 - len(text) % 0x1000) % 0x1000)
     ro = dump_section(elf, ".rodata", OUT / "rodata.bin") if ".rodata" in sec else b""
     data = dump_section(elf, ".data", OUT / "data.bin") if ".data" in sec else b""
     data += b"\0" * ((0x1000 - len(data) % 0x1000) % 0x1000)

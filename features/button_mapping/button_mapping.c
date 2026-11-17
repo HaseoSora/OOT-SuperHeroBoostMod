@@ -163,7 +163,26 @@ static void set_all(const HidView *v, u64 clear, u64 set) {
     }
 }
 
+static void dbg_tick(void);   /* diagnostic dump (below, beside the save code) */
+
+/* Every input call the module sees, per site: hits, arguments, count and the first buttons word. */
+u64 g_dbg_a0[5], g_dbg_a1[5];
+u32 g_dbg_cnt[5], g_dbg_btn[5], g_dbg_hits[5];
+
 void button_mapping_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_result) {
+    if (site < 5) {
+        HidView dv = {a0, 0, 0};
+        u32 dcount = (u32)(unsigned long)a1;
+        if (dcount == 0 || dcount > 64) dcount = stock_result;
+        if (dcount > 64) dcount = 0;
+        g_dbg_hits[site]++;
+        g_dbg_a0[site] = (u64)(unsigned long)a0;
+        g_dbg_a1[site] = (u64)(unsigned long)a1;
+        g_dbg_cnt[site] = dcount;
+        dv.count = dcount;
+        g_dbg_btn[site] = (u32)hid_get_buttons(&dv, 0);
+    }
+    dbg_tick();
     (void)a2;
     if (site != 3 || !a0) return;
     u32 count = (u32)(unsigned long)a1;
@@ -454,6 +473,58 @@ static void save_read(const char *ours) {
         }
     g_save_dbg[2]++;
 }
+/* ---- diagnostic dump: <slot>/shbdebug.bin. Which wrappers ran, the input calls per site, the
+ * save hook's results and the config block the module reads. Changes nothing the game sees. ---- */
+extern unsigned int g_wrap_entry[5], g_slot_entry[4], g_code_entry[32];
+extern u32 g_save_dbg[6];
+static u32 g_dbg_tick, g_dbg_done;
+
+static void dbg_write_path(const char *path) {
+    unsigned char buf[440];
+    for (int i = 0; i < 440; i++) buf[i] = 0;
+    static const char MAGIC[] = "SHBDBG01";
+    for (int i = 0; i < 8; i++) buf[i] = (unsigned char)MAGIC[i];
+#define DBG32(off, val) do { unsigned int _v = (unsigned int)(val); buf[(off)] = (unsigned char)_v; \
+    buf[(off) + 1] = (unsigned char)(_v >> 8); buf[(off) + 2] = (unsigned char)(_v >> 16); \
+    buf[(off) + 3] = (unsigned char)(_v >> 24); } while (0)
+    DBG32(8, 1);
+    DBG32(12, 440);
+    for (int i = 0; i < 5; i++)  DBG32(16 + 4 * i, g_wrap_entry[i] - 0x10000000u);
+    for (int i = 0; i < 4; i++)  DBG32(36 + 4 * i, g_slot_entry[i] - 0x10000000u);
+    for (int i = 0; i < 32; i++) DBG32(52 + 4 * i, g_code_entry[i] - 0x10000000u);
+    for (int i = 0; i < 6; i++)  DBG32(180 + 4 * i, g_save_dbg[i]);
+    {
+        const unsigned char *cfg = (const unsigned char *)(const void *)&g_shbcfg;
+        for (int i = 0; i < 76; i++) buf[204 + i] = cfg[i];
+    }
+    for (int s = 0; s < 5; s++) {
+        int b = 280 + s * 32;
+        DBG32(b + 0, g_dbg_hits[s]);
+        DBG32(b + 4, (unsigned int)(g_dbg_a0[s] & 0xFFFFFFFFu));
+        DBG32(b + 8, (unsigned int)(g_dbg_a0[s] >> 32));
+        DBG32(b + 12, (unsigned int)(g_dbg_a1[s] & 0xFFFFFFFFu));
+        DBG32(b + 16, g_dbg_cnt[s]);
+        DBG32(b + 20, g_dbg_btn[s]);
+    }
+#undef DBG32
+    FsFile f = {0};
+    fs_create_file(path, 440);               /* fails when it is already there */
+    u32 r = fs_open_file(&f, path, 2 | 4);
+    if (r) return;
+    FsWriteOpt opt = {1};                    /* flush */
+    fs_set_file_size(f, 440);
+    fs_write_file(f, 0, buf, 440, &opt);
+    fs_close_file(f);
+}
+
+static void dbg_tick(void) {
+    if (++g_dbg_tick < 600) return;          /* about every 10 s of input polling */
+    g_dbg_tick = 0;
+    if (g_dbg_done >= 60) return;
+    g_dbg_done++;
+    dbg_write_path("save:/slot_00/shbdebug.bin");
+}
+
 /* core/hud.c, hook on nn::fs::OpenFile (main+0x3C42590): any file the game opens */
 void button_mapping_on_open(const char *path, int mode) {
     if (path[0] != 's' || !g_shbcfg.button_mapping) return;   /* not save: (content: is the romfs) */
@@ -461,4 +532,13 @@ void button_mapping_on_open(const char *path, int mode) {
     if (!our_path(path, ours)) return;
     if (mode & 2) save_write(ours);
     else save_read(ours);
+    {   /* dump next to the save the game just opened (the save volume is mounted here) */
+        char dbg[48];
+        u32 n = 0, slash = 0;
+        while (ours[n]) { dbg[n] = ours[n]; n++; }
+        for (u32 i = 0; i < n; i++) if (dbg[i] == '/') slash = i;
+        static const char TAIL[] = "/shbdebug.bin";
+        for (u32 j = 0; ; j++) { dbg[slash + j] = TAIL[j]; if (!TAIL[j]) break; }
+        dbg_write_path(dbg);
+    }
 }

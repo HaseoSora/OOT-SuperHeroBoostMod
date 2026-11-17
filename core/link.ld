@@ -36,6 +36,7 @@ SECTIONS
     equip_request = 0xA7ACD0;  /* (pouch, name_ref, kind, arg3): the game's equipment request, as the pause menu makes it */
     equip_refresh = 0x33AC230; /* (pouch, name_ref, 1): apply/refresh after the request */
     RES_FRAME = 0x2B30DE4;
+    RES_FRAME4 = 0x2B30DE8;
     RES_MP = 0x33BDCE4;
     RES_UI = 0x43A6FC;
     RES_SETFRAME = 0x2D2D94;
@@ -53,6 +54,7 @@ SECTIONS
     RES_GUARD2 = 0x27FB0C4;
     RES_GUARD3 = 0x27FA204;
     RES_SPEED = 0x9352F4;
+    RES_SPEED4 = 0x9352F8;
     RES_OCARINA_ENTER = 0x2894344;
     RES_OCARINA_LEAVE = 0x28947F4;
     RES_OCARINA_UI = 0x3292074;         /* ocarina UI update, after pacibsp */

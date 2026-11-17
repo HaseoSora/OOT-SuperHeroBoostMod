@@ -145,7 +145,11 @@
 .endm
 
 .macro INPUT_HOOK name, id, stock, got
+#ifdef SHB_NO_LAZY
+    WRAP_HOOK \name, \id, \stock, mod_on_input, g_wrap_entry
+#else
     WRAP_HOOK \name, \id, \stock, mod_on_input, g_wrap_entry, \got
+#endif
 .endm
 
 INPUT_HOOK hook_input0, 0, STOCK0, GOT0
@@ -179,6 +183,12 @@ WRAP_HOOK hook_stub3, 3, STOCK3B, mod_on_input, g_wrap_entry, GOT3,, 1
     stp d4, d5, [sp, #0xD0]
     stp d6, d7, [sp, #0xE0]
     stp x21, x22, [sp, #0xF0]  /* (read only: x21 = the pane name in the text setter's caller) */
+    /* entry counter (diagnostic): g_code_entry[\id]++ , x16/x17 are saved above and caller-saved */
+    adrp x16, g_code_entry
+    add  x16, x16, :lo12:g_code_entry + (4 * \id)
+    ldr  w17, [x16]
+    add  w17, w17, #1
+    str  w17, [x16]
     mov x3, x2
     mov x2, x1
     mov x1, x0
@@ -338,4 +348,23 @@ WRAP_HOOK hook_slot0, 0, SLOTFN, mod_on_slot, g_slot_entry,, mod_pre_slot
 WRAP_HOOK hook_slot1, 1, SLOTFN, mod_on_slot, g_slot_entry,, mod_pre_slot
 WRAP_HOOK hook_slot2, 2, SLOTFN, mod_on_slot, g_slot_entry,, mod_pre_slot
 WRAP_HOOK hook_slot3, 3, SLOTFN, mod_on_slot, g_slot_entry,, mod_pre_slot
+
+/* Diagnostic: do the BODIES of the frame and speed functions run even when their entry does not?
+ * The site is the second instruction (the patch at the entry may be bypassed); the wrapper re-runs it
+ * and continues at site+4. Ids 22/23 only bump g_code_entry[]: mod_on_code ignores them. */
+    .global hook_code_frame4
+    .type hook_code_frame4, %function
+hook_code_frame4:
+    CODE_HOOK_BODY 22
+    stp x29, x30, [sp, #-0x30]!
+    b   RES_FRAME4
+    .size hook_code_frame4, . - hook_code_frame4
+
+    .global hook_code_speed4
+    .type hook_code_speed4, %function
+hook_code_speed4:
+    CODE_HOOK_BODY 23
+    sub sp, sp, #0x30
+    b   RES_SPEED4
+    .size hook_code_speed4, . - hook_code_speed4
 

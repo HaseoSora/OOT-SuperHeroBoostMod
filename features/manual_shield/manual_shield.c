@@ -59,6 +59,7 @@ u8 g_ms_zl_raw;          /* physical ZL in the latest input sample */
 u8 g_ms_l_raw;           /* physical L in the latest input sample */
 u8 g_ms_zl_prev;         /* previous frame's physical ZL, for the toggle edge */
 u8 g_ms_prev_l;          /* previous sampled L (diagnostic) */
+u8 g_ms_l_latch;         /* the current L press belongs to the shield (until L is let go) */
 u8 g_ms_last_allowed;    /* previous frame's decision, for the shield draw */
 u32 g_ms_toggle_mode = 1;/* 1 = game option Toggle Target, 0 = Hold Target */
 u32 g_ms_target_value = 0xFFFFFFFFu;  /* diagnostic: raw GameData enum value */
@@ -164,6 +165,14 @@ static u32 guard_busy(u64 iface, u64 state) {
     return 0;
 }
 
+/* Is Link targeting right now? Toggle Target: our latch (or the native lock-on state, the only signal when the
+ * R3 swap leaves the target to the game). Hold Target: only while the target button is held; the game's
+ * LockOn* states linger after it is let go and also follow an attack, so they do not count. */
+static u32 ms_target_active(void) {
+    if (g_ms_toggle_mode) return g_ms_targeting || player_state_starts("LockOn");
+    return g_ms_zl_raw;
+}
+
 static void set_native_bool(u64 iface, u32 id, u32 value) {
     u64 vtable = *(volatile u64 *)iface;
     if (!vtable) return;
@@ -183,6 +192,7 @@ void manual_shield_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_re
         g_ms_l_raw = 0;
         g_ms_zl_prev = 0;
         g_ms_prev_l = 0;
+        g_ms_l_latch = 0;
         return;
     }
     g_ms_active = 1;
@@ -203,9 +213,10 @@ void manual_shield_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_re
         g_ms_held = 0;
         g_ms_allowed = 0;
         g_ms_dbg[5]++;
-        /* A hit stop can pause the player scheduler for a few frames without leaving gameplay. L is still
-         * ours there: consume it so the default L/item function cannot fire in the middle of the hit. */
-        if (ms_gameplay_state()) {
+        /* A hit stop can pause the player scheduler for a few frames without leaving gameplay. While the
+         * shield is up L is still ours there: consume it so the default L/item function cannot fire in the
+         * middle of the hit. */
+        if (g_ms_last_allowed && ms_gameplay_state()) {
             for (u32 i = 0; i < count; i++) {
                 u64 b = hid_get_buttons(&view, i);
                 hid_set_buttons(&view, i, b & ~MS_BTN_L);
@@ -241,19 +252,24 @@ void manual_shield_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_re
     g_ms_dbg[1] = g_ms_held;
     g_ms_dbg[2] = g_ms_targeting;
 
-    /* L belongs to the manual shield whenever it is enabled (the item slot is off too). */
+    /* L belongs to the manual shield only while Link is targeting or the shield is up (including its hit
+     * reactions); with no target it reaches the game and keeps its default function. */
     u32 toggle = g_ms_toggle_mode;
     u32 guard_active = g_ms_held != 0;
+    u32 own_l = ms_target_active() || guard_active || g_ms_last_allowed || g_ms_l_latch;
+    /* An L press that started as ours stays ours until it is let go (letting go of the target while
+     * holding L must not open the item selector halfway through the press). */
+    g_ms_l_latch = (u8)(l && own_l);
     /* With the R3/ZL swap the target button is native: pass it through instead of latching it. */
     u32 native_zl = g_shbcfg.target_r3;
 
     for (u32 i = 0; i < count; i++) {
         u64 b = hid_get_buttons(&view, i);
         if (toggle && !native_zl) b &= ~MS_BTN_ZL;   /* toggle mode: ZL is consumed and re-synthesised */
-        /* Manual shield owns L while it is enabled: always consume it, including during shield-hit
-         * reactions (Guard/Repelled/GuardBreak). Otherwise the default L (item/selector) fires for a
-         * frame in the middle of the hit. */
-        b &= ~MS_BTN_L;
+        /* While targeting or guarding L is ours, including during shield-hit reactions
+         * (Guard/Repelled/GuardBreak): otherwise the default L (item/selector) fires for a frame in the
+         * middle of the hit. */
+        if (own_l) b &= ~MS_BTN_L;
         /* toggle mode: synth native ZL from our latch or an active L guard; the
          * native LockOn state alone must not keep itself alive. Hold mode leaves
          * the physical ZL untouched. */
@@ -280,6 +296,7 @@ void manual_shield_on_frame(void *scheduler) {
         g_ms_l_raw = 0;
         g_ms_zl_prev = 0;
         g_ms_prev_l = 0;
+        g_ms_l_latch = 0;
         g_ms_last_allowed = 0;
         g_ms_toggle_mode = 1;
         g_ms_target_value = 0xFFFFFFFFu;
@@ -325,12 +342,7 @@ void manual_shield_on_frame(void *scheduler) {
     u64 actor = rd(state, 0x18);
     if (!actor) return;
     g_ms_carrying = (u8)player_carrying(actor);
-    {
-        u32 target_active = g_ms_toggle_mode
-            ? (g_ms_targeting || player_state_starts("LockOn"))
-            : (g_ms_zl_raw || player_state_starts("LockOn"));
-        g_ms_held = (u8)(!g_ms_carrying && g_ms_l_raw && target_active);
-    }
+    g_ms_held = (u8)(!g_ms_carrying && g_ms_l_raw && ms_target_active());
     u64 component = get_guard_component((void *)actor);
     if (!component) return;
 

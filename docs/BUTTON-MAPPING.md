@@ -44,6 +44,25 @@ gone: the table places everything (the installer writes 0).
 | HUD | each part is a role (`PART_ROLE` in `core/hud.c`); `sb_xy()` places it on the physical button holding that role (ZL gets a spot mirroring ZR) and its texture is that button's letter. A role on no button (or on a stick) hides its part. Target, camera, sprint, shield and the selector have no HUD part |
 | Pause menu | items 1..3 are assigned with their own button when the Items tab allows it (X / Y / L / R); a slot on A / B / ZL / ZR uses a free one of those instead (`remap_menu_buttons()`); A still puts the item in the game's box. The legend is built from the same table with the game's button glyphs |
 
+## Armory (role)
+
+A button with the **Armory** role (any button) changes gear while it is held: left / right the sword, up / down the
+shield, with the D-pad or the left stick; Link does not move meanwhile. Each step equips the next sword or shield Link
+owns and can use at his age (Kokiri sword and Deku shield child only; Master, Giant's Knife, Biggoron and the broken
+knife adult only; Hylian both; Mirror adult), the same way the pause menu does. Inspired by the community mod Hyrule
+Armory Sync, which does it through the native item drawer on L; this one has no drawer and applies the change at once
+(the model and the HUD follow).
+
+- The role's press is its own virtual bit, `VBTN_ARMORY` (HID bit 25, unused with a full controller), read and
+  stripped by features/quick_select, the last input handler.
+- Equip: only the game's request, `equip_request(pouch, name, 3, 0)` + `equip_refresh(name, 1)`, the pair the pause
+  menu's equip handler (main+0x33BA470) uses for gear. The String64 record must **not** be written first:
+  `equip_request` compares the name with what Link wears and does nothing when they are equal; it writes
+  PlayerStatus.EquipWeapon / EquipShield itself (checked live: the shield model changes at once).
+- Owned: `PouchData.<actor>.StockNum > 0` (what the pause menu lists; `hud_pouch_has()`), or IsGet. IsGet alone is not
+  enough: it stays off for gear that never played its "you got" scene. The eight gear StockNum indices were added to
+  `GD_STOCK` (core/gd_index.h; tools/gen_gd_index.py lists them in `GEAR`).
+
 The swap option is read live from GameData (OptionData struct `0x834d9d9e`, Bool member `0x3B0FC63F`, via
 `read_bool` at `main+0x179F70`). It is refreshed every HUD frame and while the pause menu is open, so changing it in
 **System > Options** takes effect without reinstalling.

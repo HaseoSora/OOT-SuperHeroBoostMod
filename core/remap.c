@@ -54,13 +54,14 @@ u64 remap_role_virt(u32 role) {
     case ROLE_SPRINT:    return BTN_L3;
     case ROLE_SHIELD:    return g_shbcfg.manual_shield ? (remap_on() ? VBTN_SHIELD : BTN_L) : 0;
     case ROLE_SELECTOR:  return BTN_L;
+    case ROLE_ARMORY:    return VBTN_ARMORY;
     default:             return 0;
     }
 }
 
 u64 remap_apply(u64 b) {
     if (!remap_on()) return b;
-    u64 out = b & ~(REMAP_ALL | VBTN_SHIELD);
+    u64 out = b & ~(REMAP_ALL | VBTN_SHIELD | VBTN_ARMORY);
     for (u32 p = 0; p < PB_N; p++)
         if (b & REMAP_BIT[p]) out |= remap_role_virt(g_shbcfg.bm_role[p]);
     return out;

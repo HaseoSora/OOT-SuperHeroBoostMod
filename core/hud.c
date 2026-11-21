@@ -2145,6 +2145,15 @@ int hud_menu_item(void) {
     a = a ? *(volatile u64 *)(a + 0x20) : 0;
     return a && *(volatile float *)(a + 0x18) != 0.0f ? idx : -1;
 }
+/* The pouch holds the item (PouchData.<actor>.StockNum > 0): how the pause menu knows Link has a sword or a shield.
+ * 1 / 0; -1 when the item has no StockNum in GD_STOCK (core/gd_index.h) or GameData is not there. */
+int hud_pouch_has(const char *actor) {
+    u32 h = mmh3("", actor), lo = 0, hi = GD_STOCK_N;
+    while (lo < hi) { u32 mid = (lo + hi) / 2; if (GD_STOCK[mid][0] < h) lo = mid + 1; else hi = mid; }
+    if (lo >= GD_STOCK_N || GD_STOCK[lo][0] != h) return -1;
+    int v = gd_int(GD_STOCK[lo][1]);
+    return v < 0 ? -1 : v > 0;
+}
 /* the player owns an equipment item (IsGet.<actor name>): 1 / 0; unknown flag = not owned */
 int hud_owns_name(const char *actor) {
     u32 h = mmh3("IsGet.", actor), lo = 0, hi = GD_ISGET_N;

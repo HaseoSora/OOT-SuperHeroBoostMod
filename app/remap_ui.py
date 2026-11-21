@@ -213,6 +213,13 @@ for _lang, _t in {'en': 'Target, camera, sprint, the selector and the sticks (L3
     if _lang in T:
         T[_lang]['rm_hud_help'] = _t
 
+
+# the armory role (features/quick_select): change sword and shield while held
+for _lang, (_n, _h) in {'en': ('Armory', 'Hold it: left / right changes the sword, up / down the shield (D-pad or stick). Only what you own and can use at your age; Link stays still meanwhile.'), 'es': ('Armería', 'Mantenlo: izquierda / derecha cambia la espada, arriba / abajo el escudo (cruceta o stick). Solo lo que tienes y puedes usar a tu edad; Link no se mueve mientras.'), 'pt': ('Arsenal', 'Segure: esquerda / direita troca a espada, cima / baixo o escudo (direcional ou analógico). Só o que você tem e pode usar na sua idade; Link fica parado enquanto isso.'), 'fr': ('Armurerie', "Maintenez-le : gauche / droite change l'épée, haut / bas le bouclier (croix ou stick). Seulement ce que vous avez et pouvez utiliser à votre âge ; Link ne bouge pas pendant ce temps."), 'de': ('Waffenkammer', 'Gedrückt halten: links / rechts wechselt das Schwert, hoch / runter den Schild (Steuerkreuz oder Stick). Nur was du besitzt und in deinem Alter nutzen kannst; Link bleibt solange stehen.'), 'it': ('Armeria', 'Tienilo premuto: sinistra / destra cambia la spada, su / giù lo scudo (croce o stick). Solo ciò che hai e puoi usare alla tua età; Link resta fermo nel frattempo.')}.items():
+    if _lang in T:
+        T[_lang]['role_armory'] = _n
+        T[_lang]['role_armory_help'] = _h
+
 # ---------------------------------------------------------------- model
 # The order the editor lists the buttons in (face buttons, shoulders, sticks). The module's order is I.REMAP_BUTTONS.
 ROW_ORDER = ("X", "Y", "A", "B", "L", "R", "ZL", "ZR", "L3", "R3")
@@ -235,8 +242,8 @@ HUD_POS = {"L": (1020.4, 872.3), "X": (1292.6, 843.0), "R": (1545.2, 872.3), "Y"
 HUD_SIMPLE = {"item2": (1120.4, 872.3), "item3": (1445.2, 872.3), "item_main": (1677.2, 680.0),
               "item1": (1292.6, 680.0)}
 ITEM_OFF = (-25.3, 25.3)
-MOVE_ROLES = ("jump", "sword", "action", "target", "camera", "sprint", "shield")
-ROLE_HELP = {"action": "role_action_help", "item_main": "role_item_main_help"}
+MOVE_ROLES = ("jump", "sword", "action", "target", "camera", "sprint", "shield", "armory")
+ROLE_HELP = {"action": "role_action_help", "item_main": "role_item_main_help", "armory": "role_armory_help"}
 
 
 def role_vars(saved, master=None) -> dict:

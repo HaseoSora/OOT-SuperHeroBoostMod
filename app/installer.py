@@ -33,7 +33,7 @@ L_MODE_VALUES = {"assign": 0, "selector": 2}
 # item selector); item1 / item2 / item3 are the mod's slots (classically B, L and R).
 REMAP_BUTTONS = ("L", "X", "R", "Y", "A", "ZR", "B", "ZL", "L3", "R3")
 ROLES = ("none", "jump", "sword", "action", "target", "item1", "item2", "item3", "item_main",
-         "camera", "sprint", "shield", "selector")
+         "camera", "sprint", "shield", "selector", "armory")   # byte value = index (core/remap.h ROLE_*)
 ITEM_ROLES = ("item1", "item2", "item3", "item_main")
 # Roles limited to some buttons (everything else goes anywhere)
 _NO_STICKS = ("L", "X", "R", "Y", "A", "ZR", "B", "ZL")

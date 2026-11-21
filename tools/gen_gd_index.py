@@ -23,6 +23,8 @@ import catalog  # noqa: E402
 ROMFS = Path(os.environ.get("SHB_ROMFS", "romfs"))
 
 OUT = Path(__file__).resolve().parent.parent / "core" / "gd_index.h"
+GEAR = ("Weapon_Sword_Kokiri", "Weapon_Sword_Master", "Weapon_Sword_Giant", "Weapon_Sword_Biggoron",
+        "Weapon_Sword_BrokenGiant", "Weapon_Shield_Deku", "Weapon_Shield_Hylian", "Weapon_Shield_Mirror")
 
 
 def main():
@@ -63,9 +65,16 @@ def main():
     lines.append("};")
     ints = [h for h, d in defs.items() if d.type == "Int"]
     int_index = {h: i for i, h in enumerate(ints)}
-    stock = sorted({(gamedata.mmh(n[len("PouchData."):-len(".StockNum")]), int_index[h])
-                    for h, n in names.items()
-                    if n.startswith("PouchData.Item_") and n.endswith(".StockNum") and h in int_index})
+    stock = {(gamedata.mmh(n[len("PouchData."):-len(".StockNum")]), int_index[h])
+             for h, n in names.items()
+             if n.startswith("PouchData.Item_") and n.endswith(".StockNum") and h in int_index}
+    # Swords and shields: their StockNum (1 = in the pouch) is how the pause menu knows Link owns them; IsGet stays off
+    # for gear that never played its "you got" scene. Not in names.tsv, so listed here (the armory reads them).
+    for gear in GEAR:
+        h = gamedata.mmh("PouchData." + gear + ".StockNum")
+        if h in int_index:
+            stock.add((gamedata.mmh(gear), int_index[h]))
+    stock = sorted(stock)
     lines.append("#define GD_STOCK_N %d" % len(stock))
     lines.append("static const unsigned int GD_STOCK[GD_STOCK_N][2] = {")
     lines += ["    {0x%08Xu, %du}," % (h, i) for h, i in stock]

@@ -35,12 +35,16 @@ enum {
     ROLE_SPRINT,     /* virtual L3: the stamina feature's sprint (ShbConfig.sprint_l3, toggle or hold) */
     ROLE_SHIELD,     /* VBTN_SHIELD: the manual shield's guard (ShbConfig.manual_shield) */
     ROLE_SELECTOR,   /* virtual L in the item-selector mode (ShbConfig.bm_l_mode = 2): opens the game's selector */
+    ROLE_ARMORY,     /* VBTN_ARMORY: held, the stick / D-pad changes sword and shield (features/quick_select) */
     ROLE_N
 };
 
 /* A HID bit no controller sets in this game (the Joy-Con SL of the left one, unused with a full controller):
  * the shield role's press, read by the manual shield only. */
 #define VBTN_SHIELD (1ull << 24)
+/* The armory role's press (the left Joy-Con's SR, also unused with a full controller): read and stripped by
+ * features/quick_select, the last input handler. */
+#define VBTN_ARMORY (1ull << 25)
 
 /* HID bit of each physical button, in PB_ order */
 extern const u64 REMAP_BIT[PB_N];

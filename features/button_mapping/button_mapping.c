@@ -42,7 +42,7 @@ static u64 slot_mask(u32 s) {
  * the L item slot is off while that option is enabled. The assignment is kept,
  * so turning the manual shield off restores it. */
 static int slot_enabled(int s) {
-    return !(s == SLOT_L && g_shbcfg.manual_shield);
+    return !(s == SLOT_L && g_shbcfg.manual_shield && !remap_on());   /* remap: the shield has its own button */
 }
 
 /* Item index per slot, -1 = empty (button stays normal): the set of Link's current age. Assigned in the pause
@@ -229,7 +229,13 @@ void button_remap_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_res
     u32 count = (u32)(unsigned long)a1;
     if (count == 0 || count > 64) count = stock_result;
     if (count == 0 || count > 64) return;
-    if (!player_active() || !hud_ingame() || g_paused || g_songbook_active || player_dead()) {
+    /* Gameplay: the player updated recently. player_active() alone drops for a few frames in hit stops and
+     * transitions, and a real button must never reach the game there with its own function. */
+    static u32 last_active;
+    u32 now = hud_frame_count();
+    if (player_active()) last_active = now ? now : 1;
+    int playing = last_active && now - last_active < 60u;
+    if (!playing || !hud_ingame() || g_paused || g_songbook_active || player_dead()) {
         g_remap_dbg[1]++;
         return;
     }
@@ -267,6 +273,11 @@ void button_mapping_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_r
     if (count == 0 || count > 64) count = stock_result;
     if (count == 0 || count > 64) return;
     HidView view = {a0, count, 0};
+    /* the shield role's virtual bit is the manual shield's (it ran before): the game never sees it */
+    for (u32 i = 0; i < count; i++) {
+        u64 b = hid_get_buttons(&view, i);
+        if (b & VBTN_SHIELD) hid_set_buttons(&view, i, b & ~VBTN_SHIELD);
+    }
 
     /* Death ragdoll / game over: do not remap or swallow anything, the game's screen needs every button. */
     if (player_dead()) {
@@ -331,7 +342,7 @@ void button_mapping_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_r
         }
         for (int s = 0; s < SLOT_ZR; s++) {
             if (!MENU_BTN[s] || !(pressed & MENU_BTN[s])) continue;
-            if (s == SLOT_L && (g_shbcfg.bm_l_mode || g_shbcfg.manual_shield)) continue;   /* L is the selector / the shield */
+            if (s == SLOT_L && (g_shbcfg.bm_l_mode || (g_shbcfg.manual_shield && !remap_on()))) continue;   /* L: selector / shield */
             int it = hud_menu_item();
             if (it < 0) continue;
             int old = g_assign[s];
@@ -390,7 +401,7 @@ void button_mapping_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_r
     /* L as the game's item selector: outside menus, L does what R does (opens the selector for ZR).
      * The R slot is suppressed for this frame so an item assigned to R is not used as well. */
     u32 l_selector = 0;
-    if (g_shbcfg.button_mapping && !g_shbcfg.manual_shield && g_shbcfg.bm_l_mode == 2 && hud_ingame() &&
+    if (g_shbcfg.button_mapping && (!g_shbcfg.manual_shield || remap_on()) && g_shbcfg.bm_l_mode == 2 && hud_ingame() &&
         (buttons & BTN_L) && !(buttons & BTN_R)) {
         u32 was_pressed = (pressed & BTN_L) != 0;
         set_all(&view, BTN_L, BTN_R);

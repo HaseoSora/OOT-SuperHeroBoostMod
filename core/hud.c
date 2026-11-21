@@ -1715,8 +1715,8 @@ static u32 part_phys(u32 k) { return remap_role_phys(PART_ROLE[k % PART_N]); }
 /* ZL has no part of its own in the classic layout: its place mirrors ZR's on the left of the diamond */
 float g_pb_zl[2] = {908.0f, 680.0f};
 /* button texture of a physical button (PB_ order; the style letter at [6] is replaced when it is applied) */
-static const char PB_TEX[PB_N][12] = {"OotBtnS_L", "OotBtnS_X", "OotBtnS_R", "OotBtnS_Y", "OotBtnS_A", "OotBtnS_ZR",
-                                      "OotBtnS_B", "OotBtnS_ZL"};
+static const char PB_TEX[PB_N][14] = {"OotBtnS_L", "OotBtnS_X", "OotBtnS_R", "OotBtnS_Y", "OotBtnS_A", "OotBtnS_ZR",
+                                      "OotBtnS_B", "OotBtnS_ZL", "OotBtnS_Blank", "OotBtnS_Blank"};   /* sticks: no art */
 static void sb_xy(const float *lay, u32 k, int simple, float *x, float *y) {
     float bx = g_sb_pos[k][0], by = g_sb_pos[k][1];
     if (simple) {
@@ -1725,7 +1725,7 @@ static void sb_xy(const float *lay, u32 k, int simple, float *x, float *y) {
         /* the button a part sits on (items keep their offset from their button part), then the pad layout moves
          * that button (face buttons only) */
         u32 home = PART_HOME[k], on = part_phys(k);
-        if (on >= PB_N) on = home;   /* (no button: the part is hidden anyway) */
+        if (on >= PB_L3) on = home;   /* (no button, or a stick: the part is hidden anyway) */
         u32 at = on < SB_NBTN ? face_place(on) : on;
         float ax = at == PB_ZL ? g_pb_zl[0] : g_sb_pos[at][0], ay = at == PB_ZL ? g_pb_zl[1] : g_sb_pos[at][1];
         bx = ax + (g_sb_pos[k][0] - g_sb_pos[home][0]);
@@ -2176,7 +2176,7 @@ u64 g_mb_dbg[PART_N];
 /* Layout options (app): simple = only the assignable buttons (no A / X / Y and the sword); L as item selector = L
  * can't hold an item and its button is hidden in both layouts. */
 static int bm_part_hidden(u32 k) {
-    if (part_phys(k) == PB_NONE) return 1;   /* remap: the role is on no button */
+    if (part_phys(k) >= PB_L3) return 1;   /* remap: the role is on no button (or on a stick: no HUD art) */
     if (g_shbcfg.bm_simple && (k == SB_X || k == SB_Y || k == SB_A || k == 9)) return 1;
     if (g_shbcfg.bm_l_mode && (k == SB_L || k == 7)) return 1;   /* L opens the item selector: no L button */
     return 0;
@@ -2301,7 +2301,7 @@ static void slots_draw(SlotBtn *set, const u64 *ctrls, u64 frame, const float *l
                  * the unlettered labelled button, and A too while it carries a label (always in the menu) */
                 u32 pp = part_phys(k);
                 int blank = k == SB_X || (k == SB_A && (!main_set || g_sb_force[SB_A][8] == 'B'));
-                src = blank || pp >= PB_N ? "OotBtnS_Blank" : PB_TEX[pp];
+                src = blank || pp >= PB_L3 ? "OotBtnS_Blank" : PB_TEX[pp];
             }
             for (i = 0; i < 31 && src[i]; i++) nm[i] = src[i];
             nm[i] = 0;
@@ -2372,15 +2372,15 @@ static void hud_menu_legend(u64 page) {
      * the game's button font (remap, Jump/B swap: the slot's button may be any of the eight). */
     u32 pair_on[4], n_off = 0;
     {
-        static const u8 GLYPH[PB_N] = {4, 2, 5, 3, 0, 7, 1, 6};   /* PB_ -> 0xE040 + n (A B X Y L R ZL ZR) */
+        static const u8 GLYPH[PB_N] = {4, 2, 5, 3, 0, 7, 1, 6, 0, 0};   /* PB_ -> 0xE040 + n (A B X Y L R ZL ZR) */
         static const u8 SLOT_ROLE[4] = {ROLE_ITEM1, ROLE_ITEM2, ROLE_ITEM3, ROLE_ITEM_MAIN};
         u32 mb[3];
         remap_menu_buttons(mb);
         u32 changed = 0;
         for (u32 pr = 0; pr < 4; pr++) {
             u32 src = pr < 3 ? mb[pr] : PB_A, dst = remap_role_phys(SLOT_ROLE[pr]);
-            pair_on[pr] = src < PB_N && dst < PB_N &&
-                          !(pr == 1 && (g_shbcfg.bm_l_mode || g_shbcfg.manual_shield));   /* L slot: selector / shield */
+            pair_on[pr] = src < PB_N && dst < PB_L3 &&
+                          !(pr == 1 && (g_shbcfg.bm_l_mode || (g_shbcfg.manual_shield && !remap_on())));   /* L slot */
             if (!pair_on[pr]) { n_off++; continue; }
             char *ts = g_leg_txt[1 + pr * 3], *td = g_leg_txt[3 + pr * 3];
             u8 gs = (u8)(0x80 + GLYPH[src]), gd = (u8)(0x80 + GLYPH[dst]);
@@ -2521,8 +2521,8 @@ static void slots_labels(u64 frame) {
     sb_xy(g_sb_lay, SB_A, 0, &ax, &ay);
     g_fld_sc[4] = g_fld_sc[5] = 0.80f * g_sb_lay[1];   /* the labels follow the buttons' size */
     u32 lbl = !g_shbcfg.bm_simple;   /* simple layout: no X / A buttons, so no labels */
-    put_text(frame, 4, hl(g_hl_jump), xx, xy, lbl && part_phys(SB_X) != PB_NONE, LABEL);
-    put_text(frame, 5, g_sb_a_label, ax, ay, lbl && g_sb_a_label[0] != 0 && part_phys(SB_A) != PB_NONE, LABEL);
+    put_text(frame, 4, hl(g_hl_jump), xx, xy, lbl && part_phys(SB_X) < PB_L3, LABEL);
+    put_text(frame, 5, g_sb_a_label, ax, ay, lbl && g_sb_a_label[0] != 0 && part_phys(SB_A) < PB_L3, LABEL);
 }
 static void slots_reset(void) {
     g_ps_frame = 0; for (u32 k = 0; k < PART_N; k++) g_sb[k].part = 0; g_stock_box_rec = 0; g_stock_dots_rec = 0; }

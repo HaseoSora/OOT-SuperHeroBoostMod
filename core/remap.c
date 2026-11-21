@@ -4,14 +4,15 @@
 
 /* Button remap: see remap.h. Plain arrays only (no pointer tables: the module's data is not relocated). */
 
-const u64 REMAP_BIT[PB_N] = {BTN_L, BTN_X, BTN_R, BTN_Y, BTN_A, BTN_ZR, BTN_B, BTN_ZL};
-#define REMAP_ALL (BTN_L | BTN_X | BTN_R | BTN_Y | BTN_A | BTN_ZR | BTN_B | BTN_ZL)
+const u64 REMAP_BIT[PB_N] = {BTN_L, BTN_X, BTN_R, BTN_Y, BTN_A, BTN_ZR, BTN_B, BTN_ZL, BTN_L3, BTN_R3};
+#define REMAP_ALL (BTN_L | BTN_X | BTN_R | BTN_Y | BTN_A | BTN_ZR | BTN_B | BTN_ZL | BTN_L3 | BTN_R3)
 
 int hud_button_swap(void);   /* core/hud.c: the game's Jump/B swap option is on */
 
-int remap_on(void) { return g_shbcfg.button_mapping && g_shbcfg.bm_remap == 1; }
+int remap_on(void) { return g_shbcfg.bm_remap == 1; }
 
-/* The classic layout: every role on its own virtual button; the swap puts item 1 on X and jump on B. */
+/* The classic layout: every role on its own virtual button; the swap puts item 1 on X and jump on B. The options
+ * of the old app (manual shield on L, L as the item selector, L3 sprint) are roles too. */
 static u32 classic_phys(u32 role) {
     int sw = hud_button_swap();
     switch (role) {
@@ -23,6 +24,10 @@ static u32 classic_phys(u32 role) {
     case ROLE_ITEM2:     return PB_L;
     case ROLE_ITEM3:     return PB_R;
     case ROLE_ITEM_MAIN: return PB_ZR;
+    case ROLE_CAMERA:    return PB_R3;
+    case ROLE_SPRINT:    return g_shbcfg.sprint_l3 ? PB_L3 : PB_NONE;
+    case ROLE_SHIELD:    return g_shbcfg.manual_shield ? PB_L : PB_NONE;
+    case ROLE_SELECTOR:  return g_shbcfg.bm_l_mode == 2 ? PB_L : PB_NONE;
     default:             return PB_NONE;
     }
 }
@@ -45,13 +50,17 @@ u64 remap_role_virt(u32 role) {
     case ROLE_ITEM2:     return BTN_L;
     case ROLE_ITEM3:     return BTN_R;
     case ROLE_ITEM_MAIN: return BTN_ZR;
+    case ROLE_CAMERA:    return BTN_R3;
+    case ROLE_SPRINT:    return BTN_L3;
+    case ROLE_SHIELD:    return g_shbcfg.manual_shield ? (remap_on() ? VBTN_SHIELD : BTN_L) : 0;
+    case ROLE_SELECTOR:  return BTN_L;
     default:             return 0;
     }
 }
 
 u64 remap_apply(u64 b) {
     if (!remap_on()) return b;
-    u64 out = b & ~REMAP_ALL;
+    u64 out = b & ~(REMAP_ALL | VBTN_SHIELD);
     for (u32 p = 0; p < PB_N; p++)
         if (b & REMAP_BIT[p]) out |= remap_role_virt(g_shbcfg.bm_role[p]);
     return out;

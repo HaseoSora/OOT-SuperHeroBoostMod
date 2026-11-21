@@ -188,6 +188,8 @@ def cli(argv) -> int:
         s.auto_target = True
     if a.switch_target:
         s.switch_target = True
+    s.bm_roles = I.roles_from_flags(s.bm_roles, manual_shield=s.manual_shield, target_r3=s.target_r3,
+                                    sprint_l3=s.sprint_l3, l_selector=s.bm_l_mode == "selector")
     if a.enemy_double:
         s.enemy_double = True
     if a.enemy_speed:
@@ -268,6 +270,8 @@ AMBER = "#e8b04a"
 TEXT = "#f2e8c9"
 DIM = "#a9a184"
 RED = "#c9564a"
+COLORS = dict(PANEL=PANEL, PANEL2=PANEL2, BORDER=BORDER, ACCENT=ACCENT, ACCENT_DARK=ACCENT_DARK, AMBER=AMBER,
+              TEXT=TEXT, DIM=DIM)
 
 
 class ScrollArea:
@@ -380,8 +384,16 @@ def gui() -> None:
     glayout = tk.StringVar(value=_gl if _gl in I.GAME_LAYOUTS else "none")
     bsimple = tk.BooleanVar(value=bool(cfg.get("bm_simple", False)))
     blmode = tk.StringVar(value=cfg.get("bm_l_mode") if cfg.get("bm_l_mode") in I.L_MODES else "assign")
-    bremap = tk.BooleanVar(value=bool(cfg.get("bm_remap", False)))   # button remap (app/remap_ui.py)
-    broles = RM.role_vars(cfg.get("bm_roles"))
+    # Button remap (app/remap_ui.py): the table of what each button does. The manual shield, the L3 sprint, target
+    # on R3 and L as the item selector are roles in it now; their old switches are kept in step with it (profiles,
+    # the command line and older settings files still speak in those switches).
+    if isinstance(cfg.get("bm_roles"), dict):
+        broles = RM.role_vars(cfg.get("bm_roles"))
+    else:   # settings from before the remap: the table that does what the old switches did
+        broles = RM.role_vars(I.roles_from_flags(
+            I.CLASSIC_ROLES, manual_shield=bool(cfg.get("manual_shield", False)),
+            target_r3=bool(cfg.get("target_r3", False)), sprint_l3=bool(cfg.get("sprint_l3", False)),
+            l_selector=cfg.get("bm_l_mode") == "selector"))
     stamina = tk.BooleanVar(value=bool(cfg.get("stamina", True)))
     stamina_bar = tk.BooleanVar(value=bool(cfg.get("stamina_bar", False)))
     songbook = tk.BooleanVar(value=bool(cfg.get("songbook", True)))
@@ -500,7 +512,7 @@ def gui() -> None:
         rb_tag(row).pack(side="left", padx=(10, 0))
         return c
 
-    def card(parent, title, desc=None, rebuild=False):
+    def card(parent, title, desc=None, rebuild=False, help=None):
         f = tk.Frame(parent, bg=PANEL, highlightbackground=BORDER, highlightthickness=1)
         f.pack(fill="x", padx=4, pady=(0, 12))
         head = tk.Frame(f, bg=PANEL)
@@ -508,6 +520,8 @@ def gui() -> None:
         tk.Label(head, text=title, bg=PANEL, fg=ACCENT, font=(DISPLAY, 13, "bold"), anchor="w").pack(side="left")
         if rebuild:
             rb_tag(head).pack(side="left", padx=(10, 0), pady=(3, 0))
+        if help:
+            RM.help_icon(head, help, COLORS, FAM).pack(side="left", padx=(8, 0), pady=(3, 0))
         if desc:
             label(f, desc, size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=14, pady=(2, 8))
         body = tk.Frame(f, bg=PANEL)
@@ -581,6 +595,8 @@ def gui() -> None:
         for var, key in ((target_r3, "target_r3"), (sprint_l3, "sprint_l3"), (stamina_bar, "stamina_bar")):
             if v[key] is not None:
                 var.set(v[key])
+        RM.set_roles(broles, I.roles_from_flags(RM.roles_value(broles), manual_shield=bool(v["manual_shield"]),
+                                                target_r3=v["target_r3"], sprint_l3=v["sprint_l3"]))
         guard["on"] = False
         refresh()
         if save:
@@ -633,8 +649,23 @@ def gui() -> None:
         refresh()
         autosave()
 
-    for var in (bstyle, bplace, glayout, bsimple, blmode, bremap, *broles.values()):
+    for var in (bstyle, bplace, glayout, bsimple, blmode):
         var.trace_add("write", on_pref_change)
+
+    def roles_to_flags(*_):
+        """The table decides the manual shield, the L3 sprint, target on R3 and the L selector."""
+        fl = I.roles_flags(RM.roles_value(broles))
+        r = RM.roles_value(broles)
+        for var, val in ((manual_shield, fl["manual_shield"]), (sprint_l3, fl["sprint_l3"]),
+                         (target_r3, r.get("R3") == "target")):
+            if var.get() != val:
+                var.set(val)
+        if blmode.get() != fl["bm_l_mode"]:
+            blmode.set(fl["bm_l_mode"])
+        on_pref_change()
+
+    for var in broles.values():
+        var.trace_add("write", roles_to_flags)
     stamina_bar.trace_add("write", on_pref_change)   # display preference: does not switch to Custom
 
     pending = {"id": None}
@@ -652,7 +683,7 @@ def gui() -> None:
         return I.Settings(button_mapping=bmap.get(), button_style=bstyle.get(), bm_simple=bsimple.get(),
                           bm_layout=bplace.get(), game_layout=glayout.get(),
                           bm_l_mode=blmode.get(), stamina=stamina.get(), stamina_bar=stamina_bar.get(),
-                          bm_remap=bremap.get(), bm_roles=RM.roles_value(broles),
+                          bm_remap=True, bm_roles=RM.roles_value(broles),
                           songbook=songbook.get(),
                           quick_boots=quick_boots.get(), quick_mask=quick_mask.get(),
                           manual_shield=manual_shield.get(),
@@ -683,7 +714,7 @@ def gui() -> None:
             "button_mapping": bmap.get(), "button_style": bstyle.get(), "bm_simple": bsimple.get(),
             "bm_layout": bplace.get(), "game_layout": glayout.get(),
             "bm_l_mode": blmode.get(),
-            "bm_remap": bremap.get(), "bm_roles": RM.roles_value(broles),
+            "bm_roles": RM.roles_value(broles),
             "stamina": stamina.get(), "stamina_bar": stamina_bar.get(), "songbook": songbook.get(),
             "quick_boots": quick_boots.get(), "quick_mask": quick_mask.get(),
             "manual_shield": manual_shield.get(),
@@ -1203,8 +1234,7 @@ def gui() -> None:
             idx = SPEEDS.index(speed.get()) if speed.get() in SPEEDS else 0
             ui["sprint_var"].set(ui["sprint_values"][idx])
             ui["sprint"].current(idx)
-        for key, var, choices in (("variant", bstyle, I.BUTTON_STYLES), ("bm_place", bplace, I.BM_LAYOUTS),
-                                  ("game_layout", glayout, I.GAME_LAYOUTS)):
+        for key, var, choices in (("variant", bstyle, I.BUTTON_STYLES), ("game_layout", glayout, I.GAME_LAYOUTS)):
             if key in ui:
                 idx = choices.index(var.get()) if var.get() in choices else 0
                 ui[key + "_var"].set(ui[key + "_values"][idx])
@@ -1440,38 +1470,25 @@ def gui() -> None:
         refresh_layout_note()
 
     def build_controls(parent):
-        body = card(parent, L("controls_title"), L("controls_desc"))
-        check_rb(body, L("target_r3_on"), target_r3)
-        label(body, L("target_r3_desc"), size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=(20, 0))
-        label(body, L("target_r3_note"), size=9, color=AMBER, bg=PANEL).pack(anchor="w", padx=(20, 0), pady=(2, 8))
-        check_rb(body, L("sprint_l3_on"), sprint_l3)
-        label(body, L("sprint_l3_desc"), size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=(20, 0))
-        check(body, L("sprint_l3_toggle_on"), sprint_l3_toggle).pack(anchor="w", padx=(20, 0))
-        label(body, L("sprint_l3_toggle_desc"), size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=(40, 0), pady=(0, 8))
-        check_rb(body, L("auto_target_on"), auto_target)
-        label(body, L("auto_target_desc"), size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=(20, 0))
-        label(body, L("auto_target_note"), size=9, color=AMBER, bg=PANEL).pack(anchor="w", padx=(20, 0), pady=(2, 8))
-        check_rb(body, L("switch_target_on"), switch_target)
-        label(body, L("switch_target_desc"), size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=(20, 0))
-        label(body, L("switch_target_note"), size=9, color=AMBER, bg=PANEL).pack(anchor="w", padx=(20, 0), pady=(2, 8))
-        build_manual_shield(parent)
+        body = card(parent, L("rm_title"))
+        RM.RemapEditor(body, L, FAM, COLORS,
+                       dict(bmap=bmap, roles=broles, bstyle=bstyle, bsimple=bsimple, switch_target=switch_target,
+                            auto_target=auto_target, sprint_toggle=sprint_l3_toggle))
         build_buttons(parent)
         build_quick_select(parent)
 
-    def build_manual_shield(parent):
-        body = card(parent, L("ms_title"), L("ms_desc"))
-        check_rb(body, L("ms_on"), manual_shield)
-        label(body, L("ms_on_desc"), size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=(20, 0), pady=(0, 8))
-        label(body, L("ms_controls"), size=9, color=DIM, bg=PANEL).pack(anchor="w")
-        label(body, L("ms_note"), size=9, color=AMBER, bg=PANEL).pack(anchor="w", pady=(8, 0))
+    def help_check(body, text, var, tip, rb=True):
+        """A switch with its explanation behind a "?"."""
+        c = check_rb(body, text, var) if rb else check(body, text, var)
+        if not rb:
+            c.pack(anchor="w")
+        RM.help_icon(c.master, tip, COLORS, FAM).pack(side="left", padx=(8, 0))
+        return c
 
     def build_quick_select(parent):
-        body = card(parent, L("quick_title"), L("quick_desc"))
-        check_rb(body, L("quick_boots_on"), quick_boots)
-        label(body, L("quick_boots_desc"), size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=(20, 0), pady=(0, 8))
-        check_rb(body, L("quick_mask_on"), quick_mask)
-        label(body, L("quick_mask_desc"), size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=(20, 0))
-        label(body, L("quick_note"), size=9, color=AMBER, bg=PANEL).pack(anchor="w", pady=(8, 0))
+        body = card(parent, L("quick_title"), help=L("quick_desc") + "\n\n" + L("quick_note"))
+        help_check(body, L("quick_boots_on"), quick_boots, L("quick_boots_desc"))
+        help_check(body, L("quick_mask_on"), quick_mask, L("quick_mask_desc"))
 
     def refresh_layout_note(*_):
         note, btn = ui.get("layout_note"), ui.get("layout_dl")
@@ -1562,9 +1579,9 @@ def gui() -> None:
         return style == "none" or layouts.available(style) or download_layout(style)
 
     def build_buttons(parent):
-        body = card(parent, L("buttons_title"), L("buttons_desc"))
-        check_rb(body, L("bm_on"), bmap)
-        label(body, L("bm_on_desc"), size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=(20, 0))
+        """The mod's item buttons on the HUD: on / off, their pictures and how many are drawn."""
+        body = card(parent, L("buttons_title"), help=L("buttons_desc") + "\n\n" + L("bm_note"))
+        help_check(body, L("bm_on"), bmap, L("bm_on_desc"))
         ui["bm"] = []
         row = tk.Frame(body, bg=PANEL)
         row.pack(anchor="w", pady=(10, 0))
@@ -1579,41 +1596,16 @@ def gui() -> None:
         cb.bind("<<ComboboxSelected>>", lambda e: bstyle.set(I.BUTTON_STYLES[cb.current()]))
         ui["variant"] = cb
         ui["bm"].append(cb)
-        label(body, L("variant_d"), size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=(20, 0))
+        RM.help_icon(row, L("variant_d"), COLORS, FAM).pack(side="left", padx=(8, 0))
 
         row = tk.Frame(body, bg=PANEL)
         row.pack(anchor="w", pady=(8, 0))
-        label(row, L("bm_place") + ":", size=10, bg=PANEL).pack(side="left", padx=(0, 8))
-        pnames = [L("bm_place_" + k) for k in I.BM_LAYOUTS]
-        pvar = tk.StringVar(value=pnames[I.BM_LAYOUTS.index(bplace.get())])
-        ui["bm_place_var"] = pvar
-        ui["bm_place_values"] = pnames
-        pcb = combo(row, pnames, pvar, width=22)
-        pcb.pack(side="left")
-        pcb.bind("<<ComboboxSelected>>", lambda e: bplace.set(I.BM_LAYOUTS[pcb.current()]))
-        ui["bm_place"] = pcb
-        ui["bm"].append(pcb)
-        label(body, L("bm_place_d"), size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=(20, 0))
-
-        label(body, L("bm_layout"), size=10, color=ACCENT, bold=True, bg=PANEL).pack(anchor="w", pady=(10, 0))
+        label(row, L("bm_layout") + ":", size=10, bg=PANEL).pack(side="left", padx=(0, 8))
         for value, key in ((False, "bm_ext"), (True, "bm_simple")):
-            r = radio(body, L(key), bsimple, value)
-            r.pack(anchor="w")
+            r = radio(row, L(key), bsimple, value)
+            r.pack(side="left")
             ui["bm"].append(r)
-            label(body, L(key + "_d"), size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=(20, 0))
-
-        label(body, L("bm_l"), size=10, color=ACCENT, bold=True, bg=PANEL).pack(anchor="w", pady=(10, 0))
-        for value in I.L_MODES:
-            r = radio(body, L("bm_l_" + value), blmode, value)
-            r.pack(anchor="w")
-            ui["bm"].append(r)
-            label(body, L("bm_l_" + value + "_d"), size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=(20, 0))
-        label(body, L("bm_note"), size=9, color=AMBER, bg=PANEL).pack(anchor="w", pady=(8, 0))
-        label(body, L("bm_swap_note"), size=9, color=DIM, bg=PANEL).pack(anchor="w", pady=(2, 0))
-        RM.RemapEditor(body, L, FAM, dict(PANEL=PANEL, PANEL2=PANEL2, BORDER=BORDER, ACCENT=ACCENT, AMBER=AMBER,
-                                          TEXT=TEXT, DIM=DIM),
-                       dict(bmap=bmap, bremap=bremap, roles=broles, bstyle=bstyle, bplace=bplace, bsimple=bsimple,
-                            blmode=blmode, mshield=manual_shield))
+            RM.help_icon(row, L(key + "_d"), COLORS, FAM).pack(side="left", padx=(4, 14))
 
 
     def build_enemies(parent):

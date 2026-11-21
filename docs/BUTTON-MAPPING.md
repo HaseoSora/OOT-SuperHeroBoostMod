@@ -23,17 +23,25 @@ project.
 
 ## Button remap (0.9.0)
 
-The player can choose what each of the eight buttons X, Y, A, B, L, R, ZL and ZR does (app: Controls > Button
-mapping > Button remap). Roles: jump, sword, action, target, item 1, item 2, item 3, the main item (the game's own
-item box) or nothing. Each role is on one button at most, so at most **four** buttons hold an item.
+The player chooses what each of the ten buttons X, Y, A, B, L, R, ZL, ZR, L3 and R3 does (app: Controls > Controller
+buttons, with presets: classic, action at the bottom, manual shield, souls). Roles: jump, sword, action, target,
+center camera, sprint, shield, item selector, item 1 / 2 / 3, the main item (the game's own item box) or nothing.
+Each role is on one button at most, so at most **four** buttons hold an item. Limits: items never on L3 / R3 (they
+have no HUD art), the item selector only on L or R, target only on ZL, ZR, L3 or R3.
+
+The old switches are roles now: a shield button turns the manual shield on, a sprint button the L3-style sprint
+(its "toggle" option on that row), a selector button L's item-selector mode, and target on R3 replaces the ZL/R3
+swap. Switch target and next target are options of the target row. The button positions option (`bm_layout`) is
+gone: the table places everything (the installer writes 0).
 
 | Piece | How it works |
 |---|---|
-| Config | `bm_remap` (struct 79) and `bm_role[8]` (struct 80..87, physical order L X R Y A ZR B ZL, `ROLE_*` values from `core/remap.h`). The block grows to 0x58; an older app leaves them 0 = classic layout |
-| Input | `button_remap_on_input` (features/button_mapping) runs **before every other input handler** (`FEATURE_INPUT_EARLY` in `tools/build_core.py`). It rewrites each sample: a pressed physical button becomes the *virtual* button of its role (the button that has that role in the classic layout). Everything after it (the item slots, manual shield, target options, the game) keeps seeing the classic layout, so nothing else had to change |
-| When | only while Link plays (`player_active`, `hud_ingame`, not paused, not the ocarina, not dead). Menus, the title screen, game over and the ocarina keep the real buttons, which is what the game's own prompts name |
-| Jump/B swap | the classic layout keeps it (item 1 on X, jump on B). With a remap the player's table wins: jump's virtual button follows the swap, so the game jumps on whatever button the player chose |
-| HUD | each part is a role (`PART_ROLE` in `core/hud.c`); `sb_xy()` places it on the physical button holding that role (the pad layout `face_place()` still applies; ZL gets a spot mirroring ZR) and its texture is that button's letter (`OotBtn?_ZL` was already generated). A role on no button hides its part. Target still has no HUD part |
+| Config | `bm_remap` (struct 79) and `bm_role[10]` (struct 80..89, physical order L X R Y A ZR B ZL L3 R3, `ROLE_*` from `core/remap.h`). The block grows to 0x5C; an older app leaves them 0 = classic layout. The installer also writes the options the table implies (`manual_shield`, `sprint_l3`, `bm_l_mode`, `target_r3` = 0) |
+| Input | `button_remap_on_input` (features/button_mapping) runs **before every other input handler** (`FEATURE_INPUT_EARLY` in `tools/build_core.py`). Every remapped bit of a sample is cleared and only the *virtual* buttons of the pressed buttons' roles are set, so a button never does its own native action, only its role. The virtual button of a role is the one it has in the classic layout (camera = R3, sprint = L3, selector = L), so the item slots, manual shield, target options, L3 sprint and the game keep seeing the classic layout |
+| Shield | its own virtual bit, `VBTN_SHIELD` (HID bit 24, unused with a full controller): only the manual shield reads it (`ms_guard_bit()`), and button_mapping strips it before the game. L stays an item slot |
+| When | while Link plays: the player updated in the last 60 HUD frames (not only `player_active()`, which drops in hit stops), the HUD is up, not paused, not the ocarina, not dead. Menus, the title screen, game over and the ocarina keep the real buttons, which is what the game's own prompts name |
+| Jump/B swap | the classic layout keeps it (item 1 on X, jump on B). With a remap the player's table wins |
+| HUD | each part is a role (`PART_ROLE` in `core/hud.c`); `sb_xy()` places it on the physical button holding that role (ZL gets a spot mirroring ZR) and its texture is that button's letter. A role on no button (or on a stick) hides its part. Target, camera, sprint, shield and the selector have no HUD part |
 | Pause menu | items 1..3 are assigned with their own button when the Items tab allows it (X / Y / L / R); a slot on A / B / ZL / ZR uses a free one of those instead (`remap_menu_buttons()`); A still puts the item in the game's box. The legend is built from the same table with the game's button glyphs |
 
 The swap option is read live from GameData (OptionData struct `0x834d9d9e`, Bool member `0x3B0FC63F`, via

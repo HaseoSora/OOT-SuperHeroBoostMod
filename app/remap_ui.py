@@ -207,6 +207,12 @@ for _lang, _t in _TXT2.items():
     if _lang in T:
         T[_lang].update(_t)
 
+
+# the shield has a HUD button now (parts 12 / 13)
+for _lang, _t in {'en': 'Target, camera, sprint, the selector and the sticks (L3 / R3) have no HUD button.', 'es': 'Fijar, cámara, sprint, el selector y los sticks (L3 / R3) no tienen botón en el HUD.', 'pt': 'Mirar, câmera, corrida, o seletor e os sticks (L3 / R3) não têm botão no HUD.', 'fr': "Cibler, caméra, sprint, le sélecteur et les sticks (L3 / R3) n'ont pas de bouton dans le HUD.", 'de': 'Anvisieren, Kamera, Sprint, die Auswahl und die Sticks (L3 / R3) haben keine HUD-Taste.', 'it': "Mira, telecamera, sprint, il selettore e gli stick (L3 / R3) non hanno un tasto nell'HUD."}.items():
+    if _lang in T:
+        T[_lang]['rm_hud_help'] = _t
+
 # ---------------------------------------------------------------- model
 # The order the editor lists the buttons in (face buttons, shoulders, sticks). The module's order is I.REMAP_BUTTONS.
 ROW_ORDER = ("X", "Y", "A", "B", "L", "R", "ZL", "ZR", "L3", "R3")
@@ -595,11 +601,14 @@ class RemapEditor:
         def to_px(x, y):
             return ox + x * sc, oy - y * sc
 
-        for role in ("item2", "jump", "item3", "sword", "action", "item_main", "item1"):
+        hud_roles = ["item2", "jump", "item3", "sword", "action", "item_main", "item1"]
+        if self.v["mshield"].get():
+            hud_roles.append("shield")   # core/hud.c parts 12 / 13: the shield button and the equipped shield
+        for role in hud_roles:
             btn = phys.get(role)
             if btn is None or btn in STICKS:
                 continue                                    # no HUD art for the sticks
-            if simple and role in ("jump", "sword", "action"):
+            if simple and role in ("jump", "sword", "action", "shield"):
                 continue
             bx, by = HUD_SIMPLE[role] if simple else HUD_POS[btn]
             x, y = to_px(bx, by)
@@ -612,6 +621,10 @@ class RemapEditor:
             ix, iy = to_px(bx + ITEM_OFF[0] * 1.9, by + ITEM_OFF[1] * 1.9)
             if role == "sword":
                 cv.create_text(ix, iy, text="⚔", fill="#dfe6ee", font=(self.fam, 13, "bold"))
+            elif role == "shield":   # a small heater shield
+                w, h = 9, 11
+                cv.create_polygon(ix - w, iy - h, ix + w, iy - h, ix + w, iy + 1, ix, iy + h, ix - w, iy + 1,
+                                  fill="#3c5fa0", outline="#c9d6ee", width=2)
             elif role in ITEM_MARK:
                 s = 10
                 cv.create_rectangle(ix - s, iy - s, ix + s, iy + s, fill="#3a2f12", outline=self.c["ACCENT"], width=2)

@@ -73,7 +73,8 @@ static const char CIRCLE_TEX[] = "Circle64_00";
  * parts 1..4 are the slot circles: the gauge's fill texture is replaced by the
  * stock Circle64_00 and the gauge is kept full, so it draws a tinted circle. The
  * art is a placeholder until the real assets arrive. */
-#define PART_N 12  /* buttonMapping: parts 0..6 buttons (L X R Y A ZR B), 7..11 items (L R Y ZR B); clones of the stock item box Pa_SelectItem_00 (asset PaItemBtn_00).
+#define PART_BASE 12   /* the classic parts: buttons and items; the pause menu gets these only */
+#define PART_N 14  /* (12..13: the shield button and the shield, see PART_SHIELD)  buttonMapping: parts 0..6 buttons (L X R Y A ZR B), 7..11 items (L R Y ZR B); clones of the stock item box Pa_SelectItem_00 (asset PaItemBtn_00).
                     * (The old gauge-part ring is retired: the stamina ring is drawn with picture panes, RT1..) */
 #define APPEND_ALL 1   /* 1 = append every part (only the first one gets listed by the
                         * engine); 0 = parts 1.. repurpose filler parts (froze the game) */
@@ -90,7 +91,8 @@ static char g_pnames[SEG_N][16] = {"Pa_ShbSeg_000", "Pa_ShbSeg_001", "Pa_ShbSeg_
 static char g_anames[SEG_N][16] = {"PaShbSeg_000", "PaShbSeg_001", "PaShbSeg_002", "PaShbSeg_003", "PaShbSeg_004", "PaShbSeg_005", "PaShbSeg_006", "PaShbSeg_007", "PaShbSeg_008", "PaShbSeg_009", "PaShbSeg_010", "PaShbSeg_011", "PaShbSeg_012", "PaShbSeg_013", "PaShbSeg_014", "PaShbSeg_015", "PaShbSeg_016", "PaShbSeg_017", "PaShbSeg_018", "PaShbSeg_019", "PaShbSeg_020", "PaShbSeg_021", "PaShbSeg_022", "PaShbSeg_023", "PaShbSeg_024", "PaShbSeg_025", "PaShbSeg_026", "PaShbSeg_027", "PaShbSeg_028", "PaShbSeg_029", "PaShbSeg_030", "PaShbSeg_031", "PaShbSeg_032", "PaShbSeg_033", "PaShbSeg_034", "PaShbSeg_035", "PaShbSeg_036", "PaShbSeg_037", "PaShbSeg_038", "PaShbSeg_039", "PaShbSeg_040", "PaShbSeg_041", "PaShbSeg_042", "PaShbSeg_043", "PaShbSeg_044", "PaShbSeg_045", "PaShbSeg_046", "PaShbSeg_047", "PaShbSeg_048", "PaShbSeg_049", "PaShbSeg_050", "PaShbSeg_051", "PaShbSeg_052", "PaShbSeg_053", "PaShbSeg_054", "PaShbSeg_055", "PaShbSeg_056", "PaShbSeg_057", "PaShbSeg_058", "PaShbSeg_059", "PaShbSeg_060", "PaShbSeg_061", "PaShbSeg_062", "PaShbSeg_063", "PaShbSeg_064", "PaShbSeg_065", "PaShbSeg_066", "PaShbSeg_067", "PaShbSeg_068", "PaShbSeg_069", "PaShbSeg_070", "PaShbSeg_071", "PaShbSeg_072", "PaShbSeg_073", "PaShbSeg_074", "PaShbSeg_075", "PaShbSeg_076", "PaShbSeg_077", "PaShbSeg_078", "PaShbSeg_079", "PaShbSeg_080", "PaShbSeg_081", "PaShbSeg_082", "PaShbSeg_083", "PaShbSeg_084", "PaShbSeg_085", "PaShbSeg_086", "PaShbSeg_087", "PaShbSeg_088", "PaShbSeg_089", "PaShbSeg_090", "PaShbSeg_091", "PaShbSeg_092", "PaShbSeg_093", "PaShbSeg_094", "PaShbSeg_095", "PaShbSeg_096", "PaShbSeg_097", "PaShbSeg_098", "PaShbSeg_099", "PaShbSeg_100", "PaShbSeg_101", "PaShbSeg_102", "PaShbSeg_103", "PaShbSeg_104", "PaShbSeg_105", "PaShbSeg_106", "PaShbSeg_107", "PaShbSeg_108", "PaShbSeg_109", "PaShbSeg_110", "PaShbSeg_111", "PaShbSeg_112", "PaShbSeg_113", "PaShbSeg_114", "PaShbSeg_115", "PaShbSeg_116", "PaShbSeg_117", "PaShbSeg_118", "PaShbSeg_119", "PaShbSeg_120", "PaShbSeg_121", "PaShbSeg_122", "PaShbSeg_123", "PaShbSeg_124", "PaShbSeg_125", "PaShbSeg_126", "PaShbSeg_127"};
 static const u64 g_phash[SEG_N] = {HASH_PART0, HASH_PART1, HASH_PART2, HASH_PART3, HASH_PART4, HASH_PART5, HASH_PART6, HASH_PART7, HASH_PART8, HASH_PART9, HASH_PART10, HASH_PART11, HASH_PART12, HASH_PART13, HASH_PART14, HASH_PART15, HASH_PART16, HASH_PART17, HASH_PART18, HASH_PART19, HASH_PART20, HASH_PART21, HASH_PART22, HASH_PART23, HASH_PART24, HASH_PART25, HASH_PART26, HASH_PART27, HASH_PART28, HASH_PART29, HASH_PART30, HASH_PART31, HASH_PART32, HASH_PART33, HASH_PART34, HASH_PART35, HASH_PART36, HASH_PART37, HASH_PART38, HASH_PART39, HASH_PART40, HASH_PART41, HASH_PART42, HASH_PART43, HASH_PART44, HASH_PART45, HASH_PART46, HASH_PART47, HASH_PART48, HASH_PART49, HASH_PART50, HASH_PART51, HASH_PART52, HASH_PART53, HASH_PART54, HASH_PART55, HASH_PART56, HASH_PART57, HASH_PART58, HASH_PART59, HASH_PART60, HASH_PART61, HASH_PART62, HASH_PART63, HASH_PART64, HASH_PART65, HASH_PART66, HASH_PART67, HASH_PART68, HASH_PART69, HASH_PART70, HASH_PART71, HASH_PART72, HASH_PART73, HASH_PART74, HASH_PART75, HASH_PART76, HASH_PART77, HASH_PART78, HASH_PART79, HASH_PART80, HASH_PART81, HASH_PART82, HASH_PART83, HASH_PART84, HASH_PART85, HASH_PART86, HASH_PART87, HASH_PART88, HASH_PART89, HASH_PART90, HASH_PART91, HASH_PART92, HASH_PART93, HASH_PART94, HASH_PART95, HASH_PART96, HASH_PART97, HASH_PART98, HASH_PART99, HASH_PART100, HASH_PART101, HASH_PART102, HASH_PART103, HASH_PART104, HASH_PART105, HASH_PART106, HASH_PART107, HASH_PART108, HASH_PART109, HASH_PART110, HASH_PART111, HASH_PART112, HASH_PART113, HASH_PART114, HASH_PART115, HASH_PART116, HASH_PART117, HASH_PART118, HASH_PART119, HASH_PART120, HASH_PART121, HASH_PART122, HASH_PART123, HASH_PART124, HASH_PART125, HASH_PART126, HASH_PART127};
 #ifdef BUTTON_MAPPING      /* built with features/button_mapping */
-#define PART_TOT (g_shbcfg.button_mapping ? PART_N : 0)   /* parts appended to PlayerStatus_00 */
+int hud_shield_parts(void);
+#define PART_TOT (g_shbcfg.button_mapping ? (hud_shield_parts() ? PART_N : PART_BASE) : 0)   /* parts appended to PlayerStatus_00 */
 #define BTNMAP (g_shbcfg.button_mapping != 0)
 #else
 #define PART_TOT 0         /* built without features/button_mapping: no button parts at all */
@@ -390,8 +392,8 @@ static u8 *build_menu(const u8 *r) {
     u8 *root = pool_clone(r, 0x228);
     u8 *first = pool_clone((const void *)((const u64 *)q(r, 0x28))[0], 68);
     if (!root || !first) { g_menu_build_dbg[1] = 4; return 0; }
-    u8 *cdk[PART_N], *pdk[PART_N];
-    for (u32 k = 0; k < PART_N; k++) {
+    u8 *cdk[PART_BASE], *pdk[PART_BASE];
+    for (u32 k = 0; k < PART_BASE; k++) {
         cdk[k] = pool_clone(g_proto_c, 68);
         pdk[k] = pool_clone(g_proto_p, 88);
         if (!cdk[k] || !pdk[k]) { g_menu_build_dbg[1] = 4; return 0; }
@@ -403,19 +405,19 @@ static u8 *build_menu(const u8 *r) {
         *(float *)(cdk[k] + 0x10) = 0.0f; *(float *)(cdk[k] + 0x14) = 0.0f;   /* hidden until placed */
         *(u32 *)(pdk[k] + 64) = nc + k;               /* part -> index of its pane */
     }
-    *(u32 *)(first + 52) = nc + PART_N;
+    *(u32 *)(first + 52) = nc + PART_BASE;
     for (u32 t = 0; t < 2; t++) {
         u32 off = t ? 0xC0 : 0x20, n = t ? np : nc;
         for (u32 j = 0; j < 3; j++) {
-            u64 *a = pool_alloc((n + PART_N) * 8);
+            u64 *a = pool_alloc((n + PART_BASE) * 8);
             if (!a) { g_menu_build_dbg[1] = 5; return 0; }
             memcpy(a, (const void *)q(r, off + j * 8), n * 8);
-            for (u32 k = 0; k < PART_N; k++)
+            for (u32 k = 0; k < PART_BASE; k++)
                 a[n + k] = j == 0 ? (u64)part_name(k) : j == 1 ? (u64)(t ? pdk[k] : cdk[k]) : part_hash(k);
             if (!t && j == 1) a[0] = (u64)first;
             *(u64 *)(root + off + j * 8) = (u64)a;
         }
-        *(u32 *)(root + off + 24) = n + PART_N;
+        *(u32 *)(root + off + 24) = n + PART_BASE;
     }
     g_menu_build_dbg[0]++;
     return root;
@@ -718,7 +720,7 @@ void *hud_prepare(void *handle, u8 *config) {
                BTNMAP && str_eq(asset, "PlusMenu_00") ? 4 :
                g_shbcfg.hud_map_hearts && str_eq(asset, "PaMapCollectNum_00") ? 5 : 0;
     /* one of our slot buttons: its nested Pa_ReplaceIcon_00 is built next and gets the private copy */
-    for (u32 k = 0; !kind && k < PART_N; k++)
+    for (u32 k = 0; !kind && k < (u32)PART_TOT; k++)
         if (str_eq(inst, part_name(k))) { g_repicon_armed = 1; return config; }
     if (!kind && g_repicon_armed && str_eq(asset, "PaReplaceIcon_00")) { g_repicon_armed = 0; g_repicon_dbg[1]++; kind = 2; }
     if (!kind) return config;
@@ -1586,7 +1588,7 @@ enum { SB_L, SB_X, SB_R, SB_Y, SB_A, SB_ZR, SB_B, SB_NBTN };
  * slot to the X button: input, HUD position and legend all follow it. */
 u32 g_btn_swap;
 int hud_button_swap(void) { return g_btn_swap; }
-int g_sb_item[PART_N] = {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1};   /* set by hud_slot_item() */
+int g_sb_item[PART_N] = {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1};   /* set by hud_slot_item() */
 /* features/button_mapping publishes its slots here: slot 0 B, 1 L, 2 R, 3 ZR (the item the game has equipped) */
 void hud_slot_item(u32 slot, int item) {
     static const u8 PART_OF[3] = {11, 7, 8};
@@ -1595,7 +1597,8 @@ void hud_slot_item(u32 slot, int item) {
 char g_sb_name_dbg[PART_N][32];   /* actor name resolved for each button (diagnostic) */
 /* texture name forced on a part (first byte <= 1 = none): the button backgrounds (tools/make_buttons.py) */
 char g_sb_force[PART_N][32] = {"OotBtnS_L", "OotBtnS_Blank", "OotBtnS_R", "OotBtnS_Y", "OotBtnS_A", "OotBtnS_ZR",
-                               "OotBtnS_B", {1}, {1}, "Weapon_Sword_Kokiri", {1}, {1}};   /* Y: the sword (TODO: equipped one) */
+                               "OotBtnS_B", {1}, {1}, "Weapon_Sword_Kokiri", {1}, {1},
+                               "OotBtnS_Blank", {1}};   /* 12: shield button, 13: the equipped shield */   /* Y: the sword (TODO: equipped one) */
 /* button texture behind each slot's icon (UI/Tex/IconSh/<name>, tools/make_buttons.py) */
 char g_sb_btn[PART_N][24] = {{0}};
 /* ItemPattern = how the icon of each item is framed in the button (scale / offset); frame 0 draws it oversized.
@@ -1681,7 +1684,8 @@ static int bottle_box_pos(u32 v) {
 float g_sb_pos[PART_N][2] = {{1020.4f, 872.3f}, {1292.6f, 843.0f}, {1545.2f, 872.3f},     /* L X R */
                              {1129.6f, 680.0f}, {1455.6f, 680.0f}, {1677.2f, 680.0f},     /* Y A ZR */
                              {1292.6f, 517.0f},                                            /* B */
-                             {995.1f, 897.6f}, {1519.9f, 897.6f}, {1104.3f, 705.3f}, {1651.9f, 705.3f}, {1267.3f, 542.3f}};
+                             {995.1f, 897.6f}, {1519.9f, 897.6f}, {1104.3f, 705.3f}, {1651.9f, 705.3f}, {1267.3f, 542.3f},
+                             {908.0f, 680.0f}, {882.7f, 705.3f}};                          /* shield button, shield */
 float g_sb_scale = 0.62f;
 /* Placement of a whole set around the centre of the X / Y / A / B diamond: {spread (distance from the centre),
  * size (icons and labels), dx, dy} in layout units. g_sb_lay: the HUD; g_mb_lay: the pause menu's Items page. */
@@ -1695,7 +1699,8 @@ float g_mb_lay[4] = {0.55f, 0.6f, -780.0f, -120.0f};   /* between the item grid 
 static const float g_sb_simple[PART_N][2] = {
     {1120.4f, 872.3f}, {0.0f, 0.0f}, {1445.2f, 872.3f}, {0.0f, 0.0f}, {0.0f, 0.0f},
     {1677.2f, 680.0f}, {1292.6f, 680.0f},
-    {1095.1f, 897.6f}, {1419.9f, 897.6f}, {0.0f, 0.0f}, {1651.9f, 705.3f}, {1267.3f, 705.3f}};
+    {1095.1f, 897.6f}, {1419.9f, 897.6f}, {0.0f, 0.0f}, {1651.9f, 705.3f}, {1267.3f, 705.3f},
+    {0.0f, 0.0f}, {0.0f, 0.0f}};   /* (no shield in the simple layout) */
 /* Pad layout (ShbConfig.bm_layout, the recompilers' own button remap): the place of each face button on the
  * diamond. The game still sees the same logical buttons; only where we draw them moves. 0 Nintendo (A right,
  * B bottom, X top, Y left), 1 A/B swapped (A bottom, B right), 2 Xbox (A/B and X/Y swapped: X left, Y top). */
@@ -1709,8 +1714,18 @@ static u32 face_place(u32 k) {
  * button that holds that role. Parts 0..6 are the buttons, 7..11 the items on them. The classic layout is the
  * identity, except the game's Jump/B swap, which puts item 1 (part B) on X and jump (part X) on B. */
 static const u8 PART_ROLE[PART_N] = {ROLE_ITEM2, ROLE_JUMP, ROLE_ITEM3, ROLE_SWORD, ROLE_ACTION, ROLE_ITEM_MAIN,
-                                     ROLE_ITEM1, ROLE_ITEM2, ROLE_ITEM3, ROLE_SWORD, ROLE_ITEM_MAIN, ROLE_ITEM1};
-static const u8 PART_HOME[PART_N] = {SB_L, SB_X, SB_R, SB_Y, SB_A, SB_ZR, SB_B, SB_L, SB_R, SB_Y, SB_ZR, SB_B};
+                                     ROLE_ITEM1, ROLE_ITEM2, ROLE_ITEM3, ROLE_SWORD, ROLE_ITEM_MAIN, ROLE_ITEM1,
+                                     ROLE_SHIELD, ROLE_SHIELD};
+#define SB_SHIELD 12   /* the shield button part (13: the shield on it) */
+static const u8 PART_HOME[PART_N] = {SB_L, SB_X, SB_R, SB_Y, SB_A, SB_ZR, SB_B, SB_L, SB_R, SB_Y, SB_ZR, SB_B,
+                                     SB_SHIELD, SB_SHIELD};
+/* a button part (the button art), not an item drawn on one */
+static int part_is_button(u32 k) { return k < SB_NBTN || k == SB_SHIELD; }
+/* The shield button parts exist (PART_TOT) only with the button remap, the manual shield and a button (not a stick)
+ * holding the Shield role: the config does not change while the game runs, so the layout is built once with them. */
+int hud_shield_parts(void) {
+    return remap_on() && g_shbcfg.manual_shield && remap_role_phys(ROLE_SHIELD) < PB_L3;
+}
 static u32 part_phys(u32 k) { return remap_role_phys(PART_ROLE[k % PART_N]); }
 /* ZL has no part of its own in the classic layout: its place mirrors ZR's on the left of the diamond */
 float g_pb_zl[2] = {908.0f, 680.0f};
@@ -1736,7 +1751,8 @@ static void sb_xy(const float *lay, u32 k, int simple, float *x, float *y) {
 }
 u32 g_sb_big_items = 1;
 /* per-part scale: buttons, then items (the item is drawn bigger than its button) */
-float g_sb_sc[PART_N] = {0.34f, 0.34f, 0.34f, 0.34f, 0.34f, 0.34f, 0.34f, 0.38f, 0.38f, 0.38f, 0.38f, 0.38f};
+float g_sb_sc[PART_N] = {0.34f, 0.34f, 0.34f, 0.34f, 0.34f, 0.34f, 0.34f, 0.38f, 0.38f, 0.38f, 0.38f, 0.38f,
+                         0.34f, 0.38f};
 u32 g_sb_hide_stock = 1;   /* (only while the item buttons are on) */   /* hide the game's own item box and its page dots: our buttons replace them */
 static u64 g_stock_box_rec, g_stock_dots_rec;
 /* animation frame forced on every button each frame, per animation (-1 = leave it); see slot_anim_name() */
@@ -1778,7 +1794,7 @@ static void hud_slots_init(u64 hud, u64 heap) {
     u64 frame = hud ? ptr(hud, 0x28) : 0;
     for (u32 k = 0; k < PART_N; k++) {
         g_sb_ctrl[k] = 0;
-        if (k >= g_sb_ctrl_max) continue;   /* bisect: how many controllers the HUD init accepts */
+        if (k >= g_sb_ctrl_max || k >= (u32)PART_TOT) continue;   /* bisect: how many controllers the HUD init accepts */
         u64 p = frame ? (u64)find_part_safe((void *)frame, part_name(k)) : 0;
         if (!p || !heap) continue;
         for (u32 i = 0; i < 12; i++) g_sb_widget[k][i] = 0;
@@ -2162,7 +2178,7 @@ static void equip_mirror(u32 idx, u32 part) {
     const char *s = *(const char **)(r + 0x68);
     if (!vptr((u64)s)) s = (const char *)(r + 0x74);
     char *dst = g_sb_force[part];
-    if (!s[0] || s[0] != 'W') { dst[0] = 1; return; }   /* none: hidden (a later one sets it again) */
+    if (!s[0] || (s[0] != 'W' && s[0] != 'A')) { dst[0] = 1; return; }   /* none: hidden (a later one sets it again) */
     if (str_eq(dst, s)) return;
     u32 i;
     for (i = 0; i < 30 && s[i]; i++) dst[i] = s[i];
@@ -2179,7 +2195,7 @@ u64 g_mb_dbg[PART_N];
  * can't hold an item and its button is hidden in both layouts. */
 static int bm_part_hidden(u32 k) {
     if (part_phys(k) >= PB_L3) return 1;   /* remap: the role is on no button (or on a stick: no HUD art) */
-    if (g_shbcfg.bm_simple && (k == SB_X || k == SB_Y || k == SB_A || k == 9)) return 1;
+    if (g_shbcfg.bm_simple && (k == SB_X || k == SB_Y || k == SB_A || k == 9 || k >= SB_SHIELD)) return 1;
     if (g_shbcfg.bm_l_mode && (k == SB_L || k == 7)) return 1;   /* L opens the item selector: no L button */
     return 0;
 }
@@ -2213,7 +2229,8 @@ static void ctrl_unfocusable(u64 c) {
     }
 }
 static void slots_draw(SlotBtn *set, const u64 *ctrls, u64 frame, const float *lay, int main_set) {
-    for (u32 k = 0; k < PART_N; k++) {
+    u32 nparts = main_set ? (u32)PART_TOT : PART_BASE;   /* only the parts that were built (no shield in the menu) */
+    for (u32 k = 0; k < nparts; k++) {
         SlotBtn *b = &set[k];
         if (!b->part) {
             u64 p = (u64)find_part_safe((void *)frame, part_name(k));
@@ -2244,7 +2261,7 @@ static void slots_draw(SlotBtn *set, const u64 *ctrls, u64 frame, const float *l
         }
         ctrl_unfocusable(b->uctl);
         /* an item part with no item (and no fixed texture, like the sword) is hidden */
-        u32 empty = (k >= SB_NBTN && g_sb_item[k] < 0 && g_sb_force[k][0] <= 1) || bm_part_hidden(k);
+        u32 empty = (!part_is_button(k) && g_sb_item[k] < 0 && g_sb_force[k][0] <= 1) || bm_part_hidden(k);
         float sc = empty || !BTNMAP ? 0.0f : g_sb_sc[k] * lay[1];
         float px, py;
         sb_xy(lay, k, g_shbcfg.bm_simple, &px, &py);
@@ -2298,7 +2315,7 @@ static void slots_draw(SlotBtn *set, const u64 *ctrls, u64 frame, const float *l
             char nm[32];
             u32 i;
             const char *src = g_sb_force[k];
-            if (k < SB_NBTN) {
+            if (part_is_button(k)) {
                 /* a button part shows the letter of the physical button it is on (remap, Jump/B swap); jump is
                  * the unlettered labelled button, and A too while it carries a label (always in the menu) */
                 u32 pp = part_phys(k);
@@ -2449,6 +2466,7 @@ static void slots_update(u64 frame) {
     if (BTNMAP) {
         zr_mirror();
         equip_mirror(GD_S64_EQUIP_WEAPON, 9);                              /* Y: the sword */
+        if (hud_shield_parts()) equip_mirror(GD_S64_EQUIP_SHIELD, 13);     /* the shield button: the shield */
     }   /* (the ZR icon is frozen while a slot borrows the box) */
     if (!g_stock_box_rec) g_stock_box_rec = pane_record(frame, "Pa_SelectItem_00");
     if (!g_stock_dots_rec) g_stock_dots_rec = pane_record(frame, "N_Shortcut_00");

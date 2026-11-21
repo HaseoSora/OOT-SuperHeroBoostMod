@@ -19,6 +19,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import installer as I  # noqa: E402
 import layouts  # noqa: E402
+import remap_ui as RM  # noqa: E402
 import paths  # noqa: E402
 import recomp as R  # noqa: E402
 import updater as U  # noqa: E402
@@ -379,6 +380,8 @@ def gui() -> None:
     glayout = tk.StringVar(value=_gl if _gl in I.GAME_LAYOUTS else "none")
     bsimple = tk.BooleanVar(value=bool(cfg.get("bm_simple", False)))
     blmode = tk.StringVar(value=cfg.get("bm_l_mode") if cfg.get("bm_l_mode") in I.L_MODES else "assign")
+    bremap = tk.BooleanVar(value=bool(cfg.get("bm_remap", False)))   # button remap (app/remap_ui.py)
+    broles = RM.role_vars(cfg.get("bm_roles"))
     stamina = tk.BooleanVar(value=bool(cfg.get("stamina", True)))
     stamina_bar = tk.BooleanVar(value=bool(cfg.get("stamina_bar", False)))
     songbook = tk.BooleanVar(value=bool(cfg.get("songbook", True)))
@@ -630,7 +633,7 @@ def gui() -> None:
         refresh()
         autosave()
 
-    for var in (bstyle, bplace, glayout, bsimple, blmode):
+    for var in (bstyle, bplace, glayout, bsimple, blmode, bremap, *broles.values()):
         var.trace_add("write", on_pref_change)
     stamina_bar.trace_add("write", on_pref_change)   # display preference: does not switch to Custom
 
@@ -649,6 +652,7 @@ def gui() -> None:
         return I.Settings(button_mapping=bmap.get(), button_style=bstyle.get(), bm_simple=bsimple.get(),
                           bm_layout=bplace.get(), game_layout=glayout.get(),
                           bm_l_mode=blmode.get(), stamina=stamina.get(), stamina_bar=stamina_bar.get(),
+                          bm_remap=bremap.get(), bm_roles=RM.roles_value(broles),
                           songbook=songbook.get(),
                           quick_boots=quick_boots.get(), quick_mask=quick_mask.get(),
                           manual_shield=manual_shield.get(),
@@ -679,6 +683,7 @@ def gui() -> None:
             "button_mapping": bmap.get(), "button_style": bstyle.get(), "bm_simple": bsimple.get(),
             "bm_layout": bplace.get(), "game_layout": glayout.get(),
             "bm_l_mode": blmode.get(),
+            "bm_remap": bremap.get(), "bm_roles": RM.roles_value(broles),
             "stamina": stamina.get(), "stamina_bar": stamina_bar.get(), "songbook": songbook.get(),
             "quick_boots": quick_boots.get(), "quick_mask": quick_mask.get(),
             "manual_shield": manual_shield.get(),
@@ -1605,6 +1610,10 @@ def gui() -> None:
             label(body, L("bm_l_" + value + "_d"), size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=(20, 0))
         label(body, L("bm_note"), size=9, color=AMBER, bg=PANEL).pack(anchor="w", pady=(8, 0))
         label(body, L("bm_swap_note"), size=9, color=DIM, bg=PANEL).pack(anchor="w", pady=(2, 0))
+        RM.RemapEditor(body, L, FAM, dict(PANEL=PANEL, PANEL2=PANEL2, BORDER=BORDER, ACCENT=ACCENT, AMBER=AMBER,
+                                          TEXT=TEXT, DIM=DIM),
+                       dict(bmap=bmap, bremap=bremap, roles=broles, bstyle=bstyle, bplace=bplace, bsimple=bsimple,
+                            blmode=blmode, mshield=manual_shield))
 
 
     def build_enemies(parent):

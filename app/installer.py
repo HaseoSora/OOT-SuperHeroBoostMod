@@ -27,6 +27,37 @@ BM_LAYOUTS = ("nintendo", "ab", "xbox")         # where the face buttons sit (th
 BM_LAYOUT_BYTE = {"nintendo": 0, "ab": 1, "xbox": 2}
 L_MODES = ("assign", "selector")           # buttonMapping L: an item slot or the game's item selector
 L_MODE_VALUES = {"assign": 0, "selector": 2}
+# Button remap (core/remap.h): what each of the eight buttons does. REMAP_BUTTONS is the module's physical order
+# (the config bytes bm_role[0..7]); ROLES is the byte value order. Four item roles, each on one button at most, so
+# at most four buttons hold an item. "item_main" is the game's own item box (picked with A in the pause menu or the
+# item selector); item1 / item2 / item3 are the mod's slots (classically B, L and R).
+REMAP_BUTTONS = ("L", "X", "R", "Y", "A", "ZR", "B", "ZL")
+ROLES = ("none", "jump", "sword", "action", "target", "item1", "item2", "item3", "item_main")
+ITEM_ROLES = ("item1", "item2", "item3", "item_main")
+CLASSIC_ROLES = {"L": "item2", "X": "jump", "R": "item3", "Y": "sword", "A": "action", "ZR": "item_main",
+                 "B": "item1", "ZL": "target"}
+
+
+def normalize_roles(roles) -> dict:
+    """A role per button, every role but "none" on one button at most (the first one keeps it). Unknown or missing
+    buttons take their classic role when it is still free, else none."""
+    src = roles if isinstance(roles, dict) else {}
+    out, used = {}, set()
+    for b in REMAP_BUTTONS:
+        r = src.get(b, CLASSIC_ROLES[b])
+        if r not in ROLES:
+            r = "none"
+        if r != "none" and r in used:
+            r = "none"
+        out[b] = r
+        used.add(r)
+    return out
+
+
+def roles_missing(roles) -> list:
+    """The non-item roles no button has (jump, sword, action, target): the game cannot do those then."""
+    have = set(normalize_roles(roles).values())
+    return [r for r in ("jump", "sword", "action", "target") if r not in have]
 LANGS = ("en", "es", "pt", "fr", "de", "it")   # the app's UI languages, also the mod's HUD labels
 LANG_VALUES = {"en": 0, "es": 1, "pt": 2, "fr": 3, "de": 4, "it": 5}
 # game language, as the mod's own HUD labels follow the language the game is played in
@@ -108,6 +139,8 @@ class Settings:
     no_magic_drop: bool = False      # dropped magic jars become green rupees (romfs file)
     hide_minimap: bool = False       # hide the corner minimap while playing
     sprint_l3_toggle: bool = False   # sprint_l3: L3 turns the sprint on / off instead of holding it
+    bm_remap: bool = False           # button remap: use bm_roles instead of the classic layout
+    bm_roles: dict = field(default_factory=lambda: dict(CLASSIC_ROLES))   # button (REMAP_BUTTONS) -> role (ROLES)
 
     def to_dict(self): return dict(self.__dict__)
 
@@ -457,6 +490,11 @@ def patch_config(nso: bytes, s: Settings) -> bytes:
                 b[f + 60] = int(s.no_magic_drop)        # struct 76: magic jars become rupees (romfs)
                 b[f + 61] = int(s.hide_minimap)         # struct 77: hide the corner minimap
                 b[f + 62] = int(s.sprint_l3_toggle)     # struct 78 (was padding): L3 sprint as a toggle
+                if size >= 0x58:                        # 0.9.0: button remap
+                    roles = normalize_roles(s.bm_roles)
+                    b[f + 63] = int(bool(s.bm_remap and s.button_mapping))   # struct 79: bm_remap
+                    for k, btn in enumerate(REMAP_BUTTONS):                  # struct 80..87: bm_role[]
+                        b[f + 64 + k] = ROLES.index(roles[btn])
     return bytes(b)
 
 

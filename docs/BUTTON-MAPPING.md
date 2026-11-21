@@ -21,6 +21,21 @@ project.
 | Icons | `PaItemBtn_00` parts with the item icon and its shadow, like the native item box |
 | Counts | the item buttons show the quantity of consumables (sticks, nuts, bombs, seeds, bombchus, beans and arrows): the box's own `T_ItemNum_00` text is written from GameData `PouchData.<item>.StockNum`, and its pane stays hidden for items without a quantity |
 
+## Button remap (0.9.0)
+
+The player can choose what each of the eight buttons X, Y, A, B, L, R, ZL and ZR does (app: Controls > Button
+mapping > Button remap). Roles: jump, sword, action, target, item 1, item 2, item 3, the main item (the game's own
+item box) or nothing. Each role is on one button at most, so at most **four** buttons hold an item.
+
+| Piece | How it works |
+|---|---|
+| Config | `bm_remap` (struct 79) and `bm_role[8]` (struct 80..87, physical order L X R Y A ZR B ZL, `ROLE_*` values from `core/remap.h`). The block grows to 0x58; an older app leaves them 0 = classic layout |
+| Input | `button_remap_on_input` (features/button_mapping) runs **before every other input handler** (`FEATURE_INPUT_EARLY` in `tools/build_core.py`). It rewrites each sample: a pressed physical button becomes the *virtual* button of its role (the button that has that role in the classic layout). Everything after it (the item slots, manual shield, target options, the game) keeps seeing the classic layout, so nothing else had to change |
+| When | only while Link plays (`player_active`, `hud_ingame`, not paused, not the ocarina, not dead). Menus, the title screen, game over and the ocarina keep the real buttons, which is what the game's own prompts name |
+| Jump/B swap | the classic layout keeps it (item 1 on X, jump on B). With a remap the player's table wins: jump's virtual button follows the swap, so the game jumps on whatever button the player chose |
+| HUD | each part is a role (`PART_ROLE` in `core/hud.c`); `sb_xy()` places it on the physical button holding that role (the pad layout `face_place()` still applies; ZL gets a spot mirroring ZR) and its texture is that button's letter (`OotBtn?_ZL` was already generated). A role on no button hides its part. Target still has no HUD part |
+| Pause menu | items 1..3 are assigned with their own button when the Items tab allows it (X / Y / L / R); a slot on A / B / ZL / ZR uses a free one of those instead (`remap_menu_buttons()`); A still puts the item in the game's box. The legend is built from the same table with the game's button glyphs |
+
 The swap option is read live from GameData (OptionData struct `0x834d9d9e`, Bool member `0x3B0FC63F`, via
 `read_bool` at `main+0x179F70`). It is refreshed every HUD frame and while the pause menu is open, so changing it in
 **System > Options** takes effect without reinstalling.

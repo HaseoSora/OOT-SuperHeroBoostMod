@@ -1,6 +1,7 @@
 #include "../../core/dispatch.h"
 #include "../../core/hid.h"
 #include "../../core/config.h"
+#include "../../core/remap.h"
 
 /* button_mapping (F3, "buttonMapping"): our own extra item buttons on the HUD.
  *
@@ -216,6 +217,32 @@ static void set_all(const HidView *v, u64 clear, u64 set) {
 
 static void dbg_tick(void);   /* diagnostic dump (below, beside the save code) */
 
+/* ---- button remap (core/remap.h) ----
+ * Runs before every other input handler (tools/build_core.py FEATURE_INPUT_EARLY): the buttons the player pressed
+ * become the virtual ones of their roles, so every feature after it (and the game) sees the default layout. Only
+ * while Link plays: menus (pause, map, game over), the title screen and the ocarina keep the real buttons, as the
+ * game's own prompts there name them. The game fills the samples again on every read, so this is done once per read. */
+u32 g_remap_dbg[3];   /* reads remapped, reads left alone, last physical -> virtual (low bits) */
+void button_remap_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_result) {
+    (void)a2;
+    if (site != 3 || !a0 || !remap_on()) return;
+    u32 count = (u32)(unsigned long)a1;
+    if (count == 0 || count > 64) count = stock_result;
+    if (count == 0 || count > 64) return;
+    if (!player_active() || !hud_ingame() || g_paused || g_songbook_active || player_dead()) {
+        g_remap_dbg[1]++;
+        return;
+    }
+    HidView view = {a0, count, 0};
+    for (u32 i = 0; i < count; i++) {
+        u64 b = hid_get_buttons(&view, i);
+        u64 v = remap_apply(b);
+        if (v != b) hid_set_buttons(&view, i, v);
+        if (i == 0) g_remap_dbg[2] = (u32)(b & 0x3FF) | ((u32)(v & 0x3FF) << 16);
+    }
+    g_remap_dbg[0]++;
+}
+
 /* Every input call the module sees, per site: hits, arguments, count and the first buttons word. */
 u64 g_dbg_a0[5], g_dbg_a1[5];
 u32 g_dbg_cnt[5], g_dbg_btn[5], g_dbg_hits[5];
@@ -291,9 +318,19 @@ void button_mapping_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_r
     int menu = g_paused && hud_menu_items();
     if (g_shbcfg.button_mapping && !menu) { hud_menu_off(); g_menu_box = -3; }
     if (g_shbcfg.button_mapping && menu) {
-        static const u64 MENU_BTN[SLOT_ZR] = {BTN_X, BTN_L, BTN_R};   /* -> SLOT_B, SLOT_L, SLOT_R */
+        /* -> SLOT_B, SLOT_L, SLOT_R: the slot's own button when the menu lets it (X / Y / L / R), else a free one
+         * (classic layout: X, L, R). No button = the slot is on no button: nothing to assign. */
+        u64 MENU_BTN[SLOT_ZR], menu_mask = 0;
+        {
+            u32 mb[3];
+            remap_menu_buttons(mb);
+            for (int s = 0; s < SLOT_ZR; s++) {
+                MENU_BTN[s] = mb[s] < PB_N ? REMAP_BIT[mb[s]] : 0;
+                menu_mask |= MENU_BTN[s];
+            }
+        }
         for (int s = 0; s < SLOT_ZR; s++) {
-            if (!(pressed & MENU_BTN[s])) continue;
+            if (!MENU_BTN[s] || !(pressed & MENU_BTN[s])) continue;
             if (s == SLOT_L && (g_shbcfg.bm_l_mode || g_shbcfg.manual_shield)) continue;   /* L is the selector / the shield */
             int it = hud_menu_item();
             if (it < 0) continue;
@@ -345,7 +382,7 @@ void button_mapping_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_r
         for (int s = 0; s < SLOT_ZR; s++) hud_slot_item((u32)s, slot_enabled(s) ? g_assign[s] : -1);   /* show a swap at once */
         hud_refresh_button_swap();
         hud_menu_tick();
-        set_all(&view, BTN_X | BTN_L | BTN_R, 0);
+        set_all(&view, menu_mask, 0);
         g_phase = PH_IDLE; g_swallow = 0;
         return;
     }

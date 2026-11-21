@@ -327,7 +327,7 @@ class Select(ctk.CTkButton):
         self._popup = None
         self._outside_id = None
         self._pending = None
-        self._overlay = None
+        self._rows = []
         if var.get() not in self._values:
             var.set(self._values[0])
         _strip(kw)
@@ -424,20 +424,6 @@ class Select(ctk.CTkButton):
         self._close_popup()
         screen_w = self.winfo_screenwidth()
         screen_h = self.winfo_screenheight()
-        # A full-screen, nearly transparent layer under the menu: it swallows outside
-        # clicks so they cannot reach the control that happens to be behind the list.
-        try:
-            overlay = tk.Toplevel(self)
-            overlay.withdraw()
-            overlay.overrideredirect(True)
-            overlay.configure(bg="#000000")
-            overlay.geometry(f"{screen_w}x{screen_h}+0+0")
-            overlay.attributes("-alpha", 0.04)
-            overlay.bind("<Button-1>", lambda e: self._close_popup())
-            overlay.deiconify()
-            self._overlay = overlay
-        except Exception:
-            self._overlay = None
         top = tk.Toplevel(self)
         top.withdraw()
         top.overrideredirect(True)
@@ -460,6 +446,7 @@ class Select(ctk.CTkButton):
                                            scrollbar_button_hover_color=ACCENT_DARK)
         inner.pack(fill="both", expand=True, padx=6, pady=6)
         current = self._var.get()
+        rows = []
         for value in self._values:
             active = value == current
             row = tk.Frame(inner, bg=BORDER if active else PANEL, cursor="hand2", height=30)
@@ -469,6 +456,7 @@ class Select(ctk.CTkButton):
                            fg=ACCENT if active else TEXT, anchor="w", padx=10,
                            font=(FAM, 10), cursor="hand2")
             lab.pack(fill="both", expand=True)
+            rows.append((row, value))
             for w in (row, lab):
                 w.bind("<Button-1>", lambda e, v=value: self._choose(v))
                 w.bind("<Enter>", lambda e, r=row, l=lab: (r.configure(bg=BORDER), l.configure(bg=BORDER)))
@@ -482,8 +470,14 @@ class Select(ctk.CTkButton):
         top.geometry(f"{width}x{height}+{int(x)}+{int(y)}")
         top.deiconify()
         top.lift()
+        top.update_idletasks()
+        self._rows = rows
         try:
             top.focus_force()
+        except Exception:
+            pass
+        try:
+            top.grab_set()
         except Exception:
             pass
         top.bind("<Button-1>", self._popup_click)
@@ -515,10 +509,19 @@ class Select(ctk.CTkButton):
             y = event.y_root - w.winfo_rooty()
             if not (0 <= x < w.winfo_width() and 0 <= y < w.winfo_height()):
                 self._close_popup()
+                return
+            for row, value in self._rows:
+                y0 = row.winfo_rooty() - w.winfo_rooty()
+                y1 = y0 + row.winfo_height()
+                if y0 <= y < y1:
+                    self._choose(value)
+                    return
         except Exception:
             pass
 
     def _choose(self, value):
+        if self._popup is None:
+            return
         # The callback (e.g. remap) reads current(); give it the clicked value before the
         # variable trace redraws the table, which would otherwise restore the old selection.
         self._pending = value
@@ -533,11 +536,9 @@ class Select(ctk.CTkButton):
     def _close_popup(self):
         pop = self._popup
         self._popup = None
-        overlay = self._overlay
-        self._overlay = None
-        if overlay is not None:
+        if pop is not None:
             try:
-                overlay.destroy()
+                pop.grab_release()
             except Exception:
                 pass
         if self._outside_id is not None:

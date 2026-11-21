@@ -2269,6 +2269,17 @@ for _lang, (_preview, _segments) in _PREVIEW.items():
     T[_lang]["preview"] = _preview
     T[_lang]["segments_text"] = _segments
 
+_HEARTS = {
+    "en": "Maximum stamina grows with each heart container.",
+    "es": "La estamina máxima aumenta con el número de corazones.",
+    "pt": "A estamina máxima aumenta com o número de corações.",
+    "fr": "L'endurance maximale augmente avec le nombre de cœurs.",
+    "de": "Die maximale Ausdauer wächst mit der Anzahl der Herzen.",
+    "it": "La resistenza massima aumenta con il numero di cuori.",
+}
+for _lang, _text in _HEARTS.items():
+    T[_lang]["stamina_hearts"] = _text
+
 
 def tr(lang: str, key: str, **kw) -> str:
     s = T.get(lang, T["en"]).get(key) or T["en"].get(key, key)

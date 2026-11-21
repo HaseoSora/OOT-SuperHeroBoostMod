@@ -307,11 +307,10 @@ class RemapEditor:
 
         main = UI.Frame(self.frame, bg=bg)
         main.pack(fill="x", pady=(4, 0))
-        main.grid_columnconfigure(0, weight=1)
         left = UI.Frame(main, bg=bg)
         left.grid(row=0, column=0, sticky="nw")
         right = UI.Frame(main, bg=bg)
-        right.grid(row=0, column=1, sticky="ne", padx=(24, 0))
+        right.grid(row=0, column=1, sticky="nw", padx=(20, 0))
 
         self.count = UI.Label(left, text="", bg=bg, fg=colors["DIM"], font=(fam, 9))
         self.count.pack(anchor="w", pady=(0, 4))
@@ -330,9 +329,9 @@ class RemapEditor:
             cb.pack(side="left", padx=(6, 0))
             cb.bind("<<ComboboxSelected>>", lambda e, btn=b: self._pick(btn))
             self.combos[b] = cb
-            help_slot = UI.Frame(row, bg=bg)   # the role's own "?" beside its list
+            help_slot = UI.Frame(row, bg=bg, width=24)   # the role's own "?" beside its list
             help_slot.pack(side="left", padx=(4, 0))
-            opt = UI.Frame(box, bg=bg)         # the role's options, on the line below
+            opt = UI.Frame(box, bg=bg, width=1)   # the role's options, on the line below
             opt.pack(anchor="w", padx=(56, 0), pady=(2, 0))
             self.opts[b] = (help_slot, opt)
 
@@ -344,7 +343,7 @@ class RemapEditor:
         hrow.pack(anchor="w", pady=(8, 0))
         UI.Label(hrow, text=L("rm_hud"), bg=bg, fg=colors["DIM"], font=(fam, 9, "bold")).pack(side="left")
         help_icon(hrow, L("rm_hud_help"), colors, fam).pack(side="left", padx=(4, 0))
-        self.hud = tk.Canvas(right, width=360, height=228, bg="#101010", highlightthickness=1,
+        self.hud = tk.Canvas(right, width=400, height=228, bg="#101010", highlightthickness=1,
                              highlightbackground=colors["BORDER"])
         self.hud.pack(anchor="w")
 
@@ -430,10 +429,11 @@ class RemapEditor:
             items = [("opt_toggle", self.v["sprint_toggle"])]
         bg = self.c["PANEL"]
         for key, var in items:
-            UI.Check(f, text=self.L(key), variable=var, bg=bg, fg=self.c["TEXT"], selectcolor=self.c["PANEL2"],
-                     activebackground=bg, activeforeground=self.c["ACCENT"], font=(self.fam, 9),
-                     highlightthickness=0, bd=0).pack(side="left")
-            help_icon(f, self.L(key + "_help"), self.c, self.fam).pack(side="left", padx=(1, 8))
+            line = UI.Frame(f, bg=bg)
+            line.pack(anchor="w", pady=1)
+            UI.Check(line, text=self.L(key), variable=var, bg=bg, fg=self.c["TEXT"],
+                     selectcolor=self.c["PANEL2"], font=(self.fam, 9)).pack(side="left")
+            help_icon(line, self.L(key + "_help"), self.c, self.fam).pack(side="left", padx=(4, 0))
         if role in ROLE_HELP:
             help_icon(help_slot, self.L(ROLE_HELP[role]), self.c, self.fam).pack(side="left")
         if items:   # options appear on their own line under the select
@@ -541,7 +541,7 @@ class RemapEditor:
         simple = self.v["bsimple"].get()
         phys = {r: b for b, r in roles.items() if r != "none"}
         sc = 0.37
-        ox, oy = 180 - 1292.6 * sc, 118 + 712.0 * sc
+        ox, oy = 200 - 1292.6 * sc, 118 + 712.0 * sc
 
         def to_px(x, y):
             return ox + x * sc, oy - y * sc

@@ -159,12 +159,8 @@ class ChoiceCard(ctk.CTkFrame):
         self.title.pack(side="left")
         self.help = None
         if help_text:
-            self.help = tk.Label(self.head, text="?", bg=PANEL2, fg=DIM, font=(FAM, 9, "bold"),
-                                 cursor="hand2", padx=2)
+            self.help = HelpIcon(self.head, help_text, title, size=20)
             self.help.pack(side="right")
-            self.help.bind("<Button-1>", lambda e: _show_help(title, _help_text(help_text)))
-            self.help.bind("<Enter>", lambda e: self.help.configure(fg=ACCENT))
-            self.help.bind("<Leave>", lambda e: self.help.configure(fg=DIM if not self._active else "#1A1408"))
         self.desc = tk.Label(self, text=desc, bg=PANEL2, fg=DIM, font=(FAM, 8), anchor="w",
                              justify="left", wraplength=desc_wrap)
         self.desc.pack(fill="x", padx=14, pady=(1, 8))
@@ -191,7 +187,8 @@ class ChoiceCard(ctk.CTkFrame):
             self.title.configure(bg=fg, fg=title)
             self.desc.configure(bg=fg, fg=desc)
             if self.help is not None:
-                self.help.configure(bg=fg, fg="#1A1408" if active else DIM)
+                self.help.set_theme(fg, "#1A1408" if active else ACCENT,
+                                    "#1A1408" if active else ACCENT)
         except Exception:
             pass
 
@@ -203,12 +200,14 @@ class ChoiceCard(ctk.CTkFrame):
                 self.title.configure(fg="#1A1408")
                 self.desc.configure(fg="#3A2C08")
                 if self.help is not None:
-                    self.help.configure(fg="#1A1408" if enabled else DISABLED)
+                    self.help.set_theme(ACCENT, "#1A1408" if enabled else DISABLED,
+                                        "#1A1408" if enabled else DISABLED)
             else:
                 self.title.configure(fg=TEXT if enabled else DISABLED)
                 self.desc.configure(fg=DIM if enabled else DISABLED)
                 if self.help is not None:
-                    self.help.configure(fg=DIM if enabled else DISABLED)
+                    self.help.set_theme(PANEL2, ACCENT if enabled else BORDER,
+                                        ACCENT if enabled else DISABLED)
         except Exception:
             pass
 
@@ -315,24 +314,49 @@ class Radio(ctk.CTkRadioButton):
     config = configure
 
 
-class Select(ctk.CTkOptionMenu):
-    """A styled option list with the small part of the ttk.Combobox API the app uses."""
+class Select(ctk.CTkButton):
+    """A styled drop-down: a normal button plus a rounded popup list (no native white-edged menu)."""
 
     def __init__(self, parent, values, var, width=16, **kw):
-        self._values = list(values or [""])
+        self._values = list(values or [""]) or [""]
         self._var = var
         self._cb = None
         self._popup = None
-        _strip(kw)
-        super().__init__(parent, values=self._values or [""], variable=var, width=max(80, int(width) * 9),
-                         height=34, fg_color=PANEL2, button_color=PANEL2, button_hover_color=BORDER,
-                         dropdown_fg_color=PANEL2, dropdown_hover_color=BORDER, dropdown_text_color=TEXT,
-                         text_color=TEXT, text_color_disabled=DISABLED, font=(FAM, 10), dropdown_font=(FAM, 10),
-                         corner_radius=8, command=self._chosen, **kw)
-        if self._values and var.get() not in self._values:
+        if var.get() not in self._values:
             var.set(self._values[0])
+        _strip(kw)
+        super().__init__(parent, text=self._label_text(), command=self._clicked,
+                         width=max(150, int(width) * 9), height=34, corner_radius=8,
+                         fg_color=PANEL2, hover_color=BORDER, text_color=TEXT,
+                         text_color_disabled=DISABLED, border_width=1, border_color=BORDER,
+                         anchor="w", font=(FAM, 10), **kw)
+        self._arrow = tk.Label(self, text="▾", bg=PANEL2, fg=DIM, font=(FAM, 10),
+                               cursor="hand2", padx=0)
+        self._arrow.place(relx=1.0, x=-10, rely=0.5, anchor="e")
+        self._arrow.bind("<Button-1>", self._clicked)
+        self._arrow.bind("<Enter>", lambda e: self._arrow.configure(bg=BORDER))
+        self._arrow.bind("<Leave>", lambda e: self._arrow.configure(bg=PANEL2))
+        self._trace = var.trace_add("write", self._var_changed)
+        tk.Frame.bind(self, "<Destroy>", self._destroyed, add="+")
 
-    def _chosen(self, _value):
+    def _label_text(self):
+        return self._var.get()
+
+    def _var_changed(self, *_):
+        try:
+            self.configure(text=self._label_text())
+        except Exception:
+            pass
+
+    def _destroyed(self, e=None):
+        if e is not None and e.widget is not self:
+            return
+        try:
+            self._var.trace_remove("write", self._trace)
+        except Exception:
+            pass
+
+    def _chosen(self, _value=None):
         if self._cb is not None:
             self._cb(None)
 
@@ -358,33 +382,37 @@ class Select(ctk.CTkOptionMenu):
 
     def configure(self, **kw):
         if "values" in kw:
-            self._values = list(kw.pop("values") or [""])
+            vals = list(kw.pop("values") or [""])
+            self._values = vals or [""]
             if self._var.get() not in self._values:
                 self._var.set(self._values[0])
-            super().configure(values=self._values)
             self._close_popup()
         if "state" in kw:
             state = kw.pop("state")
-            if state == "disabled":
+            kw["state"] = "disabled" if state == "disabled" else "normal"
+            if kw["state"] == "disabled":
                 self._close_popup()
-                kw.update(state="disabled", fg_color=PANEL, button_color=PANEL, text_color=DISABLED)
+                try:
+                    self._arrow.configure(fg=DISABLED, bg=PANEL2)
+                except Exception:
+                    pass
             else:
-                kw.update(state="normal", fg_color=PANEL2, button_color=PANEL2, text_color=TEXT)
+                try:
+                    self._arrow.configure(fg=DIM, bg=PANEL2)
+                except Exception:
+                    pass
         return super().configure(**kw)
 
     config = configure
 
-    # ---- the list itself: a rounded popup instead of Tk's square, white-edged native menu ----
-    def _clicked(self, event=0):
-        if self._state == "disabled" or not self._values:
+    # ---- the list itself ----
+    def _clicked(self, _e=None):
+        if self._state == "disabled":
             return
         if self._popup is not None and self._popup.winfo_exists():
             self._close_popup()
         else:
             self._open_popup()
-
-    def _open_dropdown_menu(self):
-        self._open_popup()
 
     def _open_popup(self):
         self._close_popup()
@@ -437,7 +465,9 @@ class Select(ctk.CTkOptionMenu):
         self._popup = top
 
     def _choose(self, value):
-        self._dropdown_callback(value)
+        self._var.set(value)
+        if self._cb is not None:
+            self._cb(None)
         self._close_popup()
 
     def _close_popup(self):
@@ -577,17 +607,40 @@ class HelpBanner(ctk.CTkFrame):
         self.pack_forget()
 
 
-class HelpIcon(tk.Label):
-    """A quiet "?" without a button background; it feeds the inline help strip."""
+class HelpIcon(tk.Canvas):
+    """A small outlined "?" badge: visible, but without a filled button behind it."""
 
-    def __init__(self, parent, text, title=None, bg=None, **kw):
+    def __init__(self, parent, text, title=None, bg=None, size=20, **kw):
         self._text = text
         self._title = title
-        super().__init__(parent, text="?", bg=bg or _parent_bg(parent), fg=DIM,
-                         font=(FAM, 9, "bold"), cursor="hand2", padx=2, **kw)
+        self._bg = bg or _parent_bg(parent)
+        self._size = size
+        self._outline = ACCENT
+        self._fg = ACCENT
+        super().__init__(parent, width=size, height=size, bg=self._bg,
+                         highlightthickness=0, cursor="hand2", **kw)
+        self._draw()
         self.bind("<Button-1>", self._open)
-        self.bind("<Enter>", lambda e: self.configure(fg=ACCENT))
-        self.bind("<Leave>", lambda e: self.configure(fg=DIM))
+        self.bind("<Enter>", lambda e: self._paint(ACCENT2, ACCENT2))
+        self.bind("<Leave>", lambda e: self._draw())
+
+    def _paint(self, outline, text):
+        self.delete("all")
+        pad = 2
+        self.create_oval(pad, pad, self._size - pad, self._size - pad,
+                         outline=outline, width=1)
+        self.create_text(self._size / 2, self._size / 2 + 1, text="?",
+                         fill=text, font=(FAM, 9, "bold"))
+
+    def _draw(self):
+        self._paint(self._outline, self._fg)
+
+    def set_theme(self, bg, outline=ACCENT_DARK, text=ACCENT):
+        self._bg = bg
+        self._outline = outline
+        self._fg = text
+        self.configure(bg=bg)
+        self._draw()
 
     def _open(self, _e=None):
         if HELP_HANDLER is None:

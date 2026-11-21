@@ -1497,6 +1497,8 @@ def gui() -> None:
         body = card(parent, L("stamina_title"), L("stamina_desc"))
         check_rb(body, L("stamina_on"), stamina)
         desc_label(body, L("stamina_on_desc"))
+        label(body, L("stamina_hearts"), size=9, color=AMBER, bg=PANEL).pack(
+            anchor="w", padx=(20, 0), pady=(2, 0))
 
         label(body, L("stamina_display"), size=10, color=ACCENT, bold=True, bg=PANEL).pack(anchor="w", pady=(8, 0))
         row = UI.Frame(body, bg=PANEL)
@@ -1531,27 +1533,19 @@ def gui() -> None:
             cv.delete("all")
             on = stamina.get()
             bar = stamina_bar.get()
-            main_col = ACCENT if on else DISABLED
-            soft = BORDER if not on else "#3c4f42"
-            # hero: a simple silhouette with the pack's emblem
-            cv.create_oval(46, 34, 102, 90, fill=PANEL, outline=main_col, width=2)
-            h = 15 * 0.866
-            for dx, dy in ((0, -h / 2), (-7.5, h / 2), (7.5, h / 2)):
-                x, y = 74 + dx, 62 + dy
-                cv.create_polygon(x, y - h / 2, x - 7.5, y + h / 2, x + 7.5, y + h / 2,
-                                  fill=main_col, outline="")
             if bar:
-                for i in range(16):
-                    x = 118 + i * 8
-                    fill = main_col if i < 12 else soft
-                    cv.create_rectangle(x, 46, x + 5, 76, fill=fill, outline="")
-                cv.create_text(118, 88, text=L("segments_text"), anchor="w", fill=DIM, font=(FAM, 8))
+                col = ACCENT if on else DISABLED
+                x0, y0, seg_w, gap, count = 35, 55, 11, 1, 16
+                for i in range(count):
+                    x = x0 + i * (seg_w + gap)
+                    cv.create_rectangle(x, y0, x + seg_w, y0 + 12, fill=col, outline="")
             else:
-                cv.create_arc(30, 18, 118, 106, start=90, extent=-270, style="arc", outline=soft, width=7)
-                cv.create_arc(30, 18, 118, 106, start=90, extent=-235, style="arc", outline=main_col, width=7)
-                cv.create_text(126, 56, text=L("stamina_ring"), anchor="w", fill=DIM, font=(FAM, 8))
+                col = TEAL if on else DISABLED
+                cv.create_arc(89, 17, 173, 101, start=90, extent=-270, style="arc",
+                              outline=col, width=8)
             if not on:
-                cv.create_text(200, 20, text="OFF", anchor="e", fill=DISABLED, font=(FAM, 8, "bold"))
+                cv.create_text(214, 18, text="OFF", anchor="e", fill=DISABLED,
+                               font=(FAM, 8, "bold"))
         ui["stamina_preview_paint"] = paint_preview
         paint_preview()
 

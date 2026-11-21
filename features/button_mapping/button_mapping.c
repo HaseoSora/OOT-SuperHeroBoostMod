@@ -92,6 +92,8 @@ int hud_zr_item(void);
 void hud_zr_hold(int hold);
 int hud_ingame(void);   /* core/hud.c: 0 while a menu covers the game (pause ...) */
 int hud_ingame_known(void);   /* core/hud.c: hud_ingame() reads the HUD (else it always says 1) */
+int hud_game_covered(void);   /* core/hud.c: a menu covers the game (pause flag below, or the HUD flag) */
+extern u32 g_game_paused;    /* core/hud.c: published copy of g_paused */
 int hud_menu_items(void);   /* core/hud.c: the pause menu's Items tab is open */
 int hud_menu_item(void);    /* core/hud.c: item index highlighted there (-1: none / not owned) */
 void hud_menu_tick(void);   /* core/hud.c: draw the slot cluster on the menu page */
@@ -242,7 +244,7 @@ void button_remap_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_res
     /* A menu covers the game, or the pause menu is up (+ pressed, until gameplay runs again): the real buttons.
      * Both: the HUD flag alone is not steady through the whole pause menu, and a remap switching on and off
      * there turned one press into two (the second unassigned the item). */
-    int covered = g_paused || (hud_ingame_known() && !hud_ingame());
+    int covered = hud_game_covered();
     if (!playing || covered || g_songbook_active || player_dead()) {
         g_remap_dbg[1]++;
         return;
@@ -327,23 +329,19 @@ void button_mapping_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_r
      * B stays "back"). An item already on another slot swaps with it. The game's ZL / ZR still change tabs. */
     /* The pause menu is open only after + was pressed in gameplay, until gameplay runs again (the Items panel exists
      * from boot and looks "open" on the title screen and while loading, where its cells are not ready). */
-    {   /* Gameplay runs again once the menu no longer covers the game (hud_ingame) and the HUD's frame count has
-         * moved 10 times since. Reads that land on the same frame count neither way: the game can read the pad
-         * more than once per frame, and counting those as "stopped" kept g_paused stuck on after the first pause.
-         * A + press that never brings a menu up (the menu was not seen in 60 frames) lets go too. */
-        static u32 seen_menu, wait;
+    {   /* The pause menu is up from the + press until gameplay runs again: 10 HUD frames in a row in which the
+         * player was updated (Link is frozen under the menu, so his frames never count there, whatever the HUD
+         * frame count or the HUD's own "in game" flag do). Reads that land on the same frame count neither way:
+         * the game can read the pad more than once per frame. */
         u32 f = hud_frame_count();
-        if ((pressed & BTN_PLUS) && player_active()) { g_paused = 1; g_run = 0; seen_menu = 0; wait = 0; }
-        else if (g_paused) {
-            if (!hud_ingame()) { seen_menu = 1; g_run = 0; }
-            else if (f != g_run_frame) {
-                if (seen_menu) g_run++;
-                else if (++wait > 60) g_paused = 0;
-            }
+        if ((pressed & BTN_PLUS) && player_active()) { g_paused = 1; g_run = 0; }
+        else if (g_paused && f != g_run_frame) {
+            g_run = player_active() ? g_run + 1 : 0;
             if (g_run > 10) g_paused = 0;
         }
         g_run_frame = f;
     }
+    g_game_paused = (u32)g_paused;
     int menu = g_paused && hud_menu_items();
     if (g_menu_assign_t < 1000) g_menu_assign_t++;
     if (g_shbcfg.button_mapping && !menu) { hud_menu_off(); g_menu_box = -3; }

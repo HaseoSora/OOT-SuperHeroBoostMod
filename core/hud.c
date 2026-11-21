@@ -1883,6 +1883,11 @@ static u64 g_ps_frame;
 int hud_ingame(void) { return !vptr(g_ps_frame) || (*(volatile u32 *)(g_ps_frame + 0x1A4) & 0x20000u) != 0; }
 /* hud_ingame() really reads the HUD (our parts are bound); 0: it always answers "in game" */
 int hud_ingame_known(void) { return vptr(g_ps_frame) != 0; }
+/* features/button_mapping keeps this: + was pressed in gameplay and gameplay has not run again yet */
+u32 g_game_paused;
+/* A menu covers the game (pause, map ...): what the mod injects or remaps must stay out of it. The HUD flag alone
+ * is not steady through the whole pause menu, so the + tracking counts too. */
+int hud_game_covered(void) { return g_game_paused || (hud_ingame_known() && !hud_ingame()); }
 /* Corner minimap (MapMenu_00): the layout is captured at its part instantiation (hook id 4) and its frame is
  * layout + 0xB0 (the PlayerStatus layout uses the same field). While playing, the scale of every map node is zeroed;
  * the map screen (hud_ingame() == 0) keeps them. */

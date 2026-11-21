@@ -12,6 +12,7 @@ import argparse
 import json
 import os
 import queue
+import re
 import sys
 import threading
 from pathlib import Path
@@ -311,13 +312,17 @@ def gui() -> None:
     root = ctk.CTk()
     root.title(f"Super Hero Boost {VERSION}")
     root.configure(fg_color=BG)
-    root.geometry("1120x780")
-    root.minsize(980, 660)
+    root.geometry("1320x840")
+    root.minsize(1180, 700)
     try:
         base = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent))
         icon = tk.PhotoImage(file=str(base / "assets" / "shb.png"))
         root.iconphoto(True, icon)
         root._shb_icon = icon
+        if sys.platform == "win32":
+            ico = base / "assets" / "shb.ico"
+            if ico.is_file():
+                root.iconbitmap(default=str(ico))
     except Exception:
         pass
 
@@ -415,7 +420,6 @@ def gui() -> None:
 
     L = lambda key, **kw: tr(lang.get(), key, **kw)  # noqa: E731
     UI.HELP_TITLE = L("help_title")
-    UI.CLOSE_LABEL = L("close")
 
     # ---- small widget helpers ----
     def button(parent, text, cmd, primary=False, **kw):
@@ -424,6 +428,16 @@ def gui() -> None:
     def label(parent, text, size=10, color=TEXT, bold=False, italic=False, wrap=760, **kw):
         return UI.Label(parent, text, size=size, fg=color, bold=bold, italic=italic, wrap=wrap,
                         bg=kw.pop("bg", PANEL), **kw)
+
+    def desc_label(parent, text, indent=20, pady=(0, 0), wrap=1000):
+        """An option's explanation: one line, with the rest behind a quiet "?"."""
+        first, rest = first_sentence(text)
+        row = UI.Frame(parent, bg=PANEL)
+        row.pack(anchor="w", padx=(indent, 0), pady=pady)
+        label(row, first, size=9, color=DIM, bg=PANEL, wrap=wrap).pack(side="left")
+        if rest:
+            RM.help_icon(row, text, COLORS, FAM).pack(side="left", padx=(6, 0))
+        return row
 
     def rb_tag(parent):
         """'Requires rebuild' tag: options stored in the module's configuration (subsdk9). Shown only for a
@@ -443,20 +457,30 @@ def gui() -> None:
         rb_tag(row).pack(side="left", padx=(10, 0))
         return c
 
+    def first_sentence(text):
+        """One-line card summaries; the rest of a long explanation goes to the inline help strip."""
+        text = (text or "").strip()
+        m = re.search(r"(?<=[.!?])\s+", text)
+        if not m:
+            return text, ""
+        return text[:m.start()].strip(), text[m.end():].strip()
+
     def card(parent, title, desc=None, rebuild=False, help=None):
+        shown, rest = first_sentence(desc) if desc else ("", "")
+        help_text = help or (desc if rest else None)
         f = UI.Card(parent)
-        f.pack(fill="x", padx=4, pady=(0, 14))
+        f.pack(fill="x", padx=4, pady=(0, 10))
         head = UI.Frame(f, bg=PANEL)
         head.pack(anchor="w", fill="x", padx=18, pady=(10, 0))
         UI.Label(head, title, size=13, fg=ACCENT, font=(DISPLAY, 15, "bold"), bg=PANEL).pack(side="left")
         if rebuild:
             rb_tag(head).pack(side="left", padx=(10, 0), pady=(3, 0))
-        if help:
-            UI.HelpIcon(head, help, title).pack(side="left", padx=(8, 0), pady=(2, 0))
-        if desc:
-            label(f, desc, size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=18, pady=(3, 10))
+        if help_text:
+            UI.HelpIcon(head, help_text, title).pack(side="left", padx=(8, 0), pady=(2, 0))
+        if shown:
+            label(f, shown, size=9, color=DIM, bg=PANEL, wrap=1000).pack(anchor="w", padx=18, pady=(3, 10))
         body = UI.Frame(f, bg=PANEL)
-        body.pack(fill="x", padx=18, pady=(0, 16))
+        body.pack(fill="x", padx=18, pady=(0, 14))
         return body
 
     def check(parent, text, var):
@@ -1166,7 +1190,7 @@ def gui() -> None:
             return
         stam = stamina.get()
         adv = stam and mode.get() == "advanced"
-        for w in ui.get("modes", []):
+        for w in list(ui.get("modes", [])) + list(ui.get("display_modes", [])):
             w.config(state="normal" if stam else "disabled")
         for w in ui.get("costs", []):
             w.config(state="normal" if adv else "disabled")
@@ -1181,6 +1205,9 @@ def gui() -> None:
         for w in ui.get("bm", []):
             w.config(state=("readonly" if isinstance(w, UI.Select) else "normal") if on else "disabled")
         ui["note"].config(text="" if stam else L("stamina_off_note"), fg=AMBER)
+        paint = ui.get("stamina_preview_paint")
+        if paint is not None:
+            paint()
         rec = target.get() in ("recomp", "rekarina")
         for t in ui.get("rb_tags", []):
             try:
@@ -1277,8 +1304,12 @@ def gui() -> None:
             if mods and status.get() == L("pick_emu"):
                 status.set("")
         token = profile.get().replace("-", "_")
-        ui["profile_desc"].config(text=L("p_" + token + "_d") if profile.get() in PROFILES
-                                  else L("p_custom_d"))
+        if "profile_desc" in ui:
+            ui["profile_desc"].config(text=L("p_" + token + "_d") if profile.get() in PROFILES
+                                      else L("p_custom_d"))
+        paint = ui.get("profile_paint")
+        if paint is not None:
+            paint()
         ui["profile_badge"].config(text=L("profile_current", a=profile_name(profile.get())),
                                    fg=AMBER if profile.get() == "custom" else ACCENT)
         ui["reapply"].config(state="normal" if profile.get() != "custom" else "disabled")
@@ -1313,26 +1344,24 @@ def gui() -> None:
     # ---- sections ----
     def build_home(parent):
         body = card(parent, L("home_title"), L("home_desc"))
-        ui["profile_desc"] = label(body, "", size=10, color=AMBER, bold=True, bg=PANEL)
-        ui["profile_desc"].pack(anchor="w", pady=(0, 5))
         prof = UI.Frame(body, bg=PANEL)
         prof.pack(fill="x")
-        for i, key in enumerate(PROFILE_KEYS):
-            row = UI.Frame(prof, bg=PANEL)
-            row.grid(row=i, column=0, sticky="ew", pady=1)
-            prof.grid_columnconfigure(0, weight=1)
-            r = radio(row, "", profile, key, cmd=lambda k=key: choose_profile(k))
-            r.pack(side="left")
-            name = label(row, profile_name(key), size=10, color=TEXT, bg=PANEL,
-                         bold=(key == "recommended"))
-            name.configure(width=27)
-            name.pack(side="left", padx=(2, 8))
-            desc = label(row, L("p_" + key.replace("-", "_") + "_d"), size=9, color=DIM, bg=PANEL,
-                         wrap=540)
-            desc.pack(side="left", fill="x", expand=True)
-            for w in (name, desc):
-                w.bind("<Button-1>", lambda e, k=key: choose_profile(k))
-        label(body, L("profile_shield_note"), size=9, color=AMBER, bg=PANEL).pack(anchor="w", pady=(8, 0))
+        ui["profile_cards"] = []
+        for key in PROFILE_KEYS:
+            full = L("p_" + key.replace("-", "_") + "_d")
+            shown, rest = first_sentence(full)
+            c = UI.ChoiceCard(prof, profile_name(key), shown, command=lambda k=key: choose_profile(k),
+                              desc_wrap=900, title_size=10, help_text=full if rest else None)
+            c.pack(fill="x", pady=(0, 4))
+            ui["profile_cards"].append((key, c))
+
+        def paint_profiles():
+            for key, c in ui.get("profile_cards", []):
+                c.set_active(key == profile.get())
+
+        paint_profiles()
+        ui["profile_paint"] = paint_profiles
+        desc_label(body, L("profile_shield_note"), indent=0, pady=(8, 0))
         ui["reapply"] = button(body, L("reapply"), lambda: apply_profile(profile.get()))
         ui["reapply"].pack(anchor="w", pady=(8, 0))
 
@@ -1467,15 +1496,67 @@ def gui() -> None:
     def build_stamina(parent):
         body = card(parent, L("stamina_title"), L("stamina_desc"))
         check_rb(body, L("stamina_on"), stamina)
-        label(body, L("stamina_on_desc"), size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=(20, 0))
-        label(body, L("stamina_display"), size=10, color=ACCENT, bold=True, bg=PANEL).pack(anchor="w", pady=(10, 0))
+        desc_label(body, L("stamina_on_desc"))
+
+        label(body, L("stamina_display"), size=10, color=ACCENT, bold=True, bg=PANEL).pack(anchor="w", pady=(8, 0))
+        row = UI.Frame(body, bg=PANEL)
+        row.pack(fill="x", pady=(2, 0))
+        opts = UI.Frame(row, bg=PANEL)
+        opts.pack(side="left", anchor="n")
+        ui["display_modes"] = []
         for value, key in ((False, "stamina_ring"), (True, "stamina_bar")):
-            r = radio(body, L(key), stamina_bar, value)
-            r.pack(anchor="w")
-            ui.setdefault("modes", []).append(r)
-            label(body, L(key + "_d"), size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=(20, 0))
-        ui["note"] = label(parent, "", size=9, color=AMBER, bg=BG, wrap=760)
-        ui["note"].pack(anchor="w", padx=10, pady=(0, 6))
+            full = L(key + "_d")
+            shown, rest = first_sentence(full)
+            line = UI.Frame(opts, bg=PANEL)
+            line.pack(anchor="w")
+            r = radio(line, L(key), stamina_bar, value)
+            r.pack(side="left")
+            ui["display_modes"].append(r)
+            if rest:
+                RM.help_icon(line, full, COLORS, FAM).pack(side="left", padx=(6, 0))
+            label(opts, shown, size=9, color=DIM, bg=PANEL, wrap=560).pack(
+                anchor="w", padx=(20, 0), pady=(0, 3))
+
+        prev = UI.Frame(row, bg=PANEL)
+        prev.pack(side="left", anchor="n", padx=(36, 0))
+        label(prev, L("preview"), size=9, color=DIM, bold=True, bg=PANEL).pack(anchor="w")
+        cv = tk.Canvas(prev, width=262, height=122, bg=PANEL2, highlightthickness=1,
+                       highlightbackground=BORDER)
+        cv.pack(anchor="w", pady=(2, 0))
+        ui["stamina_preview"] = cv
+
+        def paint_preview():
+            if not cv.winfo_exists():
+                return
+            cv.delete("all")
+            on = stamina.get()
+            bar = stamina_bar.get()
+            main_col = ACCENT if on else DISABLED
+            soft = BORDER if not on else "#3c4f42"
+            # hero: a simple silhouette with the pack's emblem
+            cv.create_oval(46, 34, 102, 90, fill=PANEL, outline=main_col, width=2)
+            h = 15 * 0.866
+            for dx, dy in ((0, -h / 2), (-7.5, h / 2), (7.5, h / 2)):
+                x, y = 74 + dx, 62 + dy
+                cv.create_polygon(x, y - h / 2, x - 7.5, y + h / 2, x + 7.5, y + h / 2,
+                                  fill=main_col, outline="")
+            if bar:
+                for i in range(16):
+                    x = 118 + i * 8
+                    fill = main_col if i < 12 else soft
+                    cv.create_rectangle(x, 46, x + 5, 76, fill=fill, outline="")
+                cv.create_text(118, 88, text=L("segments_text"), anchor="w", fill=DIM, font=(FAM, 8))
+            else:
+                cv.create_arc(30, 18, 118, 106, start=90, extent=-270, style="arc", outline=soft, width=7)
+                cv.create_arc(30, 18, 118, 106, start=90, extent=-235, style="arc", outline=main_col, width=7)
+                cv.create_text(126, 56, text=L("stamina_ring"), anchor="w", fill=DIM, font=(FAM, 8))
+            if not on:
+                cv.create_text(200, 20, text="OFF", anchor="e", fill=DISABLED, font=(FAM, 8, "bold"))
+        ui["stamina_preview_paint"] = paint_preview
+        paint_preview()
+
+        ui["note"] = label(body, "", size=9, color=AMBER, bg=PANEL, wrap=1000)
+        ui["note"].pack(anchor="w", pady=(6, 0))
 
         body = card(parent, L("stamina_mode"))
         ui["modes"] = []
@@ -1483,7 +1564,8 @@ def gui() -> None:
             r = radio(body, L("m_" + name), mode, name)
             r.pack(anchor="w")
             ui["modes"].append(r)
-            label(body, L("m_" + name + "_d"), size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=(20, 0), pady=(0, 3))
+            label(body, L("m_" + name + "_d"), size=9, color=DIM, bg=PANEL).pack(
+                anchor="w", padx=(20, 0), pady=(0, 3))
 
         body = card(parent, L("costs_title"), L("costs_desc"))
         grid = UI.Frame(body, bg=PANEL)
@@ -1495,19 +1577,6 @@ def gui() -> None:
             ui["costs"].append(c)
         ui["combat"] = check(body, L("combat_only"), combat)
         ui["combat"].pack(anchor="w", pady=(6, 0))
-
-        body = card(parent, L("sprint_speed"))
-        row = UI.Frame(body, bg=PANEL)
-        row.pack(fill="x")
-        label(row, L("sprint_speed") + ":", size=10, bg=PANEL).pack(side="left", padx=(0, 8))
-        values = [L("speed_van")] + ["×%g" % (v / 100) for v in SPEEDS[1:]]
-        svar = tk.StringVar(value=values[SPEEDS.index(speed.get())])
-        ui["sprint_var"] = svar
-        ui["sprint_values"] = values
-        cb = combo(row, values, svar, width=14)
-        cb.pack(side="left")
-        cb.bind("<<ComboboxSelected>>", lambda e: speed.set(SPEEDS[cb.current()]))
-        ui["sprint"] = cb
 
     def build_difficulty(parent):
         body = card(parent, L("difficulty_title"), L("difficulty_desc"))
@@ -1524,9 +1593,9 @@ def gui() -> None:
             ui["mult"].append((cb, var, svar, names, MULT))
         c = check(body, L("no_heart_drop"), nodrop)
         c.pack(anchor="w", pady=(10, 0))
-        label(body, L("no_heart_drop_desc"), size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=(20, 0))
+        desc_label(body, L("no_heart_drop_desc"))
         check(body, L("no_magic_drop"), nmagic).pack(anchor="w", pady=(10, 0))
-        label(body, L("no_magic_drop_desc"), size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=(20, 0))
+        desc_label(body, L("no_magic_drop_desc"))
         label(body, L("difficulty_note"), size=9, color=DIM, bg=PANEL).pack(anchor="w", pady=(8, 0))
         build_enemies(parent)
 
@@ -1559,9 +1628,9 @@ def gui() -> None:
         ui["clock_var"] = cvar
         ui["clock_values"] = values
         check(body, L("hud_collectibles"), hud_collectibles).pack(anchor="w", pady=(8, 0))
-        label(body, L("hud_collectibles_desc"), size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=(20, 0))
+        desc_label(body, L("hud_collectibles_desc"))
         check(body, L("hide_minimap"), hide_min).pack(anchor="w", pady=(8, 0))
-        label(body, L("hide_minimap_desc"), size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=(20, 0))
+        desc_label(body, L("hide_minimap_desc"))
         label(body, L("hud_note"), size=9, color=DIM, bg=PANEL).pack(anchor="w", pady=(8, 0))
         build_game_prompts(parent)
 
@@ -1587,14 +1656,8 @@ def gui() -> None:
         refresh_layout_note()
 
     def build_controls(parent):
-        hero = card(parent, L("ctrl_hero_title"), L("ctrl_hero_desc"))
-        hrow = UI.Frame(hero, bg=PANEL)
-        hrow.pack(fill="x", pady=(0, 4))
-        button(hrow, L("ctrl_go_help"), lambda: UI.help_window(root, L("help_controls_title"),
-                                                             L("help_controls_body")), primary=True).pack(side="left")
-        button(hrow, L("nav_help"), lambda: show_section("help")).pack(side="left", padx=(8, 0))
-
-        pbody = card(parent, L("ctrl_preset_title"), L("ctrl_preset_desc"))
+        pbody = card(parent, L("ctrl_preset_title"), L("ctrl_preset_desc"),
+                     help=L("ctrl_preset_desc") + "\n\n" + L("ctrl_hero_desc") + "\n\n" + L("rm_help"))
         pgrid = UI.Frame(pbody, bg=PANEL)
         pgrid.pack(fill="x")
         for i in range(2):
@@ -1615,40 +1678,20 @@ def gui() -> None:
 
         for i, key in enumerate(I.REMAP_PRESET_KEYS):
             b = UI.ChoiceCard(pgrid, L("preset_" + key), L("ctrl_preset_" + key + "_d"),
-                              command=lambda k=key: apply_preset(k))
+                              command=lambda k=key: apply_preset(k), desc_wrap=480)
             b.grid(row=i // 2, column=i % 2, sticky="ew", padx=(0, 8) if i % 2 == 0 else (0, 0),
                    pady=(0, 8))
             ui["ctrl_presets"].append((key, b))
 
         srow = UI.Frame(pbody, bg=PANEL)
         srow.pack(fill="x", pady=(2, 0))
-        ui["ctrl_summary"] = label(srow, "", size=9, color=DIM, bg=PANEL, wrap=760)
+        ui["ctrl_summary"] = label(srow, "", size=9, color=DIM, bg=PANEL, wrap=1000)
         ui["ctrl_summary"].pack(side="left", fill="x", expand=True)
 
-        adv = UI.Frame(parent, bg=BG)
-        ui["ctrl_advanced"] = adv
-        abody = card(adv, L("ctrl_advanced_title"), L("ctrl_advanced_desc"),
-                     help=L("ctrl_advanced_desc") + "\n\n" + L("rm_help"))
+        abody = card(parent, L("ctrl_advanced_title"), L("ctrl_advanced_desc"), help=L("rm_help"))
         RM.RemapEditor(abody, L, FAM, COLORS,
                        dict(bmap=bmap, roles=broles, bstyle=bstyle, bsimple=bsimple, switch_target=switch_target,
                             auto_target=auto_target, sprint_toggle=sprint_l3_toggle, mshield=manual_shield))
-        adv_open = {"on": False}
-
-        def toggle_advanced():
-            adv_open["on"] = not adv_open["on"]
-            if adv_open["on"]:
-                adv.pack(fill="x")
-                ui["ctrl_adv_btn"].configure(text=L("ctrl_advanced_hide"))
-            else:
-                adv.pack_forget()
-                ui["ctrl_adv_btn"].configure(text=L("ctrl_advanced_show"))
-
-        ui["ctrl_adv_btn"] = button(pbody, L("ctrl_advanced_show"), toggle_advanced)
-        ui["ctrl_adv_btn"].pack(anchor="w", pady=(10, 0))
-        if os.environ.get("SHB_UI_ADVANCED"):
-            adv_open["on"] = True
-            adv.pack(fill="x")
-            ui["ctrl_adv_btn"].configure(text=L("ctrl_advanced_hide"))
 
         for var, tid in ui.get("ctrl_trace_ids", []):
             try:
@@ -1656,8 +1699,6 @@ def gui() -> None:
             except (tk.TclError, ValueError):
                 pass
         ui["ctrl_trace_ids"] = []
-        for var in (bmap, manual_shield, *broles.values()):
-            ui["ctrl_trace_ids"].append((var, var.trace_add("write", lambda *_: refresh_controls())))
 
         def refresh_controls():
             if not ui.get("ctrl_summary"):
@@ -1673,6 +1714,9 @@ def gui() -> None:
                     parts.append(f"{b} {L('role_' + role)}")
             ui["ctrl_summary"].config(text=L("ctrl_summary") + "  " + "  ·  ".join(parts))
             paint_presets()
+
+        for var in (bmap, manual_shield, *broles.values()):
+            ui["ctrl_trace_ids"].append((var, var.trace_add("write", lambda *_: refresh_controls())))
 
         ui["ctrl_refresh"] = refresh_controls
         refresh_controls()
@@ -1816,7 +1860,7 @@ def gui() -> None:
         label(body, L("beta_warning"), size=9, color=RED, bold=True, bg=PANEL).pack(anchor="w", pady=(0, 6))
         label(body, L("enemy_double"), size=10, color=ACCENT, bold=True, bg=PANEL).pack(anchor="w")
         check(body, L("enemy_double_on"), enemy_double).pack(anchor="w", padx=(0, 0))
-        label(body, L("enemy_double_desc"), size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=(20, 0), pady=(0, 8))
+        desc_label(body, L("enemy_double_desc"), pady=(0, 8))
         label(body, L("enemy_speed"), size=10, color=ACCENT, bold=True, bg=PANEL).pack(anchor="w")
         row = UI.Frame(body, bg=PANEL)
         row.pack(fill="x", pady=(2, 0))
@@ -1832,7 +1876,7 @@ def gui() -> None:
             cb.grid(row=rowi, column=col + 1, sticky="w", padx=(0, 18), pady=(0, 2))
             cb.bind("<<ComboboxSelected>>", lambda e, c=cb, v=var: v.set(I.ENEMY_LEVELS[c.current()]))
             ui["enemy"].append((cb, var))
-        label(body, L("enemy_speed_desc"), size=9, color=DIM, bg=PANEL).pack(anchor="w", pady=(6, 0))
+        desc_label(body, L("enemy_speed_desc"), indent=0, pady=(6, 0))
         # aggression: alert radius (a multiplier, like the speeds) and the aggression level
         label(body, L("aggro_title"), size=10, color=ACCENT, bold=True, bg=PANEL).pack(anchor="w", pady=(10, 0))
         row = UI.Frame(body, bg=PANEL)
@@ -1870,68 +1914,20 @@ def gui() -> None:
         body = card(parent, L("misc_title"), L("misc_desc"))
         label(body, L("songbook_title"), size=11, color=ACCENT, bold=True, bg=PANEL).pack(anchor="w", pady=(2, 0))
         check_rb(body, L("songbook_on"), songbook, pady=(2, 0))
-        label(body, L("songbook_desc"), size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=(20, 0))
+        desc_label(body, L("songbook_desc"))
         label(body, L("songbook_note"), size=9, color=AMBER, bg=PANEL).pack(anchor="w", pady=(8, 0))
 
         body = card(parent, L("world_beta_title"), L("world_beta_desc"))
         label(body, L("great_fairy"), size=10, color=ACCENT, bold=True, bg=PANEL).pack(anchor="w")
         check(body, L("great_fairy_on"), great_fairy).pack(anchor="w")
-        label(body, L("great_fairy_desc"), size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=(20, 0), pady=(0, 8))
+        desc_label(body, L("great_fairy_desc"), pady=(0, 8))
         label(body, L("farore"), size=10, color=ACCENT, bold=True, bg=PANEL).pack(anchor="w")
         check(body, L("farore_on"), farore_outdoor).pack(anchor="w")
-        label(body, L("farore_desc"), size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=(20, 0))
+        desc_label(body, L("farore_desc"))
 
     def open_github():
         import webbrowser
         webbrowser.open("https://github.com/kuribox/OOT-SuperHeroBoostMod")
-
-    def build_help(parent):
-        hero = card(parent, L("help_title"), L("help_desc"))
-        q = tk.StringVar()
-        label(hero, L("help_search"), size=9, color=DIM, bg=PANEL).pack(anchor="w", pady=(0, 4))
-        search = UI.Entry(hero, textvariable=q, bg=PANEL2, fg=TEXT, font=(FAM, 10))
-        search.pack(fill="x", pady=(0, 6))
-        nores = label(hero, L("help_no_results"), size=9, color=AMBER, bg=PANEL)
-        nores.pack(anchor="w")
-        nores.pack_forget()
-        cards: list[tuple[object, str]] = []
-
-        def topic(key, body, section=None):
-            f = UI.Card(parent)
-            f.pack(fill="x", padx=4, pady=(0, 12))
-            head = UI.Frame(f, bg=PANEL)
-            head.pack(fill="x", padx=18, pady=(10, 0))
-            UI.Label(head, L(key + "_title"), size=13, fg=ACCENT, font=(DISPLAY, 15, "bold"),
-                     bg=PANEL).pack(side="left")
-            UI.HelpIcon(head, L(body), L(key + "_title")).pack(side="left", padx=(8, 0), pady=(2, 0))
-            UI.Label(f, L(body), size=9, color=DIM, bg=PANEL, wrap=780).pack(anchor="w", padx=18, pady=(4, 8))
-            if section:
-                button(f, L("nav_" + section), lambda s=section: show_section(s)).pack(anchor="w", padx=18,
-                                                                                     pady=(0, 14))
-            cards.append((f, (L(key + "_title") + " " + L(body)).lower()))
-
-        topic("help_start", "help_start_body", "install")
-        topic("help_controls", "help_controls_body", "controls")
-        topic("help_install", "help_install_body", "install")
-        topic("help_rekarina", "help_rekarina_body", "install")
-        topic("help_problems", "help_problems_body")
-
-        def filter_help(*_):
-            needle = q.get().strip().lower()
-            shown = 0
-            for f, text in cards:
-                if not needle or needle in text:
-                    if not f.winfo_manager():
-                        f.pack(fill="x", padx=4, pady=(0, 12))
-                    shown += 1
-                else:
-                    f.pack_forget()
-            if shown:
-                nores.pack_forget()
-            else:
-                nores.pack(anchor="w")
-
-        q.trace_add("write", filter_help)
 
     def build_about(parent):
         body = card(parent, L("about_title"))
@@ -2008,9 +2004,9 @@ def gui() -> None:
         side = UI.Frame(shell, bg=SIDEBAR, width=204)
         side.pack(side="left", fill="y", padx=(10, 0), pady=(0, 10))
         side.pack_propagate(False)
-        nav = (("home", "nav_home"), ("install", "nav_install"), ("stamina", "nav_stamina"),
+        nav = (("install", "nav_install"), ("home", "nav_home"), ("stamina", "nav_stamina"),
                ("difficulty", "nav_difficulty"), ("controls", "nav_controls"), ("hud", "nav_hud"),
-               ("misc", "nav_misc"), ("help", "nav_help"), ("about", "nav_about"))
+               ("misc", "nav_misc"), ("about", "nav_about"))
         for key, text in nav:
             b = ctk.CTkButton(side, text="   " + L(text), command=lambda k=key: show_section(k),
                               anchor="w", fg_color="transparent", hover_color=PANEL, text_color=TEXT,
@@ -2022,11 +2018,21 @@ def gui() -> None:
     def build_content(shell):
         wrap = UI.Frame(shell, bg=BG)
         wrap.pack(side="left", fill="both", expand=True, padx=(12, 12), pady=(0, 8))
+        banner = UI.HelpBanner(wrap)
+        ui["help_banner"] = banner
         scroll = ScrollArea(wrap, BG)
         scroll.frame.pack(fill="both", expand=True)
+
+        def show_help(title, text):
+            banner.show(title, text)
+            if not banner.winfo_manager():
+                banner.pack(fill="x", padx=4, pady=(0, 6), before=scroll.frame)
+            ui["_scroll"].refresh()
+
+        UI.set_help_handler(show_help)
         builders = {"home": build_home, "install": build_install, "stamina": build_stamina,
                     "difficulty": build_difficulty, "controls": build_controls, "hud": build_hud,
-                    "misc": build_misc, "help": build_help, "about": build_about}
+                    "misc": build_misc, "about": build_about}
         for key, fn in builders.items():
             f = UI.Frame(scroll.inner, bg=BG)
             fn(f)
@@ -2057,6 +2063,9 @@ def gui() -> None:
 
     def show_section(key):
         state["section"] = key
+        banner = ui.get("help_banner")
+        if banner is not None:
+            banner.hide()
         for k, f in ui["sections"].items():
             f.pack_forget()
         ui["sections"][key].pack(fill="x", padx=4, pady=(4, 0))
@@ -2068,7 +2077,6 @@ def gui() -> None:
 
     def render():
         UI.HELP_TITLE = L("help_title")
-        UI.CLOSE_LABEL = L("close")
         old = ui.get("_scroll")
         if old is not None:
             old.destroy()

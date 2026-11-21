@@ -2241,12 +2241,33 @@ _LATE = {
 for _lang, _txt in _LATE.items():
     T[_lang].update(_txt)
 
+# The sidebar now starts with Install; Home became the presets page and Stamina is part of Gameplay.
+_NAV = {
+    "en": dict(nav_home="Presets", nav_stamina="Gameplay", home_title="Game presets"),
+    "es": dict(nav_home="Presets", nav_stamina="Gameplay", home_title="Presets de juego"),
+    "pt": dict(nav_home="Presets", nav_stamina="Gameplay", home_title="Presets de jogo"),
+    "fr": dict(nav_home="Préréglages", nav_stamina="Gameplay", home_title="Préréglages du jeu"),
+    "de": dict(nav_home="Presets", nav_stamina="Gameplay", home_title="Spiel-Presets"),
+    "it": dict(nav_home="Presets", nav_stamina="Gameplay", home_title="Preset di gioco"),
+}
+for _lang, _txt in _NAV.items():
+    T[_lang].update(_txt)
+
 _CLOSE = {
     "en": "Close", "es": "Cerrar", "pt": "Fechar",
     "fr": "Fermer", "de": "Schließen", "it": "Chiudi",
 }
 for _lang, _word in _CLOSE.items():
     T[_lang]["close"] = _word
+
+_PREVIEW = {
+    "en": ("Preview", "16 segments"), "es": ("Vista previa", "16 segmentos"),
+    "pt": ("Pré-visualização", "16 segmentos"), "fr": ("Aperçu", "16 segments"),
+    "de": ("Vorschau", "16 Segmente"), "it": ("Anteprima", "16 segmenti"),
+}
+for _lang, (_preview, _segments) in _PREVIEW.items():
+    T[_lang]["preview"] = _preview
+    T[_lang]["segments_text"] = _segments
 
 
 def tr(lang: str, key: str, **kw) -> str:

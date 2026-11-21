@@ -305,25 +305,22 @@ class RemapEditor:
         self.frame = UI.Frame(parent, bg=bg)
         self.frame.pack(fill="x")
 
-        top = UI.Frame(self.frame, bg=bg)
-        top.pack(anchor="w", fill="x")
-        UI.Label(top, text=L("rm_preset"), bg=bg, fg=colors["TEXT"], font=(fam, 10)).pack(side="left")
-        self.preset_keys = list(I.REMAP_PRESET_KEYS)
-        self.preset_var = tk.StringVar(value=L("preset_" + self.preset_keys[0]))
-        self.preset = UI.Select(top, [L("preset_" + k) for k in self.preset_keys] + [L("rm_custom")],
-                                self.preset_var, width=24)
-        self.preset.pack(side="left", padx=(8, 6))
-        self.preset.bind("<<ComboboxSelected>>", self._pick_preset)
-        help_icon(top, L("rm_help"), colors, fam).pack(side="left")
-        self.count = UI.Label(top, text="", bg=bg, fg=colors["DIM"], font=(fam, 9))
-        self.count.pack(side="left", padx=(16, 0))
+        main = UI.Frame(self.frame, bg=bg)
+        main.pack(fill="x", pady=(4, 0))
+        main.grid_columnconfigure(0, weight=1)
+        left = UI.Frame(main, bg=bg)
+        left.grid(row=0, column=0, sticky="nw")
+        right = UI.Frame(main, bg=bg)
+        right.grid(row=0, column=1, sticky="ne", padx=(24, 0))
 
-        left = UI.Frame(self.frame, bg=bg)
-        left.pack(anchor="w", fill="x", pady=(8, 0))
+        self.count = UI.Label(left, text="", bg=bg, fg=colors["DIM"], font=(fam, 9))
+        self.count.pack(anchor="w", pady=(0, 4))
 
         for b in ROW_ORDER:
-            row = UI.Frame(left, bg=bg)
-            row.pack(anchor="w", pady=2, fill="x")
+            box = UI.Frame(left, bg=bg)
+            box.pack(anchor="w", fill="x", pady=(1, 3))
+            row = UI.Frame(box, bg=bg)
+            row.pack(anchor="w", fill="x")
             chip = tk.Canvas(row, width=40, height=28, bg=bg, highlightthickness=0)
             chip.pack(side="left")
             self.chips[b] = chip
@@ -335,33 +332,27 @@ class RemapEditor:
             self.combos[b] = cb
             help_slot = UI.Frame(row, bg=bg)   # the role's own "?" beside its list
             help_slot.pack(side="left", padx=(4, 0))
-            opt = UI.Frame(row, bg=bg)         # the role's options, on the same line
-            opt.pack(side="left", padx=(10, 0))
+            opt = UI.Frame(box, bg=bg)         # the role's options, on the line below
+            opt.pack(anchor="w", padx=(56, 0), pady=(2, 0))
             self.opts[b] = (help_slot, opt)
 
-        views = UI.Frame(self.frame, bg=bg)
-        views.pack(anchor="w", pady=(10, 0))
-        lcol = UI.Frame(views, bg=bg)
-        lcol.pack(side="left", anchor="n")
-        rcol = UI.Frame(views, bg=bg)
-        rcol.pack(side="left", anchor="n", padx=(12, 0))
-        UI.Label(lcol, text=L("rm_pad"), bg=bg, fg=colors["DIM"], font=(fam, 9, "bold")).pack(anchor="w")
-        self.pad = tk.Canvas(lcol, width=400, height=230, bg=colors["PANEL2"], highlightthickness=1,
+        UI.Label(right, text=L("rm_pad"), bg=bg, fg=colors["DIM"], font=(fam, 9, "bold")).pack(anchor="w")
+        self.pad = tk.Canvas(right, width=400, height=228, bg=colors["PANEL2"], highlightthickness=1,
                              highlightbackground=colors["BORDER"])
         self.pad.pack(anchor="w")
-        hrow = UI.Frame(rcol, bg=bg)
-        hrow.pack(anchor="w")
+        hrow = UI.Frame(right, bg=bg)
+        hrow.pack(anchor="w", pady=(8, 0))
         UI.Label(hrow, text=L("rm_hud"), bg=bg, fg=colors["DIM"], font=(fam, 9, "bold")).pack(side="left")
         help_icon(hrow, L("rm_hud_help"), colors, fam).pack(side="left", padx=(4, 0))
-        self.hud = tk.Canvas(rcol, width=360, height=230, bg="#101010", highlightthickness=1,
+        self.hud = tk.Canvas(right, width=360, height=228, bg="#101010", highlightthickness=1,
                              highlightbackground=colors["BORDER"])
         self.hud.pack(anchor="w")
 
         self.notes = UI.Label(self.frame, text="", bg=bg, fg=colors["AMBER"], font=(fam, 9), justify="left",
-                              anchor="w", wraplength=760)
+                              anchor="w", wraplength=980)
         self.notes.pack(anchor="w", pady=(8, 0))
         self.info = UI.Label(self.frame, text="", bg=bg, fg=colors["DIM"], font=(fam, 9), justify="left",
-                             anchor="w", wraplength=760)
+                             anchor="w", wraplength=980)
         self.info.pack(anchor="w", pady=(2, 0))
 
         for key in ("bmap", "bstyle", "bsimple"):
@@ -423,16 +414,6 @@ class RemapEditor:
             set_roles(rv, {b: ("none" if var.get() == "shield" else var.get()) for b, var in rv.items()})
         self.redraw()
 
-    def _pick_preset(self, _e=None):
-        i = self.preset.current()
-        if i < len(self.preset_keys):
-            table = I.REMAP_PRESETS[self.preset_keys[i]]
-            if "shield" in table.values() and not self.v["mshield"].get():
-                self.v["mshield"].set(True)   # a preset with a shield button turns the manual shield on
-            set_roles(self.v["roles"], table)
-        else:
-            self.redraw()
-
     def _options_for(self, btn: str, role: str):
         """The options of the role on this row: target (switch, next one) and sprint (toggle)."""
         if self._shown_opts.get(btn) == role:
@@ -452,11 +433,14 @@ class RemapEditor:
             UI.Check(f, text=self.L(key), variable=var, bg=bg, fg=self.c["TEXT"], selectcolor=self.c["PANEL2"],
                      activebackground=bg, activeforeground=self.c["ACCENT"], font=(self.fam, 9),
                      highlightthickness=0, bd=0).pack(side="left")
-            help_icon(f, self.L(key + "_help"), self.c, self.fam).pack(side="left", padx=(1, 12))
+            help_icon(f, self.L(key + "_help"), self.c, self.fam).pack(side="left", padx=(1, 8))
         if role in ROLE_HELP:
             help_icon(help_slot, self.L(ROLE_HELP[role]), self.c, self.fam).pack(side="left")
-        if not items:   # no options: the line takes no room
-            f.configure(height=1)
+        if items:   # options appear on their own line under the select
+            if not f.winfo_manager():
+                f.pack(anchor="w", padx=(56, 0), pady=(2, 0))
+        else:
+            f.pack_forget()
 
     # ---- drawing ----
     def redraw(self):
@@ -475,8 +459,6 @@ class RemapEditor:
             cb.current(ch.index(roles[b]) if roles[b] in ch else 0)
             self._chip(self.chips[b], 20, 14, b, 12)
             self._options_for(b, roles[b])
-        k = preset_of(roles)
-        self.preset.current(self.preset_keys.index(k) if k in self.preset_keys else len(self.preset_keys))
         n_items = sum(1 for r in roles.values() if r in I.ITEM_ROLES)
         self.count.config(text=self.L("rm_items", n=n_items))
         notes = []

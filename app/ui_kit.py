@@ -34,7 +34,13 @@ AMBER = "#F2B45E"
 FAM = "Segoe UI"
 DISPLAY = "Palatino Linotype"
 HELP_TITLE = "Ayuda"
-CLOSE_LABEL = "Cerrar"
+HELP_HANDLER = None
+
+
+def set_help_handler(handler) -> None:
+    """Register the inline help strip: HelpIcon sends the text there instead of opening a window."""
+    global HELP_HANDLER
+    HELP_HANDLER = handler
 
 
 def set_fonts(fam: str, display: str) -> None:
@@ -139,19 +145,30 @@ class Chip(ctk.CTkLabel):
 class ChoiceCard(ctk.CTkFrame):
     """A large selectable card with a left-aligned title and description."""
 
-    def __init__(self, parent, title, desc="", command=None, **kw):
+    def __init__(self, parent, title, desc="", command=None, desc_wrap=520, title_size=10,
+                 help_text=None, **kw):
         super().__init__(parent, fg_color=PANEL2, border_width=1, border_color=BORDER, corner_radius=12,
                          height=kw.pop("height", 0), **{k: v for k, v in kw.items() if k == "width"})
         self._command = command
         self._enabled_cmd = command
         self._active = False
-        self.title = tk.Label(self, text=title, bg=PANEL2, fg=TEXT, font=(FAM, 10, "bold"),
+        self.head = tk.Frame(self, bg=PANEL2)
+        self.head.pack(fill="x", padx=14, pady=(8, 0))
+        self.title = tk.Label(self.head, text=title, bg=PANEL2, fg=TEXT, font=(FAM, title_size, "bold"),
                               anchor="w", justify="left")
-        self.title.pack(fill="x", padx=14, pady=(8, 0))
+        self.title.pack(side="left")
+        self.help = None
+        if help_text:
+            self.help = tk.Label(self.head, text="?", bg=PANEL2, fg=DIM, font=(FAM, 9, "bold"),
+                                 cursor="hand2", padx=2)
+            self.help.pack(side="right")
+            self.help.bind("<Button-1>", lambda e: _show_help(title, _help_text(help_text)))
+            self.help.bind("<Enter>", lambda e: self.help.configure(fg=ACCENT))
+            self.help.bind("<Leave>", lambda e: self.help.configure(fg=DIM if not self._active else "#1A1408"))
         self.desc = tk.Label(self, text=desc, bg=PANEL2, fg=DIM, font=(FAM, 8), anchor="w",
-                             justify="left", wraplength=520)
+                             justify="left", wraplength=desc_wrap)
         self.desc.pack(fill="x", padx=14, pady=(1, 8))
-        for w in (self, self.title, self.desc):
+        for w in (self, self.head, self.title, self.desc):
             try:
                 w.configure(cursor="hand2")
             except Exception:
@@ -170,8 +187,11 @@ class ChoiceCard(ctk.CTkFrame):
         desc = "#3A2C08" if active else DIM
         try:
             self.configure(fg_color=fg, border_color=border)
+            self.head.configure(bg=fg)
             self.title.configure(bg=fg, fg=title)
             self.desc.configure(bg=fg, fg=desc)
+            if self.help is not None:
+                self.help.configure(bg=fg, fg="#1A1408" if active else DIM)
         except Exception:
             pass
 
@@ -182,9 +202,13 @@ class ChoiceCard(ctk.CTkFrame):
             if self._active:
                 self.title.configure(fg="#1A1408")
                 self.desc.configure(fg="#3A2C08")
+                if self.help is not None:
+                    self.help.configure(fg="#1A1408" if enabled else DISABLED)
             else:
                 self.title.configure(fg=TEXT if enabled else DISABLED)
                 self.desc.configure(fg=DIM if enabled else DISABLED)
+                if self.help is not None:
+                    self.help.configure(fg=DIM if enabled else DISABLED)
         except Exception:
             pass
 
@@ -234,11 +258,16 @@ class Check(ctk.CTkCheckBox):
             kw.pop("variable", None)
         font = kw.pop("font", (FAM, 10))
         kw.pop("fg", None)
+        width = kw.pop("width", 1)
         _strip(kw)
         super().__init__(parent, text=text, variable=var, fg_color=ACCENT, hover_color=ACCENT2,
                          border_color=BORDER, checkmark_color="#1A1408", text_color=TEXT,
-                         text_color_disabled=DISABLED, font=font, corner_radius=5,
+                         text_color_disabled=DISABLED, font=font, corner_radius=5, width=width,
                          checkbox_width=20, checkbox_height=20, **kw)
+        try:   # the box sits a hair high next to Segoe UI's text; nudge it to the visual centre
+            self._canvas.grid_configure(pady=(0, 2))
+        except Exception:
+            pass
 
     def configure(self, **kw):
         if "state" in kw:
@@ -262,10 +291,15 @@ class Radio(ctk.CTkRadioButton):
             kw.pop("variable", None)
         font = kw.pop("font", (FAM, 10))
         kw.pop("fg", None)
+        width = kw.pop("width", 1)
         _strip(kw)
         super().__init__(parent, text=text, variable=var, value=value, command=cmd, fg_color=ACCENT,
                          hover_color=ACCENT2, border_color=BORDER, text_color=TEXT, text_color_disabled=DISABLED,
-                         font=font, radiobutton_width=18, radiobutton_height=18, corner_radius=9, **kw)
+                         font=font, width=width, radiobutton_width=18, radiobutton_height=18, corner_radius=9, **kw)
+        try:   # same optical nudge as the checkbox: the ring should centre on the text, not on its line box
+            self._canvas.grid_configure(pady=(0, 2))
+        except Exception:
+            pass
 
     def configure(self, **kw):
         if "state" in kw:
@@ -288,6 +322,7 @@ class Select(ctk.CTkOptionMenu):
         self._values = list(values or [""])
         self._var = var
         self._cb = None
+        self._popup = None
         _strip(kw)
         super().__init__(parent, values=self._values or [""], variable=var, width=max(80, int(width) * 9),
                          height=34, fg_color=PANEL2, button_color=PANEL2, button_hover_color=BORDER,
@@ -327,15 +362,92 @@ class Select(ctk.CTkOptionMenu):
             if self._var.get() not in self._values:
                 self._var.set(self._values[0])
             super().configure(values=self._values)
+            self._close_popup()
         if "state" in kw:
             state = kw.pop("state")
             if state == "disabled":
+                self._close_popup()
                 kw.update(state="disabled", fg_color=PANEL, button_color=PANEL, text_color=DISABLED)
             else:
                 kw.update(state="normal", fg_color=PANEL2, button_color=PANEL2, text_color=TEXT)
         return super().configure(**kw)
 
     config = configure
+
+    # ---- the list itself: a rounded popup instead of Tk's square, white-edged native menu ----
+    def _clicked(self, event=0):
+        if self._state == "disabled" or not self._values:
+            return
+        if self._popup is not None and self._popup.winfo_exists():
+            self._close_popup()
+        else:
+            self._open_popup()
+
+    def _open_dropdown_menu(self):
+        self._open_popup()
+
+    def _open_popup(self):
+        self._close_popup()
+        top = tk.Toplevel(self)
+        top.withdraw()
+        top.overrideredirect(True)
+        top.configure(bg=BORDER)
+        try:
+            top.attributes("-topmost", True)
+        except Exception:
+            pass
+        shell = ctk.CTkFrame(top, fg_color=PANEL, corner_radius=12, border_width=1, border_color=BORDER)
+        shell.pack(fill="both", expand=True)
+        width = max(190, self.winfo_width())
+        total = max(1, len(self._values)) * 30 + 18
+        height = min(450, total)
+        if total <= 450:
+            inner = ctk.CTkFrame(shell, fg_color=PANEL, corner_radius=8)
+        else:
+            inner = ctk.CTkScrollableFrame(shell, fg_color=PANEL, corner_radius=8,
+                                           width=width - 12, height=height - 12,
+                                           scrollbar_button_color=BORDER,
+                                           scrollbar_button_hover_color=ACCENT_DARK)
+        inner.pack(fill="both", expand=True, padx=6, pady=6)
+        current = self._var.get()
+        for value in self._values:
+            active = value == current
+            b = ctk.CTkButton(inner, text=value, anchor="w", height=30, corner_radius=7,
+                              fg_color=BORDER if active else "transparent",
+                              hover_color=BORDER, text_color=ACCENT if active else TEXT,
+                              font=(FAM, 10),
+                              command=lambda v=value: self._choose(v))
+            b.pack(fill="x")
+        top.update_idletasks()
+        screen_w = self.winfo_screenwidth()
+        screen_h = self.winfo_screenheight()
+        x = min(max(4, self.winfo_rootx()), screen_w - width - 8)
+        y = self.winfo_rooty() + self.winfo_height() + 3
+        if y + height > screen_h - 48:
+            y = max(8, self.winfo_rooty() - height - 3)
+        top.geometry(f"{width}x{height}+{int(x)}+{int(y)}")
+        top.deiconify()
+        top.lift()
+        try:
+            top.focus_force()
+        except Exception:
+            pass
+        top.bind("<FocusOut>", lambda e: self._close_popup())
+        top.bind("<Escape>", lambda e: self._close_popup())
+        self._popup = top
+
+    def _choose(self, value):
+        self._dropdown_callback(value)
+        self._close_popup()
+
+    def _close_popup(self):
+        pop = self._popup
+        self._popup = None
+        if pop is not None:
+            try:
+                pop.destroy()
+            except Exception:
+                pass
 
 
 class Progress(ctk.CTkProgressBar):
@@ -430,79 +542,58 @@ def _help_text(text) -> str:
     return text() if callable(text) else str(text or "")
 
 
-def help_window(parent, title: str, body: str) -> None:
-    root = parent.winfo_toplevel() if hasattr(parent, "winfo_toplevel") else parent
-    win = Toplevel(root, bg=BG)
-    win.title(title)
-    win.transient(root)
-    win.resizable(False, False)
-    win.geometry("620x480")
-    win.lift()
-    try:
-        win.grab_set()
-    except tk.TclError:
-        pass
-    head = tk.Frame(win, bg=BG)
-    head.pack(fill="x", padx=20, pady=(18, 6))
-    tk.Label(head, text=title, bg=BG, fg=ACCENT, font=(DISPLAY, 17, "bold"), anchor="w").pack(side="left")
-    tk.Label(head, text="?", bg=BG, fg=ACCENT_DARK, font=(DISPLAY, 22, "bold")).pack(side="right")
-    box = Textbox(win, bg=PANEL, fg=TEXT, font=(FAM, 10), wrap="word", height=360)
-    box.pack(fill="both", expand=True, padx=20, pady=(4, 12))
-    box.insert("1.0", body)
-    box.configure(state="disabled")
-    Button(win, CLOSE_LABEL, win.destroy, primary=True).pack(anchor="e", padx=20, pady=(0, 16))
+def _show_help(title, text) -> None:
+    if HELP_HANDLER is not None and text:
+        HELP_HANDLER(_help_text(title) or HELP_TITLE, _help_text(text))
 
 
-class HelpIcon(ctk.CTkButton):
-    """A small gold-edged "?" that opens the full explanation in a readable window."""
+class HelpBanner(ctk.CTkFrame):
+    """A slim inline strip that shows an explanation above the page. No popup, no window."""
 
-    def __init__(self, parent, text, title: str | None = None, **kw):
-        super().__init__(parent, text="?", width=23, height=23, corner_radius=12, fg_color=PANEL2,
-                         hover_color=BORDER, text_color=DIM, font=(FAM, 9, "bold"), border_width=1,
-                         border_color=BORDER, command=lambda: help_window(parent, title or HELP_TITLE,
-                                                                           _help_text(text)), **kw)
+    def __init__(self, parent, **kw):
+        super().__init__(parent, fg_color=PANEL2, border_width=1, border_color=BORDER,
+                         corner_radius=10, height=0, **kw)
+        self.accent = ctk.CTkFrame(self, width=3, height=1, fg_color=ACCENT, corner_radius=2)
+        self.accent.pack(side="left", fill="y", padx=(10, 0), pady=10)
+        body = tk.Frame(self, bg=PANEL2)
+        body.pack(side="left", fill="x", expand=True, padx=10, pady=8)
+        self.title = tk.Label(body, text="", bg=PANEL2, fg=ACCENT, font=(DISPLAY, 12, "bold"), anchor="w")
+        self.title.pack(anchor="w")
+        self.text = tk.Label(body, text="", bg=PANEL2, fg=TEXT, font=(FAM, 9), anchor="w",
+                             justify="left", wraplength=880)
+        self.text.pack(anchor="w", pady=(2, 0))
+        close = tk.Label(self, text="×", bg=PANEL2, fg=DIM, font=(FAM, 13, "bold"), cursor="hand2")
+        close.pack(side="right", anchor="n", padx=10, pady=6)
+        close.bind("<Button-1>", lambda e: self.hide())
+        close.bind("<Enter>", lambda e: close.configure(fg=TEXT))
+        close.bind("<Leave>", lambda e: close.configure(fg=DIM))
+
+    def show(self, title, text):
+        self.title.configure(text=title or HELP_TITLE)
+        self.text.configure(text=text)
+        self.text.configure(wraplength=max(420, self.winfo_toplevel().winfo_width() - 420))
+
+    def hide(self):
+        self.pack_forget()
 
 
-class Tooltip:
-    """A short native tooltip for the few controls whose label is not enough."""
+class HelpIcon(tk.Label):
+    """A quiet "?" without a button background; it feeds the inline help strip."""
 
-    def __init__(self, widget, text, delay=550):
-        self.widget, self.text, self.delay, self.tip, self.job = widget, text, delay, None, None
-        widget.bind("<Enter>", self._enter, add="+")
-        widget.bind("<Leave>", self._leave, add="+")
-        widget.bind("<Destroy>", self._leave, add="+")
+    def __init__(self, parent, text, title=None, bg=None, **kw):
+        self._text = text
+        self._title = title
+        super().__init__(parent, text="?", bg=bg or _parent_bg(parent), fg=DIM,
+                         font=(FAM, 9, "bold"), cursor="hand2", padx=2, **kw)
+        self.bind("<Button-1>", self._open)
+        self.bind("<Enter>", lambda e: self.configure(fg=ACCENT))
+        self.bind("<Leave>", lambda e: self.configure(fg=DIM))
 
-    def _enter(self, _e=None):
-        self.job = self.widget.after(self.delay, self._show)
-
-    def _show(self):
-        if self.tip:
+    def _open(self, _e=None):
+        if HELP_HANDLER is None:
             return
-        text = _help_text(self.text)
+        text = _help_text(self._text)
         if not text:
             return
-        try:
-            x = self.widget.winfo_rootx() + 16
-            y = self.widget.winfo_rooty() + self.widget.winfo_height() + 6
-            self.tip = tk.Toplevel(self.widget)
-            self.tip.wm_overrideredirect(True)
-            self.tip.wm_geometry(f"+{x}+{y}")
-            tk.Label(self.tip, text=text, justify="left", wraplength=360, bg=PANEL2, fg=TEXT,
-                     font=(FAM, 9), padx=9, pady=6, highlightthickness=1, highlightbackground=ACCENT_DARK
-                     ).pack()
-        except tk.TclError:
-            self.tip = None
-
-    def _leave(self, _e=None):
-        if self.job:
-            try:
-                self.widget.after_cancel(self.job)
-            except Exception:
-                pass
-            self.job = None
-        if self.tip:
-            try:
-                self.tip.destroy()
-            except tk.TclError:
-                pass
-            self.tip = None
+        title = _help_text(self._title) if self._title is not None else HELP_TITLE
+        HELP_HANDLER(title, text)

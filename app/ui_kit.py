@@ -330,6 +330,7 @@ class Select(ctk.CTkButton):
         self._rows = []
         self._inner = None
         self._scrollable = False
+        self._wheel_ids = []
         if var.get() not in self._values:
             var.set(self._values[0])
         _strip(kw)
@@ -484,6 +485,41 @@ class Select(ctk.CTkButton):
         top.bind("<Button-4>", self._popup_wheel)
         top.bind("<Button-5>", self._popup_wheel)
         self._popup = top
+        try:
+            root = self.winfo_toplevel()
+            self._wheel_ids = [root.bind("<MouseWheel>", self._page_wheel, add="+"),
+                               root.bind("<Button-4>", self._page_wheel, add="+"),
+                               root.bind("<Button-5>", self._page_wheel, add="+")]
+        except Exception:
+            self._wheel_ids = []
+
+    def _page_wheel(self, event=None):
+        # The main page is scrolling: keep the list attached to its select instead of
+        # leaving it floating in the old position.
+        if self._popup is not None:
+            self.after_idle(self._follow_select)
+        return None
+
+    def _follow_select(self):
+        top = self._popup
+        if top is None or not top.winfo_exists():
+            return
+        try:
+            if not self.winfo_ismapped():
+                self._close_popup()
+                return
+            w, h = top.winfo_width(), top.winfo_height()
+            sw, sh = self.winfo_screenwidth(), self.winfo_screenheight()
+            x = min(max(4, self.winfo_rootx()), sw - w - 8)
+            y = self.winfo_rooty() + self.winfo_height() + 3
+            if y + h > sh - 48:
+                y = self.winfo_rooty() - h - 3
+            if y < 4 or y + h > sh - 4:
+                self._close_popup()
+                return
+            top.geometry(f"{w}x{h}+{int(x)}+{int(y)}")
+        except Exception:
+            self._close_popup()
 
     def _popup_wheel(self, event=None):
         num = getattr(event, "num", None)
@@ -532,6 +568,12 @@ class Select(ctk.CTkButton):
     def _close_popup(self):
         pop = self._popup
         self._popup = None
+        for seq, fid in zip(("<MouseWheel>", "<Button-4>", "<Button-5>"), self._wheel_ids):
+            try:
+                self.winfo_toplevel().unbind(seq, fid)
+            except Exception:
+                pass
+        self._wheel_ids = []
         if pop is not None:
             try:
                 pop.grab_release()

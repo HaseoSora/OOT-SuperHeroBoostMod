@@ -68,6 +68,9 @@ BLOCK = (
     "Scrub_Business", "Scrub_Mad", "GerudoThief", "WolfosStage", "StalfosStage",
     "LizalfosStage", "DinolfosStage", "EnemyMuseum", "Amy", "Beth", "Joelle",
 )
+# Enemies that are part of the stage itself: a clone a couple of metres away is a door or a floor tile in the
+# wrong place, or a tentacle out of its wall. (Wall and ceiling enemies are found by their rotation, see is_upright.)
+NO_DOUBLE = ("TrickyDoor", "CrazyFloorTile", "Tentacle_", "Skullwalltula")
 BLOCK_BANCS = (
     "Banc/GameBancParam", "Banc/BancBasedResource", "Banc/DreamWorld",
     "Banc/BossRushIntervalRoom", "Banc/EnemyMuseum", "Banc/FinalBattleField",
@@ -275,6 +278,22 @@ def edit_asb(path, zs_dict, factor):
     return zstandard.ZstdCompressor(dict_data=zstandard.ZstdCompressionDict(zs_dict)).compress(bytes(data))
 
 
+def is_upright(actor, min_up=0.85):
+    """The placement stands on the floor: its local up vector, rotated by the actor's Euler angles, still points up.
+    Wall and ceiling enemies (Skullwalltula, Keese perched on walls or hanging from ceilings, the Tailpasaran in
+    Jabu-Jabu) are turned to face their surface; their clone, moved 2.5 m sideways, would float in the air or sit in
+    the wall. A rotation of 180 degrees on X and Z together is only a turn around Y (how the editor stores some
+    yaws), so it counts as upright."""
+    import math
+    r = actor.get("Rotate")
+    if r is None or len(r) != 3:
+        return True
+    rx, ry, rz = float(r[0].v), float(r[1].v), float(r[2].v)
+    # y of Rx(rx) * Ry(ry) * Rz(rz) * (0, 1, 0)
+    up_y = math.cos(rx) * math.cos(rz) - math.sin(rx) * math.sin(ry) * math.sin(rz)
+    return up_y >= min_up
+
+
 def new_hash(rng, used):
     while True:
         v = rng.getrandbits(64)
@@ -319,9 +338,11 @@ def duplicate_banc(path, rng, size_changes):
         if g is None:
             continue
         name = g.v
-        if not name.startswith("Enemy_") or any(x in name for x in BLOCK):
+        if not name.startswith("Enemy_") or any(x in name for x in BLOCK) or any(x in name for x in NO_DOUBLE):
             continue
         if a.get("Links") is not None:
+            continue
+        if not is_upright(a):   # on a wall or a ceiling: a clone beside it would hang in the air
             continue
         c = copy.deepcopy(a)
         h = new_hash(rng, used)
@@ -412,6 +433,17 @@ def update_restbl(size_changes, base_path=None):
     return zstandard.ZstdCompressor().compress(bytes(data))
 
 
+def write_double_restbl(size_changes):
+    """The resource size table for the bigger Banc files. The button mapping's own table (bigger UI budget) is the
+    base when it exists: the enemy_double table overwrites it, so it must keep both changes."""
+    button_table = ROOT / "app" / "payload" / "button_romfs" / "common" / RESTBL_REL
+    table = update_restbl(size_changes, button_table if button_table.exists() else None)
+    if table:
+        dst = OUT / "enemy_double" / RESTBL_REL
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        dst.write_bytes(table)
+
+
 def main():
     global DICTS
     if not (ROMFS / "Banc").exists():
@@ -419,14 +451,18 @@ def main():
         return
     import shutil
     DICTS = load_dicts()
-    for name in ("enemy_double", "enemy_speed", BASE_DIR, *ANIM_DIR.values(), BOSS_BASE_DIR, *BOSS_ANIM_DIR.values()):
+    # --double-only: rebuild only the duplicated enemies (the speed and animation folders are left as they are)
+    double_only = "--double-only" in sys.argv
+    folders = ("enemy_double",) if double_only else         ("enemy_double", "enemy_speed", BASE_DIR, *ANIM_DIR.values(), BOSS_BASE_DIR, *BOSS_ANIM_DIR.values())
+    for name in folders:
         d = OUT / name
         if d.exists():
             shutil.rmtree(d)
         if name != "enemy_speed":          # the old combined x2 folder is retired
             d.mkdir(parents=True, exist_ok=True)
-    MANIFEST.unlink(missing_ok=True)
-    BOSS_MANIFEST.unlink(missing_ok=True)
+    if not double_only:
+        MANIFEST.unlink(missing_ok=True)
+        BOSS_MANIFEST.unlink(missing_ok=True)
     rng = random.Random(0x5A17B005)
     size_changes = []
 
@@ -448,6 +484,11 @@ def main():
             dst = OUT / "enemy_double" / p.relative_to(ROMFS)
             dst.parent.mkdir(parents=True, exist_ok=True)
             dst.write_bytes(out)
+
+    if double_only:
+        write_double_restbl(size_changes)
+        print("enemy_double written to", OUT / "enemy_double")
+        return
 
     # Enemy animation: ASB frame-controller playback rates, one ready-made folder per multiplier
     # (bosses into their own folders).
@@ -495,13 +536,7 @@ def main():
     PACK_DICT.write_bytes(DICTS["pack.zsdic"])
 
     # Start from the buttonMapping size table when it exists (it carries the bigger UI budget): the installed
-    # enemy_double table overwrites it, so it must keep both changes.
-    button_table = ROOT / "app" / "payload" / "button_romfs" / "common" / RESTBL_REL
-    table = update_restbl(size_changes, button_table if button_table.exists() else None)
-    if table:
-        dst = OUT / "enemy_double" / RESTBL_REL
-        dst.parent.mkdir(parents=True, exist_ok=True)
-        dst.write_bytes(table)
+    write_double_restbl(size_changes)
     print("enemy options written to", OUT)
     print("  base packs:", len(packs), "(%d floats)" % sum(len(p["fields"]) for p in packs))
     print("  boss packs:", len(boss_packs), "(%d floats)" % sum(len(p["fields"]) for p in boss_packs))

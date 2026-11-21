@@ -206,6 +206,8 @@ class Settings:
     enemy_proj: int = 0              # enemy projectile speed: same levels
     boss_move: int = 0               # bosses and minibosses (left out of the enemy options): movement, same levels
     boss_anim: int = 0               # bosses and minibosses: animation playback, same levels
+    enemy_alert: int = 0             # how far a spotting enemy alerts the others: same levels (multiplier)
+    enemy_aggro: int = 0             # one of AGGRO_LEVELS: 0 off, 1 aggressive, 2 maximum
     great_fairy: bool = False        # reorder the three Great Fairy magic rewards
     farore_outdoor: bool = False     # allow Farore's Wind points outside dungeons
     button_mapping: bool = True      # buttonMapping: our own item buttons B / L / R / ZR on the HUD
@@ -635,10 +637,21 @@ def _copy_tree(src: Path, dst: Path) -> bool:
     return True
 
 
+# Aggression (enemy_aggro): what each level does to the manifest's aggression fields (tools/make_enemy_opts.py).
+#   g  the shared pause during which only one enemy attacks Link (x scale)
+#   k  how far an enemy keeps chasing before it gives up (x scale)
+#   i  how long a melee enemy waits on screen before it fights (x scale)
+#   o  "wait until on screen before fighting" (False when off_screen)
+AGGRO_LEVELS = (0, 1, 2)
+AGGRO = {1: dict(g=0.5, k=1.5, i=1.0, off_screen=False),
+         2: dict(g=0.0, k=2.0, i=0.0, off_screen=True)}
+
+
 def _patch_packs(opts: Path, romfs: Path, base_name: str, manifest_name: str,
-                 move: int, attack: int, proj: int) -> bool:
+                 move: int, attack: int, proj: int, alert: int = 0, aggro: int = 0) -> bool:
     """Write the base packs of a manifest with the movement (m), attack cadence (a) and projectile (p) floats
-    scaled. False when the payload part is missing or unreadable."""
+    scaled, and the aggression fields: alert radius (d) and the aggression level (g / k / i / o). False when the
+    payload part is missing or unreadable."""
     base = opts / base_name
     manifest_path = opts / manifest_name
     dictionary_path = opts / "enemy_speed_pack.zsdic"
@@ -650,17 +663,25 @@ def _patch_packs(opts: Path, romfs: Path, base_name: str, manifest_name: str,
         move_scale = ENEMY_FACTORS.get(move, 1.0)
         attack_scale = 1.0 / ENEMY_FACTORS[attack] if attack else 1.0
         proj_scale = ENEMY_FACTORS.get(proj, 1.0)
+        ag = AGGRO.get(aggro)
+        scales = {"m": move_scale, "a": attack_scale, "p": proj_scale, "d": ENEMY_FACTORS.get(alert, 1.0),
+                  "g": ag["g"] if ag else 1.0, "k": ag["k"] if ag else 1.0, "i": ag["i"] if ag else 1.0}
+        off_screen = bool(ag and ag["off_screen"])
+        active = {k for k, v in scales.items() if v != 1.0} | ({"o"} if off_screen else set())
         for pack in manifest.get("packs", []):
             fields = pack.get("fields", [])
-            if not any((f.get("k") == "m" and move) or (f.get("k") == "a" and attack)
-                       or (f.get("k") == "p" and proj) for f in fields):
+            if not any(f.get("k") in active for f in fields):
                 continue
             raw = (base / pack["path"]).read_bytes()
             data = bytearray(zstandard.ZstdDecompressor(dict_data=dictionary).decompress(
                 raw, max_output_size=200_000_000))
             for f in fields:
                 kind = f.get("k")
-                scale = move_scale if kind == "m" else attack_scale if kind == "a" else proj_scale
+                if kind == "o":                       # a bool: stored inline as a u32
+                    if off_screen:
+                        struct.pack_into("<I", data, int(f["o"]), 0)
+                    continue
+                scale = scales.get(kind, 1.0)
                 if scale != 1.0:
                     struct.pack_into("<f", data, int(f["o"]), float(f["v"]) * scale)
             out = zstandard.ZstdCompressor(dict_data=dictionary).compress(bytes(data))
@@ -681,14 +702,17 @@ def install_enemy_mods(romfs: Path, s: Settings, payload: Path | None = None) ->
     own movement / animation (separate files: bosses and minibosses are left out of the enemy options)."""
     move, anim, attack, proj = enemy_levels(s)
     bmove, banim = boss_levels(s)
-    if not (move or anim or attack or proj or bmove or banim):
+    alert = int(s.enemy_alert) if int(s.enemy_alert) in ENEMY_FACTORS else 0
+    aggro = int(s.enemy_aggro) if int(s.enemy_aggro) in AGGRO else 0
+    if not (move or anim or attack or proj or bmove or banim or alert or aggro):
         return []
     opts = (payload or resource_dir()) / "romfs_opts"
     notes: list[tuple[str, str]] = []
     missing = False
 
-    if move or attack or proj:
-        if not _patch_packs(opts, romfs, "enemy_speed_base", "enemy_speed_manifest.json", move, attack, proj):
+    if move or attack or proj or alert or aggro:
+        if not _patch_packs(opts, romfs, "enemy_speed_base", "enemy_speed_manifest.json", move, attack, proj,
+                            alert, aggro):
             missing = True
     if anim and not _copy_tree(opts / ENEMY_ANIM_DIR[anim], romfs):
         missing = True

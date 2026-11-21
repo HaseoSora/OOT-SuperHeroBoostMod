@@ -2120,7 +2120,12 @@ int hud_item_owned(int item) {
     }
     if (g_own_idx[item] == 0xFFFFFFFFu) return 1;
     int v = gd_bool(g_own_idx[item] - 1);
-    return v != 0;   /* -1 (no GameData): not owned */
+    if (v > 0) return 1;
+    if (v < 0) return 0;   /* no GameData: not owned */
+    /* IsGet off is not proof: items that never played their "you got" scene (nuts from the grass, a slingshot from
+     * a shop or a save editor) keep it off. A quantity in the pouch (nuts, seeds, arrows ...) is. */
+    int st = item_stock_index(item);
+    return st >= 0 && gd_int((u32)st) > 0;
 }
 int hud_menu_item(void) {
     u64 e = menu_cell_widget();

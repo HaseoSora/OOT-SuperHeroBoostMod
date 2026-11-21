@@ -52,6 +52,7 @@ int g_assign[SLOT_N] = {-1, -1, -1, -1};
  * g_assign holds (-1: none yet, taken from g_set on the next gameplay frame). */
 int g_set[2][SLOT_ZR] = {{-1, -1, -1}, {-1, -1, -1}};
 int g_cur_age = -1;
+static int g_check_owned;   /* frames left to drop slot items the save does not have (after a set is taken) */
 int hud_is_child(void);          /* core/hud.c: Sequence_IsChildhood (-1: no GameData) */
 int hud_item_owned(int item);    /* core/hud.c: IsGet.<item> */
 
@@ -305,12 +306,19 @@ void button_mapping_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_r
                 if (g_cur_age >= 0) for (int s = 0; s < SLOT_ZR; s++) g_set[g_cur_age][s] = g_assign[s];
                 for (int s = 0; s < SLOT_ZR; s++) g_assign[s] = g_set[age][s];
                 g_cur_age = age;
+                g_check_owned = 30;   /* a set was just taken: drop what this save does not have (a few frames) */
                 /* each age has its own item box: nothing of the other age's is borrowed in it */
                 if (g_borrowed) unborrow();
                 g_phase = PH_IDLE;
                 g_zr_item = ZR_UNKNOWN; g_box_pending = -2; g_sync_t = 0;
             }
-            for (int s = 0; s < SLOT_ZR; s++) if (g_assign[s] >= 0 && !hud_item_owned(g_assign[s])) g_assign[s] = -1;
+            /* Only right after a set is taken (save loaded, age changed), never while playing: an item assigned from
+             * the pause menu is one the menu shows, and the game's IsGet flags are not a full record (an item that
+             * never played its "you got" scene keeps it off). Re-checked for a few frames while GameData settles. */
+            if (g_check_owned > 0) {
+                g_check_owned--;
+                for (int s = 0; s < SLOT_ZR; s++) if (g_assign[s] >= 0 && !hud_item_owned(g_assign[s])) g_assign[s] = -1;
+            }
         }
     }
 

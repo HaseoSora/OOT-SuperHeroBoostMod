@@ -187,8 +187,11 @@ class ChoiceCard(ctk.CTkFrame):
             self.title.configure(bg=fg, fg=title)
             self.desc.configure(bg=fg, fg=desc)
             if self.help is not None:
-                self.help.set_theme(fg, "#1A1408" if active else ACCENT,
-                                    "#1A1408" if active else ACCENT)
+                dark = "#1A1408"
+                self.help.set_theme(fg, dark if active else ACCENT,
+                                    dark if active else ACCENT,
+                                    dark if active else ACCENT2,
+                                    dark if active else ACCENT2)
         except Exception:
             pass
 
@@ -200,14 +203,19 @@ class ChoiceCard(ctk.CTkFrame):
                 self.title.configure(fg="#1A1408")
                 self.desc.configure(fg="#3A2C08")
                 if self.help is not None:
-                    self.help.set_theme(ACCENT, "#1A1408" if enabled else DISABLED,
-                                        "#1A1408" if enabled else DISABLED)
+                    dark = "#1A1408"
+                    self.help.set_theme(ACCENT, dark if enabled else DISABLED,
+                                        dark if enabled else DISABLED,
+                                        dark if enabled else DISABLED,
+                                        dark if enabled else DISABLED)
             else:
                 self.title.configure(fg=TEXT if enabled else DISABLED)
                 self.desc.configure(fg=DIM if enabled else DISABLED)
                 if self.help is not None:
                     self.help.set_theme(PANEL2, ACCENT if enabled else BORDER,
-                                        ACCENT if enabled else DISABLED)
+                                        ACCENT if enabled else DISABLED,
+                                        ACCENT2 if enabled else BORDER,
+                                        ACCENT2 if enabled else DISABLED)
         except Exception:
             pass
 
@@ -617,11 +625,13 @@ class HelpIcon(tk.Canvas):
         self._size = size
         self._outline = ACCENT
         self._fg = ACCENT
+        self._hover_outline = ACCENT2
+        self._hover_fg = ACCENT2
         super().__init__(parent, width=size, height=size, bg=self._bg,
                          highlightthickness=0, cursor="hand2", **kw)
         self._draw()
         self.bind("<Button-1>", self._open)
-        self.bind("<Enter>", lambda e: self._paint(ACCENT2, ACCENT2))
+        self.bind("<Enter>", lambda e: self._paint(self._hover_outline, self._hover_fg))
         self.bind("<Leave>", lambda e: self._draw())
 
     def _paint(self, outline, text):
@@ -635,10 +645,12 @@ class HelpIcon(tk.Canvas):
     def _draw(self):
         self._paint(self._outline, self._fg)
 
-    def set_theme(self, bg, outline=ACCENT_DARK, text=ACCENT):
+    def set_theme(self, bg, outline=ACCENT, text=ACCENT, hover_outline=None, hover_text=None):
         self._bg = bg
         self._outline = outline
         self._fg = text
+        self._hover_outline = hover_outline or ACCENT2
+        self._hover_fg = hover_text or ACCENT2
         self.configure(bg=bg)
         self._draw()
 

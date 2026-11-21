@@ -1541,8 +1541,7 @@ def gui() -> None:
                     cv.create_rectangle(x, y0, x + seg_w, y0 + 12, fill=col, outline="")
             else:
                 col = TEAL if on else DISABLED
-                cv.create_arc(89, 17, 173, 101, start=90, extent=-270, style="arc",
-                              outline=col, width=8)
+                cv.create_oval(89, 17, 173, 101, outline=col, width=8)
             if not on:
                 cv.create_text(214, 18, text="OFF", anchor="e", fill=DISABLED,
                                font=(FAM, 8, "bold"))

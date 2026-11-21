@@ -68,6 +68,9 @@ BLOCK = (
     "Scrub_Business", "Scrub_Mad", "GerudoThief", "WolfosStage", "StalfosStage",
     "LizalfosStage", "DinolfosStage", "EnemyMuseum", "Amy", "Beth", "Joelle",
 )
+# Enemies that are part of the stage itself: a clone a couple of metres away is a door or a floor tile in the
+# wrong place, or a tentacle out of its wall. (Wall and ceiling enemies are found by their rotation, see is_upright.)
+NO_DOUBLE = ("TrickyDoor", "CrazyFloorTile", "Tentacle_", "Skullwalltula")
 BLOCK_BANCS = (
     "Banc/GameBancParam", "Banc/BancBasedResource", "Banc/DreamWorld",
     "Banc/BossRushIntervalRoom", "Banc/EnemyMuseum", "Banc/FinalBattleField",
@@ -97,6 +100,18 @@ ATTACK_INTERVAL_NAMES = frozenset((
 ))
 ATTACK_TABLE_FIELDS = ("/LongIntervalMax", "/LongIntervalMin", "/MediumIntervalMax",
                        "/MediumIntervalMin", "/ShortIntervalMax", "/ShortIntervalMin")
+# Aggression (the app's "alert radius" and "aggression" options; the same fields the community mod
+# AggressiveEnemies_Max sets by hand in every pack):
+#   d  how far an enemy that spots Link alerts the others (EnemyCommonParam)
+#   k  how far it keeps chasing before it gives up (EnemyCommonParam)
+#   g  the shared pause during which only one enemy attacks Link at a time (GameBalanceClientParam)
+#   i  how long a melee enemy must have been on screen before it fights (GameBalanceClientParam)
+#   o  bools: wait until on screen before fighting (GameBalanceClientParam); patched to false
+ALERT_FIELDS = ("DiscoverSpreadDist", "DiscoverSpreadDistExtend")
+PURSUIT_FIELDS = ("KeepBattleDistance",)
+TURN_FIELDS = ("GlobalPlayerNoAttackTime", "GlobalPlayerNoAttackTimePlay")
+DISPLAY_TIME_FIELDS = ("InsideDisplayTimeForMeleeBattle",)
+DISPLAY_BOOL_FIELDS = ("DoDisplayCheckForMeleeBattle", "AlwaysDoDisplayCheck")
 ATTACK_ACTION_FIELDS = ("/AttackStartTimeoutFrames", "/AttackIntervalTimeFromDamage",
                         "/AttackIntervalTimeFromGuard", "/AttackIntervalTimeGuarded",
                         "/AttackIntervalTimeMinGrdedCombo", "/BackWalkTimeMax",
@@ -151,7 +166,8 @@ def scale_fields(buf, data, suffix, factor, min_positive=0.01):
 
 
 def scan_pack(path, dictionaries):
-    """Return [{o: absolute offset in the decompressed pack, k: 'm'/'a', v: original float}]."""
+    """Return [{o: absolute offset in the decompressed pack, k: kind, v: original value}]: floats of kind m / a / p
+    (speeds) and d / k / g / i (aggression), and bools of kind o (v = 1)."""
     raw = path.read_bytes()
     data = pack_of(raw, dictionaries["pack.zsdic"])
     files = sarc.read_sarc(data)
@@ -168,9 +184,14 @@ def scan_pack(path, dictionaries):
         action_seq = "Game/BSA/ActionSeqContainer/" in name
         attack_table = "GameBalance/AttackInterval/" in name
         game_param = (name.startswith("GameParameter/") or name.startswith("Game/")) and not action_seq
-        if not (movement or action_seq or attack_table or game_param):
+        balance = "Component/GameBalanceClientParam/" in name
+        if not (movement or action_seq or attack_table or game_param or balance):
             continue
         for path_name, typ, value, off in b.flat():
+            last = path_name.rsplit("/", 1)[-1]
+            if balance and typ == byml.T_BOOL and bool(value) and last in DISPLAY_BOOL_FIELDS:
+                found[start + off] = ("o", 1)
+                continue
             if typ != byml.T_FLOAT or not isinstance(value, float):
                 continue
             if value < 0.0:
@@ -181,7 +202,14 @@ def scan_pack(path, dictionaries):
             elif value <= 0.01:
                 continue
             kind = None
-            last = path_name.rsplit("/", 1)[-1]
+            if balance:
+                if last in TURN_FIELDS:
+                    kind = "g"
+                elif last in DISPLAY_TIME_FIELDS:
+                    kind = "i"
+                if kind is not None:
+                    found[start + off] = (kind, value)
+                continue
             if movement:
                 if any(path_name.endswith(s.lstrip("/")) for s in MOVE_FIELDS):
                     kind = "m"
@@ -194,7 +222,11 @@ def scan_pack(path, dictionaries):
                 if any(path_name.endswith(s.lstrip("/")) for s in ATTACK_TABLE_FIELDS):
                     kind = "a"
             elif game_param:
-                if any(path_name.endswith(s.lstrip("/")) for s in GAME_MOVE_FIELDS):
+                if last in ALERT_FIELDS:
+                    kind = "d"
+                elif last in PURSUIT_FIELDS:
+                    kind = "k"
+                elif any(path_name.endswith(s.lstrip("/")) for s in GAME_MOVE_FIELDS):
                     kind = "m"
                 elif any(s in path_name for s in PROJECTILE_FIELDS):
                     kind = "p"
@@ -275,6 +307,22 @@ def edit_asb(path, zs_dict, factor):
     return zstandard.ZstdCompressor(dict_data=zstandard.ZstdCompressionDict(zs_dict)).compress(bytes(data))
 
 
+def is_upright(actor, min_up=0.85):
+    """The placement stands on the floor: its local up vector, rotated by the actor's Euler angles, still points up.
+    Wall and ceiling enemies (Skullwalltula, Keese perched on walls or hanging from ceilings, the Tailpasaran in
+    Jabu-Jabu) are turned to face their surface; their clone, moved 2.5 m sideways, would float in the air or sit in
+    the wall. A rotation of 180 degrees on X and Z together is only a turn around Y (how the editor stores some
+    yaws), so it counts as upright."""
+    import math
+    r = actor.get("Rotate")
+    if r is None or len(r) != 3:
+        return True
+    rx, ry, rz = float(r[0].v), float(r[1].v), float(r[2].v)
+    # y of Rx(rx) * Ry(ry) * Rz(rz) * (0, 1, 0)
+    up_y = math.cos(rx) * math.cos(rz) - math.sin(rx) * math.sin(ry) * math.sin(rz)
+    return up_y >= min_up
+
+
 def new_hash(rng, used):
     while True:
         v = rng.getrandbits(64)
@@ -319,9 +367,11 @@ def duplicate_banc(path, rng, size_changes):
         if g is None:
             continue
         name = g.v
-        if not name.startswith("Enemy_") or any(x in name for x in BLOCK):
+        if not name.startswith("Enemy_") or any(x in name for x in BLOCK) or any(x in name for x in NO_DOUBLE):
             continue
         if a.get("Links") is not None:
+            continue
+        if not is_upright(a):   # on a wall or a ceiling: a clone beside it would hang in the air
             continue
         c = copy.deepcopy(a)
         h = new_hash(rng, used)
@@ -412,6 +462,55 @@ def update_restbl(size_changes, base_path=None):
     return zstandard.ZstdCompressor().compress(bytes(data))
 
 
+def build_packs():
+    import shutil
+    MANIFEST.unlink(missing_ok=True)
+    BOSS_MANIFEST.unlink(missing_ok=True)
+    # Movement and attack cadence: original packs + a manifest of the float offsets.
+    packs = []
+    for p in sorted((ROMFS / "Pack/Actor").glob("Enemy_*.pack.zs")):
+        if any(x in p.stem for x in BLOCK):
+            continue
+        fields = scan_pack(p, DICTS)
+        if not fields:
+            continue
+        rel = str(p.relative_to(ROMFS)).replace("\\", "/")
+        dst = OUT / BASE_DIR / p.relative_to(ROMFS)
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(p, dst)
+        packs.append({"path": rel, "fields": fields})
+    MANIFEST.write_text(json.dumps({"version": 3, "factors": {str(k): v for k, v in FACTORS.items()},
+                                    "packs": packs}, separators=(",", ":")), encoding="utf-8")
+    boss_packs = []
+    for p in sorted((ROMFS / "Pack/Actor").glob("Enemy_*.pack.zs")):
+        if not is_boss(p.name.split(".")[0]):
+            continue
+        fields = scan_pack(p, DICTS)
+        if not fields:
+            continue
+        rel = str(p.relative_to(ROMFS)).replace("\\", "/")
+        dst = OUT / BOSS_BASE_DIR / p.relative_to(ROMFS)
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(p, dst)
+        boss_packs.append({"path": rel, "fields": fields})
+    BOSS_MANIFEST.write_text(json.dumps({"version": 3, "factors": {str(k): v for k, v in FACTORS.items()},
+                                         "packs": boss_packs}, separators=(",", ":")), encoding="utf-8")
+    PACK_DICT.write_bytes(DICTS["pack.zsdic"])
+    print('  base packs:', len(packs), 'boss packs:', len(boss_packs), 'kinds:', sorted({f['k'] for q in packs for f in q['fields']}))
+    return packs, boss_packs
+
+
+def write_double_restbl(size_changes):
+    """The resource size table for the bigger Banc files. The button mapping's own table (bigger UI budget) is the
+    base when it exists: the enemy_double table overwrites it, so it must keep both changes."""
+    button_table = ROOT / "app" / "payload" / "button_romfs" / "common" / RESTBL_REL
+    table = update_restbl(size_changes, button_table if button_table.exists() else None)
+    if table:
+        dst = OUT / "enemy_double" / RESTBL_REL
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        dst.write_bytes(table)
+
+
 def main():
     global DICTS
     if not (ROMFS / "Banc").exists():
@@ -419,14 +518,23 @@ def main():
         return
     import shutil
     DICTS = load_dicts()
-    for name in ("enemy_double", "enemy_speed", BASE_DIR, *ANIM_DIR.values(), BOSS_BASE_DIR, *BOSS_ANIM_DIR.values()):
+    # --double-only: rebuild only the duplicated enemies (the speed and animation folders are left as they are)
+    double_only = "--double-only" in sys.argv
+    # --packs-only: rebuild only the base packs and their manifests (speeds and aggression)
+    packs_only = "--packs-only" in sys.argv
+    folders = ("enemy_double",) if double_only else (BASE_DIR, BOSS_BASE_DIR) if packs_only else         ("enemy_double", "enemy_speed", BASE_DIR, *ANIM_DIR.values(), BOSS_BASE_DIR, *BOSS_ANIM_DIR.values())
+    for name in folders:
         d = OUT / name
         if d.exists():
             shutil.rmtree(d)
         if name != "enemy_speed":          # the old combined x2 folder is retired
             d.mkdir(parents=True, exist_ok=True)
-    MANIFEST.unlink(missing_ok=True)
-    BOSS_MANIFEST.unlink(missing_ok=True)
+    if packs_only:
+        build_packs()
+        return
+    if not double_only:
+        MANIFEST.unlink(missing_ok=True)
+        BOSS_MANIFEST.unlink(missing_ok=True)
     rng = random.Random(0x5A17B005)
     size_changes = []
 
@@ -449,6 +557,11 @@ def main():
             dst.parent.mkdir(parents=True, exist_ok=True)
             dst.write_bytes(out)
 
+    if double_only:
+        write_double_restbl(size_changes)
+        print("enemy_double written to", OUT / "enemy_double")
+        return
+
     # Enemy animation: ASB frame-controller playback rates, one ready-made folder per multiplier
     # (bosses into their own folders).
     for level, factor in FACTORS.items():
@@ -463,45 +576,10 @@ def main():
                 dst.parent.mkdir(parents=True, exist_ok=True)
                 dst.write_bytes(out)
 
-    # Movement and attack cadence: original packs + a manifest of the float offsets.
-    packs = []
-    for p in sorted((ROMFS / "Pack/Actor").glob("Enemy_*.pack.zs")):
-        if any(x in p.stem for x in BLOCK):
-            continue
-        fields = scan_pack(p, DICTS)
-        if not fields:
-            continue
-        rel = str(p.relative_to(ROMFS)).replace("\\", "/")
-        dst = OUT / BASE_DIR / p.relative_to(ROMFS)
-        dst.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(p, dst)
-        packs.append({"path": rel, "fields": fields})
-    MANIFEST.write_text(json.dumps({"version": 2, "factors": {str(k): v for k, v in FACTORS.items()},
-                                    "packs": packs}, separators=(",", ":")), encoding="utf-8")
-    boss_packs = []
-    for p in sorted((ROMFS / "Pack/Actor").glob("Enemy_*.pack.zs")):
-        if not is_boss(p.name.split(".")[0]):
-            continue
-        fields = scan_pack(p, DICTS)
-        if not fields:
-            continue
-        rel = str(p.relative_to(ROMFS)).replace("\\", "/")
-        dst = OUT / BOSS_BASE_DIR / p.relative_to(ROMFS)
-        dst.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(p, dst)
-        boss_packs.append({"path": rel, "fields": fields})
-    BOSS_MANIFEST.write_text(json.dumps({"version": 2, "factors": {str(k): v for k, v in FACTORS.items()},
-                                         "packs": boss_packs}, separators=(",", ":")), encoding="utf-8")
-    PACK_DICT.write_bytes(DICTS["pack.zsdic"])
+    packs, boss_packs = build_packs()
 
     # Start from the buttonMapping size table when it exists (it carries the bigger UI budget): the installed
-    # enemy_double table overwrites it, so it must keep both changes.
-    button_table = ROOT / "app" / "payload" / "button_romfs" / "common" / RESTBL_REL
-    table = update_restbl(size_changes, button_table if button_table.exists() else None)
-    if table:
-        dst = OUT / "enemy_double" / RESTBL_REL
-        dst.parent.mkdir(parents=True, exist_ok=True)
-        dst.write_bytes(table)
+    write_double_restbl(size_changes)
     print("enemy options written to", OUT)
     print("  base packs:", len(packs), "(%d floats)" % sum(len(p["fields"]) for p in packs))
     print("  boss packs:", len(boss_packs), "(%d floats)" % sum(len(p["fields"]) for p in boss_packs))

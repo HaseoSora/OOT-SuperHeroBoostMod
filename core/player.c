@@ -115,12 +115,20 @@ typedef struct { u64 actor; float d2; u32 stamp; u32 chase; } EnemyMem;
 EnemyMem g_em[24];
 u32 g_enemy_chasing;       /* diagnostic: enemies currently counted as aware (last evaluation) */
 
-/* Enemy health multiplier: scaled once when an enemy is first seen (its Life records: current at +0x1C10, max at +0x1C18,
- * value s32 at +8, the same ones used for the player). Remembered per actor with the scaled maximum, so a reused actor
- * pointer (new enemy, vanilla maximum) is scaled again. */
-typedef struct { u64 actor; int smax; } EnemyHp;
-static EnemyHp g_hp[64];
-static u32 g_hp_next;
+/* Enemy health multiplier (Life records: current at +0x1C10, max at +0x1C18, value s32 at +8, the same ones used for
+ * the player). Each enemy is remembered with its Life max record, its vanilla max and the scaled max:
+ *  - max == scaled: done (the current value is only kept at or under it);
+ *  - max back at the vanilla value (the game reset it, e.g. a Keese settling down again): scaled again, and the
+ *    current value only when it is not already above the vanilla max (it was scaled before);
+ *  - anything else, or another Life record: a new enemy on a reused actor, scaled from scratch.
+ * The table is a hash on the actor pointer (HP_N slots, HP_PROBE tried per actor); a new enemy takes an empty slot or
+ * the one in its probe window not seen for the longest time: every live enemy passes here each frame, so a live one
+ * is only dropped when far more enemies than any area loads share its window. (It used to be a 64-entry ring: past 64 enemies a scaled enemy was dropped, seen
+ * again as new and multiplied again every time, which made swarms like Keese much tougher than asked.) */
+#define HP_N 1024
+#define HP_PROBE 32
+typedef struct { u64 actor, mrec; int m0, smax; u32 seen; } EnemyHp;
+static EnemyHp g_hp[HP_N];
 u32 g_hp_dbg[4];   /* diagnostic: scalings done, last cur before, last max before, last max after */
 /* diagnostic (read by tools): the last 16 enemies scaled: actor, Life name, max before / after */
 typedef struct { u64 actor; char name[24]; int m0, m1; } HpLog;
@@ -134,6 +142,7 @@ static void hp_log(u64 actor, int m0, int m1) {
     for (int i = 0; i < 23; i++) e->name[i] = g_scaling_name ? g_scaling_name[i] : 0;
     e->name[23] = 0;
 }
+static int hp_mul(int v, unsigned pct) { int r = (int)(((long long)v * pct + 50) / 100); return r < 1 ? 1 : r; }
 static void enemy_scale(u64 actor, u64 life) {
     unsigned pct = g_shbcfg.enemy_hp_pct;
     if (pct == 100 || pct == 0) return;
@@ -142,18 +151,39 @@ static void enemy_scale(u64 actor, u64 life) {
     volatile int *cur = (volatile int *)(rec + 8), *mx = (volatile int *)(mrec + 8);
     int m = *mx, c = *cur;
     if (m <= 0 || c <= 0) return;
-    int slot = -1;
-    for (int i = 0; i < 64; i++) if (g_hp[i].actor == actor) { slot = i; break; }
-    if (slot >= 0 && g_hp[slot].smax == m) return;                 /* already scaled */
-    if (slot < 0) { slot = (int)(g_hp_next++ & 63u); g_hp[slot].actor = actor; }
-    int nm = (int)(((long long)m * pct + 50) / 100), nc = (int)(((long long)c * pct + 50) / 100);
-    if (nm < 1) nm = 1;
-    if (nc < 1) nc = 1;
+    u32 now = hud_frame_count() | 1u;
+    u32 h = (u32)(((actor >> 4) * 0x9E3779B97F4A7C15ull) >> 54);   /* 10 bits: HP_N slots */
+    EnemyHp *e = 0, *old = &g_hp[h];
+    for (u32 k = 0; k < HP_PROBE; k++) {
+        EnemyHp *t = &g_hp[(h + k) & (HP_N - 1)];
+        if (t->actor == actor) { e = t; break; }
+        if (t->seen < old->seen) old = t;          /* (an empty slot has seen 0: taken first) */
+        if (!t->actor) break;                      /* the actor would be in this slot or before it */
+    }
+    if (e && e->mrec == mrec) {
+        e->seen = now;
+        if (m == e->smax) {                              /* already scaled */
+            if (c > m) *cur = m;
+            return;
+        }
+        if (m == e->m0) {                                /* the game set the vanilla max again */
+            int nc = c <= e->m0 ? hp_mul(c, pct) : c;    /* (a current value above it was scaled before) */
+            if (nc > e->smax) nc = e->smax;
+            *mx = e->smax;
+            *cur = nc;
+            g_hp_dbg[0]++;
+            hp_log(actor, m, e->smax);
+            return;
+        }
+    }
+    if (!e) e = old;                                     /* a new enemy (or the slot of the longest unseen one) */
+    int nm = hp_mul(m, pct), nc = hp_mul(c, pct);
+    if (nc > nm) nc = nm;
     g_hp_dbg[0]++; g_hp_dbg[1] = (u32)c; g_hp_dbg[2] = (u32)m; g_hp_dbg[3] = (u32)nm;
     hp_log(actor, m, nm);
     *mx = nm;
     *cur = nc;
-    g_hp[slot].smax = nm;
+    e->actor = actor; e->mrec = mrec; e->m0 = m; e->smax = nm; e->seen = now;
 }
 
 static void enemy_check(u64 actor, u64 comp, u64 life, const char *n) {

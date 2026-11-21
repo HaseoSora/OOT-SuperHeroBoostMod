@@ -475,10 +475,6 @@ class Select(ctk.CTkButton):
             top.focus_force()
         except Exception:
             pass
-        try:
-            top.grab_set()
-        except Exception:
-            pass
         top.bind("<Button-1>", self._popup_click)
         top.bind("<Escape>", lambda e: self._close_popup())
         self._popup = top
@@ -520,11 +516,6 @@ class Select(ctk.CTkButton):
     def _close_popup(self):
         pop = self._popup
         self._popup = None
-        if pop is not None:
-            try:
-                pop.grab_release()
-            except Exception:
-                pass
         if self._outside_id is not None:
             try:
                 self.winfo_toplevel().unbind("<Button-1>", self._outside_id)

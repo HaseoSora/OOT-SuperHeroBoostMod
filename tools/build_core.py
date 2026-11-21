@@ -81,6 +81,11 @@ FEATURE_INPUT_HANDLERS = {
     "button_mapping": ["button_mapping_on_input"],
     "manual_shield": ["manual_shield_on_input"],
 }
+# Input handlers that run before every feature's own, whatever the feature order: the button remap turns the
+# player's buttons into the virtual (default layout) ones that the other handlers and the game read.
+FEATURE_INPUT_EARLY = {
+    "button_mapping": ["button_remap_on_input"],
+}
 FEATURE_SLOT_HANDLERS = {
     "button_mapping": ["button_mapping_on_call"],
 }
@@ -257,7 +262,7 @@ def verify_stock_sites(features: list[str]) -> None:
 
 
 def write_handler_table(features: list[str], path: Path) -> None:
-    input_syms: list[str] = []
+    input_syms: list[str] = [h for feat in features for h in FEATURE_INPUT_EARLY.get(feat, [])]
     slot_syms: list[str] = []
     for feat in features:
         input_syms += FEATURE_INPUT_HANDLERS.get(feat, [])

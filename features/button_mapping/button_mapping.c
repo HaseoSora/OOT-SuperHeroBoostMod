@@ -1,6 +1,7 @@
 #include "../../core/dispatch.h"
 #include "../../core/hid.h"
 #include "../../core/config.h"
+#include "../../core/remap.h"
 
 /* button_mapping (F3, "buttonMapping"): our own extra item buttons on the HUD.
  *
@@ -41,7 +42,7 @@ static u64 slot_mask(u32 s) {
  * the L item slot is off while that option is enabled. The assignment is kept,
  * so turning the manual shield off restores it. */
 static int slot_enabled(int s) {
-    return !(s == SLOT_L && g_shbcfg.manual_shield);
+    return !(s == SLOT_L && g_shbcfg.manual_shield && !remap_on());   /* remap: the shield has its own button */
 }
 
 /* Item index per slot, -1 = empty (button stays normal): the set of Link's current age. Assigned in the pause
@@ -51,6 +52,7 @@ int g_assign[SLOT_N] = {-1, -1, -1, -1};
  * g_assign holds (-1: none yet, taken from g_set on the next gameplay frame). */
 int g_set[2][SLOT_ZR] = {{-1, -1, -1}, {-1, -1, -1}};
 int g_cur_age = -1;
+static int g_check_owned;   /* frames left to drop slot items the save does not have (after a set is taken) */
 int hud_is_child(void);          /* core/hud.c: Sequence_IsChildhood (-1: no GameData) */
 int hud_item_owned(int item);    /* core/hud.c: IsGet.<item> */
 
@@ -60,6 +62,8 @@ enum { PH_IDLE = 0, PH_EQUIP, PH_HOLD, PH_GAP, PH_RESTORE, PH_ZRBACK };
 #define EQUIP_MAX 16
 #define GAP_TICKS 20           /* input frames Link must be free after a use before the ZR item goes back */
 #define GAP_BOOMERANG 90       /* the boomerang flies back while Link is free: wait for it */
+/* items that stay in Link's hand after a use (not given back on their own, see PH_GAP) */
+static int held_item(int item) { return item == 0; }   /* 0: Deku stick */
 /* A while standing still with an item on B: B's own "put away" (sword, item in hand) is on A then. A reaches the
  * game first (talk, open, check ...); when Link is still standing A_PUTAWAY_WAIT reads later, A did nothing and the
  * B button's own press is sent for A_PUTAWAY_PRESS reads. */
@@ -90,6 +94,9 @@ char g_cl_refused[24];   /* diagnostic: Link's state when a slot press was ignor
 int hud_zr_item(void);
 void hud_zr_hold(int hold);
 int hud_ingame(void);   /* core/hud.c: 0 while a menu covers the game (pause ...) */
+int hud_ingame_known(void);   /* core/hud.c: hud_ingame() reads the HUD (else it always says 1) */
+int hud_game_covered(void);   /* core/hud.c: a menu covers the game (pause flag below, or the HUD flag) */
+extern u32 g_game_paused;    /* core/hud.c: published copy of g_paused */
 int hud_menu_items(void);   /* core/hud.c: the pause menu's Items tab is open */
 int hud_menu_item(void);    /* core/hud.c: item index highlighted there (-1: none / not owned) */
 void hud_menu_tick(void);   /* core/hud.c: draw the slot cluster on the menu page */
@@ -99,6 +106,7 @@ int hud_menu_decided(void); /* core/hud.c: that animation is playing */
 void hud_menu_zr(int item); /* core/hud.c: show an item on ZR now */
 void hud_menu_off(void);    /* core/hud.c: not on the Items tab: hide the assign legend */
 static int g_menu_a_item = -1, g_menu_a_wait;
+static u32 g_menu_assign_t = 1000;   /* menu reads since the last assignment */
 static int g_paused;        /* + pressed in gameplay: the pause menu is up */
 /* A menu swap with ZR (X / L / R on the ZR item): the game's item box gets this item (-1 empty) once gameplay runs
  * again; -2 none. g_pending_snap: the box when it was made (a different box then = the player picked a ZR item with
@@ -216,6 +224,44 @@ static void set_all(const HidView *v, u64 clear, u64 set) {
 
 static void dbg_tick(void);   /* diagnostic dump (below, beside the save code) */
 
+/* ---- button remap (core/remap.h) ----
+ * Runs before every other input handler (tools/build_core.py FEATURE_INPUT_EARLY): the buttons the player pressed
+ * become the virtual ones of their roles, so every feature after it (and the game) sees the default layout. Only
+ * while Link plays: menus (pause, map, game over), the title screen and the ocarina keep the real buttons, as the
+ * game's own prompts there name them. The game fills the samples again on every read, so this is done once per read. */
+u32 g_remap_dbg[3];   /* reads remapped, reads left alone, last physical -> virtual (low bits) */
+void button_remap_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_result) {
+    (void)a2;
+    if (site != 3 || !a0 || !remap_on()) return;
+    u32 count = (u32)(unsigned long)a1;
+    if (count == 0 || count > 64) count = stock_result;
+    if (count == 0 || count > 64) return;
+    /* Gameplay: the player updated recently. player_active() alone drops for a few frames in hit stops and
+     * transitions, and a real button must never reach the game there with its own function. */
+    static u32 last_active;
+    u32 now = hud_frame_count();
+    if (player_active()) last_active = now ? now : 1;
+    int playing = last_active && now - last_active < 60u;
+    /* (no g_paused here: the pause menu clears hud_ingame by itself, and a remap must never stay off because a
+     * pause flag was missed) */
+    /* A menu covers the game, or the pause menu is up (+ pressed, until gameplay runs again): the real buttons.
+     * Both: the HUD flag alone is not steady through the whole pause menu, and a remap switching on and off
+     * there turned one press into two (the second unassigned the item). */
+    int covered = hud_game_covered();
+    if (!playing || covered || g_songbook_active || player_dead()) {
+        g_remap_dbg[1]++;
+        return;
+    }
+    HidView view = {a0, count, 0};
+    for (u32 i = 0; i < count; i++) {
+        u64 b = hid_get_buttons(&view, i);
+        u64 v = remap_apply(b);
+        if (v != b) hid_set_buttons(&view, i, v);
+        if (i == 0) g_remap_dbg[2] = (u32)(b & 0x3FF) | ((u32)(v & 0x3FF) << 16);
+    }
+    g_remap_dbg[0]++;
+}
+
 /* Every input call the module sees, per site: hits, arguments, count and the first buttons word. */
 u64 g_dbg_a0[5], g_dbg_a1[5];
 u32 g_dbg_cnt[5], g_dbg_btn[5], g_dbg_hits[5];
@@ -240,6 +286,11 @@ void button_mapping_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_r
     if (count == 0 || count > 64) count = stock_result;
     if (count == 0 || count > 64) return;
     HidView view = {a0, count, 0};
+    /* the shield role's virtual bit is the manual shield's (it ran before): the game never sees it */
+    for (u32 i = 0; i < count; i++) {
+        u64 b = hid_get_buttons(&view, i);
+        if (b & VBTN_SHIELD) hid_set_buttons(&view, i, b & ~VBTN_SHIELD);
+    }
 
     /* Death ragdoll / game over: do not remap or swallow anything, the game's screen needs every button. */
     if (player_dead()) {
@@ -257,12 +308,19 @@ void button_mapping_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_r
                 if (g_cur_age >= 0) for (int s = 0; s < SLOT_ZR; s++) g_set[g_cur_age][s] = g_assign[s];
                 for (int s = 0; s < SLOT_ZR; s++) g_assign[s] = g_set[age][s];
                 g_cur_age = age;
+                g_check_owned = 30;   /* a set was just taken: drop what this save does not have (a few frames) */
                 /* each age has its own item box: nothing of the other age's is borrowed in it */
                 if (g_borrowed) unborrow();
                 g_phase = PH_IDLE;
                 g_zr_item = ZR_UNKNOWN; g_box_pending = -2; g_sync_t = 0;
             }
-            for (int s = 0; s < SLOT_ZR; s++) if (g_assign[s] >= 0 && !hud_item_owned(g_assign[s])) g_assign[s] = -1;
+            /* Only right after a set is taken (save loaded, age changed), never while playing: an item assigned from
+             * the pause menu is one the menu shows, and the game's IsGet flags are not a full record (an item that
+             * never played its "you got" scene keeps it off). Re-checked for a few frames while GameData settles. */
+            if (g_check_owned > 0) {
+                g_check_owned--;
+                for (int s = 0; s < SLOT_ZR; s++) if (g_assign[s] >= 0 && !hud_item_owned(g_assign[s])) g_assign[s] = -1;
+            }
         }
     }
 
@@ -281,28 +339,57 @@ void button_mapping_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_r
      * B stays "back"). An item already on another slot swaps with it. The game's ZL / ZR still change tabs. */
     /* The pause menu is open only after + was pressed in gameplay, until gameplay runs again (the Items panel exists
      * from boot and looks "open" on the title screen and while loading, where its cells are not ready). */
-    {   /* gameplay runs while the HUD's frame count moves (it stops under the menu) */
+    {   /* The pause menu is up from the + press until gameplay runs again: 10 HUD frames in a row in which the
+         * player was updated (Link is frozen under the menu, so his frames never count there, whatever the HUD
+         * frame count or the HUD's own "in game" flag do). Reads that land on the same frame count neither way:
+         * the game can read the pad more than once per frame. */
         u32 f = hud_frame_count();
-        g_run = f != g_run_frame ? g_run + 1 : 0;
+        if ((pressed & BTN_PLUS) && player_active()) { g_paused = 1; g_run = 0; }
+        else if (g_paused && f != g_run_frame) {
+            g_run = player_active() ? g_run + 1 : 0;
+            if (g_run > 10) g_paused = 0;
+        }
         g_run_frame = f;
-        if ((pressed & BTN_PLUS) && player_active()) g_paused = 1;
-        else if (g_run > 10) g_paused = 0;
     }
+    g_game_paused = (u32)g_paused;
     int menu = g_paused && hud_menu_items();
+    if (g_menu_assign_t < 1000) g_menu_assign_t++;
     if (g_shbcfg.button_mapping && !menu) { hud_menu_off(); g_menu_box = -3; }
     if (g_shbcfg.button_mapping && menu) {
-        static const u64 MENU_BTN[SLOT_ZR] = {BTN_X, BTN_L, BTN_R};   /* -> SLOT_B, SLOT_L, SLOT_R */
+        /* -> SLOT_B, SLOT_L, SLOT_R: the slot's own button when the menu lets it (X / Y / L / R), else a free one
+         * (classic layout: X, L, R). No button = the slot is on no button: nothing to assign. */
+        u64 MENU_BTN[SLOT_ZR], menu_mask = 0;
+        {
+            u32 mb[3];
+            remap_menu_buttons(mb);
+            for (int s = 0; s < SLOT_ZR; s++) {
+                MENU_BTN[s] = mb[s] < PB_N ? REMAP_BIT[mb[s]] : 0;
+                menu_mask |= MENU_BTN[s];
+            }
+        }
         for (int s = 0; s < SLOT_ZR; s++) {
-            if (!(pressed & MENU_BTN[s])) continue;
-            if (s == SLOT_L && (g_shbcfg.bm_l_mode || g_shbcfg.manual_shield)) continue;   /* L is the selector / the shield */
+            if (!MENU_BTN[s] || !(pressed & MENU_BTN[s])) continue;
+            if (s == SLOT_L && (g_shbcfg.bm_l_mode || (g_shbcfg.manual_shield && !remap_on()))) continue;   /* L: selector / shield */
             int it = hud_menu_item();
             if (it < 0) continue;
             int old = g_assign[s];
-            if (old == it) g_assign[s] = -1;   /* the same button again: unassign (the button works as normal) */
+            /* the same button again: unassign (the button works as normal). Only a real second press: not within
+             * 20 reads of the assignment, so a repeated edge of the same press never undoes it. */
+            if (old == it && g_menu_assign_t <= 20) continue;   /* (the same press seen again: nothing) */
+            if (old == it) g_assign[s] = -1;
             else {
                 /* each item on one button only: the one that had it gets this button's old item (ZR too) */
                 for (int o = 0; o < SLOT_ZR; o++) if (o != s && g_assign[o] == it) g_assign[o] = old;
                 int zr = g_borrowed ? g_saved : g_zr_item;
+                /* The ZR item onto an empty button: the game cannot be left with an empty box (it puts the item
+                 * back when the menu closes, which undid this assignment), so the item stays on ZR as well. */
+                if (it == zr && old < 0) {
+                    g_assign[s] = it;
+                    g_cl_dbg[3]++;
+                    g_menu_assign_t = 0;
+                    hud_menu_decide();
+                    continue;
+                }
                 if (it == zr) {
                     g_a_pick = -1;
                     g_zr_item = old;
@@ -317,6 +404,7 @@ void button_mapping_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_r
                 g_assign[s] = it;
             }
             g_cl_dbg[3]++;
+            g_menu_assign_t = 0;
             hud_menu_decide();
         }
         /* A is the game's own: it puts the item in its box (ZR). When the game's box changes here, that is the
@@ -345,7 +433,7 @@ void button_mapping_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_r
         for (int s = 0; s < SLOT_ZR; s++) hud_slot_item((u32)s, slot_enabled(s) ? g_assign[s] : -1);   /* show a swap at once */
         hud_refresh_button_swap();
         hud_menu_tick();
-        set_all(&view, BTN_X | BTN_L | BTN_R, 0);
+        set_all(&view, menu_mask, 0);
         g_phase = PH_IDLE; g_swallow = 0;
         return;
     }
@@ -353,7 +441,7 @@ void button_mapping_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_r
     /* L as the game's item selector: outside menus, L does what R does (opens the selector for ZR).
      * The R slot is suppressed for this frame so an item assigned to R is not used as well. */
     u32 l_selector = 0;
-    if (g_shbcfg.button_mapping && !g_shbcfg.manual_shield && g_shbcfg.bm_l_mode == 2 && hud_ingame() &&
+    if (g_shbcfg.button_mapping && (!g_shbcfg.manual_shield || remap_on()) && g_shbcfg.bm_l_mode == 2 && hud_ingame() &&
         (buttons & BTN_L) && !(buttons & BTN_R)) {
         u32 was_pressed = (pressed & BTN_L) != 0;
         set_all(&view, BTN_L, BTN_R);
@@ -477,6 +565,11 @@ void button_mapping_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_r
         break;
     case PH_GAP:                               /* the use is over once Link is free for a while (nothing mid-use) */
         if (!g_borrowed) { g_phase = PH_IDLE; break; }
+        /* An item Link keeps in his hand (the Deku stick): giving the box back makes the game put it away, so it
+         * stays borrowed until the player presses ZR (ZRBACK puts the ZR item back first) or uses another slot.
+         * The HUD keeps showing the ZR item meanwhile (hud_zr_hold). Found live: the native stick stays out in
+         * Wait; ours was put away ~0.3 s after Link stood still. */
+        if (held_item(g_borrow_item)) { g_phase_t = 0; break; }
         /* only standing or walking: aiming (bow, hookshot, slingshot) is a LockOn* state too, and the item must
          * stay in the box until the shot is over (else the ZR item is drawn or shot instead) */
         g_phase_t = (player_state_is("Wait") || player_state_is("Move")) ? g_phase_t + 1 : 0;

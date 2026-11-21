@@ -27,6 +27,122 @@ BM_LAYOUTS = ("nintendo", "ab", "xbox")         # where the face buttons sit (th
 BM_LAYOUT_BYTE = {"nintendo": 0, "ab": 1, "xbox": 2}
 L_MODES = ("assign", "selector")           # buttonMapping L: an item slot or the game's item selector
 L_MODE_VALUES = {"assign": 0, "selector": 2}
+# Button remap (core/remap.h): what each of the eight buttons does. REMAP_BUTTONS is the module's physical order
+# (the config bytes bm_role[0..7]); ROLES is the byte value order. Four item roles, each on one button at most, so
+# at most four buttons hold an item. "item_main" is the game's own item box (picked with A in the pause menu or the
+# item selector); item1 / item2 / item3 are the mod's slots (classically B, L and R).
+REMAP_BUTTONS = ("L", "X", "R", "Y", "A", "ZR", "B", "ZL", "L3", "R3")
+ROLES = ("none", "jump", "sword", "action", "target", "item1", "item2", "item3", "item_main",
+         "camera", "sprint", "shield", "selector")
+ITEM_ROLES = ("item1", "item2", "item3", "item_main")
+# Roles limited to some buttons (everything else goes anywhere)
+_NO_STICKS = ("L", "X", "R", "Y", "A", "ZR", "B", "ZL")
+ROLE_BUTTONS = {"selector": ("L", "R"), "target": ("ZL", "ZR", "L3", "R3"),
+                **{r: _NO_STICKS for r in ("item1", "item2", "item3", "item_main")}}   # items: no sticks (no HUD art)
+CLASSIC_ROLES = {"L": "item2", "X": "jump", "R": "item3", "Y": "sword", "A": "action", "ZR": "item_main",
+                 "B": "item1", "ZL": "target", "L3": "none", "R3": "camera"}
+# Ready-made tables (the app's preset list). Options (toggle sprint, switch target...) are kept apart.
+REMAP_PRESETS = {
+    "classic": dict(CLASSIC_ROLES),
+    "action_down": dict(CLASSIC_ROLES, A="item1", B="action"),
+    "shield": dict(CLASSIC_ROLES, L="shield", L3="sprint"),   # item 2 gives L to the shield
+    "souls": {"L": "shield", "X": "jump", "R": "item2", "Y": "sword", "A": "action", "ZR": "item_main",
+              "B": "item1", "ZL": "item3", "L3": "sprint", "R3": "target"},
+}
+REMAP_PRESET_KEYS = ("classic", "action_down", "shield", "souls")
+
+
+def role_allowed(role: str, button: str) -> bool:
+    return role in ROLES and (role not in ROLE_BUTTONS or button in ROLE_BUTTONS[role])
+
+
+def normalize_roles(roles) -> dict:
+    """A role per button, every role but "none" on one button at most (the first one keeps it), only where it is
+    allowed (ROLE_BUTTONS). Item 2 and the item selector are the same virtual button (L): only one of them.
+    Unknown or missing buttons take their classic role when it is still free, else none."""
+    src = roles if isinstance(roles, dict) else {}
+    out, used = {}, set()
+    for b in REMAP_BUTTONS:
+        r = src.get(b, CLASSIC_ROLES[b])
+        if not role_allowed(r, b):
+            r = "none"
+        if r != "none" and (r in used or (r == "item2" and "selector" in used)
+                            or (r == "selector" and "item2" in used)):
+            r = "none"
+        out[b] = r
+        used.add(r)
+    return out
+
+
+def roles_missing(roles) -> list:
+    """The basic roles no button has (jump, sword, action, target): the game cannot do those then."""
+    have = set(normalize_roles(roles).values())
+    return [r for r in ("jump", "sword", "action", "target") if r not in have]
+
+
+def roles_flags(roles) -> dict:
+    """The module options a table implies: the L3-style sprint (a sprint button) and L as the item selector (a
+    selector button). The ZL/R3 swap is never needed: target goes anywhere. The manual shield is a switch of its own
+    (an option of the target button); the Shield role only works with it."""
+    have = set(normalize_roles(roles).values())
+    return dict(sprint_l3="sprint" in have, target_r3=False, bm_l_mode="selector" if "selector" in have else "assign")
+
+
+def roles_from_flags(roles, manual_shield=None, target_r3=None, sprint_l3=None, l_selector=None) -> dict:
+    """Bring a table in line with the old options (profiles, command line). None = leave that part as it is."""
+    r = dict(normalize_roles(roles))
+
+    def holder(role):
+        return next((b for b, x in r.items() if x == role), None)
+
+    def free_for(role, prefer):
+        for b in prefer:
+            if r[b] in ("none", "camera") and role_allowed(role, b):
+                return b
+        return None
+
+    if target_r3 is not None:
+        t = holder("target")
+        if target_r3 and t != "R3":
+            old = r["R3"]
+            r["R3"] = "target"
+            if t:
+                r[t] = old if role_allowed(old, t) else "none"
+        elif not target_r3 and t == "R3":
+            z = r["ZL"]
+            r["ZL"], r["R3"] = "target", (z if role_allowed(z, "R3") else "camera")
+    if manual_shield is not None:
+        sh = holder("shield")
+        if manual_shield and not sh:
+            displaced = r["L"]
+            r["L"] = "shield"
+            if displaced in ITEM_ROLES or displaced == "selector":
+                if displaced == "selector":
+                    dst = "R" if role_allowed("selector", "R") and r["R"] in ("none",) else None
+                else:
+                    dst = free_for(displaced, ("ZL", "L3", "R3"))
+                if dst:
+                    r[dst] = displaced
+        elif not manual_shield and sh:
+            r[sh] = "item2" if "item2" not in r.values() and "selector" not in r.values() else "none"
+    if sprint_l3 is not None:
+        sp = holder("sprint")
+        if sprint_l3 and not sp and r["L3"] == "none":
+            r["L3"] = "sprint"
+        elif not sprint_l3 and sp:
+            r[sp] = "none"
+    if l_selector is not None:
+        sel = holder("selector")
+        if l_selector and not sel:
+            for b in ("L", "R"):
+                if r[b] in ("item2", "none"):
+                    r[b] = "selector"
+                    break
+        elif not l_selector and sel:
+            r[sel] = "item2" if "item2" not in r.values() else "none"
+    return normalize_roles(r)
+
+
 LANGS = ("en", "es", "pt", "fr", "de", "it")   # the app's UI languages, also the mod's HUD labels
 LANG_VALUES = {"en": 0, "es": 1, "pt": 2, "fr": 3, "de": 4, "it": 5}
 # game language, as the mod's own HUD labels follow the language the game is played in
@@ -108,6 +224,8 @@ class Settings:
     no_magic_drop: bool = False      # dropped magic jars become green rupees (romfs file)
     hide_minimap: bool = False       # hide the corner minimap while playing
     sprint_l3_toggle: bool = False   # sprint_l3: L3 turns the sprint on / off instead of holding it
+    bm_remap: bool = True            # button remap: use bm_roles (the table implies shield/sprint/selector)
+    bm_roles: dict = field(default_factory=lambda: dict(CLASSIC_ROLES))   # button (REMAP_BUTTONS) -> role (ROLES)
 
     def to_dict(self): return dict(self.__dict__)
 
@@ -457,6 +575,23 @@ def patch_config(nso: bytes, s: Settings) -> bytes:
                 b[f + 60] = int(s.no_magic_drop)        # struct 76: magic jars become rupees (romfs)
                 b[f + 61] = int(s.hide_minimap)         # struct 77: hide the corner minimap
                 b[f + 62] = int(s.sprint_l3_toggle)     # struct 78 (was padding): L3 sprint as a toggle
+                if size >= 0x5A and s.bm_remap:         # 0.9.0: button remap
+                    roles = normalize_roles(s.bm_roles)
+                    if not s.manual_shield:             # the Shield role needs the manual shield
+                        roles = {k: ("none" if v == "shield" else v) for k, v in roles.items()}
+                    if not s.button_mapping:            # no item slots without the item buttons
+                        roles = {k: ("none" if v in ("item1", "item2", "item3", "selector") else v)
+                                 for k, v in roles.items()}
+                    b[f + 63] = 1                                            # struct 79: bm_remap
+                    for k, btn in enumerate(REMAP_BUTTONS):                  # struct 80..89: bm_role[]
+                        b[f + 64 + k] = ROLES.index(roles[btn])
+                    # the options the table implies (they used to be separate switches)
+                    fl = roles_flags(roles)
+                    b[f + 9] = 0                                             # bm_layout: positions come from the table
+                    b[f + 24] = L_MODE_VALUES[fl["bm_l_mode"]]
+                    b[f + 54] = int(s.manual_shield)
+                    b[f + 55] = 0                                            # target_r3: target can be on R3 itself
+                    b[f + 56] = int(fl["sprint_l3"])
     return bytes(b)
 
 

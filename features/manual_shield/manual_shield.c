@@ -17,12 +17,16 @@
 #include "../../core/dispatch.h"
 #include "../../core/hid.h"
 #include "../../core/config.h"
+#include "../../core/remap.h"
 
 typedef unsigned char u8;
 
 #define MS_BTN_L   0x40ull
 #define MS_BTN_R3  0x20ull
 #define MS_BTN_ZL  0x100ull
+/* The guard button: L in the classic layout; with the button remap, the shield role's own virtual bit (L stays
+ * an item slot then). */
+static u64 ms_guard_bit(void) { return remap_on() ? VBTN_SHIELD : MS_BTN_L; }
 
 int player_dead(void);
 u64 player_get(void);
@@ -275,7 +279,7 @@ void manual_shield_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_re
         if (ms && (g_ms_last_allowed || g_ms_targeting || g_ms_l_latch) && ms_gameplay_state()) {
             for (u32 i = 0; i < count; i++) {
                 u64 b = hid_get_buttons(&view, i);
-                hid_set_buttons(&view, i, b & ~MS_BTN_L);
+                hid_set_buttons(&view, i, b & ~ms_guard_bit());
             }
         }
         return;
@@ -304,14 +308,15 @@ void manual_shield_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_re
 
     u64 all = hid_merge_buttons(&view);
     u8 zl = (u8)((all & MS_BTN_ZL) != 0);
-    u8 l = (u8)((all & MS_BTN_L) != 0);
+    u8 l = (u8)((all & ms_guard_bit()) != 0);
     u8 r3 = (u8)((all & MS_BTN_R3) != 0);
     g_ms_zl_raw = zl;
     g_ms_l_raw = l;
     g_ms_prev_l = l;
     /* The shield's R3 cancel (without the ZL/R3 swap): a press of R3 while locked drops the target with a short
      * press of the target button of ours (the game's toggle lets go), and R3 itself does not reach the game. */
-    if (ms && !g_shbcfg.target_r3 && g_ms_toggle_mode && r3 && !g_ms_r3_prev && attention_locked_actor()) {
+    /* (not with the remap: R3 is whatever the player chose, the camera by default) */
+    if (ms && !remap_on() && !g_shbcfg.target_r3 && g_ms_toggle_mode && r3 && !g_ms_r3_prev && attention_locked_actor()) {
         g_ms_r3_own = 1;
         g_ms_cancel = 4;
         g_sw_cancel_frame = hud_frame_count() | 1u;   /* (the automatic next target ignores this drop) */
@@ -339,7 +344,7 @@ void manual_shield_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_re
         /* While targeting or guarding L is ours, including during shield-hit reactions
          * (Guard/Repelled/GuardBreak): otherwise the default L (item/selector) fires for a frame in the
          * middle of the hit. */
-        if (own_l) b &= ~MS_BTN_L;
+        if (own_l) b &= ~ms_guard_bit();
         if (g_ms_r3_own) b &= ~MS_BTN_R3;
         /* The target died: press target again so the game picks the next one. The game sees ZL (controls.c
          * already swapped R3 into it), and a short hold is one press for the toggle. Also the R3 cancel. */

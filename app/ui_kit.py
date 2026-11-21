@@ -328,6 +328,8 @@ class Select(ctk.CTkButton):
         self._popup = None
         self._pending = None
         self._rows = []
+        self._inner = None
+        self._scrollable = False
         if var.get() not in self._values:
             var.set(self._values[0])
         _strip(kw)
@@ -441,6 +443,8 @@ class Select(ctk.CTkButton):
                                            scrollbar_button_color=BORDER,
                                            scrollbar_button_hover_color=ACCENT_DARK)
         inner.pack(fill="both", expand=True, padx=6, pady=6)
+        self._inner = inner
+        self._scrollable = isinstance(inner, ctk.CTkScrollableFrame)
         current = self._var.get()
         rows = []
         for value in self._values:
@@ -476,7 +480,24 @@ class Select(ctk.CTkButton):
         top.bind("<Button-1>", lambda e: "break")
         top.bind("<ButtonRelease-1>", self._popup_release)
         top.bind("<Escape>", lambda e: self._close_popup())
+        top.bind("<MouseWheel>", self._popup_wheel)
+        top.bind("<Button-4>", self._popup_wheel)
+        top.bind("<Button-5>", self._popup_wheel)
         self._popup = top
+
+    def _popup_wheel(self, event=None):
+        num = getattr(event, "num", None)
+        delta = getattr(event, "delta", 0)
+        step = -1 if (num == 4 or delta > 0) else 1
+        if self._scrollable:
+            try:
+                self._inner._parent_canvas.yview_scroll(step, "units")
+            except Exception:
+                pass
+        else:
+            # The list fits: a wheel gesture belongs to the page behind it.
+            self._close_popup()
+        return "break"
 
     def _popup_release(self, event=None):
         w = self._popup

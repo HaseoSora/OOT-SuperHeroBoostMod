@@ -1865,6 +1865,8 @@ static void zr_mirror(void) {
  * and our buttons do not act. */
 static u64 g_ps_frame;
 int hud_ingame(void) { return !vptr(g_ps_frame) || (*(volatile u32 *)(g_ps_frame + 0x1A4) & 0x20000u) != 0; }
+/* hud_ingame() really reads the HUD (our parts are bound); 0: it always answers "in game" */
+int hud_ingame_known(void) { return vptr(g_ps_frame) != 0; }
 /* Corner minimap (MapMenu_00): the layout is captured at its part instantiation (hook id 4) and its frame is
  * layout + 0xB0 (the PlayerStatus layout uses the same field). While playing, the scale of every map node is zeroed;
  * the map screen (hud_ingame() == 0) keeps them. */

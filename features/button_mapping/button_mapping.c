@@ -570,33 +570,37 @@ static int our_path(const char *path, char *out) {   /* save:/slot_NN/progress.s
     return 1;
 }
 static void save_write(const char *ours) {
-    signed char buf[16] = {'O', 'O', 'T', 'M', 1};
+    static signed char buf[16] = {'O', 'O', 'T', 'M', 1};
+    static FsFile f;
+    static FsWriteOpt opt;
+    f = (FsFile){0};
     if (g_cur_age >= 0) for (int s = 0; s < SLOT_ZR; s++) g_set[g_cur_age][s] = g_assign[s];
     for (int a = 0; a < 2; a++) for (int s = 0; s < SLOT_ZR; s++) buf[8 + a * 4 + s] = (signed char)g_set[a][s];
-    FsFile f = {0};
     fs_create_file(ours, sizeof buf);   /* fails when it is already there */
     u32 r = fs_open_file(&f, ours, 2 | 4);
     g_save_dbg[4] = r;
     if (r) { g_save_dbg[1]++; return; }
-    FsWriteOpt opt = {1};   /* flush */
+    opt = (FsWriteOpt){1};   /* flush */
     fs_set_file_size(f, sizeof buf);
     r = fs_write_file(f, 0, buf, sizeof buf, &opt);
     fs_close_file(f);
     g_save_dbg[r ? 1 : 0]++;
 }
 static void save_read(const char *ours) {
-    signed char buf[16];
+    static signed char buf[16];
+    static FsFile f;
+    static unsigned long long got;
+    f = (FsFile){0};
+    got = 0;
     for (int a = 0; a < 2; a++) for (int s = 0; s < SLOT_ZR; s++) g_set[a][s] = -1;
     for (int s = 0; s < SLOT_ZR; s++) g_assign[s] = -1;
     g_cur_age = -1;   /* the set is taken on the first gameplay frame (the age is not loaded yet) */
     if (g_borrowed) unborrow();   /* another save: its own item box */
     g_phase = PH_IDLE;
     g_zr_item = ZR_UNKNOWN; g_box_pending = -2; g_sync_t = 0;
-    FsFile f = {0};
     u32 r = fs_open_file(&f, ours, 1);
     g_save_dbg[4] = r;
     if (r) { g_save_dbg[3]++; return; }   /* none: empty sets */
-    unsigned long long got = 0;
     r = fs_read_file(&got, f, 0, buf, sizeof buf);
     fs_close_file(f);
     if (r || got < 14 || buf[0] != 'O' || buf[1] != 'O' || buf[2] != 'T' || buf[3] != 'M' || buf[4] != 1) { g_save_dbg[3]++; return; }
@@ -614,7 +618,10 @@ extern u32 g_save_dbg[6];
 static u32 g_dbg_tick, g_dbg_done;
 
 static void dbg_write_path(const char *path) {
-    unsigned char buf[440];
+    static unsigned char buf[440];
+    static FsFile f;
+    static FsWriteOpt opt;
+    f = (FsFile){0};
     for (int i = 0; i < 440; i++) buf[i] = 0;
     static const char MAGIC[] = "SHBDBG01";
     for (int i = 0; i < 8; i++) buf[i] = (unsigned char)MAGIC[i];
@@ -641,11 +648,10 @@ static void dbg_write_path(const char *path) {
         DBG32(b + 20, g_dbg_btn[s]);
     }
 #undef DBG32
-    FsFile f = {0};
     fs_create_file(path, 440);               /* fails when it is already there */
     u32 r = fs_open_file(&f, path, 2 | 4);
     if (r) return;
-    FsWriteOpt opt = {1};                    /* flush */
+    opt = (FsWriteOpt){1};                    /* flush */
     fs_set_file_size(f, 440);
     fs_write_file(f, 0, buf, 440, &opt);
     fs_close_file(f);

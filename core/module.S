@@ -15,10 +15,28 @@ _module_header:
     .word __module_object_off // 0x38: module object inside bss
     .word 0                   // 0x3C
 
-/* Minimal dynamic section: a single DT_NULL terminator. */
-.section .dynamic, "aw"
-    .quad 0
-    .quad 0
+/* Minimal dynamic section: a symbol table, its strings and a SysV hash, which Rekarina's loader requires
+ * (runtime/loader.c parse_dynamic), then DT_NULL. Values are module-relative (the loader adds the base). */.section .dynamic, "aw"
+    .quad 6, __shb_dynsym_off          // DT_SYMTAB
+    .quad 5, __shb_dynstr_off          // DT_STRTAB
+    .quad 4, __shb_hash_off            // DT_HASH
+    .quad 0, 0                         // DT_NULL
+
+/* One symbol (the null one) and a SysV hash: the loader only requires the tables to exist; this module's calls
+ * are direct PC-relative branches and it imports nothing. */
+.section .shb_dynstr, "a"
+    .asciz ""
+
+.section .shb_dynsym, "a"
+    .p2align 3
+    .quad 0, 0, 0                      // symbol 0: null
+
+.section .shb_hash, "a"
+    .p2align 2
+    .word 1                            // nbucket
+    .word 1                            // nchain = number of symbols
+    .word 0                            // bucket[0]
+    .word 0                            // chain[0]
 
 .section .text
 .global _start

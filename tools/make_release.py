@@ -15,7 +15,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "app" / "payload"
 BUILD_ID = "E0F3CCFAF50065AE4EA01EB5AEB13B1A45DA3348"
-VARIANTS = {"standalone": "0x4F80000", "relink": "0x4F80000"}
+VARIANTS = {"standalone": "0x4F80000", "relink": "0x4F80000", "rekarina": "0x5200000"}
 # buttonMapping needs the equip-call hooks too (--slots)
 VARIANT_ARGS = {
     "standalone": ["--features", "controls,manual_shield,stamina,songbook,button_mapping,quick_select", "--slots"],
@@ -23,6 +23,10 @@ VARIANT_ARGS = {
     # tail call and drops the dispatch, so no control/stamina feature would ever run)
     "relink": ["--features", "controls,manual_shield,stamina,songbook,button_mapping,quick_select", "--slots",
                "--no-lazy"],
+    # Rekarina: a module linked right before sdk (base main+0x5200000) with the synthetic function-seed table its
+    # lifter reads (recomp/module.py eh_frame_functions). No --base: --link-base writes the matching linker script.
+    "rekarina": ["--features", "controls,manual_shield,stamina,songbook,button_mapping,quick_select", "--slots",
+                 "--link-base", "0x5200000", "--rekarina"],
 }
 
 
@@ -59,8 +63,9 @@ def main():
         print("WARNING: collectible table not built (game dump missing?): the HUD counter stays empty")
     man = {"build_id": BUILD_ID, "variants": {}}
     for name, base in VARIANTS.items():
-        subprocess.run([sys.executable, str(ROOT / "tools" / "build_core.py"), *VARIANT_ARGS[name],
-                        "--base", base], check=True, cwd=ROOT)
+        extra = [] if "--link-base" in VARIANT_ARGS[name] else ["--base", base]
+        subprocess.run([sys.executable, str(ROOT / "tools" / "build_core.py"), *VARIANT_ARGS[name], *extra],
+                       check=True, cwd=ROOT)
         d = OUT / name
         d.mkdir(parents=True)
         src = ROOT / "build" / "native" / "exefs"

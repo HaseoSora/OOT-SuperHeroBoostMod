@@ -101,12 +101,22 @@ def run(args: list[str]) -> str:
 
 
 def section_info(elf: Path) -> dict[str, tuple[int, int]]:
-    """Return {section: (size, address)} from llvm-size -A."""
+    """Return {section: (size, address)} from llvm-size -A (or llvm-objdump -h when llvm-size is absent)."""
     info: dict[str, tuple[int, int]] = {}
-    for line in run([str(SIZE), "-A", str(elf)]).splitlines():
+    if Path(SIZE).exists():
+        for line in run([str(SIZE), "-A", str(elf)]).splitlines():
+            parts = line.split()
+            if len(parts) >= 3 and parts[0].startswith("."):
+                info[parts[0]] = (int(parts[1], 0), int(parts[-1], 0))
+        return info
+    objdump = TOOLCHAIN_BIN / f"llvm-objdump{EXE}"
+    for line in run([str(objdump), "-h", str(elf)]).splitlines():
         parts = line.split()
-        if len(parts) >= 3 and parts[0].startswith("."):
-            info[parts[0]] = (int(parts[1], 0), int(parts[-1], 0))
+        if len(parts) >= 4 and parts[0].isdigit() and parts[1].startswith("."):
+            try:
+                info[parts[1]] = (int(parts[2], 16), int(parts[3], 16))
+            except ValueError:
+                pass
     return info
 
 
@@ -299,6 +309,7 @@ def write_handler_table(features: list[str], path: Path) -> None:
 NO_LAZY = False  # --no-lazy: no lazy-binding check in the input wrappers (ReLink)
 COMPAT = False   # --compat: read input through the shared PLT stub (the five input call sites stay stock)
 SLOTS = False    # --slots: also hook the four equip calls (buttonMapping)
+REKARINA = False  # --rekarina: synthetic eh_frame_hdr function seeds for Rekarina's lifter
 # PLT stub of the input reader used during gameplay: first instruction `adrp x16, GOT3`.
 COMPAT_STUB = (0x3C42800, "hook_stub3", 0xB00083F0)
 
@@ -353,18 +364,29 @@ def main() -> int:
     ap.add_argument("--base", default="0x4F88000", help="module base used with --compat")
     ap.add_argument("--no-lazy", action="store_true",
                     help="input wrappers without the lazy-binding check (ReLink build)")
+    ap.add_argument("--link-base", default=None,
+                    help="module link base (main-relative) without --compat, e.g. 0x5200000 for Rekarina")
+    ap.add_argument("--rekarina", action="store_true",
+                    help="add the synthetic function-seed table that Rekarina's lifter reads (eh_frame_hdr)")
     ap.add_argument("--slots", action="store_true",
                     help="hook the equip calls too (buttonMapping)")
     args = ap.parse_args()
-    global COMPAT, NO_LAZY, BASE, LINK_SCRIPT, SLOTS
+    global COMPAT, NO_LAZY, BASE, LINK_SCRIPT, SLOTS, REKARINA
     SLOTS = args.slots
     NO_LAZY = args.no_lazy
+    REKARINA = args.rekarina
     if args.compat:
         COMPAT = True
         BASE = int(args.base, 0)
         OUT.mkdir(parents=True, exist_ok=True)
         ls = (CORE_SRC / "link.ld").read_text().replace("__base = 0x4F80000;", f"__base = {BASE:#x};")
         LINK_SCRIPT = OUT / "link_compat.ld"
+        LINK_SCRIPT.write_text(ls)
+    elif args.link_base:
+        BASE = int(args.link_base, 0)
+        OUT.mkdir(parents=True, exist_ok=True)
+        ls = (CORE_SRC / "link.ld").read_text().replace("__base = 0x4F80000;", f"__base = {BASE:#x};")
+        LINK_SCRIPT = OUT / "link_rekarina.ld"
         LINK_SCRIPT.write_text(ls)
     features = [f for f in args.features.split(",") if f]
     for f in features:
@@ -429,6 +451,24 @@ def main() -> int:
     for _site, name, _expected, feature in EXTRA_SITES:
         if feature in features and name not in syms:
             raise SystemExit(f"missing extra wrapper symbol {name}")
+
+    if REKARINA:
+        # Rekarina's lifter needs function seeds: an eh_frame_hdr whose binary-search table lists every function
+        # (tools/nso.py -> Module.eh_frame_functions). There is no real unwind data: the entries only carry starts.
+        starts = sorted({a - BASE for a in syms.values()
+                         if BASE + 0x40 <= a < BASE + len(text) and (a - BASE) % 4 == 0})
+        while len(ro) % 4:
+            ro += b"\0"
+        table = bytearray((1, 3, 3, 3)) + struct.pack("<I", 0) + struct.pack("<I", len(starts))
+        for off in starts:
+            table += struct.pack("<II", off, 0)
+        table_off = ro_rel + len(ro)
+        ro += bytes(table)
+        # MOD0 (image +0x20): its eh_frame start/end fields are offsets from MOD0.
+        text = bytearray(text)
+        struct.pack_into("<ii", text, 0x30, table_off - 0x20, table_off + len(table) - 0x20)
+        text = bytes(text)
+        print(f"rekarina seeds: {len(starts)} functions, table {len(table)} bytes at {table_off:#x}")
 
     exefs = OUT / "exefs"
     exefs.mkdir(exist_ok=True)

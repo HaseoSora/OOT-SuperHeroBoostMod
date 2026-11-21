@@ -21,6 +21,7 @@ import installer as I  # noqa: E402
 import layouts  # noqa: E402
 import paths  # noqa: E402
 import recomp as R  # noqa: E402
+import rekarina as RK  # noqa: E402
 import updater as U  # noqa: E402
 from i18n import LANGS, tr, system_lang  # noqa: E402
 from presets import (DEFAULT_PROFILE, KEYS, PROFILES, PROFILE_KEYS,  # noqa: E402
@@ -365,9 +366,11 @@ def gui() -> None:
 
     lang = tk.StringVar(value=cfg.get("lang") if cfg.get("lang") in LANGS else system_lang())
     emu = tk.StringVar(value=cfg.get("emu", ""))
-    target = tk.StringVar(value=cfg.get("target") if cfg.get("target") in ("emulator", "recomp") else "emulator")
+    target = tk.StringVar(value=cfg.get("target") if cfg.get("target") in ("emulator", "recomp", "rekarina")
+                          else "emulator")
     recomp_path = tk.StringVar(value=cfg.get("recomp", ""))
     recomp_builder = tk.StringVar(value=cfg.get("recomp_builder", ""))
+    rekarina_path = tk.StringVar(value=cfg.get("rekarina", ""))
     busy = {"on": False}
     profile = tk.StringVar(value=cfg.get("profile") if cfg.get("profile") in PROFILE_KEYS else "custom")
     bmap = tk.BooleanVar(value=bool(cfg.get("button_mapping", True)))
@@ -644,7 +647,7 @@ def gui() -> None:
     def settings():
         # The mod's own HUD labels follow the language the game is played in; the app's language is the fallback
         # when the emulator/recompiler settings cannot be read.
-        game = ok_recomp() if target.get() == "recomp" else None
+        game = ok_recomp() if target.get() == "recomp" else ok_rekarina() if target.get() == "rekarina" else None
         e = Path(emu.get().strip()).expanduser() if emu.get().strip() else None
         return I.Settings(button_mapping=bmap.get(), button_style=bstyle.get(), bm_simple=bsimple.get(),
                           bm_layout=bplace.get(), game_layout=glayout.get(),
@@ -676,6 +679,7 @@ def gui() -> None:
         return save_cfg({
             "lang": lang.get(), "emu": emu.get(), "profile": profile.get(),
             "target": target.get(), "recomp": recomp_path.get(), "recomp_builder": recomp_builder.get(),
+            "rekarina": rekarina_path.get(),
             "button_mapping": bmap.get(), "button_style": bstyle.get(), "bm_simple": bsimple.get(),
             "bm_layout": bplace.get(), "game_layout": glayout.get(),
             "bm_l_mode": blmode.get(),
@@ -710,6 +714,10 @@ def gui() -> None:
     def ok_recomp():
         p = recomp_path.get().strip()
         return R.find_game(Path(p).expanduser()) if p else None
+
+    def ok_rekarina():
+        p = rekarina_path.get().strip()
+        return RK.find_game(Path(p).expanduser()) if p else None
 
     # ---- progress: the build runs in a thread and a queue brings updates to the window ----
     q = queue.Queue()
@@ -897,7 +905,10 @@ def gui() -> None:
         set_busy(False)
         remember()
         status.set(L("ready"))
-        msg = L("recomp_done") if r.rebuilt else L("recomp_applied")
+        if target.get() == "rekarina" and r.rebuilt:
+            msg = L("rekarina_done")
+        else:
+            msg = L("recomp_done") if r.rebuilt else L("recomp_applied")
         for k, arg in r.notes:
             msg += "\n\n" + L("n_" + k, a=arg)
         messagebox.showinfo(L("recomp_done_title"), msg)
@@ -945,7 +956,32 @@ def gui() -> None:
 
         threading.Thread(target=worker, daemon=True).start()
 
-    # ---- actions ----
+    def run_rekarina():
+        game = ok_rekarina()
+        if game is None:
+            messagebox.showerror(L("err_title"), L("e_rekarina_no_game", a=rekarina_path.get()))
+            return
+        if not messagebox.askyesno(L("rekarina_confirm_title"), L("rekarina_confirm")):
+            return
+        show_section("install")
+        set_busy(True)
+        clear_log()
+        if ui.get("bar") is not None:
+            ui["bar"]["value"] = 0
+        status.set(L("recomp_stage_start"))
+        snap = settings()
+
+        def worker():
+            try:
+                r = RK.install(game, snap, rebuild=True,
+                               progress=lambda f, t, s: q.put(lambda f=f, t=t, s=s: update_progress(f, t, s)),
+                               log=lambda line: q.put(lambda line=line: append_log(line)))
+                q.put(lambda r=r: recomp_done(r))
+            except Exception as ex:
+                q.put(lambda ex=ex: recomp_error(ex))
+
+        threading.Thread(target=worker, daemon=True).start()
+
     def browse():
         d = filedialog.askdirectory(title=L("emu_hint"))
         if d:
@@ -955,6 +991,11 @@ def gui() -> None:
         d = filedialog.askdirectory(title=L("recomp_hint"))
         if d:
             recomp_path.set(d)
+
+    def browse_rekarina():
+        d = filedialog.askdirectory(title=L("rekarina_hint"))
+        if d:
+            rekarina_path.set(d)
 
     def browse_builder():
         d = filedialog.askdirectory(title=L("recomp_builder_hint"))
@@ -995,11 +1036,24 @@ def gui() -> None:
     def on_target(*_):
         if not ui.get("sections"):
             return
-        rec = target.get() == "recomp"
-        if "emu_frame" in ui:
-            ui["emu_frame"].pack_forget()
-            ui["recomp_frame"].pack_forget()
-            (ui["recomp_frame"] if rec else ui["emu_frame"]).pack(fill="x")
+        tgt = target.get()
+        for key in ("emu_frame", "recomp_frame", "rekarina_frame"):
+            w = ui.get(key)
+            if w is not None:
+                w.pack_forget()
+        if tgt == "recomp":
+            ui["recomp_frame"].pack(fill="x")
+        elif tgt == "rekarina":
+            ui["rekarina_frame"].pack(fill="x")
+        else:
+            ui["emu_frame"].pack(fill="x")
+        build_row = ui.get("build_frame")
+        if build_row is not None:
+            if tgt in ("recomp", "rekarina"):
+                if not build_row.winfo_manager():
+                    build_row.pack(fill="x", pady=(10, 0))
+            else:
+                build_row.pack_forget()
         status.set("")
         refresh()
         autosave()
@@ -1025,10 +1079,32 @@ def gui() -> None:
         except Exception as ex:
             messagebox.showerror(L("err_title"), str(ex))
 
+    def do_rekarina_install():
+        game = ok_rekarina()
+        if game is None:
+            messagebox.showerror(L("err_title"), L("e_rekarina_no_game", a=rekarina_path.get()))
+            return
+        try:
+            if RK.is_built(game):
+                RK.apply_settings(game, settings())
+                remember()
+                status.set(L("ready"))
+                messagebox.showinfo(L("done_title"), L("recomp_applied"))
+                refresh()
+            else:
+                run_rekarina()
+        except I.InstallError as ex:
+            messagebox.showerror(L("err_title"), L("e_" + ex.key, a=ex.arg))
+        except Exception as ex:
+            messagebox.showerror(L("err_title"), str(ex))
+
     def do_install():
         show_section("install")
         if target.get() == "recomp":
             do_recomp_install()
+            return
+        if target.get() == "rekarina":
+            do_rekarina_install()
             return
         try:
             status.set(L("working"))
@@ -1051,12 +1127,20 @@ def gui() -> None:
             messagebox.showerror(L("err_title"), str(ex))
 
     def do_launch():
-        """Open the emulator, or the recompiled game through its launcher."""
+        """Open the emulator, the recompiled game through its launcher, or Rekarina."""
         if target.get() == "recomp":
             game = ok_recomp()
             exe = R.launcher_of(game) if game else None
             if exe is None:
                 messagebox.showerror(L("err_title"), L("e_launch_recomp", a=recomp_path.get()))
+                return
+            if busy["on"]:
+                return
+        elif target.get() == "rekarina":
+            game = ok_rekarina()
+            exe = RK.launcher_of(game) if game else None
+            if exe is None:
+                messagebox.showerror(L("err_title"), L("e_launch_recomp", a=rekarina_path.get()))
                 return
             if busy["on"]:
                 return
@@ -1090,6 +1174,24 @@ def gui() -> None:
             status.set(L("uninstalled") if ok else L("nothing"))
             refresh()
             return
+        if target.get() == "rekarina":
+            game = ok_rekarina()
+            if game is None:
+                status.set(L("nothing"))
+                return
+            if not messagebox.askyesno(L("uninstall"), L("recomp_remove_confirm")):
+                return
+            if RK.game_running(game):
+                messagebox.showerror(L("err_title"), L("e_recomp_running"))
+                return
+            try:
+                ok = RK.uninstall(game)
+            except Exception as ex:
+                messagebox.showerror(L("err_title"), str(ex))
+                return
+            status.set(L("uninstalled") if ok else L("nothing"))
+            refresh()
+            return
         e = emu.get().strip()
         status.set(L("uninstalled") if e and I.uninstall(Path(e).expanduser()) else L("nothing"))
 
@@ -1113,14 +1215,14 @@ def gui() -> None:
         for w in ui.get("bm", []):
             w.config(state=("readonly" if isinstance(w, ttk.Combobox) else "normal") if on else "disabled")
         ui["note"].config(text="" if stam else L("stamina_off_note"), fg=AMBER)
-        rec = target.get() == "recomp"
+        rec = target.get() in ("recomp", "rekarina")
         for t in ui.get("rb_tags", []):
             try:
                 t.config(text=L("needs_rebuild") if rec else "")
             except Exception:
                 pass
         mods = ok_emu()
-        if rec:
+        if target.get() == "recomp":
             game = ok_recomp()
             built = bool(game) and R.is_built(game)
             if "recomp_status" in ui:
@@ -1167,6 +1269,34 @@ def gui() -> None:
                                  state="normal" if game and not busy["on"] else "disabled")
             if not game and not status.get():
                 status.set(L("recomp_missing"))
+        elif target.get() == "rekarina":
+            game = ok_rekarina()
+            built = bool(game) and RK.is_built(game)
+            setup = RK.find_setup(game) if game else None
+            if "rekarina_status" in ui:
+                if game is None:
+                    ui["rekarina_status"].config(text=L("rekarina_missing"), fg=DIM)
+                elif setup is None:
+                    ui["rekarina_status"].config(text=L("e_rekarina_no_setup", a=""), fg=AMBER)
+                else:
+                    ui["rekarina_status"].config(text=L("rekarina_found", a=game), fg=ACCENT)
+            if "rekarina_note" in ui:
+                ui["rekarina_note"].config(
+                    text=L("rekarina_built") if built else (L("rekarina_not_built") if game and setup else ""),
+                    fg=DIM if built else AMBER)
+            if "rebuild" in ui:
+                if game:
+                    if not ui["rebuild"].winfo_manager():
+                        ui["rebuild"].pack(side="right", padx=(0, 8))
+                    ui["rebuild"].config(state="normal" if not busy["on"] else "disabled")
+                else:
+                    ui["rebuild"].pack_forget()
+            if "builder_btn" in ui:
+                ui["builder_btn"].pack_forget()
+            ui["install"].config(text=L("recomp_apply") if built else L("recomp_install"),
+                                 state="normal" if game and setup and not busy["on"] else "disabled")
+            if not game and not status.get():
+                status.set(L("rekarina_missing"))
         else:
             ui["install"].config(text=L("install"),
                                  state="normal" if mods and not busy["on"] else "disabled")
@@ -1235,7 +1365,7 @@ def gui() -> None:
         trow.pack(fill="x", pady=(0, 8))
         label(trow, L("target") + ":", size=10, color=ACCENT, bold=True).pack(side="left", padx=(0, 10))
         trefs = []
-        for val, key in (("emulator", "target_emu"), ("recomp", "target_recomp")):
+        for val, key in (("emulator", "target_emu"), ("recomp", "target_recomp"), ("rekarina", "target_rekarina")):
             r = radio(trow, L(key), target, val, cmd=on_target)
             r.pack(side="left", padx=(0, 16))
             trefs.append(r)
@@ -1294,23 +1424,49 @@ def gui() -> None:
         ui["builder_auto"] = b_auto
         ui["recomp_note"] = label(rf, "", size=9, color=AMBER, bg=PANEL)
         ui["recomp_note"].pack(anchor="w", pady=(8, 0))
-        prow = tk.Frame(rf, bg=PANEL)
-        prow.pack(fill="x", pady=(10, 2))
+
+        # Rekarina: same install card, its own path (the game folder Rekarina.exe made).
+        kf = tk.Frame(body, bg=PANEL)
+        ui["rekarina_frame"] = kf
+        row = tk.Frame(kf, bg=PANEL)
+        row.pack(fill="x")
+        entry_rek = tk.Entry(row, textvariable=rekarina_path, bg=PANEL2, fg=TEXT, insertbackground=ACCENT,
+                             relief="flat", font=(FAM, 10), highlightthickness=1,
+                             highlightbackground=BORDER, highlightcolor=ACCENT)
+        entry_rek.pack(side="left", fill="x", expand=True, ipady=4)
+        b_rek = button(row, L("browse"), browse_rekarina)
+        b_rek.pack(side="left", padx=(8, 0))
+        label(kf, L("rekarina_hint"), size=9, color=DIM, bg=PANEL).pack(anchor="w", pady=(5, 0))
+        ui["rekarina_status"] = label(kf, "", size=9, color=DIM, bg=PANEL)
+        ui["rekarina_status"].pack(anchor="w", pady=(2, 0))
+        ui["rekarina_note"] = label(kf, "", size=9, color=AMBER, bg=PANEL, wrap=760)
+        ui["rekarina_note"].pack(anchor="w", pady=(8, 0))
+
+        # The progress bar and the log are shared by the two recompilers.
+        bf = tk.Frame(body, bg=PANEL)
+        ui["build_frame"] = bf
+        prow = tk.Frame(bf, bg=PANEL)
+        prow.pack(fill="x", pady=(0, 2))
         ui["bar"] = ttk.Progressbar(prow, style="SHB.Horizontal.TProgressbar", mode="determinate",
                                     maximum=1.0, value=0)
         ui["bar"].pack(side="left", fill="x", expand=True)
         ui["prog_label"] = label(prow, L("recomp_progress", p=0), size=9, color=DIM, bg=PANEL)
         ui["prog_label"].pack(side="left", padx=(10, 0))
-        label(rf, L("recomp_log"), size=9, color=DIM, bg=PANEL).pack(anchor="w", pady=(6, 2))
-        ui["log"] = tk.Text(rf, height=6, bg=PANEL2, fg=DIM, insertbackground=ACCENT, relief="flat",
+        label(bf, L("recomp_log"), size=9, color=DIM, bg=PANEL).pack(anchor="w", pady=(6, 2))
+        ui["log"] = tk.Text(bf, height=6, bg=PANEL2, fg=DIM, insertbackground=ACCENT, relief="flat",
                             font=(FAM, 8), highlightthickness=1, highlightbackground=BORDER,
                             state="disabled", wrap="none")
         ui["log"].pack(fill="x")
-        ui["lock"] = trefs + [entry_emu, b_emu, entry_rec, b_rec]
-        if target.get() == "recomp":
+        ui["lock"] = trefs + [entry_emu, b_emu, entry_rec, b_rec, entry_rek, b_rek]
+        tgt = target.get()
+        if tgt == "recomp":
             rf.pack(fill="x")
+        elif tgt == "rekarina":
+            kf.pack(fill="x")
         else:
             ef.pack(fill="x")
+        if tgt in ("recomp", "rekarina"):
+            bf.pack(fill="x", pady=(10, 0))
 
     def build_stamina(parent):
         body = card(parent, L("stamina_title"), L("stamina_desc"))
@@ -1726,6 +1882,10 @@ def gui() -> None:
                 e = Path(emu.get().strip()).expanduser()
                 if mods:
                     I.set_installed_lang(mods, I.MOD_NAME, I.detect_lang(e) or code)
+            elif target.get() == "rekarina":
+                game = ok_rekarina()
+                if game and RK.is_built(game):
+                    RK.apply_settings(game, settings())
         except Exception:
             pass
 
@@ -1759,6 +1919,12 @@ def gui() -> None:
         ui["_scroll"] = scroll
         return scroll
 
+    def run_rebuild():
+        if target.get() == "rekarina":
+            run_rekarina()
+        else:
+            run_recomp()
+
     def build_footer(shell):
         ft = tk.Frame(shell, bg=BG)
         ft.pack(side="bottom", fill="x", padx=18, pady=(0, 12))
@@ -1770,9 +1936,9 @@ def gui() -> None:
         ui["launch"] = button(ft, L("launch"), do_launch)
         ui["launch"].pack(side="right", padx=(0, 8))
         # Shown only for a Hookshot/Longshot target (refresh): rebuild, builder and cancel.
-        ui["rebuild"] = button(ft, L("recomp_rebuild"), run_recomp)
+        ui["rebuild"] = button(ft, L("recomp_rebuild"), run_rebuild)
         ui["builder_btn"] = button(ft, L("recomp_builder_btn"), browse_builder)
-        ui["cancel"] = button(ft, L("recomp_cancel"), lambda: R.cancel())
+        ui["cancel"] = button(ft, L("recomp_cancel"), lambda: (R.cancel(), RK.cancel()))
 
     def show_section(key):
         state["section"] = key
@@ -1822,6 +1988,7 @@ def gui() -> None:
     emu.trace_add("write", lambda *_: (status.set(""), refresh()))
     recomp_path.trace_add("write", lambda *_: (status.set(""), refresh()))
     recomp_builder.trace_add("write", lambda *_: (autosave(), refresh()))
+    rekarina_path.trace_add("write", lambda *_: (status.set(""), refresh()))
 
     render()
     root.after(80, poll)

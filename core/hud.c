@@ -136,7 +136,10 @@ static int str_eq(const char *a, const char *b) {
 }
 
 /* name table at root+table: names[], descs[], hashes[], count at +24 */
-static int vptr(u64 p) { return p >= 0x10000ULL && p < 0x60000000000ULL; }
+static int vptr(u64 p) { return p >= 0x100000000ULL && p < 0x60000000000ULL; }
+/* Out/input structures handed to the game's lifted functions live in the module's BSS: a C stack local's address
+ * is not a guest address in Rekarina. */
+static struct { const void *s; u32 len, z; long long m1; } g_text_ref;
 static int name_index(const u8 *root, u32 table, const char *name) {
     if (!root || !name || !vptr((u64)root)) return -1;
     u32 n = w(root, table + 24);
@@ -1020,8 +1023,8 @@ static void put_text(u64 frame, u32 f, const char *ascii, float x, float y, u32 
     char *dst = g_tbuf[f + FLD_N * (g_tfront[f] ^ 1)];
     for (u32 i = 0; i < n; i++) dst[i] = ascii[i];
     dst[n] = 0;
-    struct { const void *s; u32 len, z; long long m1; } ref = {dst, n, 0, -1};
-    set_text((void *)rb, &ref, 0);
+    g_text_ref.s = dst; g_text_ref.len = n; g_text_ref.z = 0; g_text_ref.m1 = -1;
+    set_text((void *)rb, &g_text_ref, 0);
     g_tpend[f] = 1; g_twait[f] = 0;
     for (u32 i = 0; i <= n; i++) g_tlast[f][i] = ascii[i];
     g_txt_dbg[3 + f] += 1;
@@ -1612,7 +1615,8 @@ static float item_pattern(int item) {
 static const char *item_name(int item) {
     u64 slot = *(u64 *)ITEM_MGR_SLOT;
     u64 mgr = slot ? *(u64 *)slot : 0;
-    const char *nm = *(const char **)ITEM_NAME_DEFAULT;
+    static const char *nm;
+    nm = *(const char **)ITEM_NAME_DEFAULT;
     if (!mgr || item < 0) return 0;
     item_actor_name((void *)mgr, &nm, (u64)item);
     return nm && nm[0] ? nm : 0;
@@ -1781,13 +1785,15 @@ static void set_icon(SlotBtn *b, const char *name) { set_icon_btn(b, name, 0); }
 static void set_icon_btn(SlotBtn *b, const char *name, const char *btn) {
     if (!b->ctrl) return;
     u64 r1 = ptr(b->ctrl, 0x30), r2 = ptr(b->ctrl, 0x38);
-    char sh[40]; u32 n = 0;
-    while (name[n] && n < 32) { sh[n] = name[n]; n++; }
-    sh[n] = '_'; sh[n + 1] = 'S'; sh[n + 2] = 'h'; sh[n + 3] = 0;
-    const char *a = name, *c = btn ? btn : sh;
+    static char g_tex_sh[40];
+    static const char *g_tex_a, *g_tex_c;
+    u32 n = 0;
+    while (name[n] && n < 32) { g_tex_sh[n] = name[n]; n++; }
+    g_tex_sh[n] = '_'; g_tex_sh[n + 1] = 'S'; g_tex_sh[n + 2] = 'h'; g_tex_sh[n + 3] = 0;
+    g_tex_a = name; g_tex_c = btn ? btn : g_tex_sh;
     g_sb_busy = 1;
-    if (r1) tex_replace((void *)r1, &a, 0);
-    if (r2) tex_replace((void *)r2, &c, 0);
+    if (r1) tex_replace((void *)r1, &g_tex_a, 0);
+    if (r2) tex_replace((void *)r2, &g_tex_c, 0);
     g_sb_busy = 0;
 }
 /* ZR shows what the game has in its own (hidden) item box: the name its icon replacer last loaded
@@ -1951,11 +1957,14 @@ static void refresh_button_swap(void) {
     u8 *entry = gd_options_entry();
     u64 g = *(u64 *)GAMEDATA_MGR;
     if (!entry || !vptr(g)) { g_btn_swap = 0; return; }
-    struct { void *entry; u32 index; u32 active; } d;
+    /* The out parameters live in the module's BSS: a Rekarina guest function must not receive the address of a
+     * C stack local (its guest and host stacks are different). */
+    static struct { void *entry; u32 index; u32 active; } d;
+    static u8 value;
     d.entry = entry;
     d.index = 0;
     d.active = *(volatile u32 *)(entry + 24) >= 2;
-    u8 value = 0;
+    value = 0;
     if (!read_bool((void *)g, &value, &d, GD_JUMP_SWAP_FIELD)) { g_btn_swap = 0; return; }
     g_btn_swap = value != 0;
 }
@@ -2268,8 +2277,8 @@ static void slots_draw(SlotBtn *set, const u64 *ctrls, u64 frame, const float *l
             if (cnt != b->num_val) {
                 b->num_val = cnt;
                 u32 n = put_int(b->num_txt, cnt);
-                struct { const void *s; u32 len, z; long long m1; } ref = {b->num_txt, n, 0, -1};
-                set_text((void *)b->num_rec, &ref, 0);
+                g_text_ref.s = b->num_txt; g_text_ref.len = n; g_text_ref.z = 0; g_text_ref.m1 = -1;
+                set_text((void *)b->num_rec, &g_text_ref, 0);
             }
         } else {
             b->num_val = cnt;
@@ -2371,8 +2380,8 @@ static void hud_menu_legend(u64 page) {
         if (g_leg_set != pf) {
             u32 n = 0;
             while (g_leg_txt[t][n]) n++;
-            struct { const void *s; u32 len, z; long long m1; } ref = {g_leg_txt[t], n, 0, -1};
-            set_text((void *)rec, &ref, 0);
+            g_text_ref.s = g_leg_txt[t]; g_text_ref.len = n; g_text_ref.z = 0; g_text_ref.m1 = -1;
+            set_text((void *)rec, &g_text_ref, 0);
             g_leg_dbg[1]++;
         }
         const float *c = t ? WHITE : GOLD;
@@ -2625,7 +2634,8 @@ static void hud_on_settext(u64 pane, const u64 *ref, u64 lr, const u64 *regs) {
 extern u64 ui_find_sub(const char *name, u64 part, u64 *out);
 extern u64 ui_owner_layout(u64 pane);
 static int icon_list_ok(u64 part) {
-    u64 sub = 0;
+    static u64 sub;
+    sub = 0;
     if (!ui_find_sub_safe("Pa_ReplaceIcon_00", part, &sub) || !sub) return 0;
     u64 lay = ui_owner_layout(sub + 0x40);
     if (!lay) return 0;

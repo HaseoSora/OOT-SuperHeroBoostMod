@@ -11,9 +11,24 @@ SECTIONS
     .text : ALIGN(0x1000) { *(.module) *(.text*) }
     .rodata : ALIGN(0x1000) { *(.rodata*) }
     .data : ALIGN(0x1000) {
+        *(.data*)
+        /* The dynamic tables go after the existing data: their entries would otherwise move every .data
+         * symbol, and the generated C embeds those addresses. Fits in the page's padding. */
         __dynamic_start = .;
         KEEP(*(.dynamic))
-        *(.data*)
+        /* Minimal ELF dynamic symbol table, string table and SysV hash: Rekarina's loader refuses a module
+         * without DT_SYMTAB, DT_STRTAB and a symbol hash (runtime/loader.c parse_dynamic). */
+        __shb_dynstr_start = .;
+        KEEP(*(.shb_dynstr))
+        __shb_dynstr_end = .;
+        . = ALIGN(8);
+        __shb_dynsym_start = .;
+        KEEP(*(.shb_dynsym))
+        __shb_dynsym_end = .;
+        . = ALIGN(4);
+        __shb_hash_start = .;
+        KEEP(*(.shb_hash))
+        __shb_hash_end = .;
     }
     .bss : ALIGN(0x1000) {
         __bss_start = .;
@@ -115,8 +130,13 @@ SECTIONS
     GOT4 = 0x4CBF5E0;
 
     /* Module-relative offsets consumed by MOD0 in core/module.S */
-    __dynamic_off    = __dynamic_start - __base;
+    __dynamic_off    = __dynamic_start - __base - 0x20;   /* MOD0 fields are offsets from MOD0 (at base+0x20) */
     __bss_start_off  = __bss_start - __base;
     __bss_end_off    = __bss_end - __base;
     __module_object_off = __module_object - __base;
+    /* Dynamic table pointers in the .dynamic section (module-relative, as MOD0's fields) */
+    __shb_dynstr_off = __shb_dynstr_start - __base;
+    __shb_dynstr_size = __shb_dynstr_end - __shb_dynstr_start;
+    __shb_dynsym_off = __shb_dynsym_start - __base;
+    __shb_hash_off   = __shb_hash_start - __base;
 }

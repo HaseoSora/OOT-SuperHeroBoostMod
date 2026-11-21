@@ -3,11 +3,27 @@
 Gameplay module for the console remake (update **v131072**) and its cross-platform configuration app
 **SuperHeroBoostConfig**.
 
-Current release: **0.8.0**, with item quantities on the extra buttons, the game's own ZR item, A to put the sword away,
-an option to hide the corner minimap, no magic jar drops, boss speed and an L3 sprint toggle; the 0.7.0 souls-like
-targeting, Souls controls profiles and HUD labels in the game's language remain.
+Current release: **0.9.0**, with a **Rekarina** target: the app installs the mod into Rekarina's game folder and
+rebuilds it with Rekarina's own tools, without editing Rekarina. The 0.8.0 item quantities, the game's own ZR item,
+A to put the sword away, no magic jar drops, boss speed and the L3 sprint toggle remain.
 
-### What's new in 0.8.0
+### What's new in 0.9.0
+
+- **Rekarina supported.** Rekarina is the Switch 2 static recompilation that loads ExeFS modules and takes romfs mods.
+  Its launcher rejects code modules (`exefs/subsdk*`) and its lift only knows `main,subsdk0,sdk`. The app now:
+  adds the mod's module as `subsdk9` to the lift, compiles it with **Rekarina's own** `gen.py` and `build_game.py`,
+  converts the mod's IPS with its `tools/exefs_patches.py`, installs the romfs as
+  `mods/zz-Super-Hero-Boost/romfs`, puts the mod first in `mods_order`, and replaces `Rekarina.exe` with the new
+  build (backed up). Nothing in the Rekarina folder is edited.
+- **Settings without a rebuild.** The module's configuration lives in its own data block; applying a profile
+  patches `exefs/subsdk9` and the expected SHA-256 stored in `Rekarina.exe`, so changing options takes seconds. A
+  full rebuild (10-20 minutes) is only needed the first time or when the module itself changes.
+- **Old merged code disabled safely.** If a merged mod folder (for example the Mod Merger's `0-M`) still carries the
+  old `subsdk9`/IPS, the app moves it aside (backed up); Rekarina then stops marking the whole mod as PLUGIN and its
+  romfs loads.
+- **Uninstall** restores the exe, the module, the old mod code, the status files and the mod order.
+
+### What was new in 0.8.0
 
 - **Item quantities.** The B / L / R / ZR buttons show the quantity of the consumables (sticks, nuts, bombs, seeds,
   bombchus, beans and arrows); unique items show no number.
@@ -291,6 +307,15 @@ stamina, item buttons, collectible counter) has to be built into the game.
   `%LOCALAPPDATA%\ReLink\versions\<version>\ReLink` (or the Linux/macOS data folder). The same install, rebuild
   and uninstall steps apply. Tested with a full ReLink 0.7.9 build: stamina, manual shield, button mapping and
   controls work after rebuilding with the current module (see "Changes since 0.5.1").
+- **Rekarina: supported (new in 0.9.0).** Point the target at Rekarina's game folder (the one with `Rekarina.exe`,
+  `rekarina.ini` and `exefs/main`); the app finds `setup/<version>` beside it and drives Rekarina's tools. It never
+  edits Rekarina: the lift runs `gen.py --modules main,subsdk0,sdk,subsdk9`, the compile runs `build_game.py`, and
+  the ExeFS patches go through `tools/exefs_patches.py`. Two runners in the work folder add the compile flags and the
+  hook resume points as extra `main` seeds (Rekarina dispatches only to function starts). The module is built for
+  Rekarina's layout (`main+0x5200000`) with a synthetic `eh_frame_hdr` seed table and a minimal dynamic symbol table
+  (its loader requires one). The mod's IPS stays in `mods/zz-Super-Hero-Boost/exefs` so its runtime switches the
+  generated code set on. The first build takes 10-20 minutes and ~6 GB in `game/.shb-rekarina`; later settings
+  changes take seconds. Uninstall restores the exe and every file the install touched.
 - The app finds the builder of the game's own flavor on Windows, Linux and macOS, and shows whether it was detected
   or chosen by hand. `LONGSHOT_BUILDER`, `HOOKSHOT_BUILDER` and `RELINK_BUILDER` override it.
 

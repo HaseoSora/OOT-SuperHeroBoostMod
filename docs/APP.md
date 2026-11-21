@@ -240,3 +240,35 @@ sidebar and choose the game folder (the one with `bin/longshot.exe` and `.longsh
   be built in; this is what the app does. See [LONGSHOT.md](LONGSHOT.md).
 
 `tools/install_longshot.py` is the same procedure for scripts and CI.
+
+## Rekarina
+
+Rekarina is the OoT Switch 2 static recompilation. Pick **Rekarina** in the **Install** section and choose its game
+folder (the one with `Rekarina.exe`, `rekarina.ini` and `exefs/main`). The app finds `setup/<version>` beside it.
+
+- Rekarina is **never edited**. The app runs its own tools against a work folder in `<game>/.shb-rekarina`:
+  `tools/cheats.py` and `tools/exefs_patches.py` (the mod's IPS plus every other mod's code patches),
+  `recomp/gen.py --modules main,subsdk0,sdk,subsdk9`, `tools/build_game.py` with the release's LLVM, Ninja and deps,
+  and then copies the produced `rekarina.exe` over `Rekarina.exe`.
+- Two small runners are written into the work folder (never into Rekarina): one imports its `build_game.py` to add
+  `-DGAME_NS2 -DGAME_OOT` (the flags it only adds when it picks the expected table itself), the other imports its
+  `gen.py` and adds the hook resume points as extra `main` function seeds. Rekarina's lifter dispatches only to
+  function starts; our code hooks return to `site+4`, and the split keeps the normal fall-through intact.
+- The mod's `.ips` stays in `mods/zz-Super-Hero-Boost/exefs`: Rekarina's runtime turns the generated code set on
+  only when the enabled mod folder holds the patch file named by `build-cache/exefs.status` (runtime/mods.c
+  `mods_exefs_switch`). Removing it loads `subsdk9` but never branches into it.
+- The module is built for Rekarina's layout (`main+0x5200000`; the app checks the base from the real module sizes)
+  and carries a synthetic `eh_frame_hdr` seed table (`tools/build_core.py --rekarina`) so Rekarina's lifter can find
+  its functions, plus a minimal dynamic symbol table (`DT_SYMTAB/DT_STRTAB/DT_HASH`) that its loader requires.
+  Rekarina's runtime loads the extra module and initialises it like any other.
+- The mod's romfs goes to `mods/zz-Super-Hero-Boost/romfs`; Rekarina merges the mods' resource size tables at run
+  time. The app puts the mod first in `mods_order` (the top mod wins a file) and moves stale Super Hero Boost code
+  out of other mods (for example a merged `0-M` carrying the old `subsdk9`/IPS), so Rekarina stops marking that mod
+  as PLUGIN and its romfs loads.
+- **Settings without a rebuild.** The module's config block lives in its data; applying a profile patches
+  `exefs/subsdk9` and replaces the expected SHA-256 stored in `Rekarina.exe`, so it takes seconds. A full rebuild is
+  needed only the first time or after the module changes (10–20 minutes, ~6 GB of free space).
+- **Uninstall** restores `Rekarina.exe`, the old module, the moved mod code, the status files and the mod order,
+  then deletes `<game>/.shb-rekarina`.
+- In the app, **Install / Apply settings**, **Rebuild game**, **Uninstall** and **Play** (opens `Rekarina.exe`) work
+  exactly as for Longshot.

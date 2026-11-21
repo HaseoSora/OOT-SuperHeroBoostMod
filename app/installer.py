@@ -247,6 +247,18 @@ def detect_lang(emu: Path | None = None, game: Path | None = None) -> str:
             code = lang_code(_first_line(p))
             if code:
                 return code
+        # Rekarina keeps it in rekarina.ini ([language] lang = es-419), and is read by this app too.
+        for name in ("rekarina.ini", "totk.ini"):
+            ini = g / name
+            try:
+                txt = ini.read_text(encoding="utf-8", errors="replace")
+            except OSError:
+                continue
+            m = re.search(r"^\s*lang\s*=\s*([^\s#]+)", txt, re.M)
+            code = lang_code(m.group(1)) if m else ""
+            if code:
+                return code
+            break
     seen: set[Path] = set()
     bases = []
     if emu:

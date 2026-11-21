@@ -105,7 +105,8 @@ static u32 apply_equip(const char *name) {
     u64 slot = *(volatile u64 *)ITEM_MGR_SLOT;
     u64 mgr = slot ? *(volatile u64 *)slot : 0;
     if (!mgr || !name || !name[0]) return 0;
-    NameRef ref = { name, 64u };
+    static NameRef ref;
+    ref.name = name; ref.len = 64u;
     equip_request((void *)mgr, &ref, 3u, 0u);
     equip_refresh((void *)mgr, &ref, 1u);
     return 1;

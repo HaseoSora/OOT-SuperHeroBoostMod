@@ -118,7 +118,7 @@ static u32 ms_gameplay_state(void) {
 static void refresh_target_mode(void) {
     g_ms_target_value = 0xFFFFFFFFu;
     u64 g = *(volatile u64 *)GAMEDATA_MGR;
-    if (!g) { g_ms_toggle_mode = 1; return; }
+    if (g < 0x100000000ULL) { g_ms_toggle_mode = 1; return; }
     u32 *map = *(volatile u32 **)(g + 0xC20);
     u32 slots = *(volatile u32 *)(g + 0xC2C);
     u32 count = *(volatile u32 *)(g + 0xC10);
@@ -130,11 +130,13 @@ static void refresh_target_mode(void) {
             u32 index = map[at * 2 + 1];
             if (index >= count) break;
             u8 *entry = entries + (u64)index * 32;
-            struct { void *entry; u32 index; u32 active; } d;
+            /* BSS out parameters: Rekarina's guest code must not receive a C stack local's address. */
+            static struct { void *entry; u32 index; u32 active; } d;
+            static u32 value;
             d.entry = entry;
             d.index = 0;
             d.active = *(volatile u32 *)(entry + 24) >= 2;
-            u32 value = LOCKON_TOGGLE;
+            value = LOCKON_TOGGLE;
             if (!read_enum((void *)g, &value, &d, GD_LOCKON_FIELD)) { g_ms_toggle_mode = 1; return; }
             g_ms_target_value = value;
             g_ms_toggle_mode = value == LOCKON_TOGGLE;

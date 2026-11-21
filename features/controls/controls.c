@@ -18,6 +18,7 @@
 #include "../../core/dispatch.h"
 #include "../../core/hid.h"
 #include "../../core/config.h"
+#include "../../core/remap.h"
 
 typedef unsigned char u8;
 
@@ -138,7 +139,7 @@ void controls_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_result)
     u64 any = 0;
     for (u32 i = 0; i < count; i++) {
         u64 b = hid_get_buttons(&view, i);
-        if (g_shbcfg.target_r3) {
+        if (g_shbcfg.target_r3 && !remap_on()) {   /* (remap: target is on any button) */
             u64 zl = b & CT_BTN_ZL, r3 = b & CT_BTN_R3;
             b &= ~(CT_BTN_ZL | CT_BTN_R3);
             if (r3) b |= CT_BTN_ZL;

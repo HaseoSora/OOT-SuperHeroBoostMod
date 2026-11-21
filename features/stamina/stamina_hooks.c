@@ -164,7 +164,15 @@ static u32 l3_sprint(u64 b) {
     if (!g_shbcfg.sprint_l3) return 0;
     return g_shbcfg.sprint_l3_toggle ? g_l3_on : (b & BTN_L3) != 0;
 }
+int hud_game_covered(void);   /* core/hud.c: a menu covers the game */
 static void l3_inject_a(const HidView *v, u64 buttons, u32 moving) {
+    /* Never under a menu: an A held there is the menu's A (on the pause menu's Items tab it puts the highlighted
+     * item in the item box, which took items off the mod's buttons). A toggled sprint stops with the pause. */
+    if (hud_game_covered()) {
+        g_l3_on = 0; g_l3_a = 0; g_l3_neutral = 0;
+        g_l3_prev = (buttons & BTN_L3) != 0;
+        return;
+    }
     u32 l3 = (buttons & BTN_L3) != 0, want;
     if (g_shbcfg.sprint_l3 && g_shbcfg.sprint_l3_toggle) {
         if (l3 && !g_l3_prev) g_l3_on = !g_l3_on;
@@ -388,6 +396,8 @@ void stamina_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_result) 
     if (g_stamina.in_combat && g_stamina.stamina <= 0.0f && cost_on(K_ATTACK)) strip |= BTN_Y;   /* no sword at 0 */
     /* Dialogues, shops and other events (Evt* states) choose with the stick and confirm with A / B: never filtered. */
     if (player_state_starts("Evt")) { strip = 0; lock = 0; }
+    /* Menus (pause, map ...) keep every button: the pause menu assigns items with X / Y / L / R. */
+    if (hud_game_covered()) { strip = 0; lock = 0; }
     if (lock && preset != 2 && m2 > STICK_FAST2) halve_stick(&view);   /* exhausted: walk only */
     g_sprint_a = sprint_held && !(strip & BTN_A);
     if (strip) {

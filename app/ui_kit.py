@@ -317,54 +317,41 @@ class Radio(ctk.CTkRadioButton):
     config = configure
 
 
-class Select(ctk.CTkButton):
-    """A styled drop-down: a normal button plus a rounded popup list (no native white-edged menu)."""
+class Select(ctk.CTkOptionMenu):
+    """A dark, rounded drop-down with the small part of the ttk.Combobox API the app uses."""
 
     def __init__(self, parent, values, var, width=16, **kw):
         self._values = list(values or [""]) or [""]
         self._var = var
         self._cb = None
-        self._popup = None
-        self._outside_id = None
         self._pending = None
-        self._rows = []
         if var.get() not in self._values:
             var.set(self._values[0])
         _strip(kw)
-        super().__init__(parent, text=self._label_text(), command=self._clicked,
-                         width=max(150, int(width) * 9), height=34, corner_radius=8,
-                         fg_color=PANEL2, hover_color=BORDER, text_color=TEXT,
-                         text_color_disabled=DISABLED, border_width=1, border_color=BORDER,
-                         anchor="w", font=(FAM, 10), **kw)
-        self._arrow = tk.Label(self, text="▾", bg=PANEL2, fg=DIM, font=(FAM, 10),
-                               cursor="hand2", padx=0)
-        self._arrow.place(relx=1.0, x=-10, rely=0.5, anchor="e")
-        self._arrow.bind("<Button-1>", self._clicked)
-        self._arrow.bind("<Enter>", lambda e: self._arrow.configure(bg=BORDER))
-        self._arrow.bind("<Leave>", lambda e: self._arrow.configure(bg=PANEL2))
-        self._trace = var.trace_add("write", self._var_changed)
-        tk.Frame.bind(self, "<Destroy>", self._destroyed, add="+")
-
-    def _label_text(self):
-        return self._var.get()
-
-    def _var_changed(self, *_):
+        super().__init__(parent, values=self._values, variable=var, width=max(150, int(width) * 9),
+                         height=34, corner_radius=8, fg_color=PANEL2, button_color=PANEL2,
+                         button_hover_color=BORDER, text_color=TEXT, text_color_disabled=DISABLED,
+                         dropdown_fg_color=PANEL, dropdown_hover_color=BORDER, dropdown_text_color=TEXT,
+                         font=(FAM, 10), dropdown_font=(FAM, 10), command=self._chosen, **kw)
         try:
-            self.configure(text=self._label_text())
-        except Exception:
-            pass
-
-    def _destroyed(self, e=None):
-        if e is not None and e.widget is not self:
-            return
-        try:
-            self._var.trace_remove("write", self._trace)
+            self._dropdown_menu.configure(borderwidth=0, activeborderwidth=0, relief="flat",
+                                          bg=PANEL, fg=TEXT, activebackground=BORDER,
+                                          activeforeground=ACCENT, font=(FAM, 10))
         except Exception:
             pass
 
     def _chosen(self, _value=None):
         if self._cb is not None:
             self._cb(None)
+
+    def _dropdown_callback(self, value):
+        # The variable is set inside the parent callback, and the app's trace may redraw
+        # the table before the command runs. current() reports the clicked value meanwhile.
+        self._pending = value
+        try:
+            super()._dropdown_callback(value)
+        finally:
+            self._pending = None
 
     def bind(self, seq, func, add=None):
         if seq == "<<ComboboxSelected>>":
@@ -388,170 +375,16 @@ class Select(ctk.CTkButton):
 
     def configure(self, **kw):
         if "values" in kw:
-            vals = list(kw.pop("values") or [""])
-            self._values = vals or [""]
+            self._values = list(kw.pop("values") or [""]) or [""]
             if self._var.get() not in self._values:
                 self._var.set(self._values[0])
-            self._close_popup()
+            kw["values"] = self._values
         if "state" in kw:
             state = kw.pop("state")
             kw["state"] = "disabled" if state == "disabled" else "normal"
-            if kw["state"] == "disabled":
-                self._close_popup()
-                try:
-                    self._arrow.configure(fg=DISABLED, bg=PANEL2)
-                except Exception:
-                    pass
-            else:
-                try:
-                    self._arrow.configure(fg=DIM, bg=PANEL2)
-                except Exception:
-                    pass
         return super().configure(**kw)
 
     config = configure
-
-    # ---- the list itself ----
-    def _clicked(self, _e=None):
-        if self._state == "disabled":
-            return
-        if self._popup is not None and self._popup.winfo_exists():
-            self._close_popup()
-        else:
-            self._open_popup()
-
-    def _open_popup(self):
-        self._close_popup()
-        screen_w = self.winfo_screenwidth()
-        screen_h = self.winfo_screenheight()
-        top = tk.Toplevel(self)
-        top.withdraw()
-        top.overrideredirect(True)
-        top.configure(bg=BORDER)
-        try:
-            top.attributes("-topmost", True)
-        except Exception:
-            pass
-        shell = ctk.CTkFrame(top, fg_color=PANEL, corner_radius=12, border_width=1, border_color=BORDER)
-        shell.pack(fill="both", expand=True)
-        width = max(190, self.winfo_width())
-        total = max(1, len(self._values)) * 32 + 18
-        height = min(450, total)
-        if total <= 450:
-            inner = ctk.CTkFrame(shell, fg_color=PANEL, corner_radius=8)
-        else:
-            inner = ctk.CTkScrollableFrame(shell, fg_color=PANEL, corner_radius=8,
-                                           width=width - 12, height=height - 12,
-                                           scrollbar_button_color=BORDER,
-                                           scrollbar_button_hover_color=ACCENT_DARK)
-        inner.pack(fill="both", expand=True, padx=6, pady=6)
-        current = self._var.get()
-        rows = []
-        for value in self._values:
-            active = value == current
-            row = tk.Frame(inner, bg=BORDER if active else PANEL, cursor="hand2", height=30)
-            row.pack(fill="x", pady=1)
-            row.pack_propagate(False)
-            lab = tk.Label(row, text=value, bg=BORDER if active else PANEL,
-                           fg=ACCENT if active else TEXT, anchor="w", padx=10,
-                           font=(FAM, 10), cursor="hand2")
-            lab.pack(fill="both", expand=True)
-            rows.append((row, value))
-            for w in (row, lab):
-                w.bind("<Button-1>", lambda e, v=value: self._choose(v))
-                w.bind("<Enter>", lambda e, r=row, l=lab: (r.configure(bg=BORDER), l.configure(bg=BORDER)))
-                w.bind("<Leave>", lambda e, r=row, l=lab, a=active: (
-                    r.configure(bg=BORDER if a else PANEL), l.configure(bg=BORDER if a else PANEL)))
-        top.update_idletasks()
-        x = min(max(4, self.winfo_rootx()), screen_w - width - 8)
-        y = self.winfo_rooty() + self.winfo_height() + 3
-        if y + height > screen_h - 48:
-            y = max(8, self.winfo_rooty() - height - 3)
-        top.geometry(f"{width}x{height}+{int(x)}+{int(y)}")
-        top.deiconify()
-        top.lift()
-        top.update_idletasks()
-        self._rows = rows
-        try:
-            top.focus_force()
-        except Exception:
-            pass
-        try:
-            top.grab_set()
-        except Exception:
-            pass
-        top.bind("<Button-1>", self._popup_click)
-        top.bind("<Escape>", lambda e: self._close_popup())
-        self._popup = top
-        self.after_idle(self._bind_outside)
-
-    def _bind_outside(self):
-        if self._popup is None or not self._popup.winfo_exists():
-            return
-        try:
-            self._outside_id = self.winfo_toplevel().bind("<Button-1>", self._outside_click, add="+")
-        except Exception:
-            self._outside_id = None
-
-    def _outside_click(self, event=None):
-        if self._popup is None:
-            return
-        if event is not None and str(event.widget).startswith(str(self)):
-            return
-        self._close_popup()
-
-    def _popup_click(self, event=None):
-        w = self._popup
-        if w is None or event is None:
-            return
-        try:
-            x = event.x_root - w.winfo_rootx()
-            y = event.y_root - w.winfo_rooty()
-            if not (0 <= x < w.winfo_width() and 0 <= y < w.winfo_height()):
-                self._close_popup()
-                return
-            for row, value in self._rows:
-                y0 = row.winfo_rooty() - w.winfo_rooty()
-                y1 = y0 + row.winfo_height()
-                if y0 <= y < y1:
-                    self._choose(value)
-                    return
-        except Exception:
-            pass
-
-    def _choose(self, value):
-        if self._popup is None:
-            return
-        # The callback (e.g. remap) reads current(); give it the clicked value before the
-        # variable trace redraws the table, which would otherwise restore the old selection.
-        self._pending = value
-        try:
-            if self._cb is not None:
-                self._cb(None)
-        finally:
-            self._pending = None
-        self._var.set(value)
-        self._close_popup()
-
-    def _close_popup(self):
-        pop = self._popup
-        self._popup = None
-        if pop is not None:
-            try:
-                pop.grab_release()
-            except Exception:
-                pass
-        if self._outside_id is not None:
-            try:
-                self.winfo_toplevel().unbind("<Button-1>", self._outside_id)
-            except Exception:
-                pass
-            self._outside_id = None
-        if pop is not None:
-            try:
-                pop.destroy()
-            except Exception:
-                pass
 
 
 class Progress(ctk.CTkProgressBar):

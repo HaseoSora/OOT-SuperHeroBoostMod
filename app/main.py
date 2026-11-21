@@ -16,8 +16,11 @@ import sys
 import threading
 from pathlib import Path
 
+import customtkinter as ctk
+
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import installer as I  # noqa: E402
+import ui_kit as UI  # noqa: E402
 import layouts  # noqa: E402
 import remap_ui as RM  # noqa: E402
 import texts_enemies  # noqa: E402,F401  (texts of the aggression options)
@@ -270,95 +273,31 @@ def cli(argv) -> int:
 
 
 # ---------------------------------------------------------------- window
-BG = "#0c1712"
-SIDEBAR = "#08110d"
-PANEL = "#14251b"
-PANEL2 = "#09130e"
-BORDER = "#2f4a36"
-ACCENT = "#d8b24a"
-ACCENT_DARK = "#7a5c1f"
-AMBER = "#e8b04a"
-TEXT = "#f2e8c9"
-DIM = "#a9a184"
-RED = "#c9564a"
+BG = UI.BG
+SIDEBAR = UI.SIDEBAR
+PANEL = UI.PANEL
+PANEL2 = UI.PANEL2
+BORDER = UI.BORDER
+ACCENT = UI.ACCENT
+ACCENT2 = UI.ACCENT2
+ACCENT_DARK = UI.ACCENT_DARK
+TEAL = UI.TEAL
+AMBER = UI.AMBER
+TEXT = UI.TEXT
+DIM = UI.DIM
+RED = UI.RED
 COLORS = dict(PANEL=PANEL, PANEL2=PANEL2, BORDER=BORDER, ACCENT=ACCENT, ACCENT_DARK=ACCENT_DARK, AMBER=AMBER,
-              TEXT=TEXT, DIM=DIM)
+              TEXT=TEXT, DIM=DIM, TEAL=TEAL)
 
 
-class ScrollArea:
-    """A vertical scrolling frame that also works with wheel/trackpad on every OS."""
+ScrollArea = UI.ScrollArea
 
-    def __init__(self, parent, bg):
-        import tkinter as tk
-        from tkinter import ttk
-        self.frame = tk.Frame(parent, bg=bg)
-        self.canvas = tk.Canvas(self.frame, bg=bg, highlightthickness=0)
-        self.bar = ttk.Scrollbar(self.frame, orient="vertical", command=self.canvas.yview,
-                                 style="SHB.Vertical.TScrollbar")
-        self.canvas.configure(yscrollcommand=self.bar.set)
-        self.canvas.pack(side="left", fill="both", expand=True)
-        self.bar.pack(side="right", fill="y")
-        self.inner = tk.Frame(self.canvas, bg=bg)
-        self._win = self.canvas.create_window((0, 0), window=self.inner, anchor="nw")
-        self.inner.bind("<Configure>", lambda e: self.refresh())
-        self.canvas.bind("<Configure>", self._resize)
-        self.canvas.bind_all("<MouseWheel>", self._wheel)
-        self.canvas.bind_all("<Button-4>", self._wheel)
-        self.canvas.bind_all("<Button-5>", self._wheel)
-
-    def _resize(self, event):
-        self.canvas.itemconfigure(self._win, width=event.width)
-        self.refresh()
-
-    def refresh(self):
-        """Recalculate the scrollable region (call it after showing another section)."""
-        try:
-            self.inner.update_idletasks()
-            self.canvas.configure(scrollregion=self.canvas.bbox("all"))
-        except Exception:
-            pass
-
-    def destroy(self):
-        for seq in ("<MouseWheel>", "<Button-4>", "<Button-5>"):
-            try:
-                self.canvas.unbind_all(seq)
-            except Exception:
-                pass
-        self.frame.destroy()
-
-    def _wheel(self, event):
-        # only scroll when the pointer is over this area (bind_all is global)
-        try:
-            x, y = event.x_root, event.y_root
-            widget = self.frame.winfo_containing(x, y)
-        except Exception:
-            widget = None
-        if widget is not None:
-            w = widget
-            inside = False
-            while w is not None:
-                if w is self.frame or w is self.canvas:
-                    inside = True
-                    break
-                w = getattr(w, "master", None)
-            if not inside:
-                return
-        bbox = self.canvas.bbox("all")
-        if not bbox or bbox[3] - bbox[1] <= self.canvas.winfo_height():
-            return
-        if getattr(event, "num", None) == 4:
-            step = -1
-        elif getattr(event, "num", None) == 5:
-            step = 1
-        else:
-            step = -1 if getattr(event, "delta", 0) > 0 else 1
-        self.canvas.yview_scroll(step * 3, "units")
 
 
 def gui() -> None:
     import tkinter as tk
     import tkinter.font as tkfont
-    from tkinter import filedialog, messagebox, ttk
+    from tkinter import filedialog, messagebox
 
     if sys.platform == "win32":                    # crisp text on scaled displays
         try:
@@ -368,16 +307,25 @@ def gui() -> None:
             pass
 
     cfg = load_cfg()
-    root = tk.Tk()
+    UI.setup()
+    root = ctk.CTk()
     root.title(f"Super Hero Boost {VERSION}")
-    root.configure(bg=BG)
-    root.geometry("1060x740")
-    root.minsize(920, 620)
+    root.configure(fg_color=BG)
+    root.geometry("1120x780")
+    root.minsize(980, 660)
+    try:
+        base = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent))
+        icon = tk.PhotoImage(file=str(base / "assets" / "shb.png"))
+        root.iconphoto(True, icon)
+        root._shb_icon = icon
+    except Exception:
+        pass
 
     fams = set(tkfont.families())
     FAM = next((f for f in ("Segoe UI", "SF Pro Text", "Helvetica Neue", "DejaVu Sans", "Arial") if f in fams), "TkDefaultFont")
     DISPLAY = next((f for f in ("Palatino Linotype", "Book Antiqua", "Georgia", "Cambria", "DejaVu Serif",
                                 "Times New Roman") if f in fams), FAM)
+    UI.set_fonts(FAM, DISPLAY)
 
     lang = tk.StringVar(value=cfg.get("lang") if cfg.get("lang") in LANGS else system_lang())
     emu = tk.StringVar(value=cfg.get("emu", ""))
@@ -466,61 +414,29 @@ def gui() -> None:
     state = {"section": "install", "update": None, "update_dismissed": "", "update_checking": False}
 
     L = lambda key, **kw: tr(lang.get(), key, **kw)  # noqa: E731
-
-    # ---- style ----
-    style = ttk.Style()
-    try:
-        style.theme_use("clam")
-    except Exception:
-        pass
-    style.configure("SHB.TCombobox", fieldbackground=PANEL2, background=PANEL, foreground=TEXT,
-                    arrowcolor=ACCENT, bordercolor=BORDER, lightcolor=PANEL, darkcolor=PANEL,
-                    selectbackground=PANEL2, selectforeground=TEXT)
-    style.map("SHB.TCombobox", fieldbackground=[("readonly", PANEL2)], foreground=[("readonly", TEXT)])
-    # Scrollbars: a slim gold thumb on the dark trough, no arrows (the main page and the combobox lists)
-    for sb in ("SHB.Vertical.TScrollbar", "Vertical.TScrollbar"):
-        style.layout(sb, [("Vertical.Scrollbar.trough", {"sticky": "ns", "children": [
-            ("Vertical.Scrollbar.thumb", {"expand": "1", "sticky": "nswe"})]})])
-        style.configure(sb, troughcolor=PANEL2, background=ACCENT_DARK, bordercolor=PANEL2,
-                        lightcolor=ACCENT_DARK, darkcolor=ACCENT_DARK, arrowcolor=ACCENT, gripcount=0,
-                        relief="flat", borderwidth=0, width=10, arrowsize=10)
-        style.map(sb, background=[("pressed", ACCENT), ("active", ACCENT)],
-                  lightcolor=[("pressed", ACCENT), ("active", ACCENT)],
-                  darkcolor=[("pressed", ACCENT), ("active", ACCENT)])
-    style.configure("SHB.Horizontal.TProgressbar", troughcolor=PANEL2, background=ACCENT,
-                    bordercolor=BORDER, lightcolor=ACCENT, darkcolor=ACCENT, thickness=14)
-    root.option_add("*TCombobox*Listbox.background", PANEL2)
-    root.option_add("*TCombobox*Listbox.foreground", TEXT)
-    root.option_add("*TCombobox*Listbox.selectBackground", ACCENT_DARK)
-    root.option_add("*TCombobox*Listbox.selectForeground", TEXT)
+    UI.HELP_TITLE = L("help_title")
+    UI.CLOSE_LABEL = L("close")
 
     # ---- small widget helpers ----
     def button(parent, text, cmd, primary=False, **kw):
-        return tk.Button(parent, text=text, command=cmd, font=(FAM, 10, "bold"), relief="flat", bd=0,
-                         cursor="hand2", bg=ACCENT if primary else PANEL2, fg="#1a1408" if primary else TEXT,
-                         activebackground="#f1d27a" if primary else BORDER,
-                         activeforeground="#1a1408" if primary else TEXT,
-                         disabledforeground=DIM, highlightthickness=1,
-                         highlightbackground=ACCENT if primary else BORDER,
-                         padx=16, pady=7, **kw)
+        return UI.Button(parent, text, cmd, primary=primary, **kw)
 
     def label(parent, text, size=10, color=TEXT, bold=False, italic=False, wrap=760, **kw):
-        style_name = "italic" if italic else ("bold" if bold else "normal")
-        return tk.Label(parent, text=text, bg=kw.pop("bg", PANEL), fg=color, font=(FAM, size, style_name),
-                        justify="left", anchor="w", wraplength=wrap, **kw)
+        return UI.Label(parent, text, size=size, fg=color, bold=bold, italic=italic, wrap=wrap,
+                        bg=kw.pop("bg", PANEL), **kw)
 
     def rb_tag(parent):
         """'Requires rebuild' tag: options stored in the module's configuration (subsdk9). Shown only for a
         recompiled game (Longshot, Hookshot, ReLink): their exefs is translated into the program, so a change
         there needs the builder. Romfs options never carry it. refresh() sets its text."""
-        t = tk.Label(parent, text="", bg=PANEL, fg=RED, font=(FAM, 9, "bold"), anchor="w")
+        t = UI.Label(parent, "", size=9, fg=RED, bold=True, bg=PANEL)
         ui.setdefault("rb_tags", []).append(t)
         return t
 
     def check_rb(parent, text, var, **pack):
         """A feature's main switch: turning it on or off needs the builder on a recompiled game (its sub-options
         do not), so the 'requires rebuild' tag sits beside it."""
-        row = tk.Frame(parent, bg=PANEL)
+        row = UI.Frame(parent, bg=PANEL)
         row.pack(anchor="w", **pack)
         c = check(row, text, var)
         c.pack(side="left")
@@ -528,35 +444,29 @@ def gui() -> None:
         return c
 
     def card(parent, title, desc=None, rebuild=False, help=None):
-        f = tk.Frame(parent, bg=PANEL, highlightbackground=BORDER, highlightthickness=1)
-        f.pack(fill="x", padx=4, pady=(0, 12))
-        head = tk.Frame(f, bg=PANEL)
-        head.pack(anchor="w", fill="x", padx=14, pady=(10, 0))
-        tk.Label(head, text=title, bg=PANEL, fg=ACCENT, font=(DISPLAY, 13, "bold"), anchor="w").pack(side="left")
+        f = UI.Card(parent)
+        f.pack(fill="x", padx=4, pady=(0, 14))
+        head = UI.Frame(f, bg=PANEL)
+        head.pack(anchor="w", fill="x", padx=18, pady=(10, 0))
+        UI.Label(head, title, size=13, fg=ACCENT, font=(DISPLAY, 15, "bold"), bg=PANEL).pack(side="left")
         if rebuild:
             rb_tag(head).pack(side="left", padx=(10, 0), pady=(3, 0))
         if help:
-            RM.help_icon(head, help, COLORS, FAM).pack(side="left", padx=(8, 0), pady=(3, 0))
+            UI.HelpIcon(head, help, title).pack(side="left", padx=(8, 0), pady=(2, 0))
         if desc:
-            label(f, desc, size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=14, pady=(2, 8))
-        body = tk.Frame(f, bg=PANEL)
-        body.pack(fill="x", padx=14, pady=(0, 12))
+            label(f, desc, size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=18, pady=(3, 10))
+        body = UI.Frame(f, bg=PANEL)
+        body.pack(fill="x", padx=18, pady=(0, 16))
         return body
 
     def check(parent, text, var):
-        return tk.Checkbutton(parent, text=text, variable=var, bg=PANEL, fg=TEXT, selectcolor=PANEL2,
-                              activebackground=PANEL, activeforeground=ACCENT, disabledforeground=DIM,
-                              font=(FAM, 10), anchor="w", highlightthickness=0, bd=0)
+        return UI.Check(parent, text, var)
 
     def radio(parent, text, var, value, cmd=None):
-        return tk.Radiobutton(parent, text=text, variable=var, value=value, command=cmd, bg=PANEL, fg=TEXT,
-                              selectcolor=PANEL2, activebackground=PANEL, activeforeground=ACCENT,
-                              disabledforeground=DIM, font=(FAM, 10), anchor="w", highlightthickness=0, bd=0)
+        return UI.Radio(parent, text, var, value, cmd=cmd)
 
     def combo(parent, values, var, width=16):
-        cb = ttk.Combobox(parent, state="readonly", style="SHB.TCombobox", width=width, values=values)
-        cb.current(values.index(var.get()) if var.get() in values else 0)
-        return cb
+        return UI.Select(parent, values, var, width=width)
 
     def emblem(canvas, cx, cy, size):
         """Three golden triangles: the pack's emblem (no game assets or text)."""
@@ -850,15 +760,15 @@ def gui() -> None:
             messagebox.showerror(L("update_error"), parent=root)
             return
 
-        win = tk.Toplevel(root)
+        win = UI.Toplevel(root)
         win.title(L("update_download"))
         win.configure(bg=BG)
         win.transient(root)
         win.resizable(False, False)
         win.geometry("440x120")
-        lbl = tk.Label(win, text=L("update_downloading", p=0), bg=BG, fg=TEXT, font=(FAM, 10), anchor="w")
+        lbl = UI.Label(win, text=L("update_downloading", p=0), bg=BG, fg=TEXT, font=(FAM, 10), anchor="w")
         lbl.pack(fill="x", padx=16, pady=(16, 8))
-        bar = ttk.Progressbar(win, style="SHB.Horizontal.TProgressbar", mode="determinate", maximum=100)
+        bar = UI.Progress(win, style="SHB.Horizontal.TProgressbar", mode="determinate", maximum=100)
         bar.pack(fill="x", padx=16)
         win.protocol("WM_DELETE_WINDOW", lambda: None)
         win.grab_set()
@@ -920,6 +830,11 @@ def gui() -> None:
         for w in ui.get("lock", []):
             try:
                 w.config(state="disabled" if on else "normal")
+            except Exception:
+                pass
+        for _, b in ui.get("target_btns", []):
+            try:
+                b.set_enabled(not on)
             except Exception:
                 pass
         for key in ("install", "uninstall", "launch", "rebuild", "builder_btn", "builder_auto", "builder_change"):
@@ -1264,7 +1179,7 @@ def gui() -> None:
             ui["game_layout"].config(state="readonly")
             refresh_layout_note()
         for w in ui.get("bm", []):
-            w.config(state=("readonly" if isinstance(w, ttk.Combobox) else "normal") if on else "disabled")
+            w.config(state=("readonly" if isinstance(w, UI.Select) else "normal") if on else "disabled")
         ui["note"].config(text="" if stam else L("stamina_off_note"), fg=AMBER)
         rec = target.get() in ("recomp", "rekarina")
         for t in ui.get("rb_tags", []):
@@ -1400,33 +1315,62 @@ def gui() -> None:
         body = card(parent, L("home_title"), L("home_desc"))
         ui["profile_desc"] = label(body, "", size=10, color=AMBER, bold=True, bg=PANEL)
         ui["profile_desc"].pack(anchor="w", pady=(0, 5))
-        prof = tk.Frame(body, bg=PANEL)
+        prof = UI.Frame(body, bg=PANEL)
         prof.pack(fill="x")
         for i, key in enumerate(PROFILE_KEYS):
-            r = radio(prof, profile_name(key), profile, key, cmd=lambda k=key: choose_profile(k))
-            r.grid(row=i, column=0, sticky="w", pady=1)
-            label(prof, L("p_" + key.replace("-", "_") + "_d"), size=9, color=DIM, bg=PANEL).grid(
-                row=i, column=1, sticky="w", padx=(10, 0), pady=1)
+            row = UI.Frame(prof, bg=PANEL)
+            row.grid(row=i, column=0, sticky="ew", pady=1)
+            prof.grid_columnconfigure(0, weight=1)
+            r = radio(row, "", profile, key, cmd=lambda k=key: choose_profile(k))
+            r.pack(side="left")
+            name = label(row, profile_name(key), size=10, color=TEXT, bg=PANEL,
+                         bold=(key == "recommended"))
+            name.configure(width=27)
+            name.pack(side="left", padx=(2, 8))
+            desc = label(row, L("p_" + key.replace("-", "_") + "_d"), size=9, color=DIM, bg=PANEL,
+                         wrap=540)
+            desc.pack(side="left", fill="x", expand=True)
+            for w in (name, desc):
+                w.bind("<Button-1>", lambda e, k=key: choose_profile(k))
         label(body, L("profile_shield_note"), size=9, color=AMBER, bg=PANEL).pack(anchor="w", pady=(8, 0))
         ui["reapply"] = button(body, L("reapply"), lambda: apply_profile(profile.get()))
         ui["reapply"].pack(anchor="w", pady=(8, 0))
 
     def build_install(parent):
         body = card(parent, L("install_title"), L("install_desc"))
-        trow = tk.Frame(body, bg=PANEL)
-        trow.pack(fill="x", pady=(0, 8))
-        label(trow, L("target") + ":", size=10, color=ACCENT, bold=True).pack(side="left", padx=(0, 10))
+        label(body, L("target"), size=10, color=ACCENT, bold=True, bg=PANEL).pack(anchor="w", pady=(0, 6))
+        trow = UI.Frame(body, bg=PANEL)
+        trow.pack(fill="x", pady=(0, 10))
+        for i in range(3):
+            trow.grid_columnconfigure(i, weight=1)
         trefs = []
-        for val, key in (("emulator", "target_emu"), ("recomp", "target_recomp"), ("rekarina", "target_rekarina")):
-            r = radio(trow, L(key), target, val, cmd=on_target)
-            r.pack(side="left", padx=(0, 16))
-            trefs.append(r)
+        ui["target_btns"] = []
 
-        ef = tk.Frame(body, bg=PANEL)
+        def paint_targets():
+            for val, btn in ui.get("target_btns", []):
+                btn.set_active(target.get() == val)
+
+        def select_target(val):
+            if busy["on"]:
+                return
+            target.set(val)
+            paint_targets()
+            on_target()
+
+        for i, (val, key, sub) in enumerate((("emulator", "target_emu", "target_emu_d"),
+                                              ("recomp", "target_recomp", "target_recomp_d"),
+                                              ("rekarina", "target_rekarina", "target_rekarina_d"))):
+            b = UI.ChoiceCard(trow, L(key + "_short"), L(sub), command=lambda v=val: select_target(v))
+            b.grid(row=0, column=i, sticky="ew", padx=(0, 8) if i < 2 else (0, 0))
+            trefs.append(b)
+            ui.setdefault("target_btns", []).append((val, b))
+        paint_targets()
+
+        ef = UI.Frame(body, bg=PANEL)
         ui["emu_frame"] = ef
-        row = tk.Frame(ef, bg=PANEL)
+        row = UI.Frame(ef, bg=PANEL)
         row.pack(fill="x")
-        entry_emu = tk.Entry(row, textvariable=emu, bg=PANEL2, fg=TEXT, insertbackground=ACCENT, relief="flat",
+        entry_emu = UI.Entry(row, textvariable=emu, bg=PANEL2, fg=TEXT, insertbackground=ACCENT, relief="flat",
                              font=(FAM, 10), highlightthickness=1, highlightbackground=BORDER,
                              highlightcolor=ACCENT)
         entry_emu.pack(side="left", fill="x", expand=True, ipady=4)
@@ -1438,11 +1382,11 @@ def gui() -> None:
         label(ef, L("install_hint"), size=9, color=AMBER, bg=PANEL).pack(anchor="w", pady=(6, 0))
         label(ef, L("autosave"), size=9, color=DIM, bg=PANEL).pack(anchor="w", pady=(2, 0))
 
-        rf = tk.Frame(body, bg=PANEL)
+        rf = UI.Frame(body, bg=PANEL)
         ui["recomp_frame"] = rf
-        row = tk.Frame(rf, bg=PANEL)
+        row = UI.Frame(rf, bg=PANEL)
         row.pack(fill="x")
-        entry_rec = tk.Entry(row, textvariable=recomp_path, bg=PANEL2, fg=TEXT, insertbackground=ACCENT,
+        entry_rec = UI.Entry(row, textvariable=recomp_path, bg=PANEL2, fg=TEXT, insertbackground=ACCENT,
                              relief="flat", font=(FAM, 10), highlightthickness=1,
                              highlightbackground=BORDER, highlightcolor=ACCENT)
         entry_rec.pack(side="left", fill="x", expand=True, ipady=4)
@@ -1451,7 +1395,7 @@ def gui() -> None:
         label(rf, L("recomp_hint"), size=9, color=DIM, bg=PANEL).pack(anchor="w", pady=(5, 0))
         ui["recomp_status"] = label(rf, "", size=9, color=DIM, bg=PANEL)
         ui["recomp_status"].pack(anchor="w", pady=(2, 0))
-        bline = tk.Frame(rf, bg=PANEL)
+        bline = UI.Frame(rf, bg=PANEL)
         bline.pack(fill="x", pady=(8, 0))
         ui["builder_line"] = label(bline, "", size=9, color=DIM, bg=PANEL)
         ui["builder_line"].pack(side="left")
@@ -1459,12 +1403,12 @@ def gui() -> None:
         b_change.pack(side="left", padx=(8, 0))
         ui["builder_change"] = b_change
         # Optional: only shown when no builder was detected, when one was chosen by hand, or by "Change".
-        ui["builder_frame"] = tk.Frame(rf, bg=PANEL)
+        ui["builder_frame"] = UI.Frame(rf, bg=PANEL)
         label(ui["builder_frame"], L("recomp_builder"), size=9, color=DIM,
               bg=PANEL).pack(anchor="w", pady=(2, 0))
-        brow = tk.Frame(ui["builder_frame"], bg=PANEL)
+        brow = UI.Frame(ui["builder_frame"], bg=PANEL)
         brow.pack(fill="x", pady=(2, 0))
-        entry_b = tk.Entry(brow, textvariable=recomp_builder, bg=PANEL2, fg=TEXT, insertbackground=ACCENT,
+        entry_b = UI.Entry(brow, textvariable=recomp_builder, bg=PANEL2, fg=TEXT, insertbackground=ACCENT,
                            relief="flat", font=(FAM, 10), highlightthickness=1,
                            highlightbackground=BORDER, highlightcolor=ACCENT)
         entry_b.pack(side="left", fill="x", expand=True, ipady=4)
@@ -1478,11 +1422,11 @@ def gui() -> None:
         ui["recomp_note"].pack(anchor="w", pady=(8, 0))
 
         # Rekarina: same install card, its own path (the game folder Rekarina.exe made).
-        kf = tk.Frame(body, bg=PANEL)
+        kf = UI.Frame(body, bg=PANEL)
         ui["rekarina_frame"] = kf
-        row = tk.Frame(kf, bg=PANEL)
+        row = UI.Frame(kf, bg=PANEL)
         row.pack(fill="x")
-        entry_rek = tk.Entry(row, textvariable=rekarina_path, bg=PANEL2, fg=TEXT, insertbackground=ACCENT,
+        entry_rek = UI.Entry(row, textvariable=rekarina_path, bg=PANEL2, fg=TEXT, insertbackground=ACCENT,
                              relief="flat", font=(FAM, 10), highlightthickness=1,
                              highlightbackground=BORDER, highlightcolor=ACCENT)
         entry_rek.pack(side="left", fill="x", expand=True, ipady=4)
@@ -1495,21 +1439,21 @@ def gui() -> None:
         ui["rekarina_note"].pack(anchor="w", pady=(8, 0))
 
         # The progress bar and the log are shared by the two recompilers.
-        bf = tk.Frame(body, bg=PANEL)
+        bf = UI.Frame(body, bg=PANEL)
         ui["build_frame"] = bf
-        prow = tk.Frame(bf, bg=PANEL)
+        prow = UI.Frame(bf, bg=PANEL)
         prow.pack(fill="x", pady=(0, 2))
-        ui["bar"] = ttk.Progressbar(prow, style="SHB.Horizontal.TProgressbar", mode="determinate",
+        ui["bar"] = UI.Progress(prow, style="SHB.Horizontal.TProgressbar", mode="determinate",
                                     maximum=1.0, value=0)
         ui["bar"].pack(side="left", fill="x", expand=True)
         ui["prog_label"] = label(prow, L("recomp_progress", p=0), size=9, color=DIM, bg=PANEL)
         ui["prog_label"].pack(side="left", padx=(10, 0))
         label(bf, L("recomp_log"), size=9, color=DIM, bg=PANEL).pack(anchor="w", pady=(6, 2))
-        ui["log"] = tk.Text(bf, height=6, bg=PANEL2, fg=DIM, insertbackground=ACCENT, relief="flat",
+        ui["log"] = UI.Textbox(bf, height=6, bg=PANEL2, fg=DIM, insertbackground=ACCENT, relief="flat",
                             font=(FAM, 8), highlightthickness=1, highlightbackground=BORDER,
                             state="disabled", wrap="none")
         ui["log"].pack(fill="x")
-        ui["lock"] = trefs + [entry_emu, b_emu, entry_rec, b_rec, entry_rek, b_rek]
+        ui["lock"] = [entry_emu, b_emu, entry_rec, b_rec, entry_rek, b_rek]
         tgt = target.get()
         if tgt == "recomp":
             rf.pack(fill="x")
@@ -1542,7 +1486,7 @@ def gui() -> None:
             label(body, L("m_" + name + "_d"), size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=(20, 0), pady=(0, 3))
 
         body = card(parent, L("costs_title"), L("costs_desc"))
-        grid = tk.Frame(body, bg=PANEL)
+        grid = UI.Frame(body, bg=PANEL)
         grid.pack(fill="x")
         ui["costs"] = []
         for i, k in enumerate(KEYS):
@@ -1553,7 +1497,7 @@ def gui() -> None:
         ui["combat"].pack(anchor="w", pady=(6, 0))
 
         body = card(parent, L("sprint_speed"))
-        row = tk.Frame(body, bg=PANEL)
+        row = UI.Frame(body, bg=PANEL)
         row.pack(fill="x")
         label(row, L("sprint_speed") + ":", size=10, bg=PANEL).pack(side="left", padx=(0, 8))
         values = [L("speed_van")] + ["×%g" % (v / 100) for v in SPEEDS[1:]]
@@ -1567,7 +1511,7 @@ def gui() -> None:
 
     def build_difficulty(parent):
         body = card(parent, L("difficulty_title"), L("difficulty_desc"))
-        row = tk.Frame(body, bg=PANEL)
+        row = UI.Frame(body, bg=PANEL)
         row.pack(fill="x")
         names = [L("mult_van"), L("mult_15"), L("mult_2"), L("mult_3")]
         ui["mult"] = []
@@ -1588,7 +1532,7 @@ def gui() -> None:
 
     def build_hud(parent):
         body = card(parent, L("hud_title"), L("hud_desc"))
-        mrow = tk.Frame(body, bg=PANEL)
+        mrow = UI.Frame(body, bg=PANEL)
         mrow.pack(fill="x", pady=(0, 8))
         label(mrow, L("hud_mode") + ":", size=10, bg=PANEL).grid(row=0, column=0, sticky="w", padx=(0, 6))
         mvalues = [L("hud_mode_wide"), L("hud_mode_simple"), L("hud_mode_map")]
@@ -1602,7 +1546,7 @@ def gui() -> None:
         label(body, L("hud_mode_wide_desc"), size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=(20, 0))
         label(body, L("hud_mode_simple_desc"), size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=(20, 0))
         label(body, L("hud_mode_map_desc"), size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=(20, 0), pady=(0, 8))
-        row = tk.Frame(body, bg=PANEL)
+        row = UI.Frame(body, bg=PANEL)
         row.pack(fill="x")
         check(row, L("hud_rupees"), rupees).grid(row=0, column=0, sticky="w", padx=(0, 30))
         label(row, L("clock_mode") + ":", size=10, bg=PANEL).grid(row=0, column=1, sticky="w", padx=(0, 6))
@@ -1624,7 +1568,7 @@ def gui() -> None:
     def build_game_prompts(parent):
         """HUD section: the game's own button prompts (independent of the button mapping, optional)."""
         body = card(parent, L("game_layout"), L("game_layout_d"))
-        row = tk.Frame(body, bg=PANEL)
+        row = UI.Frame(body, bg=PANEL)
         row.pack(anchor="w")
         gnames = [L("game_layout_none" if k == "none" else "g_" + k) for k in I.GAME_LAYOUTS]
         gvar = tk.StringVar(value=gnames[I.GAME_LAYOUTS.index(glayout.get())])
@@ -1643,10 +1587,95 @@ def gui() -> None:
         refresh_layout_note()
 
     def build_controls(parent):
-        body = card(parent, L("rm_title"))
-        RM.RemapEditor(body, L, FAM, COLORS,
+        hero = card(parent, L("ctrl_hero_title"), L("ctrl_hero_desc"))
+        hrow = UI.Frame(hero, bg=PANEL)
+        hrow.pack(fill="x", pady=(0, 4))
+        button(hrow, L("ctrl_go_help"), lambda: UI.help_window(root, L("help_controls_title"),
+                                                             L("help_controls_body")), primary=True).pack(side="left")
+        button(hrow, L("nav_help"), lambda: show_section("help")).pack(side="left", padx=(8, 0))
+
+        pbody = card(parent, L("ctrl_preset_title"), L("ctrl_preset_desc"))
+        pgrid = UI.Frame(pbody, bg=PANEL)
+        pgrid.pack(fill="x")
+        for i in range(2):
+            pgrid.grid_columnconfigure(i, weight=1)
+        ui["ctrl_presets"] = []
+
+        def paint_presets():
+            current = RM.preset_of(RM.roles_value(broles))
+            for key, btn in ui.get("ctrl_presets", []):
+                btn.set_active(key == current)
+
+        def apply_preset(key):
+            table = I.REMAP_PRESETS[key]
+            if "shield" in table.values() and not manual_shield.get():
+                manual_shield.set(True)
+            RM.set_roles(broles, table)
+            paint_presets()
+
+        for i, key in enumerate(I.REMAP_PRESET_KEYS):
+            b = UI.ChoiceCard(pgrid, L("preset_" + key), L("ctrl_preset_" + key + "_d"),
+                              command=lambda k=key: apply_preset(k))
+            b.grid(row=i // 2, column=i % 2, sticky="ew", padx=(0, 8) if i % 2 == 0 else (0, 0),
+                   pady=(0, 8))
+            ui["ctrl_presets"].append((key, b))
+
+        srow = UI.Frame(pbody, bg=PANEL)
+        srow.pack(fill="x", pady=(2, 0))
+        ui["ctrl_summary"] = label(srow, "", size=9, color=DIM, bg=PANEL, wrap=760)
+        ui["ctrl_summary"].pack(side="left", fill="x", expand=True)
+
+        adv = UI.Frame(parent, bg=BG)
+        ui["ctrl_advanced"] = adv
+        abody = card(adv, L("ctrl_advanced_title"), L("ctrl_advanced_desc"),
+                     help=L("ctrl_advanced_desc") + "\n\n" + L("rm_help"))
+        RM.RemapEditor(abody, L, FAM, COLORS,
                        dict(bmap=bmap, roles=broles, bstyle=bstyle, bsimple=bsimple, switch_target=switch_target,
                             auto_target=auto_target, sprint_toggle=sprint_l3_toggle, mshield=manual_shield))
+        adv_open = {"on": False}
+
+        def toggle_advanced():
+            adv_open["on"] = not adv_open["on"]
+            if adv_open["on"]:
+                adv.pack(fill="x")
+                ui["ctrl_adv_btn"].configure(text=L("ctrl_advanced_hide"))
+            else:
+                adv.pack_forget()
+                ui["ctrl_adv_btn"].configure(text=L("ctrl_advanced_show"))
+
+        ui["ctrl_adv_btn"] = button(pbody, L("ctrl_advanced_show"), toggle_advanced)
+        ui["ctrl_adv_btn"].pack(anchor="w", pady=(10, 0))
+        if os.environ.get("SHB_UI_ADVANCED"):
+            adv_open["on"] = True
+            adv.pack(fill="x")
+            ui["ctrl_adv_btn"].configure(text=L("ctrl_advanced_hide"))
+
+        for var, tid in ui.get("ctrl_trace_ids", []):
+            try:
+                var.trace_remove("write", tid)
+            except (tk.TclError, ValueError):
+                pass
+        ui["ctrl_trace_ids"] = []
+        for var in (bmap, manual_shield, *broles.values()):
+            ui["ctrl_trace_ids"].append((var, var.trace_add("write", lambda *_: refresh_controls())))
+
+        def refresh_controls():
+            if not ui.get("ctrl_summary"):
+                return
+            roles = RM.roles_value(broles)
+            if not bmap.get():
+                roles = {b: ("none" if r in ("item1", "item2", "item3", "selector") else r)
+                         for b, r in roles.items()}
+            parts = []
+            for b in I.REMAP_BUTTONS:
+                role = roles.get(b, "none")
+                if role != "none":
+                    parts.append(f"{b} {L('role_' + role)}")
+            ui["ctrl_summary"].config(text=L("ctrl_summary") + "  " + "  ·  ".join(parts))
+            paint_presets()
+
+        ui["ctrl_refresh"] = refresh_controls
+        refresh_controls()
         build_buttons(parent)
         build_quick_select(parent)
 
@@ -1691,16 +1720,16 @@ def gui() -> None:
         name = L("g_" + style)
         if ask and not messagebox.askyesno(L("layout_title"), L("layout_confirm", a=name), parent=root):
             return False
-        win = tk.Toplevel(root)
+        win = UI.Toplevel(root)
         win.title(L("layout_title"))
         win.configure(bg=BG)
         win.transient(root)
         win.resizable(False, False)
         win.geometry("460x120")
-        lbl = tk.Label(win, text=L("layout_downloading", a=name, p=0), bg=BG, fg=TEXT,
+        lbl = UI.Label(win, text=L("layout_downloading", a=name, p=0), bg=BG, fg=TEXT,
                        font=(FAM, 10), anchor="w")
         lbl.pack(fill="x", padx=16, pady=(16, 8))
-        bar = ttk.Progressbar(win, style="SHB.Horizontal.TProgressbar", mode="determinate", maximum=100)
+        bar = UI.Progress(win, style="SHB.Horizontal.TProgressbar", mode="determinate", maximum=100)
         bar.pack(fill="x", padx=16)
         win.protocol("WM_DELETE_WINDOW", lambda: None)
         win.grab_set()
@@ -1756,7 +1785,7 @@ def gui() -> None:
         body = card(parent, L("buttons_title"), help=L("buttons_desc") + "\n\n" + L("bm_note"))
         help_check(body, L("bm_on"), bmap, L("bm_on_desc"))
         ui["bm"] = []
-        row = tk.Frame(body, bg=PANEL)
+        row = UI.Frame(body, bg=PANEL)
         row.pack(anchor="w", pady=(10, 0))
         label(row, L("variant") + ":", size=10, bg=PANEL).pack(side="left", padx=(0, 8))
         style_names = {"switch": "g_default", "playstation": "g_playstation", "xbox": "g_xbox"}
@@ -1771,7 +1800,7 @@ def gui() -> None:
         ui["bm"].append(cb)
         RM.help_icon(row, L("variant_d"), COLORS, FAM).pack(side="left", padx=(8, 0))
 
-        row = tk.Frame(body, bg=PANEL)
+        row = UI.Frame(body, bg=PANEL)
         row.pack(anchor="w", pady=(8, 0))
         label(row, L("bm_layout") + ":", size=10, bg=PANEL).pack(side="left", padx=(0, 8))
         for value, key in ((False, "bm_ext"), (True, "bm_simple")):
@@ -1789,7 +1818,7 @@ def gui() -> None:
         check(body, L("enemy_double_on"), enemy_double).pack(anchor="w", padx=(0, 0))
         label(body, L("enemy_double_desc"), size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=(20, 0), pady=(0, 8))
         label(body, L("enemy_speed"), size=10, color=ACCENT, bold=True, bg=PANEL).pack(anchor="w")
-        row = tk.Frame(body, bg=PANEL)
+        row = UI.Frame(body, bg=PANEL)
         row.pack(fill="x", pady=(2, 0))
         names = [L("enemy_off") if l == 0 else "×%g" % I.ENEMY_FACTORS[l] for l in I.ENEMY_LEVELS]
         for i, (key, var) in enumerate((("enemy_move", enemy_move), ("enemy_anim", enemy_anim),
@@ -1806,7 +1835,7 @@ def gui() -> None:
         label(body, L("enemy_speed_desc"), size=9, color=DIM, bg=PANEL).pack(anchor="w", pady=(6, 0))
         # aggression: alert radius (a multiplier, like the speeds) and the aggression level
         label(body, L("aggro_title"), size=10, color=ACCENT, bold=True, bg=PANEL).pack(anchor="w", pady=(10, 0))
-        row = tk.Frame(body, bg=PANEL)
+        row = UI.Frame(body, bg=PANEL)
         row.pack(fill="x", pady=(2, 0))
         label(row, L("enemy_alert") + ":", size=10, bg=PANEL).grid(row=0, column=0, sticky="w", padx=(0, 6))
         idx = I.ENEMY_LEVELS.index(enemy_alert.get()) if enemy_alert.get() in I.ENEMY_LEVELS else 0
@@ -1824,7 +1853,7 @@ def gui() -> None:
         ui["aggro"] = acb
         RM.help_icon(row, L("enemy_aggro_help"), COLORS, FAM).grid(row=0, column=5, sticky="w", padx=(4, 0))
         label(body, L("boss_speed"), size=10, color=ACCENT, bold=True, bg=PANEL).pack(anchor="w", pady=(10, 0))
-        row = tk.Frame(body, bg=PANEL)
+        row = UI.Frame(body, bg=PANEL)
         row.pack(fill="x", pady=(2, 0))
         for i, (key, var) in enumerate((("enemy_move", boss_move), ("enemy_anim", boss_anim))):
             label(row, L(key) + ":", size=10, bg=PANEL).grid(row=0, column=i * 2, sticky="w", padx=(0, 6), pady=(0, 2))
@@ -1856,15 +1885,63 @@ def gui() -> None:
         import webbrowser
         webbrowser.open("https://github.com/kuribox/OOT-SuperHeroBoostMod")
 
+    def build_help(parent):
+        hero = card(parent, L("help_title"), L("help_desc"))
+        q = tk.StringVar()
+        label(hero, L("help_search"), size=9, color=DIM, bg=PANEL).pack(anchor="w", pady=(0, 4))
+        search = UI.Entry(hero, textvariable=q, bg=PANEL2, fg=TEXT, font=(FAM, 10))
+        search.pack(fill="x", pady=(0, 6))
+        nores = label(hero, L("help_no_results"), size=9, color=AMBER, bg=PANEL)
+        nores.pack(anchor="w")
+        nores.pack_forget()
+        cards: list[tuple[object, str]] = []
+
+        def topic(key, body, section=None):
+            f = UI.Card(parent)
+            f.pack(fill="x", padx=4, pady=(0, 12))
+            head = UI.Frame(f, bg=PANEL)
+            head.pack(fill="x", padx=18, pady=(10, 0))
+            UI.Label(head, L(key + "_title"), size=13, fg=ACCENT, font=(DISPLAY, 15, "bold"),
+                     bg=PANEL).pack(side="left")
+            UI.HelpIcon(head, L(body), L(key + "_title")).pack(side="left", padx=(8, 0), pady=(2, 0))
+            UI.Label(f, L(body), size=9, color=DIM, bg=PANEL, wrap=780).pack(anchor="w", padx=18, pady=(4, 8))
+            if section:
+                button(f, L("nav_" + section), lambda s=section: show_section(s)).pack(anchor="w", padx=18,
+                                                                                     pady=(0, 14))
+            cards.append((f, (L(key + "_title") + " " + L(body)).lower()))
+
+        topic("help_start", "help_start_body", "install")
+        topic("help_controls", "help_controls_body", "controls")
+        topic("help_install", "help_install_body", "install")
+        topic("help_rekarina", "help_rekarina_body", "install")
+        topic("help_problems", "help_problems_body")
+
+        def filter_help(*_):
+            needle = q.get().strip().lower()
+            shown = 0
+            for f, text in cards:
+                if not needle or needle in text:
+                    if not f.winfo_manager():
+                        f.pack(fill="x", padx=4, pady=(0, 12))
+                    shown += 1
+                else:
+                    f.pack_forget()
+            if shown:
+                nores.pack_forget()
+            else:
+                nores.pack(anchor="w")
+
+        q.trace_add("write", filter_help)
+
     def build_about(parent):
         body = card(parent, L("about_title"))
         label(body, f"Super Hero Boost {VERSION}", size=10, color=ACCENT, bold=True, bg=PANEL).pack(anchor="w")
-        upd = tk.Label(body, text=L("update_check"), bg=PANEL, fg=ACCENT, cursor="hand2",
+        upd = UI.Label(body, text=L("update_check"), bg=PANEL, fg=ACCENT, cursor="hand2",
                        font=(FAM, 9, "underline"), anchor="w", justify="left")
         upd.pack(anchor="w", pady=(2, 0))
         upd.bind("<Button-1>", lambda e: check_updates(manual=True))
         label(body, L("about_body"), size=10, bg=PANEL).pack(anchor="w")
-        link = tk.Label(body, text=L("about_link"), bg=PANEL, fg=ACCENT, cursor="hand2",
+        link = UI.Label(body, text=L("about_link"), bg=PANEL, fg=ACCENT, cursor="hand2",
                         font=(FAM, 9, "underline"), anchor="w", justify="left")
         link.pack(anchor="w", pady=(8, 0))
         link.bind("<Button-1>", lambda e: open_github())
@@ -1872,32 +1949,33 @@ def gui() -> None:
 
     # ---- shell ----
     def build_header(shell):
-        hd = tk.Frame(shell, bg=BG)
+        hd = UI.Frame(shell, bg=BG)
         hd.pack(fill="x", padx=18, pady=(14, 8))
-        row = tk.Frame(hd, bg=BG)
+        row = UI.Frame(hd, bg=BG)
         row.pack(fill="x")
-        left = tk.Frame(row, bg=BG)
+        left = UI.Frame(row, bg=BG)
         left.pack(side="left", fill="x", expand=True)
-        brand = tk.Frame(left, bg=BG)
+        brand = UI.Frame(left, bg=BG)
         brand.pack(anchor="w")
         logo = tk.Canvas(brand, width=58, height=48, bg=BG, highlightthickness=0)
         logo.pack(side="left", padx=(0, 12))
         emblem(logo, 29, 25, 30)
-        names = tk.Frame(brand, bg=BG)
+        names = UI.Frame(brand, bg=BG)
         names.pack(side="left")
-        tk.Label(names, text="Super Hero Boost", bg=BG, fg=ACCENT, font=(DISPLAY, 24, "bold")).pack(anchor="w")
-        tk.Label(names, text=L("subtitle"), bg=BG, fg=DIM, font=(FAM, 10)).pack(anchor="w")
-        right = tk.Frame(row, bg=BG)
+        UI.Label(names, text="Super Hero Boost", bg=BG, fg=ACCENT, font=(DISPLAY, 24, "bold")).pack(anchor="w")
+        UI.Label(names, text=L("subtitle"), bg=BG, fg=DIM, font=(FAM, 10)).pack(anchor="w")
+        right = UI.Frame(row, bg=BG)
         right.pack(side="right")
-        ui["profile_badge"] = tk.Label(right, text="", bg=BG, fg=ACCENT, font=(FAM, 10, "bold"))
+        ui["profile_badge"] = UI.Chip(right, text="")
         ui["profile_badge"].grid(row=0, column=0, sticky="e", padx=(0, 18))
-        tk.Label(right, text=L("language"), bg=BG, fg=DIM, font=(FAM, 9)).grid(row=0, column=1, sticky="e", padx=(0, 6))
-        lcb = ttk.Combobox(right, state="readonly", style="SHB.TCombobox", width=12, values=list(LANGS.values()))
+        UI.Label(right, text=L("language"), bg=BG, fg=DIM, font=(FAM, 9)).grid(row=0, column=1, sticky="e", padx=(0, 6))
+        lang_display = tk.StringVar(value=LANGS.get(lang.get(), list(LANGS.values())[0]))
+        lcb = UI.Select(right, list(LANGS.values()), lang_display, width=12)
         lcb.current(list(LANGS).index(lang.get()) if lang.get() in LANGS else 0)
         lcb.grid(row=0, column=2)
         lcb.bind("<<ComboboxSelected>>", lambda e: change_lang(list(LANGS)[lcb.current()]))
-        ui["update_bar"] = tk.Frame(hd, bg=PANEL2, highlightbackground=BORDER, highlightthickness=1)
-        ui["update_label"] = tk.Label(ui["update_bar"], text="", bg=PANEL2, fg=TEXT, font=(FAM, 9),
+        ui["update_bar"] = UI.Frame(hd, bg=PANEL2, highlightbackground=BORDER, highlightthickness=1)
+        ui["update_label"] = UI.Label(ui["update_bar"], text="", bg=PANEL2, fg=TEXT, font=(FAM, 9),
                                       anchor="w", justify="left", wraplength=560)
         ui["update_label"].pack(side="left", fill="x", expand=True, padx=(12, 8), pady=7)
         button(ui["update_bar"], L("update_download"), download_update, primary=True).pack(
@@ -1927,30 +2005,30 @@ def gui() -> None:
             pass
 
     def build_sidebar(shell):
-        side = tk.Frame(shell, bg=SIDEBAR, width=190)
-        side.pack(side="left", fill="y")
+        side = UI.Frame(shell, bg=SIDEBAR, width=204)
+        side.pack(side="left", fill="y", padx=(10, 0), pady=(0, 10))
         side.pack_propagate(False)
-        for key, text in (("home", "nav_home"), ("install", "nav_install"), ("stamina", "nav_stamina"),
-                          ("difficulty", "nav_difficulty"), ("controls", "nav_controls"), ("hud", "nav_hud"),
-                          ("misc", "nav_misc"), ("about", "nav_about")):
-            b = tk.Button(side, text=L(text), command=lambda k=key: show_section(k), anchor="w",
-                          bg=SIDEBAR, fg=TEXT, activebackground=PANEL, activeforeground=ACCENT,
-                          relief="flat", bd=0, cursor="hand2", font=(FAM, 10, "bold"),
-                          padx=18, pady=10, highlightthickness=0)
-            b.pack(fill="x", pady=1)
+        nav = (("home", "nav_home"), ("install", "nav_install"), ("stamina", "nav_stamina"),
+               ("difficulty", "nav_difficulty"), ("controls", "nav_controls"), ("hud", "nav_hud"),
+               ("misc", "nav_misc"), ("help", "nav_help"), ("about", "nav_about"))
+        for key, text in nav:
+            b = ctk.CTkButton(side, text="   " + L(text), command=lambda k=key: show_section(k),
+                              anchor="w", fg_color="transparent", hover_color=PANEL, text_color=TEXT,
+                              corner_radius=10, height=40, font=(FAM, 10, "bold"))
+            b.pack(fill="x", padx=8, pady=1)
             ui["nav"][key] = b
         return side
 
     def build_content(shell):
-        wrap = tk.Frame(shell, bg=BG)
+        wrap = UI.Frame(shell, bg=BG)
         wrap.pack(side="left", fill="both", expand=True, padx=(12, 12), pady=(0, 8))
         scroll = ScrollArea(wrap, BG)
         scroll.frame.pack(fill="both", expand=True)
         builders = {"home": build_home, "install": build_install, "stamina": build_stamina,
                     "difficulty": build_difficulty, "controls": build_controls, "hud": build_hud,
-                    "misc": build_misc, "about": build_about}
+                    "misc": build_misc, "help": build_help, "about": build_about}
         for key, fn in builders.items():
-            f = tk.Frame(scroll.inner, bg=BG)
+            f = UI.Frame(scroll.inner, bg=BG)
             fn(f)
             ui["sections"][key] = f
         ui["_scroll"] = scroll
@@ -1963,9 +2041,9 @@ def gui() -> None:
             run_recomp()
 
     def build_footer(shell):
-        ft = tk.Frame(shell, bg=BG)
+        ft = UI.Frame(shell, bg=BG)
         ft.pack(side="bottom", fill="x", padx=18, pady=(0, 12))
-        tk.Label(ft, textvariable=status, bg=BG, fg=ACCENT, font=(FAM, 9, "italic"), anchor="w").pack(side="left")
+        UI.Label(ft, textvariable=status, bg=BG, fg=ACCENT, font=(FAM, 9, "italic"), anchor="w").pack(side="left")
         ui["install"] = button(ft, L("install"), do_install, primary=True)
         ui["install"].pack(side="right")
         ui["uninstall"] = button(ft, L("uninstall"), do_remove)
@@ -1985,9 +2063,12 @@ def gui() -> None:
         ui["_scroll"].refresh()
         ui["_scroll"].canvas.yview_moveto(0)
         for k, b in ui["nav"].items():
-            b.config(bg=PANEL if k == key else SIDEBAR, fg=ACCENT if k == key else TEXT)
+            b.configure(fg_color=PANEL if k == key else "transparent",
+                        text_color=ACCENT if k == key else TEXT)
 
     def render():
+        UI.HELP_TITLE = L("help_title")
+        UI.CLOSE_LABEL = L("close")
         old = ui.get("_scroll")
         if old is not None:
             old.destroy()
@@ -1996,11 +2077,11 @@ def gui() -> None:
         ui["nav"] = {}
         ui["sections"] = {}
         ui["rb_tags"] = []
-        shell = tk.Frame(root, bg=BG)
+        shell = UI.Frame(root, bg=BG)
         shell.pack(fill="both", expand=True)
         build_header(shell)
         build_footer(shell)
-        body = tk.Frame(shell, bg=BG)
+        body = UI.Frame(shell, bg=BG)
         body.pack(side="top", fill="both", expand=True)
         build_sidebar(body)
         build_content(body)
@@ -2028,6 +2109,14 @@ def gui() -> None:
     rekarina_path.trace_add("write", lambda *_: (status.set(""), refresh()))
 
     render()
+    start = os.environ.get("SHB_UI_START")
+    if start in ui["sections"]:
+        show_section(start)
+    if os.environ.get("SHB_UI_SCROLL"):
+        try:
+            ui["_scroll"].canvas.yview_moveto(float(os.environ["SHB_UI_SCROLL"]))
+        except Exception:
+            pass
     root.after(80, poll)
     root.after(1800, lambda: check_updates(manual=False))
     root.protocol("WM_DELETE_WINDOW", lambda: (remember(), root.destroy()))

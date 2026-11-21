@@ -12,9 +12,9 @@ Its texts live here and are merged into the app's tables on import, so the page 
 from __future__ import annotations
 
 import tkinter as tk
-from tkinter import ttk
 
 import installer as I
+import ui_kit as UI
 from i18n import T
 
 # ---------------------------------------------------------------- texts
@@ -283,49 +283,9 @@ def menu_buttons(roles: dict) -> dict:
 
 
 # ---------------------------------------------------------------- widgets
-class Tooltip:
-    """A small text box shown while the pointer is over a widget."""
-
-    def __init__(self, widget, text_fn, colors, fam):
-        self.w, self.text_fn, self.c, self.fam, self.tip = widget, text_fn, colors, fam, None
-        widget.bind("<Enter>", self.show, add="+")
-        widget.bind("<Leave>", self.hide, add="+")
-        widget.bind("<Destroy>", self.hide, add="+")
-
-    def show(self, _e=None):
-        text = self.text_fn() if callable(self.text_fn) else self.text_fn
-        if not text or self.tip:
-            return
-        x, y = self.w.winfo_rootx() + 18, self.w.winfo_rooty() + self.w.winfo_height() + 4
-        self.tip = tk.Toplevel(self.w)
-        self.tip.wm_overrideredirect(True)
-        self.tip.wm_geometry(f"+{x}+{y}")
-        tk.Label(self.tip, text=text, justify="left", wraplength=340, bg=self.c["PANEL2"], fg=self.c["TEXT"],
-                 font=(self.fam, 9), padx=8, pady=6, highlightthickness=1,
-                 highlightbackground=self.c["ACCENT_DARK"]).pack()
-
-    def hide(self, _e=None):
-        if self.tip:
-            try:
-                self.tip.destroy()
-            except tk.TclError:
-                pass
-            self.tip = None
-
-
 def help_icon(parent, text_fn, colors, fam, bg=None):
-    """A small, quiet "?" that shows its help while the pointer is over it."""
-    if bg is None:
-        try:
-            bg = parent.cget("bg")
-        except tk.TclError:
-            bg = colors["PANEL"]
-    lab = tk.Label(parent, text="?", bg=bg, fg=colors["BORDER"], font=(fam, 8, "bold"), cursor="question_arrow",
-                   padx=1, pady=0, bd=0, highlightthickness=0)
-    lab.bind("<Enter>", lambda e: lab.config(fg=colors["ACCENT"]), add="+")
-    lab.bind("<Leave>", lambda e: lab.config(fg=colors["BORDER"]), add="+")
-    Tooltip(lab, text_fn, colors, fam)
-    return lab
+    """The quiet "?" that opens the full explanation (the visual kit's help window)."""
+    return UI.HelpIcon(parent, text_fn)
 
 
 # ---------------------------------------------------------------- editor
@@ -335,69 +295,72 @@ class RemapEditor:
     def __init__(self, parent, L, fam, colors, v):
         """v: the app's variables: bmap, roles (dict), bstyle, bsimple, switch_target, auto_target, sprint_toggle."""
         self.L, self.fam, self.c, self.v = L, fam, colors, v
-        self.combos: dict[str, ttk.Combobox] = {}
+        self.combos: dict[str, UI.Select] = {}
         self.chips: dict[str, tk.Canvas] = {}
-        self.opts: dict[str, tk.Frame] = {}
+        self.opts: dict[str, UI.Frame] = {}
         self.choices: dict[str, list] = {}
+        self.rolevars: dict[str, tk.StringVar] = {}
         self._traces = []
         bg = colors["PANEL"]
-        self.frame = tk.Frame(parent, bg=bg)
+        self.frame = UI.Frame(parent, bg=bg)
         self.frame.pack(fill="x")
 
-        top = tk.Frame(self.frame, bg=bg)
+        top = UI.Frame(self.frame, bg=bg)
         top.pack(anchor="w", fill="x")
-        tk.Label(top, text=L("rm_preset"), bg=bg, fg=colors["TEXT"], font=(fam, 10)).pack(side="left")
+        UI.Label(top, text=L("rm_preset"), bg=bg, fg=colors["TEXT"], font=(fam, 10)).pack(side="left")
         self.preset_keys = list(I.REMAP_PRESET_KEYS)
-        self.preset = ttk.Combobox(top, state="readonly", style="SHB.TCombobox", width=24,
-                                   values=[L("preset_" + k) for k in self.preset_keys] + [L("rm_custom")])
+        self.preset_var = tk.StringVar(value=L("preset_" + self.preset_keys[0]))
+        self.preset = UI.Select(top, [L("preset_" + k) for k in self.preset_keys] + [L("rm_custom")],
+                                self.preset_var, width=24)
         self.preset.pack(side="left", padx=(8, 6))
         self.preset.bind("<<ComboboxSelected>>", self._pick_preset)
         help_icon(top, L("rm_help"), colors, fam).pack(side="left")
-        self.count = tk.Label(top, text="", bg=bg, fg=colors["DIM"], font=(fam, 9))
+        self.count = UI.Label(top, text="", bg=bg, fg=colors["DIM"], font=(fam, 9))
         self.count.pack(side="left", padx=(16, 0))
 
-        left = tk.Frame(self.frame, bg=bg)
+        left = UI.Frame(self.frame, bg=bg)
         left.pack(anchor="w", fill="x", pady=(8, 0))
 
         for b in ROW_ORDER:
-            row = tk.Frame(left, bg=bg)
+            row = UI.Frame(left, bg=bg)
             row.pack(anchor="w", pady=2, fill="x")
             chip = tk.Canvas(row, width=40, height=28, bg=bg, highlightthickness=0)
             chip.pack(side="left")
             self.chips[b] = chip
             self.choices[b] = [r for r in I.ROLES if I.role_allowed(r, b)]
-            cb = ttk.Combobox(row, state="readonly", style="SHB.TCombobox", width=19)
+            self.rolevars[b] = tk.StringVar(value=L("role_none"))
+            cb = UI.Select(row, [L("role_none")], self.rolevars[b], width=19)
             cb.pack(side="left", padx=(6, 0))
             cb.bind("<<ComboboxSelected>>", lambda e, btn=b: self._pick(btn))
             self.combos[b] = cb
-            help_slot = tk.Frame(row, bg=bg)   # the role's own "?" beside its list
+            help_slot = UI.Frame(row, bg=bg)   # the role's own "?" beside its list
             help_slot.pack(side="left", padx=(4, 0))
-            opt = tk.Frame(row, bg=bg)         # the role's options, on the same line
+            opt = UI.Frame(row, bg=bg)         # the role's options, on the same line
             opt.pack(side="left", padx=(10, 0))
             self.opts[b] = (help_slot, opt)
 
-        views = tk.Frame(self.frame, bg=bg)
+        views = UI.Frame(self.frame, bg=bg)
         views.pack(anchor="w", pady=(10, 0))
-        lcol = tk.Frame(views, bg=bg)
+        lcol = UI.Frame(views, bg=bg)
         lcol.pack(side="left", anchor="n")
-        rcol = tk.Frame(views, bg=bg)
+        rcol = UI.Frame(views, bg=bg)
         rcol.pack(side="left", anchor="n", padx=(12, 0))
-        tk.Label(lcol, text=L("rm_pad"), bg=bg, fg=colors["DIM"], font=(fam, 9, "bold")).pack(anchor="w")
+        UI.Label(lcol, text=L("rm_pad"), bg=bg, fg=colors["DIM"], font=(fam, 9, "bold")).pack(anchor="w")
         self.pad = tk.Canvas(lcol, width=400, height=230, bg=colors["PANEL2"], highlightthickness=1,
                              highlightbackground=colors["BORDER"])
         self.pad.pack(anchor="w")
-        hrow = tk.Frame(rcol, bg=bg)
+        hrow = UI.Frame(rcol, bg=bg)
         hrow.pack(anchor="w")
-        tk.Label(hrow, text=L("rm_hud"), bg=bg, fg=colors["DIM"], font=(fam, 9, "bold")).pack(side="left")
+        UI.Label(hrow, text=L("rm_hud"), bg=bg, fg=colors["DIM"], font=(fam, 9, "bold")).pack(side="left")
         help_icon(hrow, L("rm_hud_help"), colors, fam).pack(side="left", padx=(4, 0))
         self.hud = tk.Canvas(rcol, width=360, height=230, bg="#101010", highlightthickness=1,
                              highlightbackground=colors["BORDER"])
         self.hud.pack(anchor="w")
 
-        self.notes = tk.Label(self.frame, text="", bg=bg, fg=colors["AMBER"], font=(fam, 9), justify="left",
+        self.notes = UI.Label(self.frame, text="", bg=bg, fg=colors["AMBER"], font=(fam, 9), justify="left",
                               anchor="w", wraplength=760)
         self.notes.pack(anchor="w", pady=(8, 0))
-        self.info = tk.Label(self.frame, text="", bg=bg, fg=colors["DIM"], font=(fam, 9), justify="left",
+        self.info = UI.Label(self.frame, text="", bg=bg, fg=colors["DIM"], font=(fam, 9), justify="left",
                              anchor="w", wraplength=760)
         self.info.pack(anchor="w", pady=(2, 0))
 
@@ -486,9 +449,9 @@ class RemapEditor:
             items = [("opt_toggle", self.v["sprint_toggle"])]
         bg = self.c["PANEL"]
         for key, var in items:
-            tk.Checkbutton(f, text=self.L(key), variable=var, bg=bg, fg=self.c["TEXT"], selectcolor=self.c["PANEL2"],
-                           activebackground=bg, activeforeground=self.c["ACCENT"], font=(self.fam, 9),
-                           highlightthickness=0, bd=0).pack(side="left")
+            UI.Check(f, text=self.L(key), variable=var, bg=bg, fg=self.c["TEXT"], selectcolor=self.c["PANEL2"],
+                     activebackground=bg, activeforeground=self.c["ACCENT"], font=(self.fam, 9),
+                     highlightthickness=0, bd=0).pack(side="left")
             help_icon(f, self.L(key + "_help"), self.c, self.fam).pack(side="left", padx=(1, 12))
         if role in ROLE_HELP:
             help_icon(help_slot, self.L(ROLE_HELP[role]), self.c, self.fam).pack(side="left")

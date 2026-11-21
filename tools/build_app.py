@@ -22,15 +22,19 @@ if not (ROOT / "app" / "payload").exists():
     raise SystemExit("app/payload is missing: run tools/make_release.py on a machine with the game dump first")
 WORK.mkdir(parents=True, exist_ok=True)
 
-subprocess.run([
+icon = ROOT / "app" / "assets" / "shb.ico"
+args = [
     sys.executable, "-m", "PyInstaller", "--noconfirm", "--clean", "--onefile", "--windowed",
     "--name", NAME,
     "--distpath", str(DIST),
     "--workpath", str(WORK),
     "--specpath", str(WORK),
     "--add-data", f"{ROOT / 'app' / 'payload'}{os.pathsep}payload",
+    "--add-data", f"{ROOT / 'app' / 'assets'}{os.pathsep}assets",
+    *(["--icon", str(icon)] if sys.platform == "win32" and icon.is_file() else []),
     str(ROOT / "app" / "main.py"),
-], check=True, cwd=ROOT)
+]
+subprocess.run(args, check=True, cwd=ROOT)
 
 if sys.platform == "win32":
     out = DIST / f"{NAME}.exe"

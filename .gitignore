@@ -5,6 +5,7 @@ data/
 *.png
 !docs/*.png
 !docs/capturas/*.png
+!app/assets/shb.png
 *.bin
 *.o
 *.elf

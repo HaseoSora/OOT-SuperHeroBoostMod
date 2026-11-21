@@ -331,6 +331,7 @@ class Select(ctk.CTkButton):
         self._cb = None
         self._popup = None
         self._outside_id = None
+        self._pending = None
         if var.get() not in self._values:
             var.set(self._values[0])
         _strip(kw)
@@ -377,7 +378,7 @@ class Select(ctk.CTkButton):
 
     def current(self, idx=None):
         if idx is None:
-            value = self._var.get()
+            value = self._pending if self._pending is not None else self._var.get()
             return self._values.index(value) if value in self._values else 0
         if 0 <= idx < len(self._values):
             self._var.set(self._values[idx])
@@ -508,9 +509,15 @@ class Select(ctk.CTkButton):
             pass
 
     def _choose(self, value):
+        # The callback (e.g. remap) reads current(); give it the clicked value before the
+        # variable trace redraws the table, which would otherwise restore the old selection.
+        self._pending = value
+        try:
+            if self._cb is not None:
+                self._cb(None)
+        finally:
+            self._pending = None
         self._var.set(value)
-        if self._cb is not None:
-            self._cb(None)
         self._close_popup()
 
     def _close_popup(self):

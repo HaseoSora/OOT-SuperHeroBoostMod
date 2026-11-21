@@ -583,6 +583,12 @@ class Select(ctk.CTkButton):
     def _close_popup(self):
         pop = self._popup
         self._popup = None
+        if self._watch_id is not None:
+            try:
+                self.after_cancel(self._watch_id)
+            except Exception:
+                pass
+            self._watch_id = None
         for seq, fid in zip(("<MouseWheel>", "<Button-4>", "<Button-5>"), self._wheel_ids):
             try:
                 self.winfo_toplevel().unbind(seq, fid)

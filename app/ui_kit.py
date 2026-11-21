@@ -30,6 +30,7 @@ DIM = "#A8B8AA"
 DISABLED = "#6B7C70"
 RED = "#E06A5A"
 AMBER = "#F2B45E"
+HELP_BG = "#2B2412"
 
 FAM = "Segoe UI"
 DISPLAY = "Palatino Linotype"
@@ -159,7 +160,7 @@ class ChoiceCard(ctk.CTkFrame):
         self.title.pack(side="left")
         self.help = None
         if help_text:
-            self.help = HelpIcon(self.head, help_text, title, size=20)
+            self.help = HelpIcon(self.head, help_text, title)
             self.help.pack(side="right")
         self.desc = tk.Label(self, text=desc, bg=PANEL2, fg=DIM, font=(FAM, 8), anchor="w",
                              justify="left", wraplength=desc_wrap)
@@ -189,8 +190,6 @@ class ChoiceCard(ctk.CTkFrame):
             if self.help is not None:
                 dark = "#1A1408"
                 self.help.set_theme(fg, dark if active else ACCENT,
-                                    dark if active else ACCENT,
-                                    dark if active else ACCENT2,
                                     dark if active else ACCENT2)
         except Exception:
             pass
@@ -205,16 +204,12 @@ class ChoiceCard(ctk.CTkFrame):
                 if self.help is not None:
                     dark = "#1A1408"
                     self.help.set_theme(ACCENT, dark if enabled else DISABLED,
-                                        dark if enabled else DISABLED,
-                                        dark if enabled else DISABLED,
                                         dark if enabled else DISABLED)
             else:
                 self.title.configure(fg=TEXT if enabled else DISABLED)
                 self.desc.configure(fg=DIM if enabled else DISABLED)
                 if self.help is not None:
-                    self.help.set_theme(PANEL2, ACCENT if enabled else BORDER,
-                                        ACCENT if enabled else DISABLED,
-                                        ACCENT2 if enabled else BORDER,
+                    self.help.set_theme(PANEL2, ACCENT if enabled else DISABLED,
                                         ACCENT2 if enabled else DISABLED)
         except Exception:
             pass
@@ -332,6 +327,7 @@ class Select(ctk.CTkButton):
         self._popup = None
         self._outside_id = None
         self._pending = None
+        self._overlay = None
         if var.get() not in self._values:
             var.set(self._values[0])
         _strip(kw)
@@ -426,6 +422,22 @@ class Select(ctk.CTkButton):
 
     def _open_popup(self):
         self._close_popup()
+        screen_w = self.winfo_screenwidth()
+        screen_h = self.winfo_screenheight()
+        # A full-screen, nearly transparent layer under the menu: it swallows outside
+        # clicks so they cannot reach the control that happens to be behind the list.
+        try:
+            overlay = tk.Toplevel(self)
+            overlay.withdraw()
+            overlay.overrideredirect(True)
+            overlay.configure(bg="#000000")
+            overlay.geometry(f"{screen_w}x{screen_h}+0+0")
+            overlay.attributes("-alpha", 0.04)
+            overlay.bind("<Button-1>", lambda e: self._close_popup())
+            overlay.deiconify()
+            self._overlay = overlay
+        except Exception:
+            self._overlay = None
         top = tk.Toplevel(self)
         top.withdraw()
         top.overrideredirect(True)
@@ -463,8 +475,6 @@ class Select(ctk.CTkButton):
                 w.bind("<Leave>", lambda e, r=row, l=lab, a=active: (
                     r.configure(bg=BORDER if a else PANEL), l.configure(bg=BORDER if a else PANEL)))
         top.update_idletasks()
-        screen_w = self.winfo_screenwidth()
-        screen_h = self.winfo_screenheight()
         x = min(max(4, self.winfo_rootx()), screen_w - width - 8)
         y = self.winfo_rooty() + self.winfo_height() + 3
         if y + height > screen_h - 48:
@@ -523,6 +533,13 @@ class Select(ctk.CTkButton):
     def _close_popup(self):
         pop = self._popup
         self._popup = None
+        overlay = self._overlay
+        self._overlay = None
+        if overlay is not None:
+            try:
+                overlay.destroy()
+            except Exception:
+                pass
         if self._outside_id is not None:
             try:
                 self.winfo_toplevel().unbind("<Button-1>", self._outside_id)
@@ -637,18 +654,18 @@ class HelpBanner(ctk.CTkFrame):
     """A slim inline strip that shows an explanation above the page. No popup, no window."""
 
     def __init__(self, parent, **kw):
-        super().__init__(parent, fg_color=PANEL2, border_width=1, border_color=BORDER,
+        super().__init__(parent, fg_color=HELP_BG, border_width=2, border_color=ACCENT_DARK,
                          corner_radius=10, height=0, **kw)
-        self.accent = ctk.CTkFrame(self, width=3, height=1, fg_color=ACCENT, corner_radius=2)
+        self.accent = ctk.CTkFrame(self, width=4, height=1, fg_color=ACCENT, corner_radius=2)
         self.accent.pack(side="left", fill="y", padx=(10, 0), pady=10)
-        body = tk.Frame(self, bg=PANEL2)
+        body = tk.Frame(self, bg=HELP_BG)
         body.pack(side="left", fill="x", expand=True, padx=10, pady=8)
-        self.title = tk.Label(body, text="", bg=PANEL2, fg=ACCENT, font=(DISPLAY, 12, "bold"), anchor="w")
+        self.title = tk.Label(body, text="", bg=HELP_BG, fg=ACCENT2, font=(DISPLAY, 12, "bold"), anchor="w")
         self.title.pack(anchor="w")
-        self.text = tk.Label(body, text="", bg=PANEL2, fg=TEXT, font=(FAM, 9), anchor="w",
+        self.text = tk.Label(body, text="", bg=HELP_BG, fg=TEXT, font=(FAM, 9), anchor="w",
                              justify="left", wraplength=880)
         self.text.pack(anchor="w", pady=(2, 0))
-        close = tk.Label(self, text="×", bg=PANEL2, fg=DIM, font=(FAM, 13, "bold"), cursor="hand2")
+        close = tk.Label(self, text="×", bg=HELP_BG, fg=DIM, font=(FAM, 13, "bold"), cursor="hand2")
         close.pack(side="right", anchor="n", padx=10, pady=6)
         close.bind("<Button-1>", lambda e: self.hide())
         close.bind("<Enter>", lambda e: close.configure(fg=TEXT))
@@ -664,42 +681,32 @@ class HelpBanner(ctk.CTkFrame):
 
 
 class HelpIcon(tk.Canvas):
-    """A small filled badge with a "?": visible without looking like a big button."""
+    """A quiet gold "?" that opens the inline help strip."""
 
-    def __init__(self, parent, text, title=None, bg=None, size=22, **kw):
+    def __init__(self, parent, text, title=None, bg=None, **kw):
         self._text = text
         self._title = title
         self._bg = bg or _parent_bg(parent)
-        self._size = size
-        self._fill = ACCENT_DARK
-        self._fg = ACCENT2
-        self._hover_fill = ACCENT
-        self._hover_fg = "#1A1408"
-        super().__init__(parent, width=size, height=size, bg=self._bg,
+        self._fg = ACCENT
+        self._hover = ACCENT2
+        super().__init__(parent, width=16, height=20, bg=self._bg,
                          highlightthickness=0, cursor="hand2", **kw)
         self._draw()
         self.bind("<Button-1>", self._open)
-        self.bind("<Enter>", lambda e: self._paint(self._hover_fill, self._hover_fg))
-        self.bind("<Leave>", lambda e: self._draw())
+        self.bind("<Enter>", lambda e: self._paint(self._hover))
+        self.bind("<Leave>", lambda e: self._paint(self._fg))
 
-    def _paint(self, fill, text):
+    def _paint(self, color):
         self.delete("all")
-        pad = 1
-        self.create_oval(pad, pad, self._size - pad, self._size - pad,
-                         fill=fill, outline=fill, width=0)
-        self.create_text(self._size / 2, self._size / 2 + 1, text="?",
-                         fill=text, font=(FAM, 10, "bold"))
+        self.create_text(8, 11, text="?", fill=color, font=(FAM, 10, "bold"))
 
     def _draw(self):
-        self._paint(self._fill, self._fg)
+        self._paint(self._fg)
 
-    def set_theme(self, bg, fill=ACCENT_DARK, fg=ACCENT2,
-                  hover_fill=ACCENT, hover_fg="#1A1408"):
+    def set_theme(self, bg, fg=ACCENT, hover=ACCENT2):
         self._bg = bg
-        self._fill = fill
         self._fg = fg
-        self._hover_fill = hover_fill
-        self._hover_fg = hover_fg
+        self._hover = hover
         self.configure(bg=bg)
         self._draw()
 

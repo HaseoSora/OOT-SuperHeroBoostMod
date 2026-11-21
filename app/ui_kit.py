@@ -331,6 +331,8 @@ class Select(ctk.CTkButton):
         self._inner = None
         self._scrollable = False
         self._wheel_ids = []
+        self._watch_id = None
+        self._last_pos = None
         if var.get() not in self._values:
             var.set(self._values[0])
         _strip(kw)
@@ -485,6 +487,8 @@ class Select(ctk.CTkButton):
         top.bind("<Button-4>", self._popup_wheel)
         top.bind("<Button-5>", self._popup_wheel)
         self._popup = top
+        self._last_pos = (self.winfo_rootx(), self.winfo_rooty())
+        self._watch_id = self.after(80, self._watch_select)
         try:
             root = self.winfo_toplevel()
             self._wheel_ids = [root.bind("<MouseWheel>", self._page_wheel, add="+"),
@@ -499,6 +503,17 @@ class Select(ctk.CTkButton):
         if self._popup is not None:
             self.after_idle(self._follow_select)
         return None
+
+    def _watch_select(self):
+        self._watch_id = None
+        if self._popup is None or not self._popup.winfo_exists():
+            return
+        pos = (self.winfo_rootx(), self.winfo_rooty())
+        if pos != self._last_pos:
+            self._last_pos = pos
+            self._follow_select()
+        if self._popup is not None:
+            self._watch_id = self.after(80, self._watch_select)
 
     def _follow_select(self):
         top = self._popup

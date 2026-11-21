@@ -317,41 +317,54 @@ class Radio(ctk.CTkRadioButton):
     config = configure
 
 
-class Select(ctk.CTkOptionMenu):
-    """A dark, rounded drop-down with the small part of the ttk.Combobox API the app uses."""
+class Select(ctk.CTkButton):
+    """A rounded drop-down. The list waits for the mouse release, so the click can never
+    be sent to the control that happens to sit under the list."""
 
     def __init__(self, parent, values, var, width=16, **kw):
         self._values = list(values or [""]) or [""]
         self._var = var
         self._cb = None
+        self._popup = None
         self._pending = None
+        self._rows = []
         if var.get() not in self._values:
             var.set(self._values[0])
         _strip(kw)
-        super().__init__(parent, values=self._values, variable=var, width=max(150, int(width) * 9),
-                         height=34, corner_radius=8, fg_color=PANEL2, button_color=PANEL2,
-                         button_hover_color=BORDER, text_color=TEXT, text_color_disabled=DISABLED,
-                         dropdown_fg_color=PANEL, dropdown_hover_color=BORDER, dropdown_text_color=TEXT,
-                         font=(FAM, 10), dropdown_font=(FAM, 10), command=self._chosen, **kw)
+        super().__init__(parent, text=self._label_text(), command=self._clicked,
+                         width=max(150, int(width) * 9), height=34, corner_radius=8,
+                         fg_color=PANEL2, hover_color=BORDER, text_color=TEXT,
+                         text_color_disabled=DISABLED, border_width=1, border_color=BORDER,
+                         anchor="w", font=(FAM, 10), **kw)
+        self._arrow = tk.Label(self, text="▾", bg=PANEL2, fg=DIM, font=(FAM, 10),
+                               cursor="hand2", padx=0)
+        self._arrow.place(relx=1.0, x=-10, rely=0.5, anchor="e")
+        self._arrow.bind("<Button-1>", self._clicked)
+        self._arrow.bind("<Enter>", lambda e: self._arrow.configure(bg=BORDER))
+        self._arrow.bind("<Leave>", lambda e: self._arrow.configure(bg=PANEL2))
+        self._trace = var.trace_add("write", self._var_changed)
+        tk.Frame.bind(self, "<Destroy>", self._destroyed, add="+")
+
+    def _label_text(self):
+        return self._var.get()
+
+    def _var_changed(self, *_):
         try:
-            self._dropdown_menu.configure(borderwidth=0, activeborderwidth=0, relief="flat",
-                                          bg=PANEL, fg=TEXT, activebackground=BORDER,
-                                          activeforeground=ACCENT, font=(FAM, 10))
+            self.configure(text=self._label_text())
+        except Exception:
+            pass
+
+    def _destroyed(self, e=None):
+        if e is not None and e.widget is not self:
+            return
+        try:
+            self._var.trace_remove("write", self._trace)
         except Exception:
             pass
 
     def _chosen(self, _value=None):
         if self._cb is not None:
             self._cb(None)
-
-    def _dropdown_callback(self, value):
-        # The variable is set inside the parent callback, and the app's trace may redraw
-        # the table before the command runs. current() reports the clicked value meanwhile.
-        self._pending = value
-        try:
-            super()._dropdown_callback(value)
-        finally:
-            self._pending = None
 
     def bind(self, seq, func, add=None):
         if seq == "<<ComboboxSelected>>":
@@ -378,13 +391,135 @@ class Select(ctk.CTkOptionMenu):
             self._values = list(kw.pop("values") or [""]) or [""]
             if self._var.get() not in self._values:
                 self._var.set(self._values[0])
-            kw["values"] = self._values
         if "state" in kw:
             state = kw.pop("state")
             kw["state"] = "disabled" if state == "disabled" else "normal"
+            if kw["state"] == "disabled":
+                self._close_popup()
+                try:
+                    self._arrow.configure(fg=DISABLED, bg=PANEL2)
+                except Exception:
+                    pass
+            else:
+                try:
+                    self._arrow.configure(fg=DIM, bg=PANEL2)
+                except Exception:
+                    pass
         return super().configure(**kw)
 
     config = configure
+
+    # ---- the list ----
+    def _clicked(self, _e=None):
+        if self._state == "disabled":
+            return
+        if self._popup is not None and self._popup.winfo_exists():
+            self._close_popup()
+        else:
+            self._open_popup()
+
+    def _open_popup(self):
+        self._close_popup()
+        top = tk.Toplevel(self)
+        top.withdraw()
+        top.overrideredirect(True)
+        top.configure(bg=BORDER)
+        try:
+            top.attributes("-topmost", True)
+        except Exception:
+            pass
+        shell = ctk.CTkFrame(top, fg_color=PANEL, corner_radius=12, border_width=1, border_color=BORDER)
+        shell.pack(fill="both", expand=True)
+        width = max(190, self.winfo_width())
+        total = max(1, len(self._values)) * 32 + 18
+        height = min(450, total)
+        if total <= 450:
+            inner = ctk.CTkFrame(shell, fg_color=PANEL, corner_radius=8)
+        else:
+            inner = ctk.CTkScrollableFrame(shell, fg_color=PANEL, corner_radius=8,
+                                           width=width - 12, height=height - 12,
+                                           scrollbar_button_color=BORDER,
+                                           scrollbar_button_hover_color=ACCENT_DARK)
+        inner.pack(fill="both", expand=True, padx=6, pady=6)
+        current = self._var.get()
+        rows = []
+        for value in self._values:
+            active = value == current
+            row = ctk.CTkFrame(inner, fg_color=BORDER if active else PANEL, corner_radius=7, height=30)
+            row.pack(fill="x", pady=1)
+            row.pack_propagate(False)
+            lab = ctk.CTkLabel(row, text=value, anchor="w", text_color=ACCENT if active else TEXT,
+                               fg_color="transparent", font=(FAM, 10))
+            lab.pack(fill="both", expand=True, padx=10)
+            rows.append((row, value))
+        top.update_idletasks()
+        sw, sh = self.winfo_screenwidth(), self.winfo_screenheight()
+        x = min(max(4, self.winfo_rootx()), sw - width - 8)
+        y = self.winfo_rooty() + self.winfo_height() + 3
+        if y + height > sh - 48:
+            y = max(8, self.winfo_rooty() - height - 3)
+        top.geometry(f"{width}x{height}+{int(x)}+{int(y)}")
+        top.deiconify()
+        top.lift()
+        top.update_idletasks()
+        self._rows = rows
+        try:
+            top.focus_force()
+        except Exception:
+            pass
+        try:
+            top.grab_set()
+        except Exception:
+            pass
+        # Consume the press; select on release. If the popup were destroyed on press, the
+        # release would land on the control below it (the click-through bug).
+        top.bind("<Button-1>", lambda e: "break")
+        top.bind("<ButtonRelease-1>", self._popup_release)
+        top.bind("<Escape>", lambda e: self._close_popup())
+        self._popup = top
+
+    def _popup_release(self, event=None):
+        w = self._popup
+        if w is None or event is None:
+            return
+        try:
+            x = event.x_root - w.winfo_rootx()
+            y = event.y_root - w.winfo_rooty()
+            if not (0 <= x < w.winfo_width() and 0 <= y < w.winfo_height()):
+                self._close_popup()
+                return
+            for row, value in self._rows:
+                y0 = row.winfo_rooty() - w.winfo_rooty()
+                if y0 <= y < y0 + row.winfo_height():
+                    self._choose(value)
+                    return
+        except Exception:
+            pass
+
+    def _choose(self, value):
+        if self._popup is None:
+            return
+        self._pending = value
+        try:
+            if self._cb is not None:
+                self._cb(None)
+        finally:
+            self._pending = None
+        self._var.set(value)
+        self._close_popup()
+
+    def _close_popup(self):
+        pop = self._popup
+        self._popup = None
+        if pop is not None:
+            try:
+                pop.grab_release()
+            except Exception:
+                pass
+            try:
+                pop.destroy()
+            except Exception:
+                pass
 
 
 class Progress(ctk.CTkProgressBar):

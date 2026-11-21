@@ -1681,7 +1681,9 @@ def gui() -> None:
         ui["ctrl_summary"] = label(srow, "", size=9, color=DIM, bg=PANEL, wrap=1000)
         ui["ctrl_summary"].pack(side="left", fill="x", expand=True)
 
-        abody = card(parent, L("ctrl_advanced_title"), L("ctrl_advanced_desc"), help=L("rm_help"))
+        abody = card(parent, L("buttons_title"), L("ctrl_advanced_desc"),
+                     help=L("buttons_desc") + "\n\n" + L("bm_note") + "\n\n" + L("rm_help"))
+        build_buttons(abody, embedded=True)
         RM.RemapEditor(abody, L, FAM, COLORS,
                        dict(bmap=bmap, roles=broles, bstyle=bstyle, bsimple=bsimple, switch_target=switch_target,
                             auto_target=auto_target, sprint_toggle=sprint_l3_toggle, mshield=manual_shield))
@@ -1713,7 +1715,6 @@ def gui() -> None:
 
         ui["ctrl_refresh"] = refresh_controls
         refresh_controls()
-        build_buttons(parent)
         build_quick_select(parent)
 
     def help_check(body, text, var, tip, rb=True):
@@ -1817,9 +1818,12 @@ def gui() -> None:
         style = glayout.get()
         return style == "none" or layouts.available(style) or download_layout(style)
 
-    def build_buttons(parent):
+    def build_buttons(parent, embedded=False):
         """The mod's item buttons on the HUD: on / off, their pictures and how many are drawn."""
-        body = card(parent, L("buttons_title"), help=L("buttons_desc") + "\n\n" + L("bm_note"))
+        if embedded:
+            body = parent
+        else:
+            body = card(parent, L("buttons_title"), help=L("buttons_desc") + "\n\n" + L("bm_note"))
         help_check(body, L("bm_on"), bmap, L("bm_on_desc"))
         ui["bm"] = []
         row = UI.Frame(body, bg=PANEL)
@@ -1845,6 +1849,9 @@ def gui() -> None:
             r.pack(side="left")
             ui["bm"].append(r)
             RM.help_icon(row, L(key + "_d"), COLORS, FAM).pack(side="left", padx=(4, 14))
+        if embedded:
+            sep = tk.Frame(body, bg=BORDER, height=1)
+            sep.pack(fill="x", pady=(12, 10))
 
 
     def build_enemies(parent):

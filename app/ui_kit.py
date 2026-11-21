@@ -330,6 +330,7 @@ class Select(ctk.CTkButton):
         self._var = var
         self._cb = None
         self._popup = None
+        self._outside_id = None
         if var.get() not in self._values:
             var.set(self._values[0])
         _strip(kw)
@@ -435,7 +436,7 @@ class Select(ctk.CTkButton):
         shell = ctk.CTkFrame(top, fg_color=PANEL, corner_radius=12, border_width=1, border_color=BORDER)
         shell.pack(fill="both", expand=True)
         width = max(190, self.winfo_width())
-        total = max(1, len(self._values)) * 30 + 18
+        total = max(1, len(self._values)) * 32 + 18
         height = min(450, total)
         if total <= 450:
             inner = ctk.CTkFrame(shell, fg_color=PANEL, corner_radius=8)
@@ -448,12 +449,18 @@ class Select(ctk.CTkButton):
         current = self._var.get()
         for value in self._values:
             active = value == current
-            b = ctk.CTkButton(inner, text=value, anchor="w", height=30, corner_radius=7,
-                              fg_color=BORDER if active else "transparent",
-                              hover_color=BORDER, text_color=ACCENT if active else TEXT,
-                              font=(FAM, 10),
-                              command=lambda v=value: self._choose(v))
-            b.pack(fill="x")
+            row = tk.Frame(inner, bg=BORDER if active else PANEL, cursor="hand2", height=30)
+            row.pack(fill="x", pady=1)
+            row.pack_propagate(False)
+            lab = tk.Label(row, text=value, bg=BORDER if active else PANEL,
+                           fg=ACCENT if active else TEXT, anchor="w", padx=10,
+                           font=(FAM, 10), cursor="hand2")
+            lab.pack(fill="both", expand=True)
+            for w in (row, lab):
+                w.bind("<Button-1>", lambda e, v=value: self._choose(v))
+                w.bind("<Enter>", lambda e, r=row, l=lab: (r.configure(bg=BORDER), l.configure(bg=BORDER)))
+                w.bind("<Leave>", lambda e, r=row, l=lab, a=active: (
+                    r.configure(bg=BORDER if a else PANEL), l.configure(bg=BORDER if a else PANEL)))
         top.update_idletasks()
         screen_w = self.winfo_screenwidth()
         screen_h = self.winfo_screenheight()
@@ -468,9 +475,24 @@ class Select(ctk.CTkButton):
             top.focus_force()
         except Exception:
             pass
-        top.bind("<FocusOut>", lambda e: self._close_popup())
         top.bind("<Escape>", lambda e: self._close_popup())
         self._popup = top
+        self.after_idle(self._bind_outside)
+
+    def _bind_outside(self):
+        if self._popup is None or not self._popup.winfo_exists():
+            return
+        try:
+            self._outside_id = self.winfo_toplevel().bind("<Button-1>", self._outside_click, add="+")
+        except Exception:
+            self._outside_id = None
+
+    def _outside_click(self, event=None):
+        if self._popup is None:
+            return
+        if event is not None and str(event.widget).startswith(str(self)):
+            return
+        self._close_popup()
 
     def _choose(self, value):
         self._var.set(value)
@@ -481,6 +503,12 @@ class Select(ctk.CTkButton):
     def _close_popup(self):
         pop = self._popup
         self._popup = None
+        if self._outside_id is not None:
+            try:
+                self.winfo_toplevel().unbind("<Button-1>", self._outside_id)
+            except Exception:
+                pass
+            self._outside_id = None
         if pop is not None:
             try:
                 pop.destroy()
@@ -616,41 +644,42 @@ class HelpBanner(ctk.CTkFrame):
 
 
 class HelpIcon(tk.Canvas):
-    """A small outlined "?" badge: visible, but without a filled button behind it."""
+    """A small filled badge with a "?": visible without looking like a big button."""
 
-    def __init__(self, parent, text, title=None, bg=None, size=20, **kw):
+    def __init__(self, parent, text, title=None, bg=None, size=22, **kw):
         self._text = text
         self._title = title
         self._bg = bg or _parent_bg(parent)
         self._size = size
-        self._outline = ACCENT
-        self._fg = ACCENT
-        self._hover_outline = ACCENT2
-        self._hover_fg = ACCENT2
+        self._fill = ACCENT_DARK
+        self._fg = ACCENT2
+        self._hover_fill = ACCENT
+        self._hover_fg = "#1A1408"
         super().__init__(parent, width=size, height=size, bg=self._bg,
                          highlightthickness=0, cursor="hand2", **kw)
         self._draw()
         self.bind("<Button-1>", self._open)
-        self.bind("<Enter>", lambda e: self._paint(self._hover_outline, self._hover_fg))
+        self.bind("<Enter>", lambda e: self._paint(self._hover_fill, self._hover_fg))
         self.bind("<Leave>", lambda e: self._draw())
 
-    def _paint(self, outline, text):
+    def _paint(self, fill, text):
         self.delete("all")
-        pad = 2
+        pad = 1
         self.create_oval(pad, pad, self._size - pad, self._size - pad,
-                         outline=outline, width=1)
+                         fill=fill, outline=fill, width=0)
         self.create_text(self._size / 2, self._size / 2 + 1, text="?",
-                         fill=text, font=(FAM, 9, "bold"))
+                         fill=text, font=(FAM, 10, "bold"))
 
     def _draw(self):
-        self._paint(self._outline, self._fg)
+        self._paint(self._fill, self._fg)
 
-    def set_theme(self, bg, outline=ACCENT, text=ACCENT, hover_outline=None, hover_text=None):
+    def set_theme(self, bg, fill=ACCENT_DARK, fg=ACCENT2,
+                  hover_fill=ACCENT, hover_fg="#1A1408"):
         self._bg = bg
-        self._outline = outline
-        self._fg = text
-        self._hover_outline = hover_outline or ACCENT2
-        self._hover_fg = hover_text or ACCENT2
+        self._fill = fill
+        self._fg = fg
+        self._hover_fill = hover_fill
+        self._hover_fg = hover_fg
         self.configure(bg=bg)
         self._draw()
 

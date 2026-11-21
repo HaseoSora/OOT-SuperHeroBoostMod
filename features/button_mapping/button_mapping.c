@@ -62,6 +62,8 @@ enum { PH_IDLE = 0, PH_EQUIP, PH_HOLD, PH_GAP, PH_RESTORE, PH_ZRBACK };
 #define EQUIP_MAX 16
 #define GAP_TICKS 20           /* input frames Link must be free after a use before the ZR item goes back */
 #define GAP_BOOMERANG 90       /* the boomerang flies back while Link is free: wait for it */
+/* items that stay in Link's hand after a use (not given back on their own, see PH_GAP) */
+static int held_item(int item) { return item == 0; }   /* 0: Deku stick */
 /* A while standing still with an item on B: B's own "put away" (sword, item in hand) is on A then. A reaches the
  * game first (talk, open, check ...); when Link is still standing A_PUTAWAY_WAIT reads later, A did nothing and the
  * B button's own press is sent for A_PUTAWAY_PRESS reads. */
@@ -379,6 +381,15 @@ void button_mapping_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_r
                 /* each item on one button only: the one that had it gets this button's old item (ZR too) */
                 for (int o = 0; o < SLOT_ZR; o++) if (o != s && g_assign[o] == it) g_assign[o] = old;
                 int zr = g_borrowed ? g_saved : g_zr_item;
+                /* The ZR item onto an empty button: the game cannot be left with an empty box (it puts the item
+                 * back when the menu closes, which undid this assignment), so the item stays on ZR as well. */
+                if (it == zr && old < 0) {
+                    g_assign[s] = it;
+                    g_cl_dbg[3]++;
+                    g_menu_assign_t = 0;
+                    hud_menu_decide();
+                    continue;
+                }
                 if (it == zr) {
                     g_a_pick = -1;
                     g_zr_item = old;
@@ -554,6 +565,11 @@ void button_mapping_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_r
         break;
     case PH_GAP:                               /* the use is over once Link is free for a while (nothing mid-use) */
         if (!g_borrowed) { g_phase = PH_IDLE; break; }
+        /* An item Link keeps in his hand (the Deku stick): giving the box back makes the game put it away, so it
+         * stays borrowed until the player presses ZR (ZRBACK puts the ZR item back first) or uses another slot.
+         * The HUD keeps showing the ZR item meanwhile (hud_zr_hold). Found live: the native stick stays out in
+         * Wait; ours was put away ~0.3 s after Link stood still. */
+        if (held_item(g_borrow_item)) { g_phase_t = 0; break; }
         /* only standing or walking: aiming (bow, hookshot, slingshot) is a LockOn* state too, and the item must
          * stay in the box until the shot is over (else the ZR item is drawn or shot instead) */
         g_phase_t = (player_state_is("Wait") || player_state_is("Move")) ? g_phase_t + 1 : 0;

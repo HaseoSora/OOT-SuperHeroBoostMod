@@ -101,6 +101,7 @@ int hud_menu_decided(void); /* core/hud.c: that animation is playing */
 void hud_menu_zr(int item); /* core/hud.c: show an item on ZR now */
 void hud_menu_off(void);    /* core/hud.c: not on the Items tab: hide the assign legend */
 static int g_menu_a_item = -1, g_menu_a_wait;
+static u32 g_menu_assign_t = 1000;   /* menu reads since the last assignment */
 static int g_paused;        /* + pressed in gameplay: the pause menu is up */
 /* A menu swap with ZR (X / L / R on the ZR item): the game's item box gets this item (-1 empty) once gameplay runs
  * again; -2 none. g_pending_snap: the box when it was made (a different box then = the player picked a ZR item with
@@ -238,7 +239,10 @@ void button_remap_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_res
     int playing = last_active && now - last_active < 60u;
     /* (no g_paused here: the pause menu clears hud_ingame by itself, and a remap must never stay off because a
      * pause flag was missed) */
-    int covered = hud_ingame_known() ? !hud_ingame() : g_paused;   /* (no HUD parts: + press tracking) */
+    /* A menu covers the game, or the pause menu is up (+ pressed, until gameplay runs again): the real buttons.
+     * Both: the HUD flag alone is not steady through the whole pause menu, and a remap switching on and off
+     * there turned one press into two (the second unassigned the item). */
+    int covered = g_paused || (hud_ingame_known() && !hud_ingame());
     if (!playing || covered || g_songbook_active || player_dead()) {
         g_remap_dbg[1]++;
         return;
@@ -341,6 +345,7 @@ void button_mapping_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_r
         g_run_frame = f;
     }
     int menu = g_paused && hud_menu_items();
+    if (g_menu_assign_t < 1000) g_menu_assign_t++;
     if (g_shbcfg.button_mapping && !menu) { hud_menu_off(); g_menu_box = -3; }
     if (g_shbcfg.button_mapping && menu) {
         /* -> SLOT_B, SLOT_L, SLOT_R: the slot's own button when the menu lets it (X / Y / L / R), else a free one
@@ -360,7 +365,10 @@ void button_mapping_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_r
             int it = hud_menu_item();
             if (it < 0) continue;
             int old = g_assign[s];
-            if (old == it) g_assign[s] = -1;   /* the same button again: unassign (the button works as normal) */
+            /* the same button again: unassign (the button works as normal). Only a real second press: not within
+             * 20 reads of the assignment, so a repeated edge of the same press never undoes it. */
+            if (old == it && g_menu_assign_t <= 20) continue;   /* (the same press seen again: nothing) */
+            if (old == it) g_assign[s] = -1;
             else {
                 /* each item on one button only: the one that had it gets this button's old item (ZR too) */
                 for (int o = 0; o < SLOT_ZR; o++) if (o != s && g_assign[o] == it) g_assign[o] = old;
@@ -379,6 +387,7 @@ void button_mapping_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_r
                 g_assign[s] = it;
             }
             g_cl_dbg[3]++;
+            g_menu_assign_t = 0;
             hud_menu_decide();
         }
         /* A is the game's own: it puts the item in its box (ZR). When the game's box changes here, that is the

@@ -181,6 +181,32 @@ for _lang, _t in _TXT.items():
     if _lang in T:
         T[_lang].update(_t)
 
+
+# manual shield as an option of the target row (it enables the Shield role)
+_TXT2 = {
+    'en': dict(rm_help='Choose what each button does; the HUD buttons follow. Sprint runs without holding A. Only while you play: menus and the ocarina keep the real buttons.',
+             rm_no_shield='Manual shield is on but no button has Shield: you cannot guard.',
+             opt_shield='Manual shield', opt_shield_help='Target no longer raises the shield: it goes up with its own Shield button.'),
+    'es': dict(rm_help='Elige qué hace cada botón; los botones del HUD lo siguen. Sprint corre sin mantener A. Solo mientras juegas: los menús y la ocarina usan los botones reales.',
+             rm_no_shield='El escudo manual está activo pero ningún botón tiene Escudo: no podrás cubrirte.',
+             opt_shield='Escudo manual', opt_shield_help='Fijar ya no levanta el escudo: se levanta con su propio botón de Escudo.'),
+    'pt': dict(rm_help='Escolha o que cada botão faz; os botões do HUD acompanham. Corrida corre sem segurar A. Só enquanto joga: menus e a ocarina usam os botões reais.',
+             rm_no_shield='O escudo manual está ligado mas nenhum botão tem Escudo: não poderá se defender.',
+             opt_shield='Escudo manual', opt_shield_help='Mirar não levanta mais o escudo: ele sobe com o próprio botão de Escudo.'),
+    'fr': dict(rm_help="Choisissez l'action de chaque bouton ; les boutons du HUD suivent. Sprint court sans tenir A. Seulement en jeu : les menus et l'ocarina gardent les vrais boutons.",
+             rm_no_shield="Le bouclier manuel est actif mais aucun bouton n'a Bouclier : vous ne pourrez pas parer.",
+             opt_shield='Bouclier manuel', opt_shield_help='Cibler ne lève plus le bouclier : il se lève avec son propre bouton Bouclier.'),
+    'de': dict(rm_help='Lege fest, was jede Taste tut; die HUD-Tasten folgen. Sprint rennt ohne A zu halten. Nur beim Spielen: Menüs und die Okarina nutzen die echten Tasten.',
+             rm_no_shield='Der manuelle Schild ist an, aber keine Taste hat Schild: du kannst nicht abwehren.',
+             opt_shield='Manueller Schild', opt_shield_help='Anvisieren hebt den Schild nicht mehr: er kommt mit seiner eigenen Schild-Taste.'),
+    'it': dict(rm_help="Scegli cosa fa ogni tasto; i tasti dell'HUD lo seguono. Sprint corre senza tenere A. Solo mentre giochi: menu e ocarina usano i tasti reali.",
+             rm_no_shield='Lo scudo manuale è attivo ma nessun tasto ha Scudo: non potrai pararti.',
+             opt_shield='Scudo manuale', opt_shield_help='Mirare non alza più lo scudo: si alza con il suo tasto Scudo.'),
+}
+for _lang, _t in _TXT2.items():
+    if _lang in T:
+        T[_lang].update(_t)
+
 # ---------------------------------------------------------------- model
 # The order the editor lists the buttons in (face buttons, shoulders, sticks). The module's order is I.REMAP_BUTTONS.
 ROW_ORDER = ("X", "Y", "A", "B", "L", "R", "ZL", "ZR", "L3", "R3")
@@ -282,10 +308,16 @@ class Tooltip:
 
 
 def help_icon(parent, text_fn, colors, fam, bg=None):
-    """A round "?" that shows its help while the pointer is over it."""
-    lab = tk.Label(parent, text="?", bg=colors["PANEL2"] if bg is None else bg, fg=colors["ACCENT"],
-                   font=(fam, 8, "bold"), width=2, cursor="question_arrow", highlightthickness=1,
-                   highlightbackground=colors["ACCENT_DARK"])
+    """A small, quiet "?" that shows its help while the pointer is over it."""
+    if bg is None:
+        try:
+            bg = parent.cget("bg")
+        except tk.TclError:
+            bg = colors["PANEL"]
+    lab = tk.Label(parent, text="?", bg=bg, fg=colors["BORDER"], font=(fam, 8, "bold"), cursor="question_arrow",
+                   padx=1, pady=0, bd=0, highlightthickness=0)
+    lab.bind("<Enter>", lambda e: lab.config(fg=colors["ACCENT"]), add="+")
+    lab.bind("<Leave>", lambda e: lab.config(fg=colors["BORDER"]), add="+")
     Tooltip(lab, text_fn, colors, fam)
     return lab
 
@@ -318,12 +350,8 @@ class RemapEditor:
         self.count = tk.Label(top, text="", bg=bg, fg=colors["DIM"], font=(fam, 9))
         self.count.pack(side="left", padx=(16, 0))
 
-        body = tk.Frame(self.frame, bg=bg)
-        body.pack(anchor="w", fill="x", pady=(8, 0))
-        left = tk.Frame(body, bg=bg)
-        left.pack(side="left", anchor="n")
-        right = tk.Frame(body, bg=bg)
-        right.pack(side="left", anchor="n", padx=(16, 0))
+        left = tk.Frame(self.frame, bg=bg)
+        left.pack(anchor="w", fill="x", pady=(8, 0))
 
         for b in ROW_ORDER:
             row = tk.Frame(left, bg=bg)
@@ -337,20 +365,26 @@ class RemapEditor:
             cb.bind("<<ComboboxSelected>>", lambda e, btn=b: self._pick(btn))
             self.combos[b] = cb
             help_slot = tk.Frame(row, bg=bg)   # the role's own "?" beside its list
-            help_slot.pack(side="left", padx=(6, 0))
-            opt = tk.Frame(left, bg=bg)        # the role's options, on a line of their own under the row
-            opt.pack(anchor="w", padx=(46, 0))
+            help_slot.pack(side="left", padx=(4, 0))
+            opt = tk.Frame(row, bg=bg)         # the role's options, on the same line
+            opt.pack(side="left", padx=(10, 0))
             self.opts[b] = (help_slot, opt)
 
-        tk.Label(right, text=L("rm_pad"), bg=bg, fg=colors["DIM"], font=(fam, 9, "bold")).pack(anchor="w")
-        self.pad = tk.Canvas(right, width=400, height=230, bg=colors["PANEL2"], highlightthickness=1,
+        views = tk.Frame(self.frame, bg=bg)
+        views.pack(anchor="w", pady=(10, 0))
+        lcol = tk.Frame(views, bg=bg)
+        lcol.pack(side="left", anchor="n")
+        rcol = tk.Frame(views, bg=bg)
+        rcol.pack(side="left", anchor="n", padx=(12, 0))
+        tk.Label(lcol, text=L("rm_pad"), bg=bg, fg=colors["DIM"], font=(fam, 9, "bold")).pack(anchor="w")
+        self.pad = tk.Canvas(lcol, width=400, height=230, bg=colors["PANEL2"], highlightthickness=1,
                              highlightbackground=colors["BORDER"])
         self.pad.pack(anchor="w")
-        hrow = tk.Frame(right, bg=bg)
-        hrow.pack(anchor="w", pady=(8, 0))
+        hrow = tk.Frame(rcol, bg=bg)
+        hrow.pack(anchor="w")
         tk.Label(hrow, text=L("rm_hud"), bg=bg, fg=colors["DIM"], font=(fam, 9, "bold")).pack(side="left")
-        help_icon(hrow, L("rm_hud_help"), colors, fam).pack(side="left", padx=(6, 0))
-        self.hud = tk.Canvas(right, width=400, height=190, bg="#101010", highlightthickness=1,
+        help_icon(hrow, L("rm_hud_help"), colors, fam).pack(side="left", padx=(4, 0))
+        self.hud = tk.Canvas(rcol, width=360, height=230, bg="#101010", highlightthickness=1,
                              highlightbackground=colors["BORDER"])
         self.hud.pack(anchor="w")
 
@@ -363,6 +397,7 @@ class RemapEditor:
 
         for key in ("bmap", "bstyle", "bsimple"):
             self._traces.append((v[key], v[key].trace_add("write", lambda *_: self.redraw())))
+        self._traces.append((v["mshield"], v["mshield"].trace_add("write", lambda *_: self._shield_changed())))
         for var in v["roles"].values():
             self._traces.append((var, var.trace_add("write", lambda *_: self.redraw())))
         self.frame.bind("<Destroy>", self._drop_traces)
@@ -412,10 +447,20 @@ class RemapEditor:
         table[btn] = new
         set_roles(rv, table)
 
+    def _shield_changed(self):
+        """Manual shield (an option of the target row): off, no button keeps the Shield role."""
+        if not self.v["mshield"].get():
+            rv = self.v["roles"]
+            set_roles(rv, {b: ("none" if var.get() == "shield" else var.get()) for b, var in rv.items()})
+        self.redraw()
+
     def _pick_preset(self, _e=None):
         i = self.preset.current()
         if i < len(self.preset_keys):
-            set_roles(self.v["roles"], I.REMAP_PRESETS[self.preset_keys[i]])
+            table = I.REMAP_PRESETS[self.preset_keys[i]]
+            if "shield" in table.values() and not self.v["mshield"].get():
+                self.v["mshield"].set(True)   # a preset with a shield button turns the manual shield on
+            set_roles(self.v["roles"], table)
         else:
             self.redraw()
 
@@ -429,7 +474,8 @@ class RemapEditor:
             w.destroy()
         items = []
         if role == "target":
-            items = [("opt_switch", self.v["switch_target"]), ("opt_auto", self.v["auto_target"])]
+            items = [("opt_shield", self.v["mshield"]), ("opt_switch", self.v["switch_target"]),
+                     ("opt_auto", self.v["auto_target"])]
         elif role == "sprint":
             items = [("opt_toggle", self.v["sprint_toggle"])]
         bg = self.c["PANEL"]
@@ -437,7 +483,7 @@ class RemapEditor:
             tk.Checkbutton(f, text=self.L(key), variable=var, bg=bg, fg=self.c["TEXT"], selectcolor=self.c["PANEL2"],
                            activebackground=bg, activeforeground=self.c["ACCENT"], font=(self.fam, 9),
                            highlightthickness=0, bd=0).pack(side="left")
-            help_icon(f, self.L(key + "_help"), self.c, self.fam).pack(side="left", padx=(2, 10))
+            help_icon(f, self.L(key + "_help"), self.c, self.fam).pack(side="left", padx=(1, 12))
         if role in ROLE_HELP:
             help_icon(help_slot, self.L(ROLE_HELP[role]), self.c, self.fam).pack(side="left")
         if not items:   # no options: the line takes no room
@@ -453,7 +499,8 @@ class RemapEditor:
         roles = self._roles()
         on = self.v["bmap"].get()
         for b, cb in self.combos.items():
-            ch = [r for r in self.choices[b] if on or r not in ("item1", "item2", "item3", "selector")]
+            ch = [r for r in self.choices[b] if (on or r not in ("item1", "item2", "item3", "selector"))
+                  and (r != "shield" or self.v["mshield"].get() or roles[b] == "shield")]
             cb.config(values=[self.role_name(r) for r in ch])
             self.choices[b] = ch + [r for r in self.choices[b] if r not in ch]   # (hidden ones stay pickable by index)
             cb.current(ch.index(roles[b]) if roles[b] in ch else 0)
@@ -467,9 +514,9 @@ class RemapEditor:
         missing = [self.role_name(r) for r in I.roles_missing(roles)]
         if missing:
             notes.append(self.L("rm_missing", a=", ".join(missing)))
-        if "shield" not in roles.values() and "target" in roles.values():
+        if self.v["mshield"].get() and "shield" not in roles.values():
             notes.append(self.L("rm_no_shield"))
-        self.notes.config(text="\n".join(notes), fg=self.c["AMBER"] if missing else self.c["DIM"])
+        self.notes.config(text="\n".join(notes), fg=self.c["AMBER"])
         mb = menu_buttons(roles)
         glyph = GLYPHS[self._style()]
         pairs = [f"{self._gt(glyph[mb[r]])} → {self.role_name(r)}" for r in ("item1", "item2", "item3") if r in mb]
@@ -543,7 +590,7 @@ class RemapEditor:
         simple = self.v["bsimple"].get()
         phys = {r: b for b, r in roles.items() if r != "none"}
         sc = 0.37
-        ox, oy = 200 - 1292.6 * sc, 98 + 712.0 * sc
+        ox, oy = 180 - 1292.6 * sc, 118 + 712.0 * sc
 
         def to_px(x, y):
             return ox + x * sc, oy - y * sc

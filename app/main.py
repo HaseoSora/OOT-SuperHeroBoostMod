@@ -656,8 +656,7 @@ def gui() -> None:
         """The table decides the manual shield, the L3 sprint, target on R3 and the L selector."""
         fl = I.roles_flags(RM.roles_value(broles))
         r = RM.roles_value(broles)
-        for var, val in ((manual_shield, fl["manual_shield"]), (sprint_l3, fl["sprint_l3"]),
-                         (target_r3, r.get("R3") == "target")):
+        for var, val in ((sprint_l3, fl["sprint_l3"]), (target_r3, r.get("R3") == "target")):
             if var.get() != val:
                 var.set(val)
         if blmode.get() != fl["bm_l_mode"]:
@@ -1473,7 +1472,7 @@ def gui() -> None:
         body = card(parent, L("rm_title"))
         RM.RemapEditor(body, L, FAM, COLORS,
                        dict(bmap=bmap, roles=broles, bstyle=bstyle, bsimple=bsimple, switch_target=switch_target,
-                            auto_target=auto_target, sprint_toggle=sprint_l3_toggle))
+                            auto_target=auto_target, sprint_toggle=sprint_l3_toggle, mshield=manual_shield))
         build_buttons(parent)
         build_quick_select(parent)
 

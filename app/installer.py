@@ -81,11 +81,11 @@ def roles_missing(roles) -> list:
 
 
 def roles_flags(roles) -> dict:
-    """The module options a table implies: the manual shield (a shield button), the L3-style sprint (a sprint
-    button), L as the item selector (a selector button). The ZL/R3 swap is never needed: target goes anywhere."""
+    """The module options a table implies: the L3-style sprint (a sprint button) and L as the item selector (a
+    selector button). The ZL/R3 swap is never needed: target goes anywhere. The manual shield is a switch of its own
+    (an option of the target button); the Shield role only works with it."""
     have = set(normalize_roles(roles).values())
-    return dict(manual_shield="shield" in have, sprint_l3="sprint" in have, target_r3=False,
-                bm_l_mode="selector" if "selector" in have else "assign")
+    return dict(sprint_l3="sprint" in have, target_r3=False, bm_l_mode="selector" if "selector" in have else "assign")
 
 
 def roles_from_flags(roles, manual_shield=None, target_r3=None, sprint_l3=None, l_selector=None) -> dict:
@@ -577,6 +577,8 @@ def patch_config(nso: bytes, s: Settings) -> bytes:
                 b[f + 62] = int(s.sprint_l3_toggle)     # struct 78 (was padding): L3 sprint as a toggle
                 if size >= 0x5A and s.bm_remap:         # 0.9.0: button remap
                     roles = normalize_roles(s.bm_roles)
+                    if not s.manual_shield:             # the Shield role needs the manual shield
+                        roles = {k: ("none" if v == "shield" else v) for k, v in roles.items()}
                     if not s.button_mapping:            # no item slots without the item buttons
                         roles = {k: ("none" if v in ("item1", "item2", "item3", "selector") else v)
                                  for k, v in roles.items()}
@@ -587,7 +589,7 @@ def patch_config(nso: bytes, s: Settings) -> bytes:
                     fl = roles_flags(roles)
                     b[f + 9] = 0                                             # bm_layout: positions come from the table
                     b[f + 24] = L_MODE_VALUES[fl["bm_l_mode"]]
-                    b[f + 54] = int(fl["manual_shield"])
+                    b[f + 54] = int(s.manual_shield)
                     b[f + 55] = 0                                            # target_r3: target can be on R3 itself
                     b[f + 56] = int(fl["sprint_l3"])
     return bytes(b)

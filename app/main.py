@@ -1636,13 +1636,7 @@ def gui() -> None:
         desc_label(body, L("hud_collectibles_desc"))
         check(body, L("hide_minimap"), hide_min).pack(anchor="w", pady=(8, 0))
         desc_label(body, L("hide_minimap_desc"))
-        srow = UI.Frame(body, bg=PANEL)
-        srow.pack(fill="x", pady=(10, 0))
-        for n, (key, var) in enumerate((("hud_ctrl_scale", hud_ctrl_scale), ("hud_count_scale", hud_count_scale))):
-            label(srow, L(key) + ":", size=10, bg=PANEL).grid(row=n, column=0, sticky="w", padx=(0, 10), pady=2)
-            UI.Slider(srow, var, I.HUD_SCALE_MIN, I.HUD_SCALE_MAX, I.HUD_SCALE_STEP, bg=PANEL).grid(
-                row=n, column=1, sticky="w", pady=2)
-        desc_label(body, L("hud_scale_desc"))
+        scale_row(body, "hud_count_scale", hud_count_scale, pady=(10, 0))
         label(body, L("hud_note"), size=9, color=DIM, bg=PANEL).pack(anchor="w", pady=(8, 0))
         build_game_prompts(parent)
 
@@ -1753,6 +1747,15 @@ def gui() -> None:
             c.pack(anchor="w")
         RM.help_icon(c.master, tip, COLORS, FAM).pack(side="left", padx=(8, 0))
         return c
+
+    def scale_row(body, key, var, pady=(8, 0)):
+        """A HUD size slider (percent, 100 = the current size) with its explanation behind a "?"."""
+        row = UI.Frame(body, bg=PANEL)
+        row.pack(anchor="w", pady=pady)
+        label(row, L(key) + ":", size=10, bg=PANEL).pack(side="left", padx=(0, 10))
+        UI.Slider(row, var, I.HUD_SCALE_MIN, I.HUD_SCALE_MAX, I.HUD_SCALE_STEP, bg=PANEL).pack(side="left")
+        RM.help_icon(row, L(key + "_desc"), COLORS, FAM).pack(side="left", padx=(8, 0))
+        return row
 
     def build_quick_select(parent):
         body = card(parent, L("quick_title"), help=L("quick_desc") + "\n\n" + L("quick_note"))
@@ -1885,6 +1888,7 @@ def gui() -> None:
             r.pack(side="left")
             ui["bm"].append(r)
             RM.help_icon(row, L(key + "_d"), COLORS, FAM).pack(side="left", padx=(4, 14))
+        scale_row(body, "hud_ctrl_scale", hud_ctrl_scale)
         if embedded:
             sep = tk.Frame(body, bg=BORDER, height=1)
             sep.pack(fill="x", pady=(12, 10))

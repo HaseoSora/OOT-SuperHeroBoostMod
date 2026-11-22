@@ -85,6 +85,15 @@ request at a time: while an input sequence runs, reads wait — measure through 
   branches reach it without relocations.
 - Rekarina builds for `main + 0x5200000` with `--rekarina` (synthetic `eh_frame_hdr` seed table).
 
+## Reference material (external)
+
+- **https://github.com/Kabosune/oot-remake-modding** — modding docs for this game: symbol/command lists for build
+  `e0f3ccfa` (`symbols/e0f3ccfa-commands.csv`, `.ld`, `.toml`), structure notes. Search the symbol list before
+  reverse-engineering a function by hand.
+- **https://github.com/platinumagpie/oot-remake-devtool** — the devtool: `lichii.DebugClient`, `HostMemory`, GameData
+  and BYML helpers. Local clone at `F:\project\oot\vendor\devtool\oot-remake-devtool-main` (`SHB_DEVTOOL`).
+- Both are reference only: no code from them is bundled, and the game dump is never committed or shared.
+
 ## Known gaps (November 2026)
 
 - Longshot's installed builder is `LongshotBuilder` **v3.0.0-rc.7 (.NET)** under

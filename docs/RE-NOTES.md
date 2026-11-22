@@ -489,3 +489,27 @@ Both mods are generated from the user's own dump by `tools/make_enemy_opts.py`; 
   repeats the bisection (`--set list:uniE046,uniE047`, `--pad N`, `--boot`).
 - The frame may be compressed **without** the dictionary: the game's decompressor accepts it, so the app does not
   need to ship `zs.zsdic`.
+
+## Collectible counter and GameData indices (Nov 22)
+
+- **Record indices shift with romfs mods.** Paraglider ships its own `GameDataList.Product.110` with 3 more Bools
+  and 1 more Int, so every Bool after its additions moved by 3: the stock-list index of `Sequence_IsChildhood`
+  (10836) read another flag (live index 10839), and every IsGet / IsGoldSkullDead / heart-reward index was off.
+  Other types kept their counts. Fix: each GameData table has the game's own open-addressing map (table `+0x18`:
+  `{u32 hash, u32 index}` slots, table `+0x24`: slot count, start at `hash % slots`, linear probe, empty = 0;
+  the game's probe is at main+0x5890DC). `gd_find(k, hash)` in core/hud.c uses it; Bool, Int, the item box Enum
+  and `Sequence_CurrentBanc` are looked up by hash now. Still index-based (counts unchanged by Paraglider):
+  String64 equip records, the bottle Enums 60..64, UInt64 `World_CurrentDateTime`, quick_select's String64.
+- Stock-list hashes used: Int rupees `0xA77921D7` (962), wallet `0xE0010A50` (976); String64 `Sequence_CurrentBanc`
+  `0x1D6189DA` (31); Enum box Child `0xA0029837` (65) / Adult `0xBC32CE24` (59); Bool `Sequence_IsChildhood`
+  `0xCEA220D3`. Compare a mod's list against the live counts (`mgr + 8 + 0x60*k + 8`) when something reads wrong.
+- **The save buffer at manager `+0xE80` is shared.** The descriptors at `+0xE00` (0x80 bytes each: progress.sav,
+  option.sav, slot_NN/caption.sav, account.sav; name at `+0x24`) all point at one buffer; a few seconds after the
+  save loads it holds a small file (data offset `0x2A0`, no `Game` entry). The counter now copies the key set
+  (`g_kset_copy`, up to 4096 keys; this save has 705) whenever the buffer holds progress.sav, checks every frame
+  (the data offset changes when the file does) and keeps the copy otherwise. Before, it dropped to 0.
+- **Heart pieces**: world pieces are actors `Obj_Heart_Piece` / `Obj_GerudoValley_Heart_Piece`; their actor hash is
+  added to the same `Game` key set when picked up (checked: both Kakariko pieces present). `HeartPieceAnchor`s with
+  a `HeartPieceAnchor_GameDataPath` are NPC / minigame / scrub rewards (16 paths, their Bool is the record); those
+  without a path only mark the world pieces. A world piece picked this session counts once the game saves.
+- `build/collectibles_data.h` stores Bool key hashes (`COLLECT_FLAG_HASHES`); hud.c refuses an older index table.

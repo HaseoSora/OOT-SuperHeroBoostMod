@@ -122,8 +122,14 @@ target swap, L3 sprint, language â€” the table is in `docs/GUIA-DESARROLLO.md` Â
 6. Outside gameplay everything is hidden once; a layout rebuild clears the caches (`plates_reset`).
 
 Collectibles: Gold Skulltula flags are runtime-only; the durable record is the save entry `Game` (Bool64bitKey,
-hash `0xA3DB7114`, ascending actor hashes + 0), read from the loaded `progress.sav` image at manager `+0xE80`.
-Heart pieces: only map-anchored ones are counted yet.
+hash `0xA3DB7114`, ascending actor hashes + 0), read from the save buffer at manager `+0xE80` **and copied out**:
+the game loads and writes every save file through that buffer, so it holds `progress.sav` only briefly.
+Heart pieces: world pieces (`Obj_Heart_Piece`, `Obj_GerudoValley_Heart_Piece`) by actor hash in that key set,
+rewards by their `HeartPieceAnchor_GameDataPath` Bool.
+
+**GameData record indices are not stable.** A romfs mod with its own `GameDataList` (Paraglider: +3 Bool,
++1 Int) shifts them. Look keys up by hash with `gd_find(table, hash)` (core/hud.c, the game's own map);
+never hard-code an index generated from the stock list for Bool or Int.
 
 ## 7. Recompilations
 

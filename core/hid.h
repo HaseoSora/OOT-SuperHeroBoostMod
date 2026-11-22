@@ -28,5 +28,9 @@ typedef struct {
 u64 hid_get_buttons(const HidView *v, u32 index);
 void hid_set_buttons(const HidView *v, u32 index, u64 value);
 u64 hid_merge_buttons(const HidView *v);
+/* Valid samples of a GetNpadStates call: what it returned (1..requested); the requested count when the return is
+ * not usable. Rekarina's GetNpadStates writes only the newest state and returns 1; the rest of the game's 16-sample
+ * buffer is never refreshed there, so a handler that walked all 16 read (and kept) its own old writes. */
+u32 hid_sample_count(void *requested, u32 returned);
 
 #endif

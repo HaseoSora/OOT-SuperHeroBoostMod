@@ -564,3 +564,17 @@ Both mods are generated from the user's own dump by `tools/make_enemy_opts.py`; 
   rupee and sun, so they read smaller at the same scale.
 - Pause menu: `hud_menu_legend` no longer shows its backing plate (the `P_ShbPic_399` clone is scaled to zero),
   and `g_mb_lay` moved to {-740, -90} (a little up and right of the old spot).
+
+## Input samples: use what GetNpadStates returns (Nov 22)
+
+- The gameplay read (site 3, main+0x346966C) calls `GetNpadStates(out, 16, id)` into a **persistent** 16-sample
+  buffer inside a game object (`x8 + 0 .. 0x280`, stride 0x28) and keeps the return value (samples written).
+- The emulator fills all 16 and returns 16. **Rekarina's runtime writes only `out[0]` and returns 1**
+  (`setup/<ver>/runtime/ov_input.c`, `npad_states`: "the newest state only"). Slots 1..15 are never refreshed there.
+- Every input handler used the requested count (16) and ORed all samples, so on Rekarina it read and kept its own old
+  writes. Sprint: `l3_inject_a` wrote A into all 16; slots 1..15 kept it, the merged buttons said "A held" forever,
+  so the injection into slot 0 stopped (no sprint animation), `g_sprint_a` stayed on (speed + drain) and the toggle
+  could only end when exhaustion stripped A from every slot.
+- Fix: `hid_sample_count(a1, stock_result)` (core/hid.c) gives the returned count when it is 1..requested; every
+  handler uses it. Emulator unchanged (16). Rekarina's runtime ships as source in `setup/<ver>/runtime/`: read it
+  before reverse-engineering any HLE'd SDK call.

@@ -20,3 +20,11 @@ u64 hid_merge_buttons(const HidView *v) {
     for (u32 i = 0; i < v->count; i++) out |= hid_get_buttons(v, i);
     return out;
 }
+
+u32 hid_sample_count(void *requested, u32 returned) {
+    u32 want = (u32)(unsigned long)requested;
+    if (want == 0 || want > 64) want = 64;
+    if (returned >= 1 && returned <= want) return returned;
+    want = (u32)(unsigned long)requested;
+    return (want >= 1 && want <= 64) ? want : 0;
+}

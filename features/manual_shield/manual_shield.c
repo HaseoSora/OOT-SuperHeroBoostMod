@@ -262,8 +262,7 @@ void manual_shield_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_re
     const u32 ms = g_shbcfg.manual_shield;
     g_ms_active = (u8)(ms != 0);
     if (!ms) { g_ms_held = 0; g_ms_allowed = 0; g_ms_l_latch = 0; g_ms_last_allowed = 0; }
-    u32 count = (u32)(unsigned long)a1;
-    if (count == 0 || count > 64) count = stock_result;
+    u32 count = hid_sample_count(a1, stock_result);
     if (count == 0 || count > 64) return;
     HidView view = {a0, count, 0};
 

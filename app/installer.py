@@ -825,6 +825,9 @@ def install(emu: Path, s: Settings, name: str = MOD_NAME, progress=None) -> Resu
     res.notes.extend(install_enemy_mods(target / "romfs", s, pay.parent))
     if style:   # last: the layout table is merged over the final one (font 0x5000 keeps our layout/enemy entries)
         layouts.apply(target / "romfs", style)
+        if not layouts.font_ready(style):
+            # The layout's own font aborts this build; only the patched one (payload) is installed.
+            res.notes.append(("font_missing", style))
     merged = merge_other_tables(mods, {target.name}, target / "romfs" / layouts.REL["table"])
     if merged:
         res.notes.append(("tables_merged", ", ".join(merged)))

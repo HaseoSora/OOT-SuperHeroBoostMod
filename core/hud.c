@@ -1082,7 +1082,7 @@ u32 g_hud_show[2] = {0x10000000u, 0x10000000u};   /* clock, rupees: 1 = drawn th
 static u64 g_pic_rec[PIC_N];
 /* Simple layout's bar (plates == 2), tunable live with tools/hud_tune.py: 0 = x shift, 1 = extra width on the
  * right (negative shortens), 2 = alpha, 3 = height. */
-float g_bg_tune[4] = {-165.0f, -35.0f, 0.45f, 1.15f};
+float g_bg_tune[4] = {-165.0f, 10.0f, 0.42f, 1.05f};
 static u32 g_plates_shown;
 static void bar_reset(void);
 /* the layout was rebuilt: drop cached pane records and force the texts to be set again */

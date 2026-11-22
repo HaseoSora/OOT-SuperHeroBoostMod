@@ -531,3 +531,18 @@ Both mods are generated from the user's own dump by `tools/make_enemy_opts.py`; 
   `button_remap_on_input` now leaves the real buttons in `Evt*` too (A next, B back) and publishes `g_remap_live`;
   the prompt glyphs follow it (own glyph back when the remap is off). Checked live with action on X: X talks,
   the real A advances the text, the real B picks "Adiós" (no purchase), and △ Hablar comes back afterwards.
+
+## HUD modes and the simple bar (Nov 22)
+
+- The app's `hud_mode` is now **wide / simple / plain**. `simple` and `plain` share the same four-block row
+  (`hud_x`), the same scales and the clock's sun/moon (`hud_mode >= 1` test in `hud.c`); only `hud_plates`
+  differs: 2 draws the bar, 0 leaves the row bare. The old "minimal" (map) mode is gone and its config byte 2
+  now means `plain`, so a configuration saved with minimal lands on a sane mode instead of failing.
+- The bar is its own picture pane `PIC_BG` (the last one, `P_ShbPic_274`): a clone of the sub-item picture with
+  the flat white texture (`White8_00_BC4L`) tinted black. Its geometry is `g_bg_tune` = {x shift, extra width on
+  the right, alpha, height}: -165, +10, 0.42, 1.05 puts the left edge on the screen edge and the right one just
+  past the hearts number. The wide plates are no longer drawn in `plates == 2` (that was the old "one bar plate").
+- The skull / heart icons get `1.30x` in the one-row modes: their art carries more transparent padding than the
+  rupee and sun, so they read smaller at the same scale.
+- Pause menu: `hud_menu_legend` no longer shows its backing plate (the `P_ShbPic_399` clone is scaled to zero),
+  and `g_mb_lay` moved to {-740, -90} (a little up and right of the old spot).

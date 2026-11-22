@@ -179,29 +179,48 @@ u32 g_arm_dbg[4];              /* diagnostic: steps taken, equips done, last lis
 char g_arm_last[64];           /* diagnostic: the last name equipped */
 static u32 g_arm_dir;          /* direction held in the previous read (1 left, 2 right, 3 up, 4 down) */
 
-/* step through a list (dir +1 / -1) to the next entry Link owns; 1 when one was equipped */
-static u32 armory_step(const char (*list)[28], u32 n, u32 stride, u32 gd_index, int dir) {
+/* ---- the quick menu (drawn by core/hud.c from these globals) ----
+ * Holding the armory button opens it: a row of the swords and a row of the shields Link owns, the cursor on what he
+ * wears. Left / right moves in the row, up / down changes the row; letting the button go equips the one under the
+ * cursor (nothing when it did not move). Under a menu (pause ...) it closes without a change. */
+extern u32 g_arm_open;                  /* core/hud.c: the menu is up */
+extern int g_arm_row, g_arm_col;        /* core/hud.c: the cursor (row 0 swords, 1 shields) */
+extern char g_arm_names[2][5][28];      /* core/hud.c: the gear Link owns, per row */
+extern u32 g_arm_n[2];                  /* core/hud.c: how many per row */
+static int g_arm_last_row;              /* the menu opens on the row used last */
+static char g_arm_pending[28];          /* chosen while Link was busy: equipped as soon as he is free */
+
+static int arm_free(void) {
+    return player_state_is("Wait") || player_state_is("Move") || player_state_starts("LockOn");
+}
+/* the owned gear of a row, and where the one Link wears is in it (-1 none) */
+static int arm_fill(u32 row) {
+    const char *list = row ? (const char *)ARM_SHIELDS : (const char *)ARM_SWORDS;
+    u32 n = row ? 3u : 5u, stride = row ? 24u : 28u, k = 0;
     char cur[64];
-    gd_get_string(gd_index, cur, sizeof cur);
-    int pos = -1;
+    gd_get_string(row ? GD_S64_SHIELD : GD_S64_WEAPON, cur, sizeof cur);
+    int on = -1;
     for (u32 i = 0; i < n; i++) {
-        const char *nm = (const char *)list + i * stride;
-        if (same(cur, nm)) pos = (int)i;
+        const char *nm = list + i * stride;
+        if (!gear_owned(nm) && !same(cur, nm)) continue;   /* (what he wears always counts) */
+        if (same(cur, nm)) on = (int)k;
+        u32 j = 0;
+        for (; j < 27u && nm[j]; j++) g_arm_names[row][k][j] = nm[j];
+        g_arm_names[row][k][j] = 0;
+        k++;
     }
-    for (u32 k = 1; k <= n; k++) {
-        int j = pos < 0 ? (dir > 0 ? (int)k - 1 : (int)n - (int)k) : ((pos + dir * (int)k) % (int)n + (int)n) % (int)n;
-        const char *nm = (const char *)list + (u32)j * stride;
-        if (!gear_owned(nm)) continue;
-        if (same(cur, nm)) return 0;   /* the only one owned is the one on: nothing to change */
-        /* Only the game's request: it compares the name with what Link wears and does nothing when they are equal, so
-         * the String64 record must not be written first (the game writes it itself when the change goes through). */
-        apply_equip(nm);
-        copy64(g_arm_last, nm);
-        g_arm_dbg[1]++;
-        g_arm_dbg[2] = (u32)j;
-        return 1;
-    }
-    return 0;
+    g_arm_n[row] = k;
+    return on;
+}
+static void arm_equip(const char *nm) {
+    char cur[64];
+    gd_get_string(nm[7] == 'S' && nm[8] == 'h' ? GD_S64_SHIELD : GD_S64_WEAPON, cur, sizeof cur);   /* Weapon_Sh.. */
+    if (same(cur, nm)) return;
+    /* Only the game's request: it compares the name with what Link wears and does nothing when they are equal, so
+     * the String64 record must not be written first (the game writes it itself when the change goes through). */
+    apply_equip(nm);
+    copy64(g_arm_last, nm);
+    g_arm_dbg[1]++;
 }
 
 static void armory_input(const HidView *view, u64 buttons) {
@@ -210,28 +229,59 @@ static void armory_input(const HidView *view, u64 buttons) {
         u64 b = hid_get_buttons(view, i);
         if (b & VBTN_ARMORY) hid_set_buttons(view, i, b & ~VBTN_ARMORY);
     }
-    if (!held || hud_game_covered() || !player_active()) { g_arm_dir = 0; return; }
+    int playing = !hud_game_covered() && player_active();
+    if (g_arm_pending[0] && playing && arm_free()) { arm_equip(g_arm_pending); g_arm_pending[0] = 0; }
+    if (!playing) {                           /* a menu came up: close without a change */
+        g_arm_open = 0; g_arm_dir = 0;
+        return;
+    }
+    if (!held) {
+        if (g_arm_open) {                     /* released: equip the one under the cursor */
+            g_arm_open = 0;
+            g_arm_last_row = g_arm_row;
+            if ((u32)g_arm_col < g_arm_n[g_arm_row]) {
+                const char *nm = g_arm_names[g_arm_row][g_arm_col];
+                if (arm_free()) arm_equip(nm);
+                else { copy64(g_arm_pending, nm); g_arm_dbg[3]++; }
+            }
+        }
+        g_arm_dir = 0;
+        return;
+    }
+    if (!g_arm_open) {                        /* just pressed: open on the last row, cursor on what he wears */
+        int on0 = arm_fill(0), on1 = arm_fill(1);
+        g_arm_row = g_arm_n[g_arm_last_row] ? g_arm_last_row : (g_arm_n[0] ? 0 : 1);
+        int on = g_arm_row ? on1 : on0;
+        g_arm_col = on >= 0 ? on : 0;
+        g_arm_open = 1;
+        g_arm_dir = 0;
+    }
     /* the direction: D-pad first, else the left stick (s32 x / y at sample + 0x10) */
     const volatile int *st = (const volatile int *)((unsigned char *)view->samples + 0x10);
     int x = st[0], y = st[1];
     u32 dir = (buttons & DPAD_LEFT) ? 1u : (buttons & DPAD_RIGHT) ? 2u : (buttons & DPAD_UP) ? 3u :
               (buttons & DPAD_DOWN) ? 4u : x < -ARM_STICK ? 1u : x > ARM_STICK ? 2u : y > ARM_STICK ? 3u :
               y < -ARM_STICK ? 4u : 0u;
-    /* Link stays where he is while the armory is held: no D-pad, no left stick */
+    /* Link stays where he is while the menu is up: no D-pad, no left stick */
     for (u32 i = 0; i < view->count; i++) {
         u64 b = hid_get_buttons(view, i);
         hid_set_buttons(view, i, b & ~(DPAD_LEFT | DPAD_RIGHT | DPAD_UP | DPAD_DOWN));
         volatile int *p = (volatile int *)((unsigned char *)view->samples + (u64)i * HID_STRIDE + 0x10);
         p[0] = 0; p[1] = 0;
     }
-    if (dir && dir != g_arm_dir) {   /* one step per push */
+    if (dir && dir != g_arm_dir) {           /* one step per push */
         g_arm_dbg[0]++;
-        if (!(player_state_is("Wait") || player_state_is("Move") || player_state_starts("LockOn"))) g_arm_dbg[3]++;
-        else if (dir <= 2u)
-            armory_step(ARM_SWORDS, 5u, 28u, GD_S64_WEAPON, dir == 2u ? 1 : -1);
-        else
-            armory_step((const char (*)[28])(const void *)ARM_SHIELDS, 3u, 24u, GD_S64_SHIELD,
-                        dir == 3u ? -1 : 1);
+        int n = (int)g_arm_n[g_arm_row];
+        if (dir == 1u && n) g_arm_col = (g_arm_col + n - 1) % n;
+        else if (dir == 2u && n) g_arm_col = (g_arm_col + 1) % n;
+        else if ((dir == 3u || dir == 4u)) {
+            int row = dir == 3u ? 0 : 1;
+            if (row != g_arm_row && g_arm_n[row]) {
+                g_arm_row = row;
+                g_arm_col = g_arm_col < (int)g_arm_n[row] ? g_arm_col : (int)g_arm_n[row] - 1;
+            }
+        }
+        g_arm_dbg[2] = (u32)(g_arm_row * 8 + g_arm_col);
     }
     g_arm_dir = dir;
 }

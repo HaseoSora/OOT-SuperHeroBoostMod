@@ -74,7 +74,7 @@ static const char CIRCLE_TEX[] = "Circle64_00";
  * stock Circle64_00 and the gauge is kept full, so it draws a tinted circle. The
  * art is a placeholder until the real assets arrive. */
 #define PART_BASE 12   /* the classic parts: buttons and items; the pause menu gets these only */
-#define PART_N 14  /* (12..13: the shield button and the shield, see PART_SHIELD)  buttonMapping: parts 0..6 buttons (L X R Y A ZR B), 7..11 items (L R Y ZR B); clones of the stock item box Pa_SelectItem_00 (asset PaItemBtn_00).
+#define PART_N 22  /* (12..13: the shield button and the shield; 14..21: the armory menu, see ARM_FIRST)  buttonMapping: parts 0..6 buttons (L X R Y A ZR B), 7..11 items (L R Y ZR B); clones of the stock item box Pa_SelectItem_00 (asset PaItemBtn_00).
                     * (The old gauge-part ring is retired: the stamina ring is drawn with picture panes, RT1..) */
 #define APPEND_ALL 1   /* 1 = append every part (only the first one gets listed by the
                         * engine); 0 = parts 1.. repurpose filler parts (froze the game) */
@@ -92,7 +92,10 @@ static char g_anames[SEG_N][16] = {"PaShbSeg_000", "PaShbSeg_001", "PaShbSeg_002
 static const u64 g_phash[SEG_N] = {HASH_PART0, HASH_PART1, HASH_PART2, HASH_PART3, HASH_PART4, HASH_PART5, HASH_PART6, HASH_PART7, HASH_PART8, HASH_PART9, HASH_PART10, HASH_PART11, HASH_PART12, HASH_PART13, HASH_PART14, HASH_PART15, HASH_PART16, HASH_PART17, HASH_PART18, HASH_PART19, HASH_PART20, HASH_PART21, HASH_PART22, HASH_PART23, HASH_PART24, HASH_PART25, HASH_PART26, HASH_PART27, HASH_PART28, HASH_PART29, HASH_PART30, HASH_PART31, HASH_PART32, HASH_PART33, HASH_PART34, HASH_PART35, HASH_PART36, HASH_PART37, HASH_PART38, HASH_PART39, HASH_PART40, HASH_PART41, HASH_PART42, HASH_PART43, HASH_PART44, HASH_PART45, HASH_PART46, HASH_PART47, HASH_PART48, HASH_PART49, HASH_PART50, HASH_PART51, HASH_PART52, HASH_PART53, HASH_PART54, HASH_PART55, HASH_PART56, HASH_PART57, HASH_PART58, HASH_PART59, HASH_PART60, HASH_PART61, HASH_PART62, HASH_PART63, HASH_PART64, HASH_PART65, HASH_PART66, HASH_PART67, HASH_PART68, HASH_PART69, HASH_PART70, HASH_PART71, HASH_PART72, HASH_PART73, HASH_PART74, HASH_PART75, HASH_PART76, HASH_PART77, HASH_PART78, HASH_PART79, HASH_PART80, HASH_PART81, HASH_PART82, HASH_PART83, HASH_PART84, HASH_PART85, HASH_PART86, HASH_PART87, HASH_PART88, HASH_PART89, HASH_PART90, HASH_PART91, HASH_PART92, HASH_PART93, HASH_PART94, HASH_PART95, HASH_PART96, HASH_PART97, HASH_PART98, HASH_PART99, HASH_PART100, HASH_PART101, HASH_PART102, HASH_PART103, HASH_PART104, HASH_PART105, HASH_PART106, HASH_PART107, HASH_PART108, HASH_PART109, HASH_PART110, HASH_PART111, HASH_PART112, HASH_PART113, HASH_PART114, HASH_PART115, HASH_PART116, HASH_PART117, HASH_PART118, HASH_PART119, HASH_PART120, HASH_PART121, HASH_PART122, HASH_PART123, HASH_PART124, HASH_PART125, HASH_PART126, HASH_PART127};
 #ifdef BUTTON_MAPPING      /* built with features/button_mapping */
 int hud_shield_parts(void);
-#define PART_TOT (g_shbcfg.button_mapping ? (hud_shield_parts() ? PART_N : PART_BASE) : 0)   /* parts appended to PlayerStatus_00 */
+int hud_armory_parts(void);
+/* parts appended to PlayerStatus_00: the classic 12, the shield's 2 with a shield button, all 22 with an armory
+ * button (its menu comes after the shield's parts, which then exist but stay hidden without a shield button) */
+#define PART_TOT (g_shbcfg.button_mapping ? (hud_armory_parts() ? PART_N : hud_shield_parts() ? 14 : PART_BASE) : 0)
 #define BTNMAP (g_shbcfg.button_mapping != 0)
 #else
 #define PART_TOT 0         /* built without features/button_mapping: no button parts at all */
@@ -1600,7 +1603,8 @@ enum { SB_L, SB_X, SB_R, SB_Y, SB_A, SB_ZR, SB_B, SB_NBTN };
  * slot to the X button: input, HUD position and legend all follow it. */
 u32 g_btn_swap;
 int hud_button_swap(void) { return g_btn_swap; }
-int g_sb_item[PART_N] = {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1};   /* set by hud_slot_item() */
+int g_sb_item[PART_N] = {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+                         -1, -1, -1, -1, -1, -1, -1, -1};   /* set by hud_slot_item() */
 /* features/button_mapping publishes its slots here: slot 0 B, 1 L, 2 R, 3 ZR (the item the game has equipped) */
 void hud_slot_item(u32 slot, int item) {
     static const u8 PART_OF[3] = {11, 7, 8};
@@ -1728,16 +1732,36 @@ static u32 face_place(u32 k) {
  * identity, except the game's Jump/B swap, which puts item 1 (part B) on X and jump (part X) on B. */
 static const u8 PART_ROLE[PART_N] = {ROLE_ITEM2, ROLE_JUMP, ROLE_ITEM3, ROLE_SWORD, ROLE_ACTION, ROLE_ITEM_MAIN,
                                      ROLE_ITEM1, ROLE_ITEM2, ROLE_ITEM3, ROLE_SWORD, ROLE_ITEM_MAIN, ROLE_ITEM1,
-                                     ROLE_SHIELD, ROLE_SHIELD};
+                                     ROLE_SHIELD, ROLE_SHIELD,
+                                     ROLE_ARMORY, ROLE_ARMORY, ROLE_ARMORY, ROLE_ARMORY, ROLE_ARMORY, ROLE_ARMORY,
+                                     ROLE_ARMORY, ROLE_ARMORY};
 #define SB_SHIELD 12   /* the shield button part (13: the shield on it) */
 static const u8 PART_HOME[PART_N] = {SB_L, SB_X, SB_R, SB_Y, SB_A, SB_ZR, SB_B, SB_L, SB_R, SB_Y, SB_ZR, SB_B,
-                                     SB_SHIELD, SB_SHIELD};
+                                     SB_SHIELD, SB_SHIELD, 14, 15, 16, 17, 18, 19, 20, 21};
 /* a button part (the button art), not an item drawn on one */
 static int part_is_button(u32 k) { return k < SB_NBTN || k == SB_SHIELD; }
 /* The shield button parts exist (PART_TOT) only with the button remap, the manual shield and a button (not a stick)
  * holding the Shield role: the config does not change while the game runs, so the layout is built once with them. */
 int hud_shield_parts(void) {
     return remap_on() && g_shbcfg.manual_shield && remap_role_phys(ROLE_SHIELD) < PB_L3;
+}
+/* ---- the armory's quick menu (features/quick_select fills these; drawn here while it is up) ----
+ * Parts ARM_FIRST.. : 5 for the swords' row, 3 for the shields' row, each showing the gear's icon. The cursor's is
+ * drawn bigger. Built only with an armory button (the config does not change while the game runs). */
+#define ARM_FIRST 14
+u32 g_arm_open;
+int g_arm_row, g_arm_col;
+char g_arm_names[2][5][28];
+u32 g_arm_n[2];
+float g_arm_geo[6] = {0.0f, 560.0f, 250.0f, 330.0f, 0.62f, 0.92f};   /* centre x, swords y, shields y, step,
+                                                                         * scale, cursor scale (layout units) */
+int hud_armory_parts(void) { return remap_on() && remap_role_phys(ROLE_ARMORY) != PB_NONE; }
+static int arm_part(u32 k) { return k >= ARM_FIRST && k < ARM_FIRST + 8; }
+/* row and column of an armory part */
+static void arm_cell(u32 k, int *row, int *col) {
+    u32 i = k - ARM_FIRST;
+    *row = i < 5 ? 0 : 1;
+    *col = i < 5 ? (int)i : (int)i - 5;
 }
 static u32 part_phys(u32 k) { return remap_role_phys(PART_ROLE[k % PART_N]); }
 /* ZL has no part of its own in the classic layout: its place mirrors ZR's on the left of the diamond */
@@ -2231,6 +2255,13 @@ u64 g_mb_dbg[PART_N];
 /* Layout options (app): simple = only the assignable buttons (no A / X / Y and the sword); L as item selector = L
  * can't hold an item and its button is hidden in both layouts. */
 static int bm_part_hidden(u32 k) {
+    if (arm_part(k)) {                     /* the armory menu: only while it is up, only the gear Link owns */
+        int row, col;
+        arm_cell(k, &row, &col);
+        return !g_arm_open || col >= (int)g_arm_n[row];
+    }
+    if (k >= ARM_FIRST + 8) return 1;
+    if (k >= SB_SHIELD && !hud_shield_parts()) return 1;   /* (built for the armory, no shield button) */
     if (part_phys(k) >= PB_L3) return 1;   /* remap: the role is on no button (or on a stick: no HUD art) */
     if (g_shbcfg.bm_simple && (k == SB_X || k == SB_Y || k == SB_A || k == 9 || k >= SB_SHIELD)) return 1;
     if (g_shbcfg.bm_l_mode && (k == SB_L || k == 7)) return 1;   /* L opens the item selector: no L button */
@@ -2298,10 +2329,29 @@ static void slots_draw(SlotBtn *set, const u64 *ctrls, u64 frame, const float *l
         }
         ctrl_unfocusable(b->uctl);
         /* an item part with no item (and no fixed texture, like the sword) is hidden */
+        if (arm_part(k) && main_set) {   /* the armory menu: the gear's icon as the part's fixed texture */
+            int row, col;
+            arm_cell(k, &row, &col);
+            const char *nm = col < (int)g_arm_n[row] ? g_arm_names[row][col] : "";
+            if (!nm[0]) g_sb_force[k][0] = 1;
+            else if (!str_eq(g_sb_force[k], nm)) {
+                u32 i = 0;
+                for (; i < 30 && nm[i]; i++) g_sb_force[k][i] = nm[i];
+                g_sb_force[k][i] = 0;
+            }
+        }
         u32 empty = (!part_is_button(k) && g_sb_item[k] < 0 && g_sb_force[k][0] <= 1) || bm_part_hidden(k);
         float sc = empty || !BTNMAP ? 0.0f : g_sb_sc[k] * lay[1];
         float px, py;
         sb_xy(lay, k, g_shbcfg.bm_simple, &px, &py);
+        if (arm_part(k)) {               /* two centred rows; the cursor's icon bigger */
+            int row, col;
+            arm_cell(k, &row, &col);
+            float n = (float)g_arm_n[row];
+            px = g_arm_geo[0] + ((float)col - (n - 1.0f) * 0.5f) * g_arm_geo[3];
+            py = row ? g_arm_geo[2] : g_arm_geo[1];
+            sc = empty ? 0.0f : (row == g_arm_row && col == g_arm_col ? g_arm_geo[5] : g_arm_geo[4]);
+        }
         if (b->rec) place(b->rec, px, py, sc, sc, 0.0f);
         /* ItemPattern = icon framing. Frame 0 shows the full picture: buttons, and items drawn big and even
          * like the item buttons (item_pattern() keeps the stock box's per-item framing for a smaller style) */

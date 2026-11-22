@@ -46,9 +46,12 @@ gone: the table places everything (the installer writes 0).
 
 ## Armory (role)
 
-A button with the **Armory** role (any button) changes gear while it is held: left / right the sword, up / down the
-shield, with the D-pad or the left stick; Link does not move meanwhile. Each step equips the next sword or shield Link
-owns, the same way the pause menu does. There is no age rule: the game takes any gear Link owns at either age (checked
+A button with the **Armory** role (any button) opens a quick menu while it is held: a row with the swords and a row
+with the shields Link owns, the cursor on what he wears. Left / right moves in the row, up / down changes the row (D-pad
+or left stick; Link does not move meanwhile), and letting the button go equips the one under the cursor, the same way
+the pause menu does (nothing changes when the cursor did not move; chosen while Link is busy, it is equipped as soon as
+he is free). The menu is 8 more HUD parts (core/hud.c ARM_FIRST.., built only with an armory button) showing each
+gear's icon, the cursor's bigger; `g_arm_geo` places it. There is no age rule: the game takes any gear Link owns at either age (checked
 live: child Link with the Master Sword, Biggoron's Sword and the broken knife). Inspired by the community mod Hyrule
 Armory Sync, which does it through the native item drawer on L; this one has no drawer and applies the change at once
 (the model and the HUD follow).

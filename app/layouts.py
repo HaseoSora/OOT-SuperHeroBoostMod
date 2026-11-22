@@ -49,6 +49,12 @@ class LayoutError(Exception):
 
 
 # ------------------------------------------------------------------ cache
+def resource_dir() -> Path:
+    """`app/payload` in a checkout, `payload` inside the built app."""
+    base = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent))
+    return base / "payload"
+
+
 def cache_dir() -> Path:
     if sys.platform == "win32":
         base = Path(os.environ.get("LOCALAPPDATA") or Path.home() / "AppData" / "Local")
@@ -242,11 +248,26 @@ def merge_table(src: Path, dst: Path) -> None:
 
 
 def apply(romfs: Path, style: str) -> None:
-    """Copy the chosen layout's font and atlas into a mod's romfs and merge its table."""
+    """Copy the chosen layout's atlas into a mod's romfs, with the patched font, and merge its table.
+
+    The layout's own External font is never installed: this build's font loader aborts when the
+    unpacked OTF is larger than ~14640 bytes (the layout ships 15632). `tools/make_button_font.py`
+    builds the safe one (the vanilla font plus the eight button glyphs), and it is installed from
+    the payload when it exists; without it the game keeps its own prompts.
+    """
     src = ensure(style)
-    for key in ("font", "atlas"):
-        rel = REL[key]
-        dst = romfs / rel
+    rel = REL["atlas"]
+    dst = romfs / rel
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(src / rel, dst)
+    font = resource_dir() / "button_romfs" / style / REL["font"]
+    if font.is_file():
+        dst = romfs / REL["font"]
         dst.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(src / rel, dst)
+        shutil.copy2(font, dst)
     merge_table(src / REL["table"], romfs / REL["table"])
+
+
+def font_ready(style: str) -> bool:
+    """The payload has the patched font for `style` (only PlayStation needs one)."""
+    return style == "playstation" and (resource_dir() / "button_romfs" / style / REL["font"]).is_file()

@@ -460,3 +460,24 @@ Both mods are generated from the user's own dump by `tools/make_enemy_opts.py`; 
   `Obj_Rupee_Green` blocks that drop with a same-size string-index swap (heart: no_heart_drop, magic: no_magic_drop).
 - Both options edit the same file, so when both are on the installer uses one combined copy
   (`no_heart_magic_drop`); copying the two single files one after the other would leave only the last one.
+
+## External font: the loader's size budget (Nov 22)
+
+- The game's button glyphs (A B X Y L R ZL ZR = U+E040..U+E047) live in
+  `Font2/Scalable/External.Nin_Ounce_NVN2.bfotf.zs`: zstd with the game dictionary (`zs.zsdic`) over an 8-byte
+  header (`w0 = 0x18029A7F ^ key`, `w1` carries the unpacked size) and an XOR-obfuscated OTF (`OTTO`). The
+  community PlayStation layout (GameBanana 737074) changes 18 charstrings and its OTF is 15632 bytes against the
+  vanilla 14560.
+- **The loader (Owl, inside the system NSS) aborts with a null call when the unpacked OTF is too big**, not when a
+  glyph is wrong: `Unmapped Read64 @ 0x0` at `Owl.nss+0xA7F6EC`, then `pc 0x4`. The crash happens while the
+  resource loader is reading the `Font2/S...` path (R06/R07 hold that string), ~15 s into boot.
+- The budget was measured by bisection: the vanilla font padded with zeros boots at 14636 bytes and aborts at
+  14676. Useful limit **14640**. It does not come from the ResourceSizeTable: the installed table already reserves
+  0x5000 (20480) for the font and the game still aborts.
+- The full PlayStation font cannot fit (15632). The safe build is the **vanilla font with only the eight button
+  charstrings replaced and the OpenType `name` table dropped** (524 bytes the game never reads): 14232 bytes, boots,
+  and the game draws the PS glyphs (verified in a shop dialogue: B = ✕ and the "previous dialogue" R1).
+  `tools/make_button_font.py` builds it into `app/payload/button_romfs/playstation/`; `tools/font_variant.py`
+  repeats the bisection (`--set list:uniE046,uniE047`, `--pad N`, `--boot`).
+- The frame may be compressed **without** the dictionary: the game's decompressor accepts it, so the app does not
+  need to ship `zs.zsdic`.

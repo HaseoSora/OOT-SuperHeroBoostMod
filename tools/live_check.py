@@ -82,20 +82,32 @@ def main() -> int:
                     help="presses of A to load the save after boot (user's procedure)")
     ap.add_argument("--shots", type=int, default=0, help="extra screenshots, 0.35 s apart")
     ap.add_argument("--shot-gap", type=float, default=0.35)
+    ap.add_argument("--move-window", action="store_true",
+                    help="move the emulator to the secondary monitor (Windows); it stops the Vulkan swapchain "
+                         "when the monitors have different resolution, which ends the emulation")
     args = ap.parse_args()
 
     syms = symbols()
     env = dict(**__import__("os").environ, EDEN_NX2_DEBUG_SERVER=f"127.0.0.1:{PORT}")
+    # The debug server belongs to the emulator binary. In the Fritchii builds the emulator is fritchii.exe and the
+    # 120 KB lichii.exe beside it is only a launcher: it starts the game but never opens the debug server, so every
+    # read fails with "debug server not reachable on 127.0.0.1:PORT". Plain Lichii builds have no fritchii.exe and
+    # there lichii.exe IS the emulator.
+    exe = FRITCHII / "fritchii.exe"
+    if not exe.exists():
+        exe = FRITCHII / "lichii.exe"
+    print("launching", exe.name)
     proc = subprocess.Popen(
-        [str(FRITCHII / "lichii.exe"), "-g", str(GAME)],
+        [str(exe), "-g", str(GAME)],
         cwd=str(FRITCHII), env=env,
     )
     try:
-        try:                                   # keep the emulator off the primary monitor (Windows helper)
-            from lib.winmove import move_to_secondary
-            move_to_secondary(proc.pid)
-        except Exception:
-            pass
+        if args.move_window:               # keep the emulator off the primary monitor (Windows helper)
+            try:
+                from lib.winmove import move_to_secondary
+                move_to_secondary(proc.pid)
+            except Exception:
+                pass
         c = DebugClient(port=PORT, timeout=10)
         st = wait_for_status(c)
         print("debug status:", "ok" if st is not None else "NO CONNECTION")

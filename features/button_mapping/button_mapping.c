@@ -236,8 +236,7 @@ void button_remap_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_res
     (void)a2;
     if (site != 3 || !a0) return;
     if (!remap_on()) { g_remap_live = 0; return; }
-    u32 count = (u32)(unsigned long)a1;
-    if (count == 0 || count > 64) count = stock_result;
+    u32 count = hid_sample_count(a1, stock_result);
     if (count == 0 || count > 64) return;
     /* Gameplay: the player updated recently. player_active() alone drops for a few frames in hit stops and
      * transitions, and a real button must never reach the game there with its own function. */
@@ -276,8 +275,7 @@ u32 g_dbg_cnt[5], g_dbg_btn[5], g_dbg_hits[5];
 void button_mapping_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_result) {
     if (site < 5) {
         HidView dv = {a0, 0, 0};
-        u32 dcount = (u32)(unsigned long)a1;
-        if (dcount == 0 || dcount > 64) dcount = stock_result;
+        u32 dcount = hid_sample_count(a1, stock_result);
         if (dcount > 64) dcount = 0;
         g_dbg_hits[site]++;
         g_dbg_a0[site] = (u64)(unsigned long)a0;
@@ -289,8 +287,7 @@ void button_mapping_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_r
     dbg_tick();
     (void)a2;
     if (site != 3 || !a0) return;
-    u32 count = (u32)(unsigned long)a1;
-    if (count == 0 || count > 64) count = stock_result;
+    u32 count = hid_sample_count(a1, stock_result);
     if (count == 0 || count > 64) return;
     HidView view = {a0, count, 0};
     /* the shield role's virtual bit is the manual shield's (it ran before): the game never sees it */

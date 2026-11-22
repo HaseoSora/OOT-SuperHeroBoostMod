@@ -138,8 +138,7 @@ void songbook_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_result)
     if (sel < 12u && sel != g_songbook_sel && learned(ctx, sel)) arm(ctx, sel);
 
     if (g_songbook_pending >= 12u) { g_songbook_inj_tick = 0; return; }
-    u32 count = (u32)(unsigned long)a1;
-    if (count == 0 || count > 64) count = stock_result;
+    u32 count = hid_sample_count(a1, stock_result);
     if (count == 0 || count > 64) return;
 
     u32 t = ++g_songbook_inj_tick;

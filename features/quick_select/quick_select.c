@@ -204,8 +204,7 @@ static void armory_input(const HidView *view, u64 buttons) {
 void quick_select_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_result) {
     (void)a2;
     if (site != 3 || !a0) return;
-    u32 count = (u32)(unsigned long)a1;
-    if (count == 0 || count > 64) count = stock_result;
+    u32 count = hid_sample_count(a1, stock_result);
     if (count == 0 || count > 64) return;
     HidView view = {a0, count, 0};
     u64 buttons = hid_merge_buttons(&view);

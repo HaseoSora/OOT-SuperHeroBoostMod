@@ -6,8 +6,8 @@ import os, subprocess, sys, tempfile
 sys.path.insert(0, os.path.dirname(__file__))
 from lib import nso
 
-BIN = r"F:\project\oot\tools\llvm-mingw\llvm-mingw-20261104-ucrt-x86_64\bin"
-STOCK = r"F:\project\oot\data\stock-exefs\main"
+BIN = os.environ.get("SHB_LLVM", r"C:\Program Files\LLVM\bin")
+STOCK = os.environ.get("SHB_STOCK_MAIN", "F:/Switch2/rekarina/game/exefs/main")
 _cache = {}
 
 

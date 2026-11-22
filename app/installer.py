@@ -38,6 +38,8 @@ ITEM_ROLES = ("item1", "item2", "item3", "item_main")
 # Roles limited to some buttons (everything else goes anywhere)
 _NO_STICKS = ("L", "X", "R", "Y", "A", "ZR", "B", "ZL")
 ROLE_BUTTONS = {"selector": ("L", "R"), "target": ("ZL", "ZR", "L3", "R3"),
+                # action: a face button only (the game's context prompt draws one of A / B / X / Y)
+                "action": ("A", "B", "X", "Y"),
                 **{r: _NO_STICKS for r in ("item1", "item2", "item3", "item_main")}}   # items: no sticks (no HUD art)
 CLASSIC_ROLES = {"L": "item2", "X": "jump", "R": "item3", "Y": "sword", "A": "action", "ZR": "item_main",
                  "B": "item1", "ZL": "target", "L3": "none", "R3": "camera"}

@@ -231,6 +231,8 @@ class Settings:
     sprint_l3_toggle: bool = False   # sprint_l3: L3 turns the sprint on / off instead of holding it
     bm_remap: bool = True            # button remap: use bm_roles (the table implies shield/sprint/selector)
     bm_roles: dict = field(default_factory=lambda: dict(CLASSIC_ROLES))   # button (REMAP_BUTTONS) -> role (ROLES)
+    hud_ctrl_scale: int = 100        # size of the button cluster HUD, percent (HUD_SCALE_MIN..MAX)
+    hud_count_scale: int = 100       # size of the counter row (rupees, clock, collectibles), percent
 
     def to_dict(self): return dict(self.__dict__)
 
@@ -606,7 +608,22 @@ def patch_config(nso: bytes, s: Settings) -> bytes:
                     b[f + 54] = int(s.manual_shield)
                     b[f + 55] = 0                                            # target_r3: target can be on R3 itself
                     b[f + 56] = int(fl["sprint_l3"])
+    if size >= 0x5C:                                    # struct 90 / 91 (the old tail padding): HUD scales
+        b[f + 74] = hud_scale(s.hud_ctrl_scale)
+        b[f + 75] = hud_scale(s.hud_count_scale)
     return bytes(b)
+
+
+HUD_SCALE_MIN, HUD_SCALE_MAX, HUD_SCALE_STEP = 50, 200, 5
+
+
+def hud_scale(value) -> int:
+    """A HUD scale percent clamped to the slider's range (the module reads 0 as 100)."""
+    try:
+        v = int(round(float(value)))
+    except (TypeError, ValueError):
+        return 100
+    return max(HUD_SCALE_MIN, min(HUD_SCALE_MAX, v))
 
 
 def set_installed_lang(mods: Path, name: str, code: str) -> bool:

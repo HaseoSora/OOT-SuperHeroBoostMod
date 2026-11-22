@@ -132,6 +132,10 @@ def cli(argv) -> int:
     ap.add_argument("--rupees", action="store_true", help="always-visible rupee counter")
     ap.add_argument("--clock", action="store_true", help="always-visible clock")
     ap.add_argument("--clock24", action="store_true")
+    ap.add_argument("--hud-ctrl-scale", type=int, default=None,
+                    help="size of the button cluster HUD, percent (%d..%d, 100 = default)" % (I.HUD_SCALE_MIN, I.HUD_SCALE_MAX))
+    ap.add_argument("--hud-count-scale", type=int, default=None,
+                    help="size of the counter row HUD (rupees, clock, collectibles), percent (100 = default)")
     a = ap.parse_args(argv)
 
     if a.list_profiles:
@@ -239,6 +243,10 @@ def cli(argv) -> int:
         s.damage = a.damage
     if a.sprint_speed is not None:
         s.sprint_speed = a.sprint_speed
+    if a.hud_ctrl_scale is not None:
+        s.hud_ctrl_scale = I.hud_scale(a.hud_ctrl_scale)
+    if a.hud_count_scale is not None:
+        s.hud_count_scale = I.hud_scale(a.hud_count_scale)
     if a.no_heart_drop:
         s.no_heart_drop = True
     if a.no_magic_drop:
@@ -407,6 +415,8 @@ def gui() -> None:
     nmagic = tk.BooleanVar(value=bool(cfg.get("no_magic_drop", False)))
     hide_min = tk.BooleanVar(value=bool(cfg.get("hide_minimap", False)))
     rupees = tk.BooleanVar(value=bool(cfg.get("hud_rupees", False)))
+    hud_ctrl_scale = tk.IntVar(value=I.hud_scale(cfg.get("hud_ctrl_scale", 100)))
+    hud_count_scale = tk.IntVar(value=I.hud_scale(cfg.get("hud_count_scale", 100)))
     CLOCK_MODES = ("off", "12", "24")
     _clock = cfg.get("clock_mode")
     if _clock not in CLOCK_MODES:
@@ -656,7 +666,9 @@ def gui() -> None:
                           enemy_hp=hp.get(), damage=dmg.get(), no_heart_drop=nodrop.get(),
                           no_magic_drop=nmagic.get(), hide_minimap=hide_min.get(),
                           sprint_speed=speed.get(), hud_rupees=rupees.get(),
-                          hud_clock=clock_mode.get() != "off", clock_24h=clock_mode.get() == "24")
+                          hud_clock=clock_mode.get() != "off", clock_24h=clock_mode.get() == "24",
+                          hud_ctrl_scale=I.hud_scale(hud_ctrl_scale.get()),
+                          hud_count_scale=I.hud_scale(hud_count_scale.get()))
 
     def remember():
         return save_cfg({
@@ -690,6 +702,7 @@ def gui() -> None:
             "sprint_speed": speed.get(), "hud_rupees": rupees.get(),
             "clock_mode": clock_mode.get(),
             "hud_clock": clock_mode.get() != "off", "clock_24h": clock_mode.get() == "24",
+            "hud_ctrl_scale": hud_ctrl_scale.get(), "hud_count_scale": hud_count_scale.get(),
         })
 
     def ok_emu():
@@ -1623,6 +1636,7 @@ def gui() -> None:
         desc_label(body, L("hud_collectibles_desc"))
         check(body, L("hide_minimap"), hide_min).pack(anchor="w", pady=(8, 0))
         desc_label(body, L("hide_minimap_desc"))
+        scale_row(body, "hud_count_scale", hud_count_scale, pady=(10, 0))
         label(body, L("hud_note"), size=9, color=DIM, bg=PANEL).pack(anchor="w", pady=(8, 0))
         build_game_prompts(parent)
 
@@ -1733,6 +1747,15 @@ def gui() -> None:
             c.pack(anchor="w")
         RM.help_icon(c.master, tip, COLORS, FAM).pack(side="left", padx=(8, 0))
         return c
+
+    def scale_row(body, key, var, pady=(8, 0)):
+        """A HUD size slider (percent, 100 = the current size) with its explanation behind a "?"."""
+        row = UI.Frame(body, bg=PANEL)
+        row.pack(anchor="w", pady=pady)
+        label(row, L(key) + ":", size=10, bg=PANEL).pack(side="left", padx=(0, 10))
+        UI.Slider(row, var, I.HUD_SCALE_MIN, I.HUD_SCALE_MAX, I.HUD_SCALE_STEP, bg=PANEL).pack(side="left")
+        RM.help_icon(row, L(key + "_desc"), COLORS, FAM).pack(side="left", padx=(8, 0))
+        return row
 
     def build_quick_select(parent):
         body = card(parent, L("quick_title"), help=L("quick_desc") + "\n\n" + L("quick_note"))
@@ -1865,6 +1888,7 @@ def gui() -> None:
             r.pack(side="left")
             ui["bm"].append(r)
             RM.help_icon(row, L(key + "_d"), COLORS, FAM).pack(side="left", padx=(4, 14))
+        scale_row(body, "hud_ctrl_scale", hud_ctrl_scale)
         if embedded:
             sep = tk.Frame(body, bg=BORDER, height=1)
             sep.pack(fill="x", pady=(12, 10))
@@ -2126,7 +2150,7 @@ def gui() -> None:
               target_r3, sprint_l3, sprint_l3_toggle,
               enemy_double, enemy_move, enemy_anim, enemy_attack, enemy_proj, boss_move, boss_anim, enemy_alert, enemy_aggro, stamina_bar,
               great_fairy, farore_outdoor, mode, combat, hp, dmg, speed,
-              nodrop, rupees, clock_mode, *costs.values()):
+              nodrop, rupees, clock_mode, hud_ctrl_scale, hud_count_scale, *costs.values()):
         v.trace_add("write", autosave)
     emu.trace_add("write", lambda *_: (status.set(""), refresh()))
     recomp_path.trace_add("write", lambda *_: (status.set(""), refresh()))

@@ -685,6 +685,53 @@ class Progress(ctk.CTkProgressBar):
             super().__setitem__(key, value)
 
 
+class Slider(ctk.CTkFrame):
+    """A percent slider with its value beside it: an IntVar moved in fixed steps between lo and hi."""
+
+    def __init__(self, parent, var, lo, hi, step, width=260, bg=None, **kw):
+        _strip(kw)
+        super().__init__(parent, fg_color=bg or _parent_bg(parent), corner_radius=0, **kw)
+        self.var, self.lo, self.step = var, lo, step
+        self.value = tk.Label(self, text="", font=(FAM, 10, "bold"), fg=ACCENT, bg=bg or _parent_bg(parent),
+                              width=5, anchor="w")
+        self.slider = ctk.CTkSlider(self, from_=lo, to=hi, number_of_steps=max(1, (hi - lo) // step), width=width,
+                                    fg_color=PANEL2, progress_color=ACCENT, button_color=ACCENT,
+                                    button_hover_color=ACCENT2, command=self._moved)
+        self.slider.set(var.get())
+        self.slider.pack(side="left")
+        self.value.pack(side="left", padx=(10, 0))
+        self._show()
+        var.trace_add("write", lambda *a: self._sync())
+
+    def _moved(self, v):
+        v = int(round((float(v) - self.lo) / self.step)) * self.step + self.lo
+        if v != self.var.get():
+            self.var.set(v)
+        self._show()
+
+    def _sync(self):
+        try:
+            v = int(self.var.get())
+        except (tk.TclError, ValueError):
+            return
+        if int(round(self.slider.get())) != v:
+            self.slider.set(v)
+        self._show()
+
+    def _show(self):
+        try:
+            self.value.configure(text="%d%%" % int(self.var.get()))
+        except (tk.TclError, ValueError):
+            pass
+
+    def configure(self, **kw):
+        if "state" in kw:
+            self.slider.configure(state=kw.pop("state"))
+        return super().configure(**kw) if kw else None
+
+    config = configure
+
+
 class Textbox(ctk.CTkTextbox):
     def __init__(self, parent, bg=None, fg=None, font=None, wrap="none", height=120, state="normal", **kw):
         for k in ("highlightthickness", "highlightbackground", "highlightcolor", "insertbackground", "relief"):

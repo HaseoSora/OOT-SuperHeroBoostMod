@@ -29,7 +29,7 @@ center camera, sprint, shield, item selector, item 1 / 2 / 3, the main item (the
 Each role is on one button at most, so at most **four** buttons hold an item. Limits: items never on L3 / R3 (they
 have no HUD art), the item selector only on L or R, target only on ZL, ZR, L3 or R3, action only on A, B, X or Y
 (the game's context prompt next to Link, `DoCommand_00`, draws a face button; the mod shows the one that holds
-action there).
+action there). Menus, dialogues and shops (Link in an `Evt*` state) keep the real buttons.
 
 The old switches are roles now: a shield button turns the manual shield on, a sprint button the L3-style sprint
 (its "toggle" option on that row), a selector button L's item-selector mode, and target on R3 replaces the ZL/R3

@@ -534,17 +534,33 @@ Both mods are generated from the user's own dump by `tools/make_enemy_opts.py`; 
 
 ## No pointer tables in module data (Nov 22)
 
-- `subsdk9` is linked at a fixed base and the loader applies **no relocations**. longshot, ReLink and the emulator
+- `subsdk9` is linked at a fixed base and the loader applies **no relocations**. Longshot, ReLink and the emulator
   place it exactly at that base, so an absolute pointer stored in `.rodata`/`.data` happens to be valid there.
   Rekarina links it for `main + 0x5200000` and hands the blob to its own loader: such a pointer arrives
   **truncated to 32 bits** and every read through it faults.
-- The armory crash: `static const char *const PART[2] = {"Pa_SortWindow_00", "Pa_Guide_00"}` in
-  `armory_drawer.c`. The name reached the game's find-pane-by-name (`main+0x43c4a0`, called from `ui_get` in
-  `header_show`) as `0x05211177` = `0x705211177 & 0xFFFFFFFF`, and the loader died with `Unmapped Read64 @ 0x0`
-  followed by `pc 0x4`, right after printing `Font2/S...`-style paths.
-- `quick_select.c`'s `first_owned_mask()` had the same bug with eight mask names (found by the new check, not by a
-  crash yet): the next use of the Lens mask would have faulted the same way.
-- Fix by returning the literal from code or by using `char names[N][LEN]` (an array of arrays is bytes, not
-  pointers). `tools/build_core.py` now fails the build (`check_pointer_data`) when any object keeps an
-  `R_AARCH64_ABS64` in `.rodata*`/`.data*`; `llvm-objdump -r` reports those blocks as `.rodata` or `.rela.rodata`
-  depending on the object, so the check normalises both.
+- `armory_drawer.c` had `static const char *const PART[2] = {"Pa_SortWindow_00", "Pa_Guide_00"}`, and
+  `quick_select.c`'s `first_owned_mask()` eight mask names. Fix by returning the literal from code or by using
+  `char names[N][LEN]` (an array of arrays is bytes, not pointers). `tools/build_core.py` now fails the build
+  (`check_pointer_data`) when any object keeps an `R_AARCH64_ABS64` in `.rodata*`/`.data*`; `llvm-objdump -r`
+  reports those blocks as `.rodata` or `.rela.rodata` depending on the object, so the check normalises both.
+- That was a real bug, but **it was not the armory crash**: after removing the table the same fault came back with
+  `x0 = 0x05212177`, i.e. the address of the module's own string (`0x7005212177`) with the top bits gone. The
+  truncation happens when a **module pointer is handed to the game's `main`**: `header_show` -> `ui_get` ->
+  `main+0x43c4a0` (find-pane-by-name), while `find_part()` in the same function survives the crossing. With
+  `SHB_REKARINA`, `ui_get()` now stops after `find_part()`; if it misses, the armory keeps the sort header visible
+  (cosmetic) instead of calling the game with a module pointer.
+
+## HUD modes and the simple bar (Nov 22)
+
+- The app's `hud_mode` is now **wide / simple / plain**. `simple` and `plain` share the same four-block row
+  (`hud_x`), the same scales and the clock's sun/moon (`hud_mode >= 1` test in `hud.c`); only `hud_plates`
+  differs: 2 draws the bar, 0 leaves the row bare. The old "minimal" (map) mode is gone and its config byte 2
+  now means `plain`, so a configuration saved with minimal lands on a sane mode instead of failing.
+- The bar is its own picture pane `PIC_BG` (the last one, `P_ShbPic_274`): a clone of the sub-item picture with
+  the flat white texture (`White8_00_BC4L`) tinted black. Its geometry is `g_bg_tune` = {x shift, extra width on
+  the right, alpha, height}: -165, +10, 0.42, 1.05 puts the left edge on the screen edge and the right one just
+  past the hearts number. The wide plates are no longer drawn in `plates == 2` (that was the old "one bar plate").
+- The skull / heart icons get `1.30x` in the one-row modes: their art carries more transparent padding than the
+  rupee and sun, so they read smaller at the same scale.
+- Pause menu: `hud_menu_legend` no longer shows its backing plate (the `P_ShbPic_399` clone is scaled to zero),
+  and `g_mb_lay` moved to {-740, -90} (a little up and right of the old spot).

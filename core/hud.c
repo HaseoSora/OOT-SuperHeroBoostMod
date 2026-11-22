@@ -261,7 +261,8 @@ static const u64 g_thash[TXT_N] = {HASH_TXT0, HASH_TXT1, HASH_TXT2, HASH_TXT3, H
 #define BAR_SEG0 2
 #define BAR_SEG 16
 #define BAR_N (BAR_SEG0 + BAR_SEG)
-#define PIC_N (PIC_BAR + BAR_N)
+#define PIC_BG (PIC_BAR + BAR_N)            /* simple layout: the translucent bar behind the four blocks */
+#define PIC_N (PIC_BG + 1)
 static char g_pinames[PIC_N][16];           /* "P_ShbPic_000".. filled by pic_names() */
 static const u64 g_pihash[400] = {HASH_PIC_LIST};   /* CityHash64 of "P_ShbPic_000".. (tools/build_core.py) */
 _Static_assert(PIC_N <= 400, "more picture panes than generated hashes");
@@ -1079,6 +1080,9 @@ static const float RAY_DX[8] = {0.0f, 0.70711f, 1.0f, 0.70711f, 0.0f, -0.70711f,
 static const float RAY_DY[8] = {1.0f, 0.70711f, 0.0f, -0.70711f, -1.0f, -0.70711f, 0.0f, 0.70711f};
 u32 g_hud_show[2] = {0x10000000u, 0x10000000u};   /* clock, rupees: 1 = drawn this frame */
 static u64 g_pic_rec[PIC_N];
+/* Simple layout's bar (plates == 2), tunable live with tools/hud_tune.py: 0 = x shift, 1 = extra width on the
+ * right (negative shortens), 2 = alpha, 3 = height. */
+float g_bg_tune[4] = {-165.0f, 10.0f, 0.42f, 1.05f};
 static u32 g_plates_shown;
 static void bar_reset(void);
 /* the layout was rebuilt: drop cached pane records and force the texts to be set again */
@@ -1344,8 +1348,17 @@ static void plates_update(u64 frame) {
     u32 show_r = rup && bxr != -32768, show_c = clk && bxc != -32768;
     u32 show_s = active && g_shbcfg.hud_collectibles && bxs != -32768;
     u32 show_h = active && g_shbcfg.hud_collectibles && bxh != -32768;
-    if (plates && show_r) {
-        float cx = plates == 2 && bxh != -32768 ? ((float)bxr + (float)bxh) * 0.5f : (float)bxr;
+    if (plates == 2) {   /* simple: one soft translucent bar behind the row of counters */
+        int xl = bxr != -32768 ? bxr : bxc;
+        int xr = bxh != -32768 ? bxh : (bxs != -32768 ? bxs : bxc);
+        float x0 = (float)xl - 233.0f + g_bg_tune[0], x1 = (float)xr + 213.0f + g_bg_tune[0] + g_bg_tune[1];
+        place(g_pic_rec[PIC_BG], (x0 + x1) * 0.5f, BY, (x1 - x0) / 100.0f, g_bg_tune[3], 0.0f);
+        tint_rec(g_pic_rec[PIC_BG], 0.0f, 0.0f, 0.0f, g_bg_tune[2]);
+    } else {
+        place(g_pic_rec[PIC_BG], 0.0f, 0.0f, 0.0f, 0.0f, 0.0f);
+    }
+    if (plates == 1 && show_r) {
+        float cx = (float)bxr;
         for (u32 j = 0; j < 4; j++) {
             u64 rec = g_pic_rec[4 + j];
             float sx = psx * ((j & 1) ? -1.0f : 1.0f);
@@ -1373,11 +1386,12 @@ static void plates_update(u64 frame) {
         }
     }
     /* collectible icons (the plates are only in wide mode) */
+    float cisc = isc * (plates == 1 ? 1.0f : 1.30f);   /* the skull / heart art has more padding: it reads small */
     for (u32 sec2 = 0; sec2 < 2; sec2++) {
         int bi = sec2 ? bxh : bxs;
         if (bi == -32768 || !(sec2 ? show_h : show_s)) continue;
         u64 icn = g_pic_rec[PIC_COLL + 8 + sec2];
-        place(icn, (float)bi + ioff2, BY, isc, isc, 0.0f);
+        place(icn, (float)bi + ioff2, BY, cisc, cisc, 0.0f);
         tint_rec(icn, 1.0f, 1.0f, 1.0f, 1.0f);
     }
     if (show_r) {
@@ -1386,7 +1400,7 @@ static void plates_update(u64 frame) {
     }
     if (sec < 0) sec = 0;
     sec %= 86400;
-    if (plates || g_shbcfg.hud_mode == 1) {   /* wide plate or the simple row (no background) */
+    if (plates || g_shbcfg.hud_mode >= 1) {   /* wide plate, or the simple / plain row (no plate) */
         u32 day = sec >= 6 * 3600 && sec < 18 * 3600;
         if (P[16] > 0.5f) day = P[16] < 1.5f;
         u32 sun = show_c && day, moon = show_c && !day;
@@ -1752,7 +1766,7 @@ float g_sb_scale = 0.62f;
 #define SB_CX 1292.6f
 #define SB_CY 680.0f
 float g_sb_lay[4] = {0.75f, 0.85f, 130.0f, 70.0f};     /* compact, top right */
-float g_mb_lay[4] = {0.55f, 0.6f, -780.0f, -120.0f};   /* between the item grid and the item preview */
+float g_mb_lay[4] = {0.55f, 0.6f, -740.0f, -90.0f};   /* between the item grid and the item preview, a little up-right */
 /* Simple layout: only B / L / R / ZR. L, R and ZR keep their usual places and B moves to the centre of the
  * group, closer to them (no holes where X / Y / A were). Same coordinate space as g_sb_pos; the item of each
  * button keeps its up-left offset. */
@@ -2497,11 +2511,11 @@ static void hud_menu_legend(u64 page) {
     }
     static const float WHITE[3] = {1.0f, 1.0f, 1.0f}, GOLD[3] = {0.95f, 0.82f, 0.45f};
     if (!g_leg_bar_rec) g_leg_bar_rec = pane_record(pf, g_legbar_name);
-    if (g_leg_bar_rec) {
-        tint_rec(g_leg_bar_rec, g_leg_bar[5], g_leg_bar[6], g_leg_bar[7], g_leg_bar[4]);
-        *(float *)(g_leg_bar_rec + 0x74) = 1.0f; *(float *)(g_leg_bar_rec + 0x78) = 1.0f;   /* (the source plate starts hidden) */
-        float shift = g_leg_pos[2] * (float)n_off;   /* fewer pairs: shorter by a pair step each, right edge kept */
-        place(g_leg_bar_rec, g_leg_bar[0] + shift * 0.5f, g_leg_bar[1], g_leg_bar[2] - shift / 2200.0f, g_leg_bar[3], 0.0f);
+    if (g_leg_bar_rec) {   /* no backing plate: the legend reads on the menu's own background */
+        *(float *)(g_leg_bar_rec + 0x60) = 0.0f;
+        *(float *)(g_leg_bar_rec + 0x64) = 0.0f;
+        *(float *)(g_leg_bar_rec + 0x74) = 0.0f;
+        *(u32 *)g_leg_bar_rec |= 0x6F;
     }
     for (u32 t = 0; t < LEG_N; t++) {
         if (!g_leg_rec[t]) g_leg_rec[t] = pane_record(pf, g_lnames[t]);

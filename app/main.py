@@ -1597,7 +1597,7 @@ def gui() -> None:
         mrow = UI.Frame(body, bg=PANEL)
         mrow.pack(fill="x", pady=(0, 8))
         label(mrow, L("hud_mode") + ":", size=10, bg=PANEL).grid(row=0, column=0, sticky="w", padx=(0, 6))
-        mvalues = [L("hud_mode_wide"), L("hud_mode_simple"), L("hud_mode_map")]
+        mvalues = [L("hud_mode_wide"), L("hud_mode_simple"), L("hud_mode_plain")]
         mvar = tk.StringVar(value=mvalues[I.HUD_MODES.index(hud_mode.get())])
         mcb = combo(mrow, mvalues, mvar, width=24)
         mcb.grid(row=0, column=1, sticky="w")
@@ -1607,7 +1607,7 @@ def gui() -> None:
         ui["hud_mode_values"] = mvalues
         label(body, L("hud_mode_wide_desc"), size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=(20, 0))
         label(body, L("hud_mode_simple_desc"), size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=(20, 0))
-        label(body, L("hud_mode_map_desc"), size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=(20, 0), pady=(0, 8))
+        label(body, L("hud_mode_plain_desc"), size=9, color=DIM, bg=PANEL).pack(anchor="w", padx=(20, 0), pady=(0, 8))
         row = UI.Frame(body, bg=PANEL)
         row.pack(fill="x")
         check(row, L("hud_rupees"), rupees).grid(row=0, column=0, sticky="w", padx=(0, 30))

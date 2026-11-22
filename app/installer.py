@@ -19,8 +19,8 @@ BUILD_ID = "E0F3CCFAF50065AE4EA01EB5AEB13B1A45DA3348"
 MOD_NAME = "zz-Super-Hero-Boost"   # must sort last: ReLink/emulators let the last mod win each file
 MARKER = ".super-hero-boost"
 BUTTON_STYLES = ("switch", "playstation", "xbox")   # buttonMapping button art (the config byte: 0 Switch, 1 Xbox, 2 PS)
-HUD_MODES = ("wide", "simple", "map")
-HUD_MODE_BYTE = {"wide": 0, "simple": 1, "map": 2}
+HUD_MODES = ("wide", "simple", "plain")
+HUD_MODE_BYTE = {"wide": 0, "simple": 1, "plain": 2}   # 2 used to be "map" (minimal); old configs read as plain
 STYLE_BYTE = {"switch": 0, "xbox": 1, "playstation": 2}
 GAME_LAYOUTS = ("none", "playstation", "xbox")   # game-wide prompts download (optional; recompilers have their own)
 BM_LAYOUTS = ("nintendo", "ab", "xbox")         # where the face buttons sit (the recompilers' button remap)
@@ -544,17 +544,13 @@ def patch_config(nso: bytes, s: Settings) -> bytes:
     b[f + 26] = int(s.quick_mask)
     mode = s.hud_mode if s.hud_mode in HUD_MODES else "wide"
     # The HUD layout is four block x positions plus plate/text/icon scales. Wide keeps the user's element
-    # switches; simple always shows the four elements in one small bar; map shows rupees+time above the
-    # minimap and puts the heart counter on the Minus map.
-    if mode == "simple":
-        pos = [-1520, -1270, -1030, -800]
+    # switches; simple always shows the four elements in one row behind a soft translucent bar; plain is the
+    # same row with no bar at all.
+    if mode in ("simple", "plain"):
+        pos = [-1685, -1435, -1195, -965]
         rupees = clock = collectibles = True
-        sx, sy, ts, isc, plates, maph, hy, ioff, tx, ioff2 = 100, 48, 50, 45, 0, 0, -1010, -140, 0, -80
-    elif mode == "map":
-        pos = [1454, 1654, -32768, -32768]
-        rupees = clock = True
-        collectibles = False
-        sx, sy, ts, isc, plates, maph, hy, ioff, tx, ioff2 = 50, 50, 50, 45, 0, 1, -420, -140, 0, -140
+        sx, sy, ts, isc, plates, maph, hy, ioff, tx, ioff2 = (100, 48, 50, 45, 2 if mode == "simple" else 0,
+                                                              0, -1010, -140, 0, -80)
     else:
         rupees, clock, collectibles = s.hud_rupees, s.hud_clock, s.hud_collectibles
         slots = []

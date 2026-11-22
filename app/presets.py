@@ -35,7 +35,7 @@ class Profile:
     quick_boots: bool            # hold D-pad down to pick boots
     quick_mask: bool             # hold D-pad up to pick a mask
     hud_collectibles: bool       # per-area collectible counter
-    hud_mode: str                # "wide" / "simple" / "map"
+    hud_mode: str                # "wide" / "simple" / "plain"
     enemy_double: bool           # beta options: a named profile starts with them off
     enemy_move: int              # 0 off, 1 x1.5, 2 x2, 3 x3
     enemy_anim: int

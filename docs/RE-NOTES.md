@@ -531,3 +531,20 @@ Both mods are generated from the user's own dump by `tools/make_enemy_opts.py`; 
   `button_remap_on_input` now leaves the real buttons in `Evt*` too (A next, B back) and publishes `g_remap_live`;
   the prompt glyphs follow it (own glyph back when the remap is off). Checked live with action on X: X talks,
   the real A advances the text, the real B picks "Adiós" (no purchase), and △ Hablar comes back afterwards.
+
+## No pointer tables in module data (Nov 22)
+
+- `subsdk9` is linked at a fixed base and the loader applies **no relocations**. longshot, ReLink and the emulator
+  place it exactly at that base, so an absolute pointer stored in `.rodata`/`.data` happens to be valid there.
+  Rekarina links it for `main + 0x5200000` and hands the blob to its own loader: such a pointer arrives
+  **truncated to 32 bits** and every read through it faults.
+- The armory crash: `static const char *const PART[2] = {"Pa_SortWindow_00", "Pa_Guide_00"}` in
+  `armory_drawer.c`. The name reached the game's find-pane-by-name (`main+0x43c4a0`, called from `ui_get` in
+  `header_show`) as `0x05211177` = `0x705211177 & 0xFFFFFFFF`, and the loader died with `Unmapped Read64 @ 0x0`
+  followed by `pc 0x4`, right after printing `Font2/S...`-style paths.
+- `quick_select.c`'s `first_owned_mask()` had the same bug with eight mask names (found by the new check, not by a
+  crash yet): the next use of the Lens mask would have faulted the same way.
+- Fix by returning the literal from code or by using `char names[N][LEN]` (an array of arrays is bytes, not
+  pointers). `tools/build_core.py` now fails the build (`check_pointer_data`) when any object keeps an
+  `R_AARCH64_ABS64` in `.rodata*`/`.data*`; `llvm-objdump -r` reports those blocks as `.rodata` or `.rela.rodata`
+  depending on the object, so the check normalises both.

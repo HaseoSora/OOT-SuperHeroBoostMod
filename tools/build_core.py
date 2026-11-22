@@ -105,6 +105,35 @@ def run(args: list[str]) -> str:
     return r.stdout
 
 
+def check_pointer_data(objs: list[str]) -> None:
+    """Fail on a relocation that stores an absolute address in module data.
+
+    The module has no relocations: Longshot, ReLink and the emulator load it at its link base, so such a
+    pointer happens to work there, but Rekarina loads it at `main + 0x5200000` and the value arrives
+    truncated to 32 bits. That crashed the armory's pane lookup (2026-11: `static const char *const
+    PART[2]` in armory_drawer.c). Return the literal from code instead of keeping a table.
+    """
+    objdump = TOOLCHAIN_BIN / f"llvm-objdump{EXE}"
+    bad: list[str] = []
+    for obj in objs:
+        cur = ""
+        for line in run([str(objdump), "-r", obj]).splitlines():
+            if line.startswith("RELOCATION RECORDS FOR ["):
+                cur = line[line.index("[") + 1:line.rindex("]")]
+                continue
+            if not (cur.startswith(".rela.") or cur.startswith(".data") or cur.startswith(".rodata")):
+                continue
+            sect = cur[6:] if cur.startswith(".rela.") else cur
+            if not (sect.startswith(".rodata") or sect.startswith(".data")):
+                continue
+            parts = line.split()
+            if len(parts) == 3 and parts[1] in ("R_AARCH64_ABS64", "R_AARCH64_RELATIVE"):
+                bad.append(f"{Path(obj).name}: {cur} {parts[1]} {parts[2]}")
+    if bad:
+        raise SystemExit("absolute pointer in module data (the module cannot be relocated):\n  " +
+                         "\n  ".join(bad))
+
+
 def section_info(elf: Path) -> dict[str, tuple[int, int]]:
     """Return {section: (size, address)} from llvm-size -A (or llvm-objdump -h when llvm-size is absent)."""
     info: dict[str, tuple[int, int]] = {}
@@ -447,6 +476,7 @@ def main() -> int:
              "-c", str(src), "-o", str(obj)])
         objs.append(str(obj))
 
+    check_pointer_data(objs)
     elf = OUT / "module.elf"
     run([str(LLD), "-T", str(LINK_SCRIPT), "-o", str(elf), *objs])
 

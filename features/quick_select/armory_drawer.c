@@ -175,12 +175,24 @@ static u32 stick_dir(float x, float y) {
 }
 
 extern void *find_part(void *node, const char *name);   /* core/link.ld: the game's part lookup by name */
-/* a pane / part by name: the game's part lookup, else the nested-part one */
+/* a pane / part by name: the game's part lookup, else the nested-part one.
+ *
+ * Rekarina: the second lookup is skipped. The name is a literal of this module, which lives at
+ * main+0x5200000 there (0x7005212177...); by the time the game's find-pane-by-name
+ * (main+0x43c4a0) reads it, the pointer has lost its top bits (0x05212177) and the read faults.
+ * The first lookup, find_part(), survives the crossing, so the armory still gets its panes when
+ * that one resolves them; without them it shows the sort header instead of hiding it, which is
+ * cosmetic. Diagnosed from game/logs/rekarina.log: same crash before and after removing the
+ * pointer table, always in header_show -> ui_get -> main+0x43c4a0. */
 static u64 ui_get(u64 lay, const char *name) {
     if (!ptr_ok(lay)) return 0;
     u64 p = (u64)find_part((void *)lay, name);
+#ifdef SHB_REKARINA
+    return ptr_ok(p) ? p : 0;
+#else
     if (!ptr_ok(p)) p = ((FindPaneFn)AD_FIND_PANE)(lay, name);
     return ptr_ok(p) ? p : 0;
+#endif
 }
 /* hide (or put back) the sort header and its guide; the name text goes 80 lower, under the two rows */
 static void header_show(u64 lay, u32 hide) {
@@ -200,10 +212,13 @@ static void header_show(u64 lay, u32 hide) {
             ((MoveFn)AD_PANE_MOVE)((void *)g_ad_hid_pane[0], *(volatile float *)(g_ad_hid_pane[0] + 0x6c), y0.f - 80.0f,
                                    *(volatile float *)(g_ad_hid_pane[0] + 0x74));
         }
-        static const char *const PART[2] = {"Pa_SortWindow_00", "Pa_Guide_00"};
         for (int i = 0; i < 2; i++) {
-            u64 q = ui_get(lay, PART[i]);
-            if (!q) q = ui_get(g_ad_sortlay, PART[i]);
+            /* the name inline: an array of pointers here would be a pointer in module data, which has no
+             * relocations (longshot/ReLink load at the link address, Rekarina does not: the name arrives
+             * truncated and the pane lookup reads unmapped memory) */
+            const char *pn = i ? "Pa_Guide_00" : "Pa_SortWindow_00";
+            u64 q = ui_get(lay, pn);
+            if (!q) q = ui_get(g_ad_sortlay, pn);
             g_ad_pp[5 + i] = q; g_ad_pp[7] = g_ad_sortlay;
             if (!ptr_ok(q)) continue;
             if (!again || !g_ad_hid_pane[i + 1]) { g_ad_hid_pane[i + 1] = q; g_ad_hid_val[i + 1] = *(volatile u32 *)(q + 0xa8) & 1u; }

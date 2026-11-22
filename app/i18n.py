@@ -2326,6 +2326,31 @@ _CREDITS = {
 for _lang, _text in _CREDITS.items():
     T[_lang]["about_credits"] = _text
 
+# The two Switch GameCube strings that only existed in English (the rest of the preset keys are names).
+_GC_I18N = {
+    "es": {"bm_place_gamecube_help": "Switch GameCube también elige el diagrama del mando de GameCube en "
+                                     "Controles básicos. Las demás posiciones usan los iconos del juego.",
+           "ctrl_preset_gamecube_d": "Asignación de botones clásica con el HUD y el diagrama del mando de Switch "
+                                     "GameCube."},
+    "pt": {"bm_place_gamecube_help": "Switch GameCube também escolhe o diagrama do comando GameCube em "
+                                     "Controlos básicos. As outras posições usam os ícones do jogo.",
+           "ctrl_preset_gamecube_d": "Atribuição de botões clássica com o HUD e o diagrama do comando Switch "
+                                     "GameCube."},
+    "fr": {"bm_place_gamecube_help": "Switch GameCube choisit aussi le schéma de la manette GameCube dans "
+                                     "Commandes de base. Les autres positions utilisent les icônes du jeu.",
+           "ctrl_preset_gamecube_d": "Attribution classique des boutons avec le HUD et le schéma de la manette "
+                                     "Switch GameCube."},
+    "de": {"bm_place_gamecube_help": "Switch GameCube wählt auch das GameCube-Controller-Bild unter "
+                                     "Standardsteuerung. Andere Positionen nutzen die Tastenbilder des Spiels.",
+           "ctrl_preset_gamecube_d": "Klassische Tastenbelegung mit dem Switch-GameCube-HUD und Controller-Bild."},
+    "it": {"bm_place_gamecube_help": "Switch GameCube seleziona anche lo schema del controller GameCube in "
+                                     "Comandi di base. Le altre posizioni usano le icone del gioco.",
+           "ctrl_preset_gamecube_d": "Assegnazione classica dei pulsanti con l'HUD e lo schema del controller "
+                                     "Switch GameCube."},
+}
+for _lang, _kv in _GC_I18N.items():
+    T[_lang].update(_kv)
+
 
 def tr(lang: str, key: str, **kw) -> str:
     s = T.get(lang, T["en"]).get(key) or T["en"].get(key, key)

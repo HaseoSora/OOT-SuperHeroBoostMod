@@ -447,6 +447,7 @@ def install_romfs(game: Path, s: I.Settings) -> int:
     pay = I.resource_dir()
     target = game / "mods" / MOD_NAME / "romfs"
     style = s.button_style if s.button_style in I.BUTTON_STYLES else "switch"
+    atlas, gamecube_art, _gc_note = I.prepare_gamecube_layout(s, game, pay)
     for old in I.our_mod_folders(game / "mods"):
         if old.name != MOD_NAME:
             shutil.rmtree(old, ignore_errors=True)
@@ -469,6 +470,13 @@ def install_romfs(game: Path, s: I.Settings) -> int:
     if s.button_mapping:
         copy(pay / "button_romfs" / style)
         copy(pay / "button_romfs" / "common")
+    if gamecube_art is not None:
+        copy(gamecube_art)
+    if atlas is not None:
+        I.gamecube.write_atlas(target, atlas)
+        copied += 1
+    if s.bm_layout == "gamecube":
+        I.gamecube.disable_legacy_atlas(game / "mods")
     drops = (["no_heart_drop"] if s.no_heart_drop else []) + (["no_magic_drop"] if s.no_magic_drop else [])
     if len(drops) == 2:
         drops = ["no_heart_magic_drop"]

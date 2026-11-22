@@ -1703,6 +1703,8 @@ _PADS = {
         variant_d="The button pictures of the button mapping HUD only.",
         bm_place="Button positions",
         bm_place_nintendo="Nintendo (default)", bm_place_ab="A and B swapped", bm_place_xbox="Xbox (A/B and X/Y swapped)",
+        bm_place_gamecube="Switch GameCube",
+        bm_place_gamecube_help="Switch GameCube also selects the GameCube diagram in Basic Controls. Other positions use Game button prompts.",
         bm_place_d="Match the button layout chosen in Longshot or ReLink: the HUD moves the buttons (jump, items) to "
                    "where they are on your controller. The game's Swap Jump Controls option still works on top.",
         game_layout="Game button prompts",
@@ -1719,6 +1721,7 @@ _PADS = {
         bm_place="Posición de los botones",
         bm_place_nintendo="Nintendo (por defecto)", bm_place_ab="A y B invertidos",
         bm_place_xbox="Xbox (A/B y X/Y invertidos)",
+        bm_place_gamecube="Switch GameCube",
         bm_place_d="Elige el mismo esquema de botones que en Longshot o ReLink: el HUD mueve los botones (salto, "
                    "objetos) a donde están en tu mando. La opción Cambiar controles de salto del juego sigue funcionando.",
         game_layout="Iconos de botones del juego",
@@ -1734,6 +1737,7 @@ _PADS = {
         variant_d="Só as imagens dos botões do HUD de mapeamento.",
         bm_place="Posição dos botões",
         bm_place_nintendo="Nintendo (padrão)", bm_place_ab="A e B trocados", bm_place_xbox="Xbox (A/B e X/Y trocados)",
+        bm_place_gamecube="Switch GameCube",
         bm_place_d="Escolhe o mesmo esquema de botões do Longshot ou do ReLink: o HUD move os botões (salto, itens) "
                    "para onde estão no teu comando. A opção Trocar controles de salto do jogo continua a funcionar.",
         game_layout="Ícones de botões do jogo",
@@ -1750,6 +1754,7 @@ _PADS = {
         bm_place="Position des boutons",
         bm_place_nintendo="Nintendo (par défaut)", bm_place_ab="A et B inversés",
         bm_place_xbox="Xbox (A/B et X/Y inversés)",
+        bm_place_gamecube="Switch GameCube",
         bm_place_d="Choisissez la même disposition que dans Longshot ou ReLink : le HUD place les boutons (saut, "
                    "objets) là où ils sont sur votre manette. L'option Échanger les commandes de saut du jeu "
                    "fonctionne toujours.",
@@ -1767,6 +1772,7 @@ _PADS = {
         bm_place="Tastenpositionen",
         bm_place_nintendo="Nintendo (Standard)", bm_place_ab="A und B getauscht",
         bm_place_xbox="Xbox (A/B und X/Y getauscht)",
+        bm_place_gamecube="Switch GameCube",
         bm_place_d="Wähle dasselbe Tastenschema wie in Longshot oder ReLink: das HUD setzt die Tasten (Springen, "
                    "Gegenstände) dorthin, wo sie auf deinem Controller liegen. Die Spieloption Sprungtasten tauschen "
                    "funktioniert weiterhin.",
@@ -1784,6 +1790,7 @@ _PADS = {
         bm_place="Posizione dei tasti",
         bm_place_nintendo="Nintendo (predefinito)", bm_place_ab="A e B invertiti",
         bm_place_xbox="Xbox (A/B e X/Y invertiti)",
+        bm_place_gamecube="Switch GameCube",
         bm_place_d="Scegli lo stesso schema di tasti di Longshot o ReLink: l'HUD sposta i tasti (salto, oggetti) "
                    "dove si trovano sul tuo controller. L'opzione Scambia comandi di salto del gioco continua a "
                    "funzionare.",
@@ -1964,6 +1971,8 @@ _UI = {
         ctrl_hero_desc="Choose a ready-made layout, or change what each physical button does. The in-game HUD follows the table. Menus and the ocarina keep the real buttons.",
         ctrl_preset_title="Start from a preset",
         ctrl_preset_desc="These are the layouts most players use. You can change any button afterwards.",
+        preset_gamecube="Switch GameCube",
+        ctrl_preset_gamecube_d="Classic button assignments with the Switch GameCube HUD and controller diagram.",
         ctrl_preset_classic_d="The original layout: X jump, Y sword, A action, B item.",
         ctrl_preset_action_down_d="Action on the lower face button, like the console's South layout.",
         ctrl_preset_shield_d="A dedicated shield button; targeting no longer raises it.",
@@ -2285,6 +2294,37 @@ _HEARTS = {
 }
 for _lang, _text in _HEARTS.items():
     T[_lang]["stamina_hearts"] = _text
+
+# Installer note: the GameCube controller diagram needs the game's original UI archive, which an emulator
+# install does not have on disk. The HUD and the button art are installed either way.
+_GC_ATLAS = {
+    "en": "The GameCube controller diagram was skipped ({a}). The HUD and the button pictures are installed.",
+    "es": "Se omitió el diagrama del mando de GameCube ({a}). El HUD y las imágenes de los botones sí están instalados.",
+    "pt": "O diagrama do comando GameCube foi ignorado ({a}). O HUD e as imagens dos botões ficaram instalados.",
+    "fr": "Le schéma de la manette GameCube a été ignoré ({a}). Le HUD et les images des boutons sont installés.",
+    "de": "Das GameCube-Controller-Bild wurde übersprungen ({a}). HUD und Tastenbilder sind installiert.",
+    "it": "Lo schema del controller GameCube è stato saltato ({a}). L'HUD e le immagini dei pulsanti sono installati.",
+}
+for _lang, _text in _GC_ATLAS.items():
+    T[_lang]["n_gamecube_atlas_skipped"] = _text
+
+# Credits (About pane). Contributors who sent work upstream; keep their names in the language that
+# names them and translate only the surrounding words.
+_CREDITS = {
+    "en": "Credits\nSwitch GameCube preset, GameCube button art and the widescreen HUD grouping: HaseoSora.",
+    "es": "Créditos\nPreset Switch GameCube, ilustraciones de botones de GameCube y agrupación del HUD para "
+          "pantalla ancha: HaseoSora.",
+    "pt": "Créditos\nPreset Switch GameCube, imagens dos botões GameCube e agrupamento do HUD para ecrã largo: "
+          "HaseoSora.",
+    "fr": "Crédits\nPréréglage Switch GameCube, illustrations des boutons GameCube et regroupement du HUD pour "
+          "écran large : HaseoSora.",
+    "de": "Danksagung\nSwitch-GameCube-Profil, GameCube-Tastenbilder und HUD-Gruppierung für Breitbild: "
+          "HaseoSora.",
+    "it": "Ringraziamenti\nPreset Switch GameCube, immagini dei pulsanti GameCube e raggruppamento dell'HUD per "
+          "schermo largo: HaseoSora.",
+}
+for _lang, _text in _CREDITS.items():
+    T[_lang]["about_credits"] = _text
 
 
 def tr(lang: str, key: str, **kw) -> str:

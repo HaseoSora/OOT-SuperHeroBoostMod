@@ -18,7 +18,8 @@ typedef struct {
     unsigned char cost_roll;
     unsigned char combat_only;     /* advanced: costs only while in combat */
     unsigned char bm_layout;       /* buttonMapping: where the face buttons sit on the pad (the recompilers' own
-                                    * button remap): 0 Nintendo, 1 A/B swapped, 2 Xbox (A/B and X/Y swapped).
+                                    * button remap): 0 Nintendo, 1 A/B swapped, 2 Xbox (A/B and X/Y swapped),
+                                    * 3 Switch GameCube (A centre, B lower left, X upper right, Y above-left).
                                     * Was a reserved 0 byte, so older configurations read as Nintendo. */
     /* v1 additions (append-only; older apps leave the defaults) */
     unsigned short enemy_hp_pct;   /* enemy health, percent of vanilla (100 = vanilla, 150 = Hero Mode) */
@@ -39,7 +40,7 @@ typedef struct {
     signed short hud_x[4];          /* installer: x of the rupee, clock, skull and heart blocks (-32768 = off) */
     unsigned char stamina_bar;      /* 0 = ring around the player, 1 = segmented horizontal bar */
     unsigned char hud_flags;        /* 1 = use the layout fields below (new app); 0 = wide defaults */
-    unsigned char hud_mode;         /* app: 0 wide, 1 simple, 2 map (informational) */
+    unsigned char hud_mode;         /* app: 0 wide, 1 simple (soft bar), 2 plain (bare row) */
     unsigned char hud_sx;           /* plate scale x, percent */
     unsigned char hud_sy;           /* plate scale y, percent */
     unsigned char hud_tscale;       /* text scale, percent */

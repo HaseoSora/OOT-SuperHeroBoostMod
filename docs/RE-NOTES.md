@@ -526,3 +526,8 @@ Both mods are generated from the user's own dump by `tools/make_enemy_opts.py`; 
   set_text call in the text hook. The glyphs are the button font's U+E040.. (A B X Y L R ZL ZR), so the PS style
   follows. Action is limited to A/B/X/Y in the app for that reason.
 - Checked live: action on A shows ○ Hablar, on X △ Hablar, and physical X talks.
+- **The remap is off in events.** Talking or a shop puts Link in an `Evt*` state (`EvtWait`) while the player stays
+  active and the HUD is not covered, so the remap used to stay on: action on B confirmed shop purchases.
+  `button_remap_on_input` now leaves the real buttons in `Evt*` too (A next, B back) and publishes `g_remap_live`;
+  the prompt glyphs follow it (own glyph back when the remap is off). Checked live with action on X: X talks,
+  the real A advances the text, the real B picks "Adiós" (no purchase), and △ Hablar comes back afterwards.

@@ -2659,16 +2659,21 @@ static int dc_glyph(u32 block) {
     u32 p = remap_role_phys(role);
     return p < PB_L3 ? (int)GLYPH[p] : -1;
 }
+/* The glyph each block's key shows: the role's physical button while the remap is live (gameplay); the block's
+ * own button otherwise (dialogues, shops, menus keep the real buttons: features/button_mapping g_remap_live).
+ * g_dc_over: the key shows (or showed) another glyph, so the own one is written back once when it changes. */
+extern u32 g_remap_live;
+static u32 g_dc_over[4];
 static void dc_glyphs(void) {
-    static const u8 OWN[4] = {0, 1, 2, 3};
     for (u32 b = 0; b < 4; b++) {
-        int g = dc_glyph(b);
+        int g = g_remap_live ? dc_glyph(b) : -1;
+        if (g < 0) g = (int)b;   /* the block's own button (glyph E040 + A0 B1 X2 Y3) */
         char *t = g_dc_glyph[b];
-        if (g < 0 || (u32)g == OWN[b]) {   /* the block's own button: the game's text stays */
-            if (t[0]) { t[0] = 0; g_dc_set[b] = 0; }
-            continue;
-        }
-        if ((u8)t[2] != (u8)(0x80 + g)) { t[0] = (char)0xEE; t[1] = (char)0x81; t[2] = (char)(0x80 + g); t[3] = 0; g_dc_set[b] = 0; }
+        if (t[0] && (u8)t[2] == (u8)(0x80 + g)) continue;
+        t[0] = (char)0xEE; t[1] = (char)0x81; t[2] = (char)(0x80 + g); t[3] = 0;
+        if ((u32)g != b) g_dc_over[b] = 1;
+        g_dc_set[b] = g_dc_over[b] ? 0 : 1;   /* never overridden: nothing to write */
+        if ((u32)g == b) g_dc_over[b] = 0;
     }
 }
 static void dc_update(void) {
@@ -2693,7 +2698,7 @@ static void dc_update(void) {
     /* the key glyph: set when it changes, and again each time the prompt comes up (the game may reset it) */
     static u32 was_up;
     u32 up = a_guide_up();
-    if (up && !was_up) for (u32 b = 0; b < 4; b++) g_dc_set[b] = 0;
+    if (up && !was_up) for (u32 b = 0; b < 4; b++) if (g_dc_over[b]) g_dc_set[b] = 0;
     was_up = up;
     for (u32 b = 0; b < 4; b++) {
         if (g_dc_set[b] || !g_dc_glyph[b][0] || !g_dc_key[b]) continue;
@@ -2706,7 +2711,7 @@ static void dc_update(void) {
 /* the game writing a block's key glyph by name: our glyph instead (0: the game's own) */
 static const char *dc_key_override(const char *nm) {
     for (u32 b = 0; b < 4; b++)
-        if (str_eq(nm, DC_KEY[b])) return g_dc_glyph[b][0] ? g_dc_glyph[b] : 0;
+        if (str_eq(nm, DC_KEY[b])) return g_dc_glyph[b][0] && (u8)g_dc_glyph[b][2] != (u8)(0x80 + b) ? g_dc_glyph[b] : 0;
     return 0;
 }
 static void slots_reset(void) {

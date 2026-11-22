@@ -231,9 +231,11 @@ static void dbg_tick(void);   /* diagnostic dump (below, beside the save code) *
  * while Link plays: menus (pause, map, game over), the title screen and the ocarina keep the real buttons, as the
  * game's own prompts there name them. The game fills the samples again on every read, so this is done once per read. */
 u32 g_remap_dbg[3];   /* reads remapped, reads left alone, last physical -> virtual (low bits) */
+u32 g_remap_live;     /* the last read was remapped: the HUD prompts name the roles' buttons (core/hud.c) */
 void button_remap_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_result) {
     (void)a2;
-    if (site != 3 || !a0 || !remap_on()) return;
+    if (site != 3 || !a0) return;
+    if (!remap_on()) { g_remap_live = 0; return; }
     u32 count = (u32)(unsigned long)a1;
     if (count == 0 || count > 64) count = stock_result;
     if (count == 0 || count > 64) return;
@@ -249,10 +251,14 @@ void button_remap_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_res
      * Both: the HUD flag alone is not steady through the whole pause menu, and a remap switching on and off
      * there turned one press into two (the second unassigned the item). */
     int covered = hud_game_covered();
-    if (!playing || covered || g_songbook_active || player_dead()) {
+    /* Evt*: Link is in an event (talking, a shop, a chest, a cutscene). The game's text boxes and shop menus read
+     * A / B as next / back, so the real buttons reach them: a remapped action on B confirmed purchases there. */
+    if (!playing || covered || g_songbook_active || player_dead() || player_state_starts("Evt")) {
         g_remap_dbg[1]++;
+        g_remap_live = 0;
         return;
     }
+    g_remap_live = 1;
     HidView view = {a0, count, 0};
     for (u32 i = 0; i < count; i++) {
         u64 b = hid_get_buttons(&view, i);

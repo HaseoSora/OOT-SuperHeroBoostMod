@@ -564,6 +564,36 @@ static u8 *build_map(const u8 *r) {
  * whole screen and the planner would not move it as one cluster. */
 static float counters_x(void) { return -1800.0f; }
 static int action_field(u32 field) { return field == 4 || field == 5; }
+/* ---- HUD group scale (hud_ctrl_scale / hud_count_scale) ----
+ * Each group pane is scaled as a whole; its position moves so the screen corner nearest the group stays where it
+ * is (local corner offset L: position = base + (1 - s) * L). A position another writer set (a widescreen
+ * planner) becomes the new base, so it is never undone. At 100% nothing is written. */
+static u64 pane_record(u64 frame, const char *name);
+static void place(u64 rec, float x, float y, float sx, float sy, float rot);
+static const char HG_NAME[2][20] = {"N_ShbActions_00", "N_ShbCounters_00"};
+static const float HG_CORNER[2][2] = {{120.0f, 1080.0f}, {-120.0f, -1080.0f}};   /* top right / bottom left */
+static float g_hg_base[2][2], g_hg_last[2][2];
+static u32 g_hg_on[2];
+float g_hg_dbg[2][3];   /* diagnostic: scale, x, y written per group */
+static void hud_group_scale(u64 frame) {
+    for (u32 g = 0; g < 2; g++) {
+        u32 pct = g ? g_shbcfg.hud_count_scale : g_shbcfg.hud_ctrl_scale;
+        if (!pct) pct = 100;
+        if (pct < 25) pct = 25;
+        if (pct > 250) pct = 250;
+        if (pct == 100 && !g_hg_on[g]) continue;
+        u64 rec = pane_record(frame, HG_NAME[g]);
+        if (!rec) continue;
+        float x = *(float *)(rec + 0x6C), y = *(float *)(rec + 0x70);
+        if (!g_hg_on[g] || x != g_hg_last[g][0] || y != g_hg_last[g][1]) { g_hg_base[g][0] = x; g_hg_base[g][1] = y; }
+        float s = (float)pct / 100.0f;
+        float nx = g_hg_base[g][0] + (1.0f - s) * HG_CORNER[g][0], ny = g_hg_base[g][1] + (1.0f - s) * HG_CORNER[g][1];
+        place(rec, nx, ny, s, s, 0.0f);
+        g_hg_last[g][0] = nx; g_hg_last[g][1] = ny;
+        g_hg_on[g] = pct != 100;
+        g_hg_dbg[g][0] = s; g_hg_dbg[g][1] = nx; g_hg_dbg[g][2] = ny;
+    }
+}
 static int counter_picture(u32 k) { return k < RT1 || (k >= PIC_COLL && k < PIC_BAR); }
 
 static int group_hud_panes(u8 *root, u8 *first, u32 nc, u32 parts, u8 **part_desc) {
@@ -2862,6 +2892,7 @@ static void hud_frame(void) {
     slots_update(g_frame_node);
     slots_labels(g_frame_node);
     dc_update();
+    hud_group_scale(g_frame_node);
 }
 /* -------- observation of the stock item box (to learn icon frames) -------- */
 #define FL_N 24

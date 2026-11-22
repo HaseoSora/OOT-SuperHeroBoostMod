@@ -66,6 +66,10 @@ typedef struct {
     /* 0.9.0: button remap (core/remap.h). The struct grows from 0x50 to 0x5A; older apps leave these 0 (classic). */
     unsigned char bm_remap;         /* 0 classic layout, 1 use bm_role */
     unsigned char bm_role[10];      /* role of each physical button, PB_ order: L X R Y A ZR B ZL L3 R3 (ROLE_*) */
+    /* HUD scale, percent (0 = 100). They sit in what was the struct's tail padding, so sizeof stays 0x5C and an
+     * older app leaves them 0. The groups keep their screen corner: controls top right, counters bottom left. */
+    unsigned char hud_ctrl_scale;   /* the button cluster (N_ShbActions_00) */
+    unsigned char hud_count_scale;  /* the counter row: rupees, clock, collectibles (N_ShbCounters_00) */
 } ShbConfig;
 
 extern volatile ShbConfig g_shbcfg;

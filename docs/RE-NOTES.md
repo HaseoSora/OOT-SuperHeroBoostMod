@@ -619,3 +619,18 @@ Both mods are generated from the user's own dump by `tools/make_enemy_opts.py`; 
 - Fix: `hid_sample_count(a1, stock_result)` (core/hid.c) gives the returned count when it is 1..requested; every
   handler uses it. Emulator unchanged (16). Rekarina's runtime ships as source in `setup/<ver>/runtime/`: read it
   before reverse-engineering any HLE'd SDK call.
+
+## HUD scale sliders (Nov 22)
+
+- Config `hud_ctrl_scale` (struct 90) and `hud_count_scale` (struct 91), percent, 0 = 100. They use the struct's old
+  tail padding, so `sizeof(ShbConfig)` stays 0x5C; the app writes them when the block is at least 0x5C and clamps to
+  50..200 (`installer.hud_scale`). CLI: `--hud-ctrl-scale`, `--hud-count-scale`.
+- `hud_group_scale()` (core/hud.c, every HUD frame) scales the group panes `N_ShbActions_00` / `N_ShbCounters_00`
+  (record scale +0x60/+0x64, position +0x6C/+0x70), so every child (plates, icons, texts, sun/moon, the simple bar)
+  scales with it. The group's position moves by `(1 - s) * L`, L = the nearest screen corner in group-local units
+  (controls `(120, 1080)` top right, counters `(-120, -1080)` bottom left), so the corner stays put and the
+  margins grow with the scale. A position another writer set (widescreen planner) becomes the new base; at 100%
+  nothing is written.
+- Checked live in the emulator: 150/150 -> controls group (1740, -540), counters (-1740, 540); 60/60 -> (1848, 432) /
+  (-1848, -432); installed through the CLI at 130/80 the module applied it from the first frame; the pause menu is
+  unaffected. At 150% the wide counter row reaches the minimap's left edge.

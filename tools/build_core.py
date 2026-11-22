@@ -427,6 +427,8 @@ def main() -> int:
             extra.append("-DSHB_NO_LAZY")
         if "button_mapping" in features:
             extra.append("-DBUTTON_MAPPING")   # core/hud.c draws the buttonMapping buttons
+        if REKARINA:
+            extra.append("-DSHB_REKARINA")     # pointer checks: guest memory starts at 4 GB there (core/hud.c vptr)
         run([str(CLANG), *CFLAGS, *extra, "-I", str(OUT), "-I", str(CORE_SRC),
              "-c", str(src), "-o", str(obj)])
         objs.append(str(obj))

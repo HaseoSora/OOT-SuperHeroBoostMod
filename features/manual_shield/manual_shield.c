@@ -122,7 +122,11 @@ static u32 ms_gameplay_state(void) {
 static void refresh_target_mode(void) {
     g_ms_target_value = 0xFFFFFFFFu;
     u64 g = *(volatile u64 *)GAMEDATA_MGR;
-    if (g < 0x100000000ULL) { g_ms_toggle_mode = 1; return; }
+#ifdef SHB_REKARINA
+    if (g < 0x100000000ULL) { g_ms_toggle_mode = 1; return; }   /* (Rekarina: guest memory starts at 4 GB) */
+#else
+    if (g < 0x10000ULL) { g_ms_toggle_mode = 1; return; }
+#endif
     u32 *map = *(volatile u32 **)(g + 0xC20);
     u32 slots = *(volatile u32 *)(g + 0xC2C);
     u32 count = *(volatile u32 *)(g + 0xC10);

@@ -139,7 +139,16 @@ static int str_eq(const char *a, const char *b) {
 }
 
 /* name table at root+table: names[], descs[], hashes[], count at +24 */
-static int vptr(u64 p) { return p >= 0x100000000ULL && p < 0x60000000000ULL; }
+/* The lowest address a real pointer can have. Rekarina: below 4 GB is not guest memory. The emulators (and the
+ * recompiled builds) load main and this module below 4 GB (Fritchii: main 0x8100D000, the module 0x85F8D000), and
+ * the HUD's own layout copies live in the module: with the 4 GB floor there every one of them was rejected and the
+ * button mapping HUD was never built. */
+#ifdef SHB_REKARINA
+#define VPTR_MIN 0x100000000ULL
+#else
+#define VPTR_MIN 0x10000ULL
+#endif
+static int vptr(u64 p) { return p >= VPTR_MIN && p < 0x60000000000ULL; }
 /* Out/input structures handed to the game's lifted functions live in the module's BSS: a C stack local's address
  * is not a guest address in Rekarina. */
 static struct { const void *s; u32 len, z; long long m1; } g_text_ref;

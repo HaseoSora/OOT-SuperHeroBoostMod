@@ -31,6 +31,7 @@ DISABLED = "#6B7C70"
 RED = "#E06A5A"
 AMBER = "#F2B45E"
 HELP_BG = "#2B2412"
+ROW_HOVER = "#24402E"
 
 FAM = "Segoe UI"
 DISPLAY = "Palatino Linotype"
@@ -333,6 +334,7 @@ class Select(ctk.CTkButton):
         self._wheel_ids = []
         self._watch_id = None
         self._last_pos = None
+        self._hover_index = -1
         if var.get() not in self._values:
             var.set(self._values[0])
         _strip(kw)
@@ -458,7 +460,7 @@ class Select(ctk.CTkButton):
             lab = ctk.CTkLabel(row, text=value, anchor="w", text_color=ACCENT if active else TEXT,
                                fg_color="transparent", font=(FAM, 10))
             lab.pack(fill="both", expand=True, padx=10)
-            rows.append((row, value))
+            rows.append((row, lab, value))
         top.update_idletasks()
         sw, sh = self.winfo_screenwidth(), self.winfo_screenheight()
         x = min(max(4, self.winfo_rootx()), sw - width - 8)
@@ -470,6 +472,8 @@ class Select(ctk.CTkButton):
         top.lift()
         top.update_idletasks()
         self._rows = rows
+        self._hover_index = -1
+        self._paint_rows()
         try:
             top.focus_force()
         except Exception:
@@ -482,6 +486,8 @@ class Select(ctk.CTkButton):
         # release would land on the control below it (the click-through bug).
         top.bind("<Button-1>", lambda e: "break")
         top.bind("<ButtonRelease-1>", self._popup_release)
+        top.bind("<Motion>", self._popup_motion)
+        top.bind("<Leave>", lambda e: self._paint_rows(-1))
         top.bind("<Escape>", lambda e: self._close_popup())
         top.bind("<MouseWheel>", self._popup_wheel)
         top.bind("<Button-4>", self._popup_wheel)
@@ -550,6 +556,41 @@ class Select(ctk.CTkButton):
             self._close_popup()
         return "break"
 
+    def _paint_rows(self, hover_index=None):
+        if hover_index is None:
+            hover_index = self._hover_index
+        current = self._var.get()
+        for i, (row, lab, value) in enumerate(self._rows):
+            try:
+                if i == hover_index:
+                    row.configure(fg_color=ROW_HOVER)
+                    lab.configure(text_color=ACCENT2)
+                elif value == current:
+                    row.configure(fg_color=BORDER)
+                    lab.configure(text_color=ACCENT)
+                else:
+                    row.configure(fg_color=PANEL)
+                    lab.configure(text_color=TEXT)
+            except Exception:
+                pass
+
+    def _popup_motion(self, event=None):
+        if event is None or self._popup is None:
+            return
+        try:
+            y = event.y_root - self._popup.winfo_rooty()
+            index = -1
+            for i, (row, lab, value) in enumerate(self._rows):
+                y0 = row.winfo_rooty() - self._popup.winfo_rooty()
+                if y0 <= y < y0 + row.winfo_height():
+                    index = i
+                    break
+            if index != self._hover_index:
+                self._hover_index = index
+                self._paint_rows(index)
+        except Exception:
+            pass
+
     def _popup_release(self, event=None):
         w = self._popup
         if w is None or event is None:
@@ -560,7 +601,7 @@ class Select(ctk.CTkButton):
             if not (0 <= x < w.winfo_width() and 0 <= y < w.winfo_height()):
                 self._close_popup()
                 return
-            for row, value in self._rows:
+            for row, lab, value in self._rows:
                 y0 = row.winfo_rooty() - w.winfo_rooty()
                 if y0 <= y < y0 + row.winfo_height():
                     self._choose(value)

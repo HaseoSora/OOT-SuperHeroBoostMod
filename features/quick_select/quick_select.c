@@ -38,6 +38,7 @@ extern void equip_request(void *pouch, void *name_ref, u32 kind, u32 arg3);
 extern void equip_refresh(void *pouch, void *name_ref, u32 one);
 u32 hud_frame_count(void);
 int hud_owns_name(const char *actor);   /* core/hud.c: IsGet.<actor> from the live Bool table */
+int hud_pouch_has(const char *actor);    /* core/hud.c: StockNum.<actor> from the live pouch */
 
 static u32 g_hold;
 static u32 g_latch;        /* a switch was made: wait for the button release */
@@ -138,13 +139,31 @@ static u32 toggle_boots(void) {
     return 1;
 }
 
+/* When the Lens was equipped outside the quick select there may be no saved mask yet:
+ * use the first child mask Link owns. */
+static const char *first_owned_mask(void) {
+    static const char *names[] = {
+        "Armor_Child_Mask_Keaton", "Armor_Child_Mask_Skull", "Armor_Child_Mask_Spooky",
+        "Armor_Child_Mask_Bunny", "Armor_Child_Mask_Goron", "Armor_Child_Mask_Zora",
+        "Armor_Child_Mask_Gerudo", "Armor_Child_Mask_Truth",
+    };
+    for (u32 i = 0; i < sizeof(names) / sizeof(names[0]); i++) {
+        if (hud_owns_name(names[i]) || hud_pouch_has(names[i]) == 1) return names[i];
+    }
+    return 0;
+}
+
 /* Up: the Lens of Truth <-> the mask Link wears. Returns 1 when the string was changed. */
 static u32 toggle_mask(void) {
     char cur[64];
     gd_get_string(20u, cur, sizeof cur);
     copy64(g_qs_cur, cur);
     if (same(cur, NAME_LENS)) {
-        if (!g_mask_last[0] || !hud_owns_name(g_mask_last)) return 0;
+        if (!g_mask_last[0]) {
+            const char *m = first_owned_mask();
+            if (m) copy64(g_mask_last, m);
+        }
+        if (!g_mask_last[0]) return 0;
         gd_set_string(20u, g_mask_last);
         apply_equip(g_mask_last);
         return 1;
@@ -193,6 +212,11 @@ void quick_select_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_res
         if (buttons & VBTN_ARMORY) return;   /* (no quick boots / mask while the armory drawer is up) */
     }
     if (!g_shbcfg.quick_boots && !g_shbcfg.quick_mask) return;
+    if (g_shbcfg.quick_mask) {
+        char head[64];
+        gd_get_string(20u, head, sizeof head);
+        if (head[0] && !same(head, NAME_LENS)) copy64(g_mask_last, head);
+    }
 
     u32 now = hud_frame_count();
     u32 new_frame = (now != g_last_frame);

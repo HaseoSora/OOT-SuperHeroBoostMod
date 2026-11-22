@@ -105,7 +105,8 @@ def make_rgba_bntx(template: bytes, name: str, image) -> bytes:
 
 
 def compress_zs(data: bytes) -> bytes:
-    """zstd with the UI dictionary, like the game's own UI/Tex/Icon files."""
+    """zstd with the UI dictionary, like the game's own UI/Tex/Icon files (zs.zsdic from the dump's
+    Pack/ZsDic.pack.zs through SHB_ROMFS, or SHB_UI_DICTIONARY: same lookup as make_gamecube_buttons.py)."""
     import zstandard
-    d = zstandard.ZstdCompressionDict(open(r"F:\project\oot\data\zsdic1.bin", "rb").read())
-    return zstandard.ZstdCompressor(level=19, dict_data=d).compress(data)
+    from make_gamecube_buttons import ui_dictionary
+    return zstandard.ZstdCompressor(level=19, dict_data=ui_dictionary()).compress(data)

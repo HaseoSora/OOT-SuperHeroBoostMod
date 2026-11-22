@@ -513,3 +513,16 @@ Both mods are generated from the user's own dump by `tools/make_enemy_opts.py`; 
   a `HeartPieceAnchor_GameDataPath` are NPC / minigame / scrub rewards (16 paths, their Bool is the record); those
   without a path only mark the world pieces. A world piece picked this session counts once the game saves.
 - `build/collectibles_data.h` stores Bool key hashes (`COLLECT_FLAG_HASHES`); hud.c refuses an older index table.
+
+## Context prompt next to Link (`DoCommand_00`, Nov 22)
+
+- The "(A) Hablar" prompt is layout `DoCommand_00` in `UI/Layout2Archive/Common...blarc`. It has one block per
+  face button (`N_A_00`, `N_B_00`, `N_X_00`, `N_Y_00`). Each block draws a diamond: a backing `P_Base?_00`, the
+  other three letters greyed at alpha 0.13 (`P_B_00`/`P_X_00`/`P_Y_00` for A, etc.), and the key bubble with
+  `T_Key?_00` (the button glyph) and `T_Guide?_00` (the action text, captured as `g_aguide_text`).
+- The game drives the blocks by **virtual** button. With the remap, core/hud.c `dc_update()` hides the backing and
+  the grey letters (scale 0). It also writes the glyph of the physical button that holds the block's role
+  (`remap_role_phys`) into `T_Key?_00`: through set_text when the prompt comes up, and by rewriting the game's own
+  set_text call in the text hook. The glyphs are the button font's U+E040.. (A B X Y L R ZL ZR), so the PS style
+  follows. Action is limited to A/B/X/Y in the app for that reason.
+- Checked live: action on A shows ○ Hablar, on X △ Hablar, and physical X talks.

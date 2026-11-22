@@ -2630,6 +2630,85 @@ static void slots_labels(u64 frame) {
     put_text(frame, 4, hl(g_hl_jump), xx, xy, lbl && part_phys(SB_X) < PB_L3, LABEL);
     put_text(frame, 5, g_sb_a_label, ax, ay, lbl && g_sb_a_label[0] != 0 && part_phys(SB_A) < PB_L3, LABEL);
 }
+/* ---- the context prompt next to Link (layout DoCommand_00, the "(A) Hablar" one) ----
+ * It has one block per face button, N_A_00 / N_B_00 / N_X_00 / N_Y_00, each drawn as a diamond: P_Base?_00 the
+ * diamond backing, the other three letters greyed (alpha 0.13), and the key bubble with T_Key?_00 (the button's
+ * glyph) and T_Guide?_00 (the action). The game drives the blocks by VIRTUAL button; with the remap the role
+ * behind a block can be on another physical button, so:
+ *   - the backing and the greyed letters are hidden: only the key and the action show;
+ *   - the key shows the glyph of the physical button that holds the block's role (action on X shows X).
+ * The glyph is the game's button font (U+E040 A, B, X, Y, L, R, ZL, ZR), so the pad style (PS shapes) follows. */
+static const char DC_HIDE[16][12] = {"P_BaseA_00", "P_B_00", "P_X_00", "P_Y_00", "P_BaseB_00", "P_A_00", "P_X_02",
+                                     "P_Y_02", "P_BaseX_00", "P_A_02", "P_B_03", "P_Y_04", "P_BaseY_00", "P_A_01",
+                                     "P_B_02", "P_X_03"};
+static const char DC_KEY[4][10] = {"T_KeyA_00", "T_KeyB_00", "T_KeyX_00", "T_KeyY_00"};
+static u64 g_dc_frame, g_dc_hide[16], g_dc_key[4];
+static char g_dc_glyph[4][4];   /* glyph text each block's key gets ("" = the game's own) */
+static u32 g_dc_set[4];         /* that glyph was set (cleared when the frame or the glyph changes) */
+u64 g_dc_dbg[4];                /* diagnostic: frame, panes found, key sets, settext rewrites */
+/* the block's virtual button -> the role behind it -> its physical button -> the glyph (E040 + n), -1: leave */
+static int dc_glyph(u32 block) {
+    static const u8 GLYPH[PB_N] = {4, 2, 5, 3, 0, 7, 1, 6, 0, 0};   /* PB_ -> 0xE040 + n (A B X Y L R ZL ZR) */
+    u32 sw = g_btn_swap, role;
+    switch (block) {
+    case 0: role = ROLE_ACTION; break;
+    case 1: role = sw ? ROLE_JUMP : ROLE_ITEM1; break;
+    case 2: role = sw ? ROLE_ITEM1 : ROLE_JUMP; break;
+    default: role = ROLE_SWORD; break;
+    }
+    u32 p = remap_role_phys(role);
+    return p < PB_L3 ? (int)GLYPH[p] : -1;
+}
+static void dc_glyphs(void) {
+    static const u8 OWN[4] = {0, 1, 2, 3};
+    for (u32 b = 0; b < 4; b++) {
+        int g = dc_glyph(b);
+        char *t = g_dc_glyph[b];
+        if (g < 0 || (u32)g == OWN[b]) {   /* the block's own button: the game's text stays */
+            if (t[0]) { t[0] = 0; g_dc_set[b] = 0; }
+            continue;
+        }
+        if ((u8)t[2] != (u8)(0x80 + g)) { t[0] = (char)0xEE; t[1] = (char)0x81; t[2] = (char)(0x80 + g); t[3] = 0; g_dc_set[b] = 0; }
+    }
+}
+static void dc_update(void) {
+    u64 fr = g_aguide_frame;
+    if (!vptr(fr) || !vptr(ptr(fr, 0x80))) return;
+    if (fr != g_dc_frame) {   /* a new layout: find its panes again */
+        g_dc_frame = fr;
+        for (u32 i = 0; i < 16; i++) g_dc_hide[i] = pane_record(fr, DC_HIDE[i]);
+        for (u32 b = 0; b < 4; b++) { g_dc_key[b] = pane_record(fr, DC_KEY[b]); g_dc_set[b] = 0; }
+        g_dc_dbg[0] = fr;
+    }
+    u32 found = 0;
+    for (u32 i = 0; i < 16; i++) {
+        u64 r = g_dc_hide[i];
+        if (!r) continue;
+        found++;
+        *(float *)(r + 0x60) = 0.0f; *(float *)(r + 0x64) = 0.0f;
+        *(u32 *)r |= 0x6F;
+    }
+    g_dc_dbg[1] = found;
+    dc_glyphs();
+    /* the key glyph: set when it changes, and again each time the prompt comes up (the game may reset it) */
+    static u32 was_up;
+    u32 up = a_guide_up();
+    if (up && !was_up) for (u32 b = 0; b < 4; b++) g_dc_set[b] = 0;
+    was_up = up;
+    for (u32 b = 0; b < 4; b++) {
+        if (g_dc_set[b] || !g_dc_glyph[b][0] || !g_dc_key[b]) continue;
+        g_text_ref.s = g_dc_glyph[b]; g_text_ref.len = 3; g_text_ref.z = 0; g_text_ref.m1 = -1;
+        set_text((void *)g_dc_key[b], &g_text_ref, 0);
+        g_dc_set[b] = 1;
+        g_dc_dbg[2]++;
+    }
+}
+/* the game writing a block's key glyph by name: our glyph instead (0: the game's own) */
+static const char *dc_key_override(const char *nm) {
+    for (u32 b = 0; b < 4; b++)
+        if (str_eq(nm, DC_KEY[b])) return g_dc_glyph[b][0] ? g_dc_glyph[b] : 0;
+    return 0;
+}
 static void slots_reset(void) {
     g_ps_frame = 0; for (u32 k = 0; k < PART_N; k++) g_sb[k].part = 0; g_stock_box_rec = 0; g_stock_dots_rec = 0; }
 
@@ -2661,6 +2740,7 @@ static void hud_frame(void) {
     bar_update(g_frame_node);
     slots_update(g_frame_node);
     slots_labels(g_frame_node);
+    dc_update();
 }
 /* -------- observation of the stock item box (to learn icon frames) -------- */
 #define FL_N 24
@@ -2754,6 +2834,10 @@ static void hud_on_settext(u64 pane, const u64 *ref, u64 lr, const u64 *regs) {
         u32 i;
         for (i = 0; i < len && i < 47 && s[i]; i++) g_aguide_text[i] = s[i];
         g_aguide_text[i] = 0;
+    }
+    if (nm && vptr((u64)nm) && nm[0] == 'T' && nm[2] == 'K') {   /* T_Key?_00: the prompt's key glyph */
+        const char *g = dc_key_override(nm);
+        if (g) { ((u64 *)ref)[0] = (u64)g; ((u64 *)ref)[1] = 3; g_dc_dbg[3]++; }
     }
 }
 /* Our parts on the Items page get their icon controllers at the end of the page build (main+0xF78BA8, hook 15:

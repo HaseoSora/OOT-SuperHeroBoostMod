@@ -47,14 +47,15 @@ gone: the table places everything (the installer writes 0).
 ## Armory (role)
 
 A button with the **Armory** role (any button) opens a quick menu while it is held: a row with the swords and a row
-with the shields Link owns, the cursor on what he wears. Left / right moves in the row, up / down changes the row (D-pad
+with the shields Link owns and can use at his age (child: Kokiri Sword, Deku and Hylian Shield; adult: the other swords,
+Hylian and Mirror Shield), the cursor on what he wears. Left / right moves in the row, up / down changes the row (D-pad
 or left stick; Link does not move meanwhile), and letting the button go equips the one under the cursor, the same way
 the pause menu does (nothing changes when the cursor did not move; chosen while Link is busy, it is equipped as soon as
 he is free). The menu is 8 more HUD parts (core/hud.c ARM_FIRST.., built only with an armory button) showing each
-gear's icon, the cursor's bigger; `g_arm_geo` places it. There is no age rule: the game takes any gear Link owns at either age (checked
-live: child Link with the Master Sword, Biggoron's Sword and the broken knife). Inspired by the community mod Hyrule
-Armory Sync, which does it through the native item drawer on L; this one has no drawer and applies the change at once
-(the model and the HUD follow).
+gear's icon on the pad style's plain button, the cursor's bigger; `g_arm_geo` places it. The age rule is the menu's
+choice, not the game's: equip_request takes any gear at either age (checked live, child Link with the Master Sword,
+Biggoron's Sword and the broken knife). Inspired by the community mod Hyrule Armory Sync, which does it through the
+native item drawer on L; this one draws its own menu.
 
 - The role's press is its own virtual bit, `VBTN_ARMORY` (HID bit 25, unused with a full controller), read and
   stripped by features/quick_select, the last input handler.

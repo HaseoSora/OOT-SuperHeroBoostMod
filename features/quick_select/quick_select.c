@@ -167,6 +167,13 @@ static u32 toggle_mask(void) {
 static const char ARM_SWORDS[5][28] = {"Weapon_Sword_Kokiri", "Weapon_Sword_Master", "Weapon_Sword_Giant",
                                        "Weapon_Sword_Biggoron", "Weapon_Sword_BrokenGiant"};
 static const char ARM_SHIELDS[3][24] = {"Weapon_Shield_Deku", "Weapon_Shield_Hylian", "Weapon_Shield_Mirror"};
+/* who can use each one: child Link the Kokiri Sword, the Deku and the Hylian Shield; adult Link everything else and
+ * the Hylian Shield (bit 1 child, bit 2 adult) */
+#define AGE_CHILD 1u
+#define AGE_ADULT 2u
+static const unsigned char ARM_SWORD_AGE[5] = {AGE_CHILD, AGE_ADULT, AGE_ADULT, AGE_ADULT, AGE_ADULT};
+static const unsigned char ARM_SHIELD_AGE[3] = {AGE_CHILD, AGE_CHILD | AGE_ADULT, AGE_ADULT};
+int hud_is_child(void);         /* core/hud.c: 1 / 0, -1 = no GameData */
 #define ARM_STICK 16000        /* stick deflection that counts as a direction (of +-32767) */
 int hud_pouch_has(const char *actor);   /* core/hud.c: PouchData.<actor>.StockNum > 0 (1 / 0, -1 unknown) */
 /* Link has this sword / shield: in the pouch (what the pause menu lists), or its IsGet flag */
@@ -193,16 +200,19 @@ static char g_arm_pending[28];          /* chosen while Link was busy: equipped 
 static int arm_free(void) {
     return player_state_is("Wait") || player_state_is("Move") || player_state_starts("LockOn");
 }
-/* the owned gear of a row, and where the one Link wears is in it (-1 none) */
+/* the gear of a row Link owns and can use at his age, and where the one he wears is in it (-1 none) */
 static int arm_fill(u32 row) {
     const char *list = row ? (const char *)ARM_SHIELDS : (const char *)ARM_SWORDS;
+    const unsigned char *age = row ? ARM_SHIELD_AGE : ARM_SWORD_AGE;
     u32 n = row ? 3u : 5u, stride = row ? 24u : 28u, k = 0;
+    int ch = hud_is_child();
+    u32 bit = ch > 0 ? AGE_CHILD : AGE_ADULT;   /* (no GameData: the adult set) */
     char cur[64];
     gd_get_string(row ? GD_S64_SHIELD : GD_S64_WEAPON, cur, sizeof cur);
     int on = -1;
     for (u32 i = 0; i < n; i++) {
         const char *nm = list + i * stride;
-        if (!gear_owned(nm) && !same(cur, nm)) continue;   /* (what he wears always counts) */
+        if (!(age[i] & bit) || !gear_owned(nm)) continue;
         if (same(cur, nm)) on = (int)k;
         u32 j = 0;
         for (; j < 27u && nm[j]; j++) g_arm_names[row][k][j] = nm[j];
@@ -275,7 +285,7 @@ static void armory_input(const HidView *view, u64 buttons) {
         if (dir == 1u && n) g_arm_col = (g_arm_col + n - 1) % n;
         else if (dir == 2u && n) g_arm_col = (g_arm_col + 1) % n;
         else if ((dir == 3u || dir == 4u)) {
-            int row = dir == 3u ? 0 : 1;
+            int row = dir == 3u ? 0 : 1;   /* (an empty row is skipped) */
             if (row != g_arm_row && g_arm_n[row]) {
                 g_arm_row = row;
                 g_arm_col = g_arm_col < (int)g_arm_n[row] ? g_arm_col : (int)g_arm_n[row] - 1;

@@ -2415,7 +2415,13 @@ static void slots_draw(SlotBtn *set, const u64 *ctrls, u64 frame, const float *l
                 nm[6] = g_shbcfg.button_style == 1 ? 'X' : g_shbcfg.button_style == 2 ? 'P' : 'S';
             if (!str_eq(b->forced, nm)) {
                 for (u32 j = 0; j <= i; j++) b->forced[j] = nm[j];
-                set_icon(b, nm);
+                if (arm_part(k)) {   /* the armory menu: the gear on the plain button of the pad style, as a background */
+                    static char bg[16] = "OotBtnS_Blank";
+                    bg[6] = g_shbcfg.button_style == 1 ? 'X' : g_shbcfg.button_style == 2 ? 'P' : 'S';
+                    set_icon_btn(b, nm, bg);
+                } else {
+                    set_icon(b, nm);
+                }
             }
         }
         /* icon of the button's item: also refresh when the item's actor name changes (bottles keep the same

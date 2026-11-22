@@ -156,17 +156,19 @@ The module, the HUD, the textures and the app are original work: no third-party 
 
 ### Gameplay
 
-- **Complete profiles**: Recommended (everything on), Souls controls, Souls controls + Hero Mode, Base, Manual Shield,
-  Hero Mode, Hero + Stamina, Hero Explorer, Super Hero, Ultra Hero, Survival, World changes and the two beta
-  combinations (duplicated + fast enemies, everything). They set difficulty, stamina, the HUD, the world changes, the
-  manual shield, the targeting and the beta mods in one step; changing any option afterwards switches the profile to
-  **Custom**. The Souls profiles also turn on the stamina bar and the lock-on with R3.
+- **Complete profiles**: **Recommended** (the author's setup: ×2 enemy health and damage, hardcore stamina, the
+  beta enemy mods, the simple HUD, the manual shield with the targeting and the R3/L3 controls), Recommended without
+  the beta enemies, Souls controls, Souls controls + Hero Mode, Base, Manual Shield, Hero Mode, Hero + Stamina, Hero
+  Explorer, Super Hero, Ultra Hero, Survival, World changes and the two beta combinations (enemies only, everything).
+  They set difficulty, stamina, the HUD, the world changes, the manual shield, the targeting and the enemy mods in
+  one step; changing any option afterwards switches the profile to **Custom**. The Souls profiles also turn on the
+  stamina bar and the lock-on with R3.
 - **Stamina** with four styles: hardcore (everything costs), combat only, sprint only and advanced (choose which
   actions cost). Includes exhaustion and regeneration, and costs for rolling, jumping, attacking, shooting,
   sprinting and blocking with the shield.
 - **Stamina display**: a ring next to the player or a segmented bar under the magic gauge (yellow, red while
   recharging; grows with your hearts).
-- **Sprint speed** configurable (default +25%).
+- **Sprint speed** configurable (the profiles use +50%; Custom starts at +25%).
 - **Enemy health** and **damage taken** multipliers (×1 to ×3).
 - **No heart drops**: hearts dropped by enemies become green rupees instead.
 - **Always-visible clock and rupee counter**, with the game's native look and 12/24-hour format.

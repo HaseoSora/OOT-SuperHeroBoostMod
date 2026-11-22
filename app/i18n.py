@@ -1937,6 +1937,137 @@ for _lang, _txt in _SOULS.items():
     T[_lang].update(_txt)
 
 
+# 0.9.1: the author's tuned setup is the default profile (Recommended), the rest of the presets follow it
+_PRESETS = {
+    "en": dict(
+        p_recommended_d="The author's setup: x2 enemy health and damage, no heart drops, hardcore stamina, "
+                        "duplicated enemies at x2 (bosses included) and more aggressive, the simple HUD, button "
+                        "mapping, the manual shield with the targeting assists, R3 lock-on and L3 sprint. Back up "
+                        "your save: the enemy duplication is experimental.",
+        p_recommended_lite="Recommended (no beta enemies)",
+        p_recommended_lite_d="Recommended without the experimental enemy mods: x2 enemy health and damage, "
+                             "hardcore stamina, the simple HUD, button mapping, the manual shield with the "
+                             "targeting assists, R3 lock-on and L3 sprint.",
+        p_souls_hero_d="The Souls controls with x2 enemy health and damage and no heart drops.",
+        p_super_hero_d="Above the default: x2.5 enemy health and damage, no heart drops and every enemy at x1.5, "
+                       "without duplicated placements.",
+        p_ultra_hero_d="x3 enemy health and damage, no heart drops, hardcore stamina and the enemy mods at x2 "
+                       "with duplicated placements.",
+        p_survival_d="x2 enemy health and damage, no heart drops and hardcore stamina, without the enemy mods: "
+                     "an endurance run.",
+        p_beta_enemies_d="Vanilla difficulty with the enemy mods: duplicated placements, every component at x2 and "
+                         "enemies that alert the others. Back up your save.",
+        p_beta_all_d="The experimental ceiling: x3 enemy health and damage, no hearts, hardcore stamina, "
+                     "duplicated enemies at x3 with maximum aggression and bosses at x3.",
+    ),
+    "es": dict(
+        p_recommended_d="La configuración del autor: vida y daño de los enemigos x2, sin corazones, estamina "
+                        "hardcore, enemigos duplicados y a x2 (jefes incluidos) y más agresivos, el HUD simple, "
+                        "el mapeo de botones, el escudo manual con la fijación, bloqueo con R3 y sprint con L3. "
+                        "Haz copia de la partida: la duplicación es experimental.",
+        p_recommended_lite="Recomendado (sin mods beta)",
+        p_recommended_lite_d="El recomendado sin los mods de enemigos experimentales: vida y daño x2, estamina "
+                             "hardcore, HUD simple, mapeo de botones, escudo manual con la fijación, bloqueo con R3 "
+                             "y sprint con L3.",
+        p_souls_hero_d="Los controles Souls con vida y daño de los enemigos x2 y sin corazones.",
+        p_super_hero_d="Por encima del predeterminado: vida y daño x2.5, sin corazones y todos los enemigos a "
+                       "x1.5, sin duplicar apariciones.",
+        p_ultra_hero_d="Vida y daño x3, sin corazones, estamina hardcore y los mods de enemigos a x2 con "
+                       "duplicación.",
+        p_survival_d="Vida y daño x2, sin corazones y estamina hardcore, sin los mods de enemigos: una partida de "
+                     "resistencia.",
+        p_beta_enemies_d="Dificultad original con los mods de enemigos: apariciones duplicadas, todos los "
+                         "componentes a x2 y enemigos que alertan a los demás. Haz copia de la partida.",
+        p_beta_all_d="El techo experimental: vida y daño x3, sin corazones, estamina hardcore, enemigos "
+                     "duplicados a x3 con la agresividad máxima y jefes a x3.",
+    ),
+    "pt": dict(
+        p_recommended_d="A configuração do autor: vida e dano dos inimigos x2, sem corações, estamina hardcore, "
+                        "inimigos duplicados e a x2 (chefes incluídos) e mais agressivos, o HUD simples, o "
+                        "mapeamento de botões, o escudo manual com a mira, bloqueio com R3 e sprint com L3. Faça "
+                        "backup do save: a duplicação é experimental.",
+        p_recommended_lite="Recomendado (sem mods beta)",
+        p_recommended_lite_d="O recomendado sem os mods de inimigos experimentais: vida e dano x2, estamina "
+                             "hardcore, HUD simples, mapeamento de botões, escudo manual com a mira, bloqueio com "
+                             "R3 e sprint com L3.",
+        p_souls_hero_d="Os controles Souls com vida e dano dos inimigos x2 e sem corações.",
+        p_super_hero_d="Acima do padrão: vida e dano x2.5, sem corações e todos os inimigos a x1.5, sem duplicar "
+                       "aparições.",
+        p_ultra_hero_d="Vida e dano x3, sem corações, estamina hardcore e os mods de inimigos a x2 com duplicação.",
+        p_survival_d="Vida e dano x2, sem corações e estamina hardcore, sem os mods de inimigos: uma corrida de "
+                     "resistência.",
+        p_beta_enemies_d="Dificuldade original com os mods de inimigos: aparições duplicadas, todos os componentes "
+                         "a x2 e inimigos que alertam os outros. Faça backup do save.",
+        p_beta_all_d="O teto experimental: vida e dano x3, sem corações, estamina hardcore, inimigos duplicados a "
+                     "x3 com a agressividade máxima e chefes a x3.",
+    ),
+    "fr": dict(
+        p_recommended_d="La configuration de l'auteur : vie et dégâts des ennemis x2, sans cœurs, endurance "
+                        "hardcore, ennemis dupliqués et à x2 (boss compris) et plus agressifs, HUD simple, "
+                        "mappage des boutons, bouclier manuel avec la visée, verrouillage R3 et sprint L3. "
+                        "Sauvegardez votre partie : la duplication est expérimentale.",
+        p_recommended_lite="Recommandé (sans mods bêta)",
+        p_recommended_lite_d="Le recommandé sans les mods d'ennemis expérimentaux : vie et dégâts x2, endurance "
+                             "hardcore, HUD simple, mappage des boutons, bouclier manuel avec la visée, "
+                             "verrouillage R3 et sprint L3.",
+        p_souls_hero_d="Les contrôles Souls avec vie et dégâts des ennemis x2 et sans cœurs.",
+        p_super_hero_d="Au-dessus du préréglage par défaut : vie et dégâts x2.5, sans cœurs et tous les ennemis "
+                       "à x1.5, sans duplication des apparitions.",
+        p_ultra_hero_d="Vie et dégâts x3, sans cœurs, endurance hardcore et les mods d'ennemis à x2 avec "
+                       "duplication.",
+        p_survival_d="Vie et dégâts x2, sans cœurs et endurance hardcore, sans les mods d'ennemis : une course "
+                     "d'endurance.",
+        p_beta_enemies_d="Difficulté d'origine avec les mods d'ennemis : apparitions dupliquées, tous les "
+                         "composants à x2 et des ennemis qui alertent les autres. Sauvegardez votre partie.",
+        p_beta_all_d="Le plafond expérimental : vie et dégâts x3, sans cœurs, endurance hardcore, ennemis "
+                     "dupliqués à x3 avec l'agressivité maximale et boss à x3.",
+    ),
+    "de": dict(
+        p_recommended_d="Die Konfiguration des Autors: Gegnerleben und -schaden x2, keine Herzen, "
+                        "Hardcore-Ausdauer, doppelte Gegner (inklusive Bosse) mit x2 und aggressiver, das "
+                        "einfache HUD, Tastenbelegung, manueller Schild mit Zielhilfen, R3-Anvisieren und "
+                        "L3-Sprint. Sichere deinen Spielstand: die Verdopplung ist experimentell.",
+        p_recommended_lite="Empfohlen (ohne Beta-Mods)",
+        p_recommended_lite_d="Die empfohlene Konfiguration ohne die experimentellen Gegner-Mods: Gegnerleben und "
+                             "-schaden x2, Hardcore-Ausdauer, einfaches HUD, Tastenbelegung, manueller Schild mit "
+                             "Zielhilfen, R3-Anvisieren und L3-Sprint.",
+        p_souls_hero_d="Die Souls-Steuerung mit Gegnerleben und -schaden x2 und ohne Herzen.",
+        p_super_hero_d="Über der Standardkonfiguration: Leben und Schaden x2.5, keine Herzen und alle Gegner mit "
+                       "x1.5, ohne doppelte Platzierungen.",
+        p_ultra_hero_d="Leben und Schaden x3, keine Herzen, Hardcore-Ausdauer und die Gegner-Mods mit x2 samt "
+                       "Verdopplung.",
+        p_survival_d="Leben und Schaden x2, keine Herzen und Hardcore-Ausdauer, ohne die Gegner-Mods: ein "
+                     "Ausdauerlauf.",
+        p_beta_enemies_d="Originalschwierigkeit mit den Gegner-Mods: doppelte Platzierungen, alle Komponenten mit "
+                         "x2 und Gegner, die die anderen alarmieren. Sichere deinen Spielstand.",
+        p_beta_all_d="Die experimentelle Obergrenze: Leben und Schaden x3, keine Herzen, Hardcore-Ausdauer, "
+                     "doppelte Gegner mit x3 und maximaler Aggressivität und Bosse mit x3.",
+    ),
+    "it": dict(
+        p_recommended_d="La configurazione dell'autore: vita e danni dei nemici x2, niente cuori, stamina "
+                        "hardcore, nemici duplicati e a x2 (boss inclusi) e più aggressivi, HUD semplice, "
+                        "mappatura tasti, scudo manuale con la mira, aggancio con R3 e sprint con L3. Fai un "
+                        "backup del salvataggio: la duplicazione è sperimentale.",
+        p_recommended_lite="Consigliato (senza mod beta)",
+        p_recommended_lite_d="Il consigliato senza i mod dei nemici sperimentali: vita e danni x2, stamina "
+                             "hardcore, HUD semplice, mappatura tasti, scudo manuale con la mira, aggancio con R3 "
+                             "e sprint con L3.",
+        p_souls_hero_d="I controlli Souls con vita e danni dei nemici x2 e niente cuori.",
+        p_super_hero_d="Sopra il preset predefinito: vita e danni x2.5, niente cuori e tutti i nemici a x1.5, "
+                       "senza duplicare le comparse.",
+        p_ultra_hero_d="Vita e danni x3, niente cuori, stamina hardcore e i mod dei nemici a x2 con duplicazione.",
+        p_survival_d="Vita e danni x2, niente cuori e stamina hardcore, senza i mod dei nemici: una corsa di "
+                     "resistenza.",
+        p_beta_enemies_d="Difficoltà originale con i mod dei nemici: comparse duplicate, tutte le componenti a x2 "
+                         "e nemici che avvisano gli altri. Fai un backup del salvataggio.",
+        p_beta_all_d="Il tetto sperimentale: vita e danni x3, niente cuori, stamina hardcore, nemici duplicati a "
+                     "x3 con la massima aggressività e boss a x3.",
+    ),
+}
+for _lang, _txt in _PRESETS.items():
+    T[_lang].update(_txt)
+
+
 
 # resource size table notes (the last mod wins a file: ours must sort last and merge the others)
 _TABLE = {

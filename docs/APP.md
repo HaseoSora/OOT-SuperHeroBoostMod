@@ -38,37 +38,50 @@ per-user configuration folder (see the README). The app never needs administrato
 
 A profile sets **every** gameplay option. The fixed profiles include the HUD, the button mapping and the Songbook,
 except **Manual Shield**, which installs only the shield. Changing any option afterwards switches the profile to
-**Custom** and keeps your value. The button style (Switch / PlayStation / Xbox), layout, L mode, the language and the
-emulator folder are not part of a profile; the button style is global (HUD and the game's own prompts).
-**Recommended** is the default and enables everything.
+**Custom** and keeps your value. The button style (Switch / PlayStation / Xbox), layout, L mode, the language, the
+emulator folder and the two HUD size sliders are not part of a profile; the button style is global (HUD and the
+game's own prompts).
+
+**Recommended** is the default and it is the author's own setup: ×2 enemy health and damage, no heart drops,
+hardcore stamina, the beta enemy mods (duplicated placements, every component and the bosses at ×2, enemies that
+alert the others and are more aggressive), the simple HUD, the button mapping, the manual shield with the targeting
+assists, R3 lock-on and the L3 sprint toggle. It installs the experimental enemy mods, so back up the save.
+**Recommended (no beta enemies)** is the same setup without them.
+
+The rest of the profiles step away from it one direction at a time: down to vanilla (Base, Manual Shield, World
+changes), around the classic Hero Mode numbers (Hero Mode, Hero + Stamina, Hero Explorer) and up to Super Hero,
+Ultra Hero and the two beta combinations.
 
 The language selector translates the window, and it is also the fallback for the few labels the mod draws in game
 (the jump label, the A fallbacks and the pause menu's `Assign:` legend): those follow the **game's language** when the
 installer can read it from the emulator settings or from `language.txt` next to a recompiled game, so the HUD matches
 the game's own prompts. `--lang` on the command line forces one.
 
-Sprint is always **×1.25** in the profiles. It is only a starting point and can be changed by hand in the Stamina
-section; the profiles never use ×1.75, ×2 or ×3.
+Sprint is **×1.5** in the profiles (Custom starts at a gentler **×1.25**). It is only a starting point and can be
+changed by hand in the Stamina section; the profiles never use ×1.75, ×2 or ×3.
 
-| Profile | Stamina | Stamina style | Enemy HP | Damage | No hearts | Sprint | HUD | Buttons | Shield |
-|---|---|---|---|---|---|---|---|---|---|
-| **Recommended** | on | Hardcore | ×1.5 | ×2 | on | ×1.25 | on | on | on |
-| Base | off | — | ×1 | ×1 | off | ×1.25 | on | on | off |
-| Manual Shield | off | — | ×1 | ×1 | off | ×1.25 | off | off | on |
-| Hero Mode | off | — | ×1.5 | ×2 | on | ×1.25 | on | on | on |
-| Hero + Stamina | on | Hardcore | ×1.5 | ×2 | on | ×1.25 | on | on | on |
-| Hero Explorer | on | Sprint only | ×1.5 | ×2 | on | ×1.25 | on | on | on |
-| Super Hero | on | Hardcore | ×2 | ×3 | on | ×1.25 | on | on | on |
-| Ultra Hero | on | Hardcore | ×3 | ×3 | on | ×1.25 | on | on | on |
-| Survival | on | Hardcore | ×2 | ×2 | on | ×1.25 | on | on | on |
-| World changes | off | — | ×1 | ×1 | off | ×1.25 | on | on | off |
-| Beta: duplicated + fast enemies | off | — | ×1 | ×1 | off | ×1.25 | on | on | off |
-| Beta: everything | on | Hardcore | ×1.5 | ×2 | on | ×1.25 | on | on | on |
-| Custom | your values | your values | your values | your values | your values | your values | your values | your values | your values |
+| Profile | Stamina | Stamina style | Enemy HP | Damage | No hearts | Enemy mods | Sprint | HUD | Buttons | Shield |
+|---|---|---|---|---|---|---|---|---|---|---|
+| **Recommended** | on | Hardcore | ×2 | ×2 | on | duplicate + ×2 (bosses ×2), aggressive | ×1.5 | on | on | on |
+| Recommended (no beta enemies) | on | Hardcore | ×2 | ×2 | on | — | ×1.5 | on | on | on |
+| Souls controls | on | Hardcore (bar) | ×1 | ×1 | off | — | ×1.5 | on | on | on |
+| Souls controls + Hero Mode | on | Hardcore (bar) | ×2 | ×2 | on | — | ×1.5 | on | on | on |
+| Base | off | — | ×1 | ×1 | off | — | ×1.5 | on | on | off |
+| Manual Shield | off | — | ×1 | ×1 | off | — | ×1.5 | off | off | on |
+| Hero Mode | off | — | ×1.5 | ×2 | on | — | ×1.5 | on | on | on |
+| Hero + Stamina | on | Hardcore | ×1.5 | ×2 | on | — | ×1.5 | on | on | on |
+| Hero Explorer | on | Sprint only | ×1.5 | ×2 | on | — | ×1.5 | on | on | on |
+| Super Hero | on | Hardcore | ×2.5 | ×2.5 | on | ×1.5 (bosses ×1.5) | ×1.5 | on | on | on |
+| Ultra Hero | on | Hardcore | ×3 | ×3 | on | duplicate + ×2 (bosses ×2) | ×1.5 | on | on | on |
+| Survival | on | Hardcore | ×2 | ×2 | on | — | ×1.5 | on | on | on |
+| World changes | off | — | ×1 | ×1 | off | — | ×1.5 | on | on | off |
+| Beta: duplicated + fast enemies | off | — | ×1 | ×1 | off | duplicate + ×2 (bosses ×2) | ×1.5 | on | on | off |
+| Beta: everything | on | Hardcore | ×3 | ×3 | on | duplicate + ×3, maximum aggression | ×1.5 | on | on | on |
+| Custom | your values | your values | your values | your values | your values | your values | your values | your values | your values | your values |
 
 "Sprint only" means only sprinting drains stamina. "Hardcore" means every enabled action drains it. "No hearts" means
-dropped hearts become green rupees (the optional romfs file; see the note below). Named profiles keep the stamina
-display on the ring, and the enemy speed components off.
+dropped hearts become green rupees (the optional romfs file; see the note below). The Souls profiles show the stamina
+as a bar; the rest keep the ring.
 
 ## Window
 

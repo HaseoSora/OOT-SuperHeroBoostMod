@@ -54,6 +54,7 @@ int g_set[2][SLOT_ZR] = {{-1, -1, -1}, {-1, -1, -1}};
 int g_cur_age = -1;
 static int g_check_owned;   /* frames left to drop slot items the save does not have (after a set is taken) */
 int hud_is_child(void);          /* core/hud.c: Sequence_IsChildhood (-1: no GameData) */
+int hud_box_child(void);         /* core/hud.c: the item box the game uses is the Child one (its item set) */
 int hud_item_owned(int item);    /* core/hud.c: IsGet.<item> */
 
 enum { PH_IDLE = 0, PH_EQUIP, PH_HOLD, PH_GAP, PH_RESTORE, PH_ZRBACK };
@@ -155,7 +156,7 @@ static void equip_now(int item) {
 /* Put an item in the box, or empty it (-1). */
 static void box_put(int item) {
     if (item >= 0) { equip_now(item); return; }
-    int ch = hud_is_child();
+    int ch = hud_box_child();   /* the box the game uses (its item set), not Sequence_IsChildhood */
     if (ch >= 0) hud_box_empty(ch);
 }
 /* No slot item in the box any more: the ZR item is the game's own again. */
@@ -326,6 +327,21 @@ void button_mapping_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_r
 
     /* L as the game's item selector (app option): L never holds an item */
     if (g_shbcfg.bm_l_mode) g_assign[SLOT_L] = -1;
+
+    /* The item box the game uses (its item set) switched without the age flag: the other box is taken as it is,
+     * like an age change (nothing borrowed in it, no swap with the slots). */
+    if (g_shbcfg.button_mapping) {
+        static int box_set = -1;
+        int bs = hud_box_child();
+        if (bs >= 0 && bs != box_set) {
+            if (box_set >= 0) {
+                if (g_borrowed) unborrow();
+                g_phase = PH_IDLE;
+                g_zr_item = ZR_UNKNOWN; g_box_pending = -2; g_sync_t = 0;
+            }
+            box_set = bs;
+        }
+    }
 
     /* Publish the slots to the HUD (core/hud.c): B, L, R as assigned (ZR mirrors the game's own box). */
     for (int s = 0; s < SLOT_N; s++)

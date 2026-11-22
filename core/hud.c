@@ -36,7 +36,7 @@ extern void set_frame(void *anim, float frame);
 extern void tex_replace(void *replacer, const char **name, int flag);   /* main+0xA73920 */
 extern void icon_widget_init(void *widget, void *heap);                 /* main+0x33B7DA0 */
 extern void item_actor_name(void *mgr, const char **out, u64 item);     /* main+0x592B20 */
-extern char ITEM_MGR_SLOT[], ITEM_NAME_DEFAULT[];
+extern char ITEM_MGR_SLOT[], ITEM_NAME_DEFAULT[], ITEM_SET_SLOT[];
 extern void *memcpy(void *d, const void *s, unsigned long n);
 extern long set_text(void *pane, const void *ref, int zero);   /* stock text-pane setter (main+0x439520) */
 extern char GAMEDATA_MGR[];                                      /* main+0x4E842A8: GameData manager pointer slot */
@@ -2062,10 +2062,21 @@ static int item_stock_index(int item) {
 }
 /* Link is a child (Sequence_IsChildhood): 1 / 0, -1 = GameData not there */
 int hud_is_child(void) { return gd_bool(GD_IS_CHILDHOOD); }
+/* Which item box the game uses: the item set byte +0x5C0 of **(main+0x4C7E2A8), the one its R selector passes to
+ * the equip call (main+0x33C9A04). The box getter main+0x17B6E0 names the GameData key from it: set & 1 indexes
+ * {"Adult", "Child"} (main+0x3F13A20), i.e. 1 = PlayerStatus.AssignableItem.Child, 0 = .Adult. It can disagree with
+ * Sequence_IsChildhood (found live: IsChildhood 1, set 0, the game reading and writing the Adult box), so the box is
+ * always picked by the set. 1 / 0; Sequence_IsChildhood when the set object is not there; -1 = neither. */
+int hud_box_child(void) {
+    u64 sets = *(u64 *)ITEM_SET_SLOT;
+    u64 so = vptr(sets) ? *(u64 *)sets : 0;
+    if (vptr(so)) return *(volatile unsigned char *)(so + 0x5C0) & 1;
+    return gd_bool(GD_IS_CHILDHOOD);
+}
 /* The game's item box (ZR) for Link's age, from GameData: the item index, -1 empty, -2 unknown (no GameData, or a
  * value no item maps to, like the 2nd..5th bottle). Value hash -> actor name hash via GD_ACTOR_BOX. */
 static u32 box_value(void) {
-    int ch = gd_bool(GD_IS_CHILDHOOD);
+    int ch = hud_box_child();
     u64 mgr = *(u64 *)GAMEDATA_MGR;
     if (ch < 0 || !vptr(mgr)) return 0;
     u32 cnt = *(volatile u32 *)(mgr + 8 + 0x60 * 6 + 8);
@@ -2096,11 +2107,11 @@ int hud_box_item(void) { return box_item(); }
 /* ... and set it there (-1 empty): the menu shows and keeps what GameData has. 0 if the item has no box value. */
 void hud_box_empty(int child);
 int hud_box_set(int item) {
-    if (item < 0) { int ch = gd_bool(GD_IS_CHILDHOOD); if (ch < 0) return 0; hud_box_empty(ch); return 1; }
+    if (item < 0) { int ch = hud_box_child(); if (ch < 0) return 0; hud_box_empty(ch); return 1; }
     if (item >= 64) return 0;
     u32 v = item_box_value(item);
     if (v <= 1) return 0;
-    int ch = gd_bool(GD_IS_CHILDHOOD);
+    int ch = hud_box_child();
     u64 mgr = *(u64 *)GAMEDATA_MGR;
     if (ch < 0 || !vptr(mgr)) return 0;
     u32 cnt = *(volatile u32 *)(mgr + 8 + 0x60 * 6 + 8);

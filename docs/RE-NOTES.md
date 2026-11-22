@@ -426,6 +426,14 @@ Both mods are generated from the user's own dump by `tools/make_enemy_opts.py`; 
   `core/gd_index.h` (`GD_ACTOR_BOX`). The HUD controller path (+0x150 -> +0x1F0 -> +0x38) is not reliable
   for the box name (garbage in some saves); it is only the fallback now.
 - In the pause menu, A sets the box only when the menu closes (GameData unchanged until then).
+- **Which box (Child / Adult) is the game's item set, not `Sequence_IsChildhood`.** The R selector passes byte
+  `+0x5C0` of `**(main+0x4C7E2A8)` to the equip call (main+0x33C9A04 → 0x1211C00); the box getter main+0x17B6E0
+  names the key from it: `set & 1` indexes `{"Adult", "Child"}` at main+0x3F13A20 (1 = `.Child`, 0 = `.Adult`).
+  Found live (Nov 22): IsChildhood 1 but set 0 — the game read and wrote `.Adult` (record 59; ZR fired the bow)
+  while the mod read `.Child` (record 65, a stale BottleA), so the ZR icon stayed on the old bottle and a slot
+  restore put that bottle back. `hud_box_child()` (core/hud.c) picks the record for every box read/write.
+- Enum records (0x38 bytes): `+0x18` default, `+0x1C` live, `+0x20` copy; the menu write updates live and copy.
+  The table's `+0x18` hash→index map confirms Child = 65, Adult = 59 for Product.110.
 
 ## Item quantities on the buttonMapping HUD (Nov 17)
 

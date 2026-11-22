@@ -175,12 +175,24 @@ static u32 stick_dir(float x, float y) {
 }
 
 extern void *find_part(void *node, const char *name);   /* core/link.ld: the game's part lookup by name */
-/* a pane / part by name: the game's part lookup, else the nested-part one */
+/* a pane / part by name: the game's part lookup, else the nested-part one.
+ *
+ * Rekarina: the second lookup is skipped. The name is a literal of this module, which lives at
+ * main+0x5200000 there (0x7005212177...); by the time the game's find-pane-by-name
+ * (main+0x43c4a0) reads it, the pointer has lost its top bits (0x05212177) and the read faults.
+ * The first lookup, find_part(), survives the crossing, so the armory still gets its panes when
+ * that one resolves them; without them it shows the sort header instead of hiding it, which is
+ * cosmetic. Diagnosed from game/logs/rekarina.log: same crash before and after removing the
+ * pointer table, always in header_show -> ui_get -> main+0x43c4a0. */
 static u64 ui_get(u64 lay, const char *name) {
     if (!ptr_ok(lay)) return 0;
     u64 p = (u64)find_part((void *)lay, name);
+#ifdef SHB_REKARINA
+    return ptr_ok(p) ? p : 0;
+#else
     if (!ptr_ok(p)) p = ((FindPaneFn)AD_FIND_PANE)(lay, name);
     return ptr_ok(p) ? p : 0;
+#endif
 }
 /* hide (or put back) the sort header and its guide; the name text goes 80 lower, under the two rows */
 static void header_show(u64 lay, u32 hide) {

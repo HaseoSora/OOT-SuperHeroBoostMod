@@ -1,19 +1,21 @@
 """Game profiles ("presets") of Super Hero Boost.
 
 Every profile is a complete configuration: it always includes the HUD and
-buttonMapping (our own item buttons), and it fixes the stamina system, difficulty, heart drops
-and sprint speed. Changing any option afterwards switches the profile to
+buttonMapping (our own item buttons), and it fixes the stamina system, difficulty, heart drops,
+sprint speed and the enemy mods. Changing any option afterwards switches the profile to
 Custom and keeps the user's own values.
 
-Sprint is always ×1.25 in the profiles. It is only a starting point: the user
-can change it by hand in the Stamina section.
+The default profile is the author's own setup (200 % enemy health and damage, hardcore stamina,
+duplicated enemies at x2 with aggressive bosses, the simple HUD, the targeting assists and the
+R3/L3 controls); the rest of the profiles are that setup scaled up or down.
 """
 from dataclasses import dataclass
 from typing import Optional
 
 KEYS = ("jump", "attack", "sprint", "block", "shoot", "roll")
 STAMINA_MODES = ("hardcore", "combat", "sprint", "advanced")   # value written to the config block
-SPRINT_DEFAULT = 125
+SPRINT_DEFAULT = 125     # "custom" starts here: a gentle +25 %
+SPRINT_PROFILE = 150     # every named profile: the author's tuned +50 %
 
 
 @dataclass(frozen=True)
@@ -37,10 +39,14 @@ class Profile:
     hud_collectibles: bool       # per-area collectible counter
     hud_mode: str                # "wide" / "simple" / "plain"
     enemy_double: bool           # beta options: a named profile starts with them off
-    enemy_move: int              # 0 off, 1 x1.5, 2 x2, 3 x3
+    enemy_move: int              # 0 off, 1 x1.5, 2 x2, 3 x3 ...
     enemy_anim: int
     enemy_attack: int
     enemy_proj: int
+    enemy_alert: int             # how far a spotting enemy alerts the others
+    enemy_aggro: int             # 0 normal, 1 aggressive, 2 maximum
+    boss_move: int               # bosses and minibosses, same levels as the enemies
+    boss_anim: int
     great_fairy: bool
     farore_outdoor: bool
     stamina_bar: Optional[bool]  # stamina UI: horizontal bar instead of the ring (None: keep the user's choice)
@@ -49,15 +55,18 @@ class Profile:
     switch_target: bool          # tap the target button to switch to the red-marked enemy, hold to drop it
     target_r3: Optional[bool]    # target with R3 (ZL/R3 swap); None: a personal preference the profile keeps
     sprint_l3: Optional[bool]    # hold L3 to sprint; None: a personal preference the profile keeps
+    sprint_l3_toggle: Optional[bool]  # with sprint_l3: L3 turns the sprint on / off; None: keeps the user's choice
 
 
 def _profile(key, *, button_mapping=True, stamina=True, mode=0, costs=(True,) * 6, combat_only=False,
-             enemy_hp=100, damage=100, no_heart_drop=False, sprint_speed=SPRINT_DEFAULT,
+             enemy_hp=100, damage=100, no_heart_drop=False, sprint_speed=SPRINT_PROFILE,
              hud_rupees=True, hud_clock=True, clock_24h=True, songbook=True,
-             quick_boots=True, quick_mask=True, hud_collectibles=False, hud_mode="wide",
+             quick_boots=True, quick_mask=True, hud_collectibles=False, hud_mode="simple",
              enemy_double=False, enemy_move=0, enemy_anim=0, enemy_attack=0, enemy_proj=0,
+             enemy_alert=0, enemy_aggro=0, boss_move=0, boss_anim=0,
              great_fairy=False, farore_outdoor=False, stamina_bar=None, manual_shield=False,
-             auto_target=False, switch_target=False, target_r3=None, sprint_l3=None):
+             auto_target=False, switch_target=False, target_r3=None, sprint_l3=None,
+             sprint_l3_toggle=None):
     return Profile(key=key, button_mapping=button_mapping, stamina=stamina, mode=mode, costs=costs,
                    combat_only=combat_only, enemy_hp=enemy_hp, damage=damage,
                    no_heart_drop=no_heart_drop, sprint_speed=sprint_speed,
@@ -66,9 +75,11 @@ def _profile(key, *, button_mapping=True, stamina=True, mode=0, costs=(True,) * 
                    hud_collectibles=hud_collectibles, hud_mode=hud_mode,
                    enemy_double=enemy_double, enemy_move=enemy_move, enemy_anim=enemy_anim,
                    enemy_attack=enemy_attack, enemy_proj=enemy_proj,
+                   enemy_alert=enemy_alert, enemy_aggro=enemy_aggro,
+                   boss_move=boss_move, boss_anim=boss_anim,
                    great_fairy=great_fairy, farore_outdoor=farore_outdoor, stamina_bar=stamina_bar,
                    manual_shield=manual_shield, auto_target=auto_target, switch_target=switch_target,
-                   target_r3=target_r3, sprint_l3=sprint_l3)
+                   target_r3=target_r3, sprint_l3=sprint_l3, sprint_l3_toggle=sprint_l3_toggle)
 
 
 # The targeting improvements every combat profile with the manual shield gets (both need the game's Targeting
@@ -77,25 +88,40 @@ _TARGETING = dict(manual_shield=True, auto_target=True, switch_target=True)
 # Souls-like controls: stamina on every action shown as a bar, lock-on on R3 that follows the dead to the next
 # enemy and switches with a tap, and the manual shield on L.
 _SOULS = dict(_TARGETING, stamina_bar=True, target_r3=True)
+# The beta enemy mods of the default profile: duplicated placements, every component and the bosses at x2, and
+# enemies that alert the others a little further.
+_ENEMY_FAST = dict(enemy_double=True, enemy_move=2, enemy_anim=2, enemy_attack=2, enemy_proj=2,
+                   enemy_alert=1, enemy_aggro=1, boss_move=2, boss_anim=2)
+# The tuned controls of the default: R3 lock-on and L3 sprint as a toggle on top of the targeting assists.
+_TUNED_CONTROLS = dict(_TARGETING, target_r3=True, sprint_l3=True, sprint_l3_toggle=True)
 
 
 PROFILES = {
-    # Everything on: Hero Mode difficulty, hardcore stamina, HUD, buttonMapping, the world changes and manual shield.
-    "recommended": _profile("recommended", enemy_hp=150, damage=200, no_heart_drop=True,
+    # The default: the author's own setup. x2 enemy health and damage, no heart drops, hardcore stamina, the beta
+    # enemy mods, the simple HUD and every control improvement of the pack. Back up the save: the duplication is
+    # experimental.
+    "recommended": _profile("recommended", enemy_hp=200, damage=200, no_heart_drop=True,
                             hud_collectibles=True, great_fairy=True, farore_outdoor=True,
-                            **_TARGETING),
+                            stamina_bar=False, **_ENEMY_FAST, **_TUNED_CONTROLS),
+    # The same setup without the experimental enemy mods: a first run, a weaker PC, or the puzzles that the
+    # duplicated enemies can break.
+    "recommended-lite": _profile("recommended-lite", enemy_hp=200, damage=200, no_heart_drop=True,
+                                 hud_collectibles=True, great_fairy=True, farore_outdoor=True,
+                                 **_TUNED_CONTROLS),
     # Souls-like controls on the vanilla difficulty: stamina bar, R3 lock-on, switch/next target, manual shield.
     "souls": _profile("souls", hud_collectibles=True, **_SOULS),
-    # The same controls with Hero Mode: x1.5 enemy health, x2 damage, no heart drops.
-    "souls-hero": _profile("souls-hero", enemy_hp=150, damage=200, no_heart_drop=True, hud_collectibles=True,
-                           **_SOULS),
+    # The same controls at the default difficulty: x2 enemy health and damage, no heart drops.
+    "souls-hero": _profile("souls-hero", enemy_hp=200, damage=200, no_heart_drop=True,
+                           hud_collectibles=True, **_SOULS),
     # Vanilla difficulty, but with the pack's HUD and extra buttons.
     "base": _profile("base", stamina=False, hud_collectibles=True),
     # Only the manual shield: vanilla difficulty/HUD/controls off, no stamina, no extra buttons.
+    # The wide layout keeps its element switches, so with every counter off nothing is drawn (the "simple"
+    # row always shows the four counters).
     "manual-shield": _profile("manual-shield", stamina=False, button_mapping=False, songbook=False,
-                              hud_rupees=False, hud_clock=False, quick_boots=False, quick_mask=False,
-                              hud_collectibles=False, manual_shield=True),
-    # Hero Mode: x1.5 enemy health, x2 damage, no hearts, manual shield.
+                              hud_rupees=False, hud_clock=False, hud_mode="wide", quick_boots=False,
+                              quick_mask=False, hud_collectibles=False, manual_shield=True),
+    # Classic Hero Mode: x1.5 enemy health, x2 damage, no hearts, no stamina system.
     "hero": _profile("hero", stamina=False, enemy_hp=150, damage=200, no_heart_drop=True,
                      hud_collectibles=True, **_TARGETING),
     # Hero Mode plus stamina on every action.
@@ -105,29 +131,34 @@ PROFILES = {
     "hero-explorer": _profile("hero-explorer", mode=2, enemy_hp=150, damage=200, no_heart_drop=True,
                               hud_collectibles=True, costs=(False, False, True, False, False, False),
                               **_TARGETING),
-    # Higher difficulty tiers.
-    "super-hero": _profile("super-hero", enemy_hp=200, damage=300, no_heart_drop=True,
-                           hud_collectibles=True, **_TARGETING),
+    # Above the default: x2.5 enemy health and damage and every enemy at x1.5, without duplicating placements.
+    "super-hero": _profile("super-hero", enemy_hp=250, damage=250, no_heart_drop=True,
+                           hud_collectibles=True, great_fairy=True, farore_outdoor=True,
+                           enemy_move=1, enemy_anim=1, enemy_attack=1, enemy_proj=1,
+                           boss_move=1, boss_anim=1, **_TUNED_CONTROLS),
+    # The default with x3 numbers and every enemy mod at x2.
     "ultra-hero": _profile("ultra-hero", enemy_hp=300, damage=300, no_heart_drop=True,
-                           hud_collectibles=True, **_TARGETING),
-    # Endurance run: no heart drops and hardcore stamina, but x2 instead of x3.
+                           hud_collectibles=True, great_fairy=True, farore_outdoor=True,
+                           **_ENEMY_FAST, **_TUNED_CONTROLS),
+    # Endurance run: the default difficulty and hardcore stamina, without the enemy mods.
     "survival": _profile("survival", enemy_hp=200, damage=200, no_heart_drop=True,
                          hud_collectibles=True, **_TARGETING),
     # Only the world changes (Great Fairy rewards + Farore's Wind outdoors) on vanilla difficulty.
     "world": _profile("world", stamina=False, hud_collectibles=True, great_fairy=True,
                       farore_outdoor=True),
-    # Beta options: the two enemy mods on top of the vanilla game (all enemy components x2).
-    "beta-enemies": _profile("beta-enemies", stamina=False, hud_collectibles=True,
-                             enemy_double=True, enemy_move=2, enemy_anim=2, enemy_attack=2, enemy_proj=2),
-    # Beta options: everything on, enemy mods included.
-    "beta-all": _profile("beta-all", enemy_hp=150, damage=200, no_heart_drop=True,
+    # Beta options: the enemy mods on top of the vanilla game (all components x2 plus the duplication).
+    "beta-enemies": _profile("beta-enemies", stamina=False, hud_collectibles=True, **_ENEMY_FAST),
+    # Beta options: the experimental ceiling, x3 numbers and everything at x3 with the most aggressive enemies.
+    "beta-all": _profile("beta-all", enemy_hp=300, damage=300, no_heart_drop=True,
                          hud_collectibles=True, great_fairy=True, farore_outdoor=True,
-                         enemy_double=True, enemy_move=2, enemy_anim=2, enemy_attack=2, enemy_proj=2,
-                         **_TARGETING),
+                         enemy_double=True, enemy_move=3, enemy_anim=3, enemy_attack=3, enemy_proj=3,
+                         enemy_alert=2, enemy_aggro=2, boss_move=3, boss_anim=3,
+                         **_TUNED_CONTROLS),
 }
 
-PROFILE_KEYS = ("recommended", "souls", "souls-hero", "base", "manual-shield", "hero", "hero-stamina", "hero-explorer", "super-hero",
-                "ultra-hero", "survival", "world", "beta-enemies", "beta-all", "custom")
+PROFILE_KEYS = ("recommended", "recommended-lite", "souls", "souls-hero", "base", "manual-shield", "hero",
+                "hero-stamina", "hero-explorer", "super-hero", "ultra-hero", "survival", "world",
+                "beta-enemies", "beta-all", "custom")
 DEFAULT_PROFILE = "recommended"
 
 
@@ -138,8 +169,10 @@ def defaults() -> dict:
                 hud_rupees=True, hud_clock=True, clock_24h=True, songbook=True,
                 quick_boots=True, quick_mask=True, hud_collectibles=False, hud_mode="wide",
                 enemy_double=False, enemy_move=0, enemy_anim=0, enemy_attack=0, enemy_proj=0,
+                enemy_alert=0, enemy_aggro=0, boss_move=0, boss_anim=0,
                 great_fairy=False, farore_outdoor=False, stamina_bar=None, manual_shield=False,
-                auto_target=False, switch_target=False, target_r3=None, sprint_l3=None)
+                auto_target=False, switch_target=False, target_r3=None, sprint_l3=None,
+                sprint_l3_toggle=None)
 
 
 def profile_values(key: str) -> dict:
@@ -154,8 +187,35 @@ def profile_values(key: str) -> dict:
                 songbook=p.songbook, quick_boots=p.quick_boots, quick_mask=p.quick_mask,
                 hud_collectibles=p.hud_collectibles, hud_mode=p.hud_mode, enemy_double=p.enemy_double,
                 enemy_move=p.enemy_move, enemy_anim=p.enemy_anim, enemy_attack=p.enemy_attack,
-                enemy_proj=p.enemy_proj,
+                enemy_proj=p.enemy_proj, enemy_alert=p.enemy_alert, enemy_aggro=p.enemy_aggro,
+                boss_move=p.boss_move, boss_anim=p.boss_anim,
                 great_fairy=p.great_fairy, farore_outdoor=p.farore_outdoor,
                 stamina_bar=p.stamina_bar, manual_shield=p.manual_shield,
                 auto_target=p.auto_target, switch_target=p.switch_target,
-                target_r3=p.target_r3, sprint_l3=p.sprint_l3)
+                target_r3=p.target_r3, sprint_l3=p.sprint_l3,
+                sprint_l3_toggle=p.sprint_l3_toggle)
+
+
+def settings_kwargs(key: str) -> dict:
+    """Keyword arguments for installer.Settings.
+
+    The app window, the command line and the presets pack all build their Settings from here, so a profile
+    cannot mean one thing in the window and another in the zip.
+    """
+    v = profile_values(key)
+    costs = dict(zip(KEYS, v["costs"]))
+    return dict(button_mapping=v["button_mapping"], stamina=v["stamina"], songbook=v["songbook"],
+                preset=v["mode"], combat_only=v["combat_only"], **costs,
+                enemy_hp=v["enemy_hp"], damage=v["damage"], no_heart_drop=v["no_heart_drop"],
+                sprint_speed=v["sprint_speed"], hud_rupees=v["hud_rupees"], hud_clock=v["hud_clock"],
+                clock_24h=v["clock_24h"], quick_boots=v["quick_boots"], quick_mask=v["quick_mask"],
+                hud_collectibles=v["hud_collectibles"], hud_mode=v["hud_mode"],
+                enemy_double=v["enemy_double"], enemy_move=v["enemy_move"], enemy_anim=v["enemy_anim"],
+                enemy_attack=v["enemy_attack"], enemy_proj=v["enemy_proj"],
+                enemy_alert=v["enemy_alert"], enemy_aggro=v["enemy_aggro"],
+                boss_move=v["boss_move"], boss_anim=v["boss_anim"],
+                great_fairy=v["great_fairy"], farore_outdoor=v["farore_outdoor"],
+                stamina_bar=bool(v["stamina_bar"]), manual_shield=v["manual_shield"],
+                auto_target=v["auto_target"], switch_target=v["switch_target"],
+                target_r3=bool(v["target_r3"]), sprint_l3=bool(v["sprint_l3"]),
+                sprint_l3_toggle=bool(v["sprint_l3_toggle"]))

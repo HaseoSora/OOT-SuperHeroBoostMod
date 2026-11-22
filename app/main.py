@@ -31,7 +31,7 @@ import rekarina as RK  # noqa: E402
 import updater as U  # noqa: E402
 from i18n import LANGS, tr, system_lang  # noqa: E402
 from presets import (DEFAULT_PROFILE, KEYS, PROFILES, PROFILE_KEYS,  # noqa: E402
-                     STAMINA_MODES, defaults, profile_values)
+                     STAMINA_MODES, profile_values, settings_kwargs)
 from version import VERSION  # noqa: E402
 
 
@@ -148,24 +148,11 @@ def cli(argv) -> int:
     if not a.emu:
         ap.error("--emu is required")
 
-    v = profile_values(a.profile) if a.profile != "custom" else defaults()
-    costs = dict(zip(KEYS, v["costs"]))
+    s = I.Settings(**settings_kwargs(a.profile))
     if a.off is not None:
         for k in a.off.split(","):
-            if k in costs:
-                costs[k] = False
-    s = I.Settings(button_mapping=v["button_mapping"], stamina=v["stamina"], songbook=v["songbook"], preset=v["mode"],
-                   combat_only=v["combat_only"], **costs,
-                   enemy_hp=v["enemy_hp"], damage=v["damage"],
-                   no_heart_drop=v["no_heart_drop"], sprint_speed=v["sprint_speed"],
-                   hud_rupees=v["hud_rupees"], hud_clock=v["hud_clock"], clock_24h=v["clock_24h"],
-                   hud_collectibles=v["hud_collectibles"], hud_mode=v["hud_mode"],
-                   enemy_move=v["enemy_move"], enemy_anim=v["enemy_anim"], enemy_attack=v["enemy_attack"],
-                   enemy_proj=v.get("enemy_proj", 0), boss_move=v.get("boss_move", 0), boss_anim=v.get("boss_anim", 0),
-                   enemy_alert=v.get("enemy_alert", 0), enemy_aggro=v.get("enemy_aggro", 0),
-                   stamina_bar=bool(v["stamina_bar"]), manual_shield=v["manual_shield"],
-                   auto_target=v["auto_target"], switch_target=v["switch_target"],
-                   target_r3=bool(v["target_r3"]), sprint_l3=bool(v["sprint_l3"]))
+            if k in KEYS:
+                setattr(s, k, False)
     s.lang = a.lang or I.detect_lang(Path(a.emu).expanduser()) or system_lang()
     if a.preset is not None:
         s.preset = a.preset
@@ -553,7 +540,8 @@ def gui() -> None:
         auto_target.set(v["auto_target"])
         switch_target.set(v["switch_target"])
         # personal preferences: only a profile that sets them (the Souls ones) changes them
-        for var, key in ((target_r3, "target_r3"), (sprint_l3, "sprint_l3"), (stamina_bar, "stamina_bar")):
+        for var, key in ((target_r3, "target_r3"), (sprint_l3, "sprint_l3"), (sprint_l3_toggle, "sprint_l3_toggle"),
+                         (stamina_bar, "stamina_bar")):
             if v[key] is not None:
                 var.set(v[key])
         RM.set_roles(broles, I.roles_from_flags(RM.roles_value(broles), manual_shield=bool(v["manual_shield"]),

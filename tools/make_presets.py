@@ -31,25 +31,8 @@ OUT = DIST / f"SuperHeroBoost-{VERSION}-presets.zip"
 
 
 def settings_for(key: str) -> I.Settings:
-    v = presets.profile_values(key)
-    costs = dict(zip(presets.KEYS, v["costs"]))
-    return I.Settings(
-        button_mapping=v["button_mapping"], stamina=v["stamina"], songbook=v["songbook"],
-        preset=v["mode"], combat_only=v["combat_only"], **costs,
-        enemy_hp=v["enemy_hp"], damage=v["damage"],
-        no_heart_drop=v["no_heart_drop"], sprint_speed=v["sprint_speed"],
-        hud_rupees=v["hud_rupees"], hud_clock=v["hud_clock"], clock_24h=v["clock_24h"],
-        quick_boots=v["quick_boots"], quick_mask=v["quick_mask"],
-        hud_collectibles=v["hud_collectibles"], hud_mode=v["hud_mode"],
-        enemy_double=v["enemy_double"],
-        enemy_move=v["enemy_move"], enemy_anim=v["enemy_anim"], enemy_attack=v["enemy_attack"],
-        stamina_bar=bool(v["stamina_bar"]),
-        great_fairy=v["great_fairy"], farore_outdoor=v["farore_outdoor"],
-        button_style="switch", bm_simple=False, bm_l_mode="assign",
-        manual_shield=v["manual_shield"],
-        auto_target=v["auto_target"], switch_target=v["switch_target"],
-        target_r3=bool(v["target_r3"]), sprint_l3=bool(v["sprint_l3"]),
-    )
+    return I.Settings(**presets.settings_kwargs(key),
+                      button_style="switch", bm_simple=False, bm_l_mode="assign")
 
 
 def label(key: str) -> str:

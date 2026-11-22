@@ -158,20 +158,16 @@ static u32 toggle_mask(void) {
 
 /* ---- Armory: while the button with the armory role (button remap) is held, left / right change the sword and up /
  * down the shield, with the D-pad or the left stick; Link does not move meanwhile. Each step equips the next sword or
- * shield Link owns (IsGet) and can use at his age, through the same path as the pause menu (String64 record +
- * the game's equip request), so the HUD and the pause menu follow. Inspired by the community mod Hyrule Armory
- * Sync (a drawer on L); this one has no drawer: the change is applied at once and the HUD shows it. ---- */
+ * shield Link owns, through the game's own equip request (the pause menu's path), so the model, the HUD and the pause
+ * menu follow at once. No age rule: the game takes any gear Link owns at either age (checked live: child Link with the
+ * Master Sword, Biggoron's Sword, the broken knife), as the community mod Hyrule Armory Sync (a drawer on L) allows.
+ * This one has no drawer: the change is applied at once. ---- */
 #define GD_S64_WEAPON 23u   /* PlayerStatus.EquipWeapon (core/gd_index.h GD_S64_EQUIP_WEAPON) */
 #define GD_S64_SHIELD 22u   /* PlayerStatus.EquipShield (core/gd_index.h GD_S64_EQUIP_SHIELD) */
-#define AGE_CHILD 1u
-#define AGE_ADULT 2u
 static const char ARM_SWORDS[5][28] = {"Weapon_Sword_Kokiri", "Weapon_Sword_Master", "Weapon_Sword_Giant",
                                        "Weapon_Sword_Biggoron", "Weapon_Sword_BrokenGiant"};
-static const unsigned char ARM_SWORD_AGE[5] = {AGE_CHILD, AGE_ADULT, AGE_ADULT, AGE_ADULT, AGE_ADULT};
 static const char ARM_SHIELDS[3][24] = {"Weapon_Shield_Deku", "Weapon_Shield_Hylian", "Weapon_Shield_Mirror"};
-static const unsigned char ARM_SHIELD_AGE[3] = {AGE_CHILD, AGE_CHILD | AGE_ADULT, AGE_ADULT};
 #define ARM_STICK 16000        /* stick deflection that counts as a direction (of +-32767) */
-int hud_is_child(void);         /* core/hud.c: 1 / 0, -1 = no GameData */
 int hud_pouch_has(const char *actor);   /* core/hud.c: PouchData.<actor>.StockNum > 0 (1 / 0, -1 unknown) */
 /* Link has this sword / shield: in the pouch (what the pause menu lists), or its IsGet flag */
 static int gear_owned(const char *nm) { return hud_pouch_has(nm) > 0 || hud_owns_name(nm); }
@@ -183,13 +179,10 @@ u32 g_arm_dbg[4];              /* diagnostic: steps taken, equips done, last lis
 char g_arm_last[64];           /* diagnostic: the last name equipped */
 static u32 g_arm_dir;          /* direction held in the previous read (1 left, 2 right, 3 up, 4 down) */
 
-/* step through a list (dir +1 / -1) to the next entry Link owns and can use now; 1 when one was equipped */
-static u32 armory_step(const char (*list)[28], const unsigned char *age, u32 n, u32 stride, u32 gd_index, int dir) {
+/* step through a list (dir +1 / -1) to the next entry Link owns; 1 when one was equipped */
+static u32 armory_step(const char (*list)[28], u32 n, u32 stride, u32 gd_index, int dir) {
     char cur[64];
     gd_get_string(gd_index, cur, sizeof cur);
-    int ch = hud_is_child();
-    if (ch < 0) return 0;
-    u32 bit = ch ? AGE_CHILD : AGE_ADULT;
     int pos = -1;
     for (u32 i = 0; i < n; i++) {
         const char *nm = (const char *)list + i * stride;
@@ -198,8 +191,8 @@ static u32 armory_step(const char (*list)[28], const unsigned char *age, u32 n, 
     for (u32 k = 1; k <= n; k++) {
         int j = pos < 0 ? (dir > 0 ? (int)k - 1 : (int)n - (int)k) : ((pos + dir * (int)k) % (int)n + (int)n) % (int)n;
         const char *nm = (const char *)list + (u32)j * stride;
-        if (!(age[j] & bit) || !gear_owned(nm)) continue;
-        if (same(cur, nm)) return 0;   /* the only one usable is the one on: nothing to change */
+        if (!gear_owned(nm)) continue;
+        if (same(cur, nm)) return 0;   /* the only one owned is the one on: nothing to change */
         /* Only the game's request: it compares the name with what Link wears and does nothing when they are equal, so
          * the String64 record must not be written first (the game writes it itself when the change goes through). */
         apply_equip(nm);
@@ -235,9 +228,9 @@ static void armory_input(const HidView *view, u64 buttons) {
         g_arm_dbg[0]++;
         if (!(player_state_is("Wait") || player_state_is("Move") || player_state_starts("LockOn"))) g_arm_dbg[3]++;
         else if (dir <= 2u)
-            armory_step(ARM_SWORDS, ARM_SWORD_AGE, 5u, 28u, GD_S64_WEAPON, dir == 2u ? 1 : -1);
+            armory_step(ARM_SWORDS, 5u, 28u, GD_S64_WEAPON, dir == 2u ? 1 : -1);
         else
-            armory_step((const char (*)[28])(const void *)ARM_SHIELDS, ARM_SHIELD_AGE, 3u, 24u, GD_S64_SHIELD,
+            armory_step((const char (*)[28])(const void *)ARM_SHIELDS, 3u, 24u, GD_S64_SHIELD,
                         dir == 3u ? -1 : 1);
     }
     g_arm_dir = dir;

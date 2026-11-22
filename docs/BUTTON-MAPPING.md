@@ -48,8 +48,8 @@ gone: the table places everything (the installer writes 0).
 
 A button with the **Armory** role (any button) changes gear while it is held: left / right the sword, up / down the
 shield, with the D-pad or the left stick; Link does not move meanwhile. Each step equips the next sword or shield Link
-owns and can use at his age (Kokiri sword and Deku shield child only; Master, Giant's Knife, Biggoron and the broken
-knife adult only; Hylian both; Mirror adult), the same way the pause menu does. Inspired by the community mod Hyrule
+owns, the same way the pause menu does. There is no age rule: the game takes any gear Link owns at either age (checked
+live: child Link with the Master Sword, Biggoron's Sword and the broken knife). Inspired by the community mod Hyrule
 Armory Sync, which does it through the native item drawer on L; this one has no drawer and applies the change at once
 (the model and the HUD follow).
 

@@ -564,3 +564,44 @@ Both mods are generated from the user's own dump by `tools/make_enemy_opts.py`; 
   rupee and sun, so they read smaller at the same scale.
 - Pause menu: `hud_menu_legend` no longer shows its backing plate (the `P_ShbPic_399` clone is scaled to zero),
   and `g_mb_lay` moved to {-740, -90} (a little up and right of the old spot).
+
+## Widescreen HUD groups (Nov 22, PR #10 by HaseoSora)
+
+- A widescreen planner ("Screen's edges" in Longshot / the HUD-edges patches) shifts each root-level pane on its
+  own, so the button cluster and the counter row came apart: the spacing between elements is a *local* position,
+  and every pane was being moved independently. The fix groups them under three non-drawing panes that are cloned
+  from the layout root's first pane (the stock, non-drawing one): `N_ShbActions_00`, `N_ShbCounters_00` and
+  `N_ShbStaminaRing_00` (CityHash64 of the names, same function as `tools/lib/cityhash.py`).
+- The UIL pane tree is two u32s in each pane descriptor: **`+0x28` (40) = parent pane index** and
+  **`+0x34` (52) = next sibling index**, with the root's first pane carrying the end of the whole list. A parent's
+  descendants must be **one contiguous run**, so `group_hud_panes()` reorders the pane table (`root+0x20/+0x28/+0x30`,
+  after the `nc` stock panes) and rewrites every `+40`/`+52`, the root's `first+52` and each part descriptor's `+64`
+  (part -> pane index). The picture/text tables keep their own order: `+0x3C`/`+0x42` index them and do not move.
+- Children then hold *canvas coordinates minus the group origin*: `ACTIONS_X = 1800` (right-hand cluster) and
+  `counters_x() = -1800` (the counters row is on the left in every current HUD mode; the sign used to follow the
+  removed right-side "map" layout, and byte 2 is `plain` now). Every placement that writes a HUD position subtracts
+  the matching origin: `put_text`, `plates_update` (plates, icons, sun/moon, `PIC_BG`) and `slots_draw`.
+- The simple row's soft bar (`PIC_BG`) belongs to the counters group, otherwise the numbers travel and the bar
+  stays. The stamina bar's own panes (`PIC_BAR`..`PIC_BG`) stay at root level: they are placed around the bar's
+  own anchor (`g_barp`), not the counter row.
+- `group_hud_panes()` failing returns 0 from `build_root()`, i.e. no mod HUD at all (`g_hud_dbg[9] = MARK|5`);
+  a partial tree is not left behind.
+- The three group names must be a `char names[3][20]` array, not `const char *names[]`: the pointer table is an
+  `R_AARCH64_ABS64` in `.rodata` and `tools/build_core.py` rejects the module (no relocations). This is the first
+  thing the build caught when the branch was merged.
+
+## Switch GameCube preset (Nov 22, PR #10 by HaseoSora)
+
+- `bm_layout` byte 25 = **3** adds the GameCube face-button geometry (`g_sb_gamecube`: A centre, B lower left,
+  X upper right, Y above-left) and `face_place()` skips the A/B swap for it. The buttons keep their logical roles;
+  only where they are drawn moves. The `OotBtnG_*` art is generated at release time by
+  `tools/make_gamecube_buttons.py`, which needs the game's UI zstd dictionary (`SHB_ROMFS` or
+  `SHB_UI_DICTIONARY`) because it decompresses the stock `OotBtnS_*` BNTX files as templates.
+- The System tab's Basic Controls diagram lives in `UI/Layout2Archive/Common.Product.100.Nin_Ounce_NVN2.bntx.zs`:
+  a 244,460,000-byte BNTX compressed to 64,862,732 bytes. `app/gamecube.py` decompresses it, verifies the sha256 of
+  the three textures it replaces (two `Controller_Pro` half-diagrams and one more), patches them in place and
+  recompresses at level 6 (72,937,387 bytes, ~10 s). No dictionary is needed to read or write that file.
+- An emulator install has no romfs dump on disk, so `prepare_gamecube_layout()` turns a missing/unsupported atlas
+  into an install **note** (`n_gamecube_atlas_skipped`) instead of failing: the HUD art works without the diagram.
+  A `GameCube-System-Controller` add-on that replaces the same atlas is renamed `.disabled` only while the preset
+  is selected.

@@ -379,6 +379,9 @@ Module, HUD, stamina system, button mapping (with its textures) and app: origina
 
 Thanks to:
 
+- [HaseoSora](https://github.com/HaseoSora) for the **Switch GameCube** preset with its button artwork and
+  controller diagram, and for grouping the HUD panes so the clusters keep their alignment under widescreen
+  ("screen's edges") layouts.
 - [Kabosune / oot-remake-modding](https://github.com/Kabosune/oot-remake-modding) for the modding documentation
   and help.
 - [platinumagpie / oot-remake-devtool](https://github.com/platinumagpie/oot-remake-devtool) for the development tools

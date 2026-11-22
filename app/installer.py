@@ -12,6 +12,7 @@ import zstandard
 from dataclasses import dataclass, field
 from pathlib import Path
 
+import gamecube
 import layouts
 
 TITLE_ID = "0400486024DEC000"
@@ -23,8 +24,8 @@ HUD_MODES = ("wide", "simple", "plain")
 HUD_MODE_BYTE = {"wide": 0, "simple": 1, "plain": 2}   # 2 used to be "map" (minimal); old configs read as plain
 STYLE_BYTE = {"switch": 0, "xbox": 1, "playstation": 2}
 GAME_LAYOUTS = ("none", "playstation", "xbox")   # game-wide prompts download (optional; recompilers have their own)
-BM_LAYOUTS = ("nintendo", "ab", "xbox")         # where the face buttons sit (the recompilers' button remap)
-BM_LAYOUT_BYTE = {"nintendo": 0, "ab": 1, "xbox": 2}
+BM_LAYOUTS = ("nintendo", "ab", "xbox", "gamecube")  # face-button positions in the mod UI
+BM_LAYOUT_BYTE = {"nintendo": 0, "ab": 1, "xbox": 2, "gamecube": 3}
 L_MODES = ("assign", "selector")           # buttonMapping L: an item slot or the game's item selector
 L_MODE_VALUES = {"assign": 0, "selector": 2}
 # Button remap (core/remap.h): what each of the eight buttons does. REMAP_BUTTONS is the module's physical order
@@ -599,7 +600,8 @@ def patch_config(nso: bytes, s: Settings) -> bytes:
                         b[f + 64 + k] = ROLES.index(roles[btn])
                     # the options the table implies (they used to be separate switches)
                     fl = roles_flags(roles)
-                    b[f + 9] = 0                                             # bm_layout: positions come from the table
+                    if s.bm_layout != "gamecube":                             # preserve prior custom-remap geometry
+                        b[f + 9] = 0
                     b[f + 24] = L_MODE_VALUES[fl["bm_l_mode"]]
                     b[f + 54] = int(s.manual_shield)
                     b[f + 55] = 0                                            # target_r3: target can be on R3 itself
@@ -756,15 +758,36 @@ def ensure_layout(s: "Settings", progress=None) -> str | None:
     return style
 
 
+def prepare_gamecube_layout(s: Settings, root: Path, payload: Path) -> tuple[bytes | None, Path | None, tuple | None]:
+    """GameCube extras: the patched UI atlas (the Basic Controls diagram) and the button art directory.
+
+    The diagram needs the game's original UI archive, which an emulator install does not have on disk, so a
+    missing or unsupported archive skips the diagram (third value = note) instead of failing the install: the
+    HUD and the button art do not depend on it.
+    """
+    if s.bm_layout != "gamecube":
+        return None, None, None
+    art = None
+    if s.button_mapping and s.button_style not in ("xbox", "playstation") and not s.bm_simple:
+        art = payload / "button_romfs" / "gamecube"
+        if not art.is_dir():
+            raise InstallError("no_payload", "buttonMapping (gamecube)")
+    try:
+        return gamecube.make_atlas(root), art, None
+    except ValueError as ex:
+        return None, art, ("gamecube_atlas_skipped", str(ex))
+
+
 def install(emu: Path, s: Settings, name: str = MOD_NAME, progress=None) -> Result:
     mods = find_mods_dir(emu)
     if mods is None:
         raise InstallError("no_mods_dir")
-    style = ensure_layout(s, progress)
+    style = None if s.bm_layout == "gamecube" else ensure_layout(s, progress)
     variant = "standalone"
     pay = resource_dir() / variant
     if not (pay / "subsdk9").exists():
         raise InstallError("no_payload", variant)
+    atlas, gamecube_art, gc_note = prepare_gamecube_layout(s, emu, pay.parent)
     target = mods / name
     mods.mkdir(parents=True, exist_ok=True)
     for old in our_mod_folders(mods):        # older versions used other folder names (00-, Super-Hero-Boost)
@@ -792,7 +815,16 @@ def install(emu: Path, s: Settings, name: str = MOD_NAME, progress=None) -> Resu
         if (rep / "common").exists():
             shutil.copytree(rep / "common", target / "romfs", dirs_exist_ok=True)
 
+    if gamecube_art is not None:
+        _copy_tree(gamecube_art, target / "romfs")
+    if atlas is not None:
+        gamecube.write_atlas(target / "romfs", atlas)
+    if s.bm_layout == "gamecube":
+        gamecube.disable_legacy_atlas(mods)   # a standalone diagram add-on would override ours
+
     res = Result(target, variant)
+    if gc_note:
+        res.notes.append(gc_note)
     # romfs files generated from the game's own data (tools/make_romfs_opts.py). The heart and the magic drop are
     # two changes to the same table, so when both are on one combined file is installed.
     drops = (["no_heart_drop"] if s.no_heart_drop else []) + (["no_magic_drop"] if s.no_magic_drop else [])

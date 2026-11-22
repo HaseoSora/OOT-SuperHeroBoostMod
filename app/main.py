@@ -72,7 +72,7 @@ def cli(argv) -> int:
     ap.add_argument("--button-style", choices=I.BUTTON_STYLES, default=None,
                     help="button mapping: button pictures")
     ap.add_argument("--bm-layout", choices=I.BM_LAYOUTS, default=None,
-                    help="button mapping: face button positions (match the recompiler's A/B or Xbox remap)")
+                    help="button mapping: face button positions (including Switch GameCube)")
     ap.add_argument("--game-layout", choices=I.GAME_LAYOUTS, default=None,
                     help="download the game's own PlayStation/Xbox prompts (optional; none keeps the game's)")
     ap.add_argument("--bm-simple", action="store_true", help="button mapping: simple layout (assignable buttons only)")
@@ -1200,7 +1200,6 @@ def gui() -> None:
                 w.config(state="normal" if stam else "disabled")
         on = bmap.get()
         if "game_layout" in ui:   # the game-wide prompts do not depend on the button mapping
-            ui["game_layout"].config(state="readonly")
             refresh_layout_note()
         for w in ui.get("bm", []):
             w.config(state=("readonly" if isinstance(w, UI.Select) else "normal") if on else "disabled")
@@ -1659,17 +1658,27 @@ def gui() -> None:
 
         def paint_presets():
             current = RM.preset_of(RM.roles_value(broles))
+            if bplace.get() == "gamecube":
+                current = ("gamecube" if current == "classic" and bmap.get() and
+                           bstyle.get() == "switch" and not bsimple.get() else "")
             for key, btn in ui.get("ctrl_presets", []):
                 btn.set_active(key == current)
 
         def apply_preset(key):
-            table = I.REMAP_PRESETS[key]
+            table = I.REMAP_PRESETS["classic" if key == "gamecube" else key]
+            if key == "gamecube":
+                bplace.set("gamecube")
+                bstyle.set("switch")
+                bsimple.set(False)
+                bmap.set(True)
+            elif bplace.get() == "gamecube":
+                bplace.set("nintendo")
             if "shield" in table.values() and not manual_shield.get():
                 manual_shield.set(True)
             RM.set_roles(broles, table)
             paint_presets()
 
-        for i, key in enumerate(I.REMAP_PRESET_KEYS):
+        for i, key in enumerate((*I.REMAP_PRESET_KEYS, "gamecube")):
             b = UI.ChoiceCard(pgrid, L("preset_" + key), L("ctrl_preset_" + key + "_d"),
                               command=lambda k=key: apply_preset(k), desc_wrap=480)
             b.grid(row=i // 2, column=i % 2, sticky="ew", padx=(0, 8) if i % 2 == 0 else (0, 0),
@@ -1685,7 +1694,7 @@ def gui() -> None:
                      help=L("buttons_desc") + "\n\n" + L("bm_note") + "\n\n" + L("rm_help"))
         build_buttons(abody, embedded=True)
         RM.RemapEditor(abody, L, FAM, COLORS,
-                       dict(bmap=bmap, roles=broles, bstyle=bstyle, bsimple=bsimple, switch_target=switch_target,
+                       dict(bmap=bmap, roles=broles, bstyle=bstyle, bplace=bplace, bsimple=bsimple, switch_target=switch_target,
                             auto_target=auto_target, sprint_toggle=sprint_l3_toggle, mshield=manual_shield))
 
         for var, tid in ui.get("ctrl_trace_ids", []):
@@ -1710,7 +1719,7 @@ def gui() -> None:
             ui["ctrl_summary"].config(text=L("ctrl_summary") + "  " + "  ·  ".join(parts))
             paint_presets()
 
-        for var in (bmap, manual_shield, *broles.values()):
+        for var in (bmap, bplace, bstyle, bsimple, manual_shield, *broles.values()):
             ui["ctrl_trace_ids"].append((var, var.trace_add("write", lambda *_: refresh_controls())))
 
         ui["ctrl_refresh"] = refresh_controls
@@ -1732,7 +1741,14 @@ def gui() -> None:
 
     def refresh_layout_note(*_):
         note, btn = ui.get("layout_note"), ui.get("layout_dl")
-        if note is None:
+        if note is None or not note.winfo_exists():
+            return
+        gamecube = bplace.get() == "gamecube"
+        ui["game_layout"].config(state="disabled" if gamecube else "readonly")
+        if gamecube:
+            note.config(text=L("bm_place_gamecube_help"), fg=DIM)
+            if btn is not None:
+                btn.pack_forget()
             return
         style = glayout.get()
         if style == "none":
@@ -1816,7 +1832,7 @@ def gui() -> None:
 
     def need_layout() -> bool:
         style = glayout.get()
-        return style == "none" or layouts.available(style) or download_layout(style)
+        return bplace.get() == "gamecube" or style == "none" or layouts.available(style) or download_layout(style)
 
     def build_buttons(parent, embedded=False):
         """The mod's item buttons on the HUD: on / off, their pictures and how many are drawn."""

@@ -552,6 +552,77 @@ static u8 *build_map(const u8 *r) {
     g_map_build_dbg[1] = 0;
     return root;
 }
+/* A nonzero parent origin lets widescreen planners anchor the whole cluster.
+ * Child positions remain in canvas units at the call sites. */
+#define ACTIONS_X 1800.0f
+static float counters_x(void) {
+    return g_shbcfg.hud_mode == 2 ? 1800.0f : -1800.0f;
+}
+static int action_field(u32 field) { return field == 4 || field == 5; }
+static int counter_picture(u32 k) { return k < RT1 || (k >= PIC_COLL && k < PIC_BAR); }
+
+static int group_hud_panes(u8 *root, u8 *first, u32 nc, u32 parts, u8 **part_desc) {
+    const u32 pics = nc + parts, texts = pics + PIC_N, groups = texts + TXT_N;
+    const float origins[] = {ACTIONS_X, counters_x(), 0.0f};
+    const char *names[] = {"N_ShbActions_00", "N_ShbCounters_00", "N_ShbStaminaRing_00"};
+    const u64 hashes[] = {0xe209072c44f5dda5ULL, 0xf44ec55ca35671a1ULL, 0xac10de115037b4caULL};
+    for (u32 g = 0; g < 3; g++) {
+        u8 *group = pool_clone(first, 68);   /* the stock root is a non-drawing pane */
+        if (!group) return 0;
+        *(float *)(group + 0x10) = 1.0f;
+        *(float *)(group + 0x14) = 1.0f;
+        *(float *)(group + 28) = origins[g];
+        *(float *)(group + 32) = 0.0f;
+        *(u32 *)(group + 40) = 0;
+        if (!tbl_add(root, 0x20, names[g], group, hashes[g])) return 0;
+    }
+    /* The UIL stores a parent's descendants in one contiguous subtree.
+     * Picture, text and part table indices stay independent of this order. */
+    u32 order[PART_N + PIC_N + TXT_N + 3], next = 0;
+    order[next++] = groups;
+    for (u32 k = 0; k < parts; k++) order[next++] = nc + k;
+    for (u32 k = 0; k < TXT_N; k++) if (action_field(k % FLD_N)) order[next++] = texts + k;
+    const u32 actions_end = next;
+    order[next++] = groups + 1;
+    for (u32 k = 0; k < PIC_N; k++) if (counter_picture(k)) order[next++] = pics + k;
+    for (u32 k = 0; k < TXT_N; k++) if (!action_field(k % FLD_N)) order[next++] = texts + k;
+    const u32 counters_end = next;
+    /* Keep the ring's hundreds of dots from filling the root's edge-planner slots. */
+    order[next++] = groups + 2;
+    for (u32 k = RT1; k < PIC_COLL; k++) order[next++] = pics + k;
+    const u32 ring_end = next;
+    for (u32 k = PIC_BAR; k < PIC_N; k++) order[next++] = pics + k;
+
+    for (u32 j = 0; j < 3; j++) {
+        u64 *table = (u64 *)q(root, 0x20 + j * 8);
+        u64 reordered[PART_N + PIC_N + TXT_N + 3];
+        for (u32 k = 0; k < next; k++) reordered[k] = table[order[k]];
+        memcpy(table + nc, reordered, next * sizeof(*table));
+    }
+    u64 *descs = (u64 *)q(root, 0x28);
+    for (u32 k = 0; k < next; k++) {
+        u8 *desc = (u8 *)descs[nc + k];
+        if (k == 0 || k == actions_end || k == counters_end) {
+            *(u32 *)(desc + 52) = nc + (k == 0 ? actions_end : k == actions_end ? counters_end : ring_end);
+            continue;
+        }
+        *(u32 *)(desc + 52) = nc + k + 1;
+        if (k < counters_end) {
+            const u32 g = k < actions_end ? 0 : 1;
+            *(u32 *)(desc + 40) = nc + (g ? actions_end : 0);
+            *(float *)(desc + 28) = g ? 0.0f : 1400.0f - ACTIONS_X;
+        }
+        if (k > counters_end && k < ring_end) {
+            *(u32 *)(desc + 40) = nc + counters_end;
+            *(float *)(desc + 28) = 0.0f;
+        }
+        if (order[k] >= nc && order[k] < pics)
+            *(u32 *)(part_desc[order[k] - nc] + 64) = nc + k;
+    }
+    *(u32 *)(first + 52) = nc + next;
+    return 1;
+}
+
 static u8 *build_root(const u8 *r) {
     pic_names();
     if (name_index(r, 0x20, g_pinames[0]) >= 0) { g_hud_dbg[9] = MARK | 1; return 0; }
@@ -669,6 +740,10 @@ static u8 *build_root(const u8 *r) {
             *(u64 *)(root + 0x208) = (u64)na;
             *(u32 *)(root + 0x210) = oc + PIC_N + TXT_N;
         } else g_hud_dbg[9] = MARK | 7;
+    }
+    if (!group_hud_panes(root, first, nc, PART_TOT, pdk)) {
+        g_hud_dbg[9] = MARK | 5;
+        return 0;
     }
     g_hud_dbg[6] += 1;
     return root;
@@ -1024,6 +1099,7 @@ static void put_text(u64 frame, u32 f, const char *ascii, float x, float y, u32 
         u64 t = rf; rf = rb; rb = t;
         g_tfront[f] ^= 1; g_tpend[f] = 0;
     }
+    x = on ? x - (action_field(f) ? ACTIONS_X : counters_x()) : 0.0f;
     place(rf, x, y, ts, on ? ts : 0.0f, 0.0f);
     place(rb, x, y, ts, 0.0f, 0.0f);
     if (g_tpend[f]) return;
@@ -1086,10 +1162,13 @@ static void plates_reset(void) {
     g_plates_shown = 0;
 }
 static void plates_hide(u64 frame) {
-    for (u32 k = 0; k < PIC_N; k++) place(g_pic_rec[k], g_hudp[0], g_hudp[2], 0.0f, 0.0f, 0.0f);
+    for (u32 k = 0; k < PIC_N; k++) {
+        u64 rec = g_pic_rec[k];
+        if (rec) place(rec, *(float *)(rec + 0x6C), g_hudp[2], 0.0f, 0.0f, 0.0f);
+    }
     for (u32 t = 0; t < TXT_N; t++) {
         u64 rec = pane_record(frame, g_tnames[t]);
-        if (rec) place(rec, g_hudp[0], g_hudp[2], 0.0f, 0.0f, 0.0f);
+        if (rec) place(rec, *(float *)(rec + 0x6C), g_hudp[2], 0.0f, 0.0f, 0.0f);
     }
 }
 /* ---- per-area collectibles ----
@@ -1297,12 +1376,13 @@ static void plates_update(u64 frame) {
     u32 show_r = rup && bxr != -32768, show_c = clk && bxc != -32768;
     u32 show_s = active && g_shbcfg.hud_collectibles && bxs != -32768;
     u32 show_h = active && g_shbcfg.hud_collectibles && bxh != -32768;
+    const float counter_origin = counters_x();
     if (plates && show_r) {
         float cx = plates == 2 && bxh != -32768 ? ((float)bxr + (float)bxh) * 0.5f : (float)bxr;
         for (u32 j = 0; j < 4; j++) {
             u64 rec = g_pic_rec[4 + j];
             float sx = psx * ((j & 1) ? -1.0f : 1.0f);
-            place(rec, cx, BY, sx, psy, 0.0f);
+            place(rec, cx - counter_origin, BY, sx, psy, 0.0f);
             if (j < 2) tint_rec(rec, 0.0f, 0.0f, 0.0f, P[10]);
             else tint_rec(rec, P[15], P[15], P[15], P[11]);
         }
@@ -1310,7 +1390,7 @@ static void plates_update(u64 frame) {
     if (plates == 1 && show_c) for (u32 j = 0; j < 4; j++) {
         u64 rec = g_pic_rec[j];
         float sx = psx * ((j & 1) ? -1.0f : 1.0f);
-        place(rec, (float)bxc, BY, sx, psy, 0.0f);
+        place(rec, (float)bxc - counter_origin, BY, sx, psy, 0.0f);
         if (j < 2) tint_rec(rec, 0.0f, 0.0f, 0.0f, P[10]);
         else tint_rec(rec, P[15], P[15], P[15], P[11]);
     }
@@ -1320,7 +1400,7 @@ static void plates_update(u64 frame) {
         for (u32 j = 0; j < 4; j++) {
             u64 rec = g_pic_rec[PIC_COLL + sec2 * 4 + j];
             float sx = 0.42f * ((j & 1) ? -1.0f : 1.0f);
-            place(rec, (float)bi, BY, sx, psy, 0.0f);
+            place(rec, (float)bi - counter_origin, BY, sx, psy, 0.0f);
             if (j < 2) tint_rec(rec, 0.0f, 0.0f, 0.0f, P[10]);
             else tint_rec(rec, P[15], P[15], P[15], P[11]);
         }
@@ -1330,11 +1410,11 @@ static void plates_update(u64 frame) {
         int bi = sec2 ? bxh : bxs;
         if (bi == -32768 || !(sec2 ? show_h : show_s)) continue;
         u64 icn = g_pic_rec[PIC_COLL + 8 + sec2];
-        place(icn, (float)bi + ioff2, BY, isc, isc, 0.0f);
+        place(icn, (float)bi + ioff2 - counter_origin, BY, isc, isc, 0.0f);
         tint_rec(icn, 1.0f, 1.0f, 1.0f, 1.0f);
     }
     if (show_r) {
-        place(g_pic_rec[8], (float)bxr + ioff, BY, isc, isc, 0.0f);
+        place(g_pic_rec[8], (float)bxr + ioff - counter_origin, BY, isc, isc, 0.0f);
         tint_rec(g_pic_rec[8], 1.0f, 1.0f, 1.0f, 1.0f);
     }
     if (sec < 0) sec = 0;
@@ -1343,25 +1423,25 @@ static void plates_update(u64 frame) {
         u32 day = sec >= 6 * 3600 && sec < 18 * 3600;
         if (P[16] > 0.5f) day = P[16] < 1.5f;
         u32 sun = show_c && day, moon = show_c && !day;
-        float ix = (float)bxc + ioff2, iy = BY;
+        float ix = show_c ? (float)bxc + ioff2 : counter_origin, iy = BY;
         float ssc = plates == 1 ? 1.0f : isc;
         float ray = plates == 1 ? P[12] : P[12] * (isc / P[6]);
         float msc = plates == 1 ? P[17] : isc;
         float ssh = plates == 1 ? P[18] : isc * 0.85f;
         float mof = plates == 1 ? P[14] : P[14] * (isc / P[6]);
         static const float SUN[3] = {1.0f, 0.86f, 0.42f};
-        place(g_pic_rec[9], ix, iy, sun ? ssc : 0.0f, sun ? ssc : 0.0f, 0.0f);
+        place(g_pic_rec[9], ix - counter_origin, iy, sun ? ssc : 0.0f, sun ? ssc : 0.0f, 0.0f);
         tint_rec(g_pic_rec[9], SUN[0], SUN[1], SUN[2], 1.0f);
         for (u32 j = 0; j < 8; j++) {
             u64 rec = g_pic_rec[10 + j];
-            place(rec, ix + RAY_DX[j] * ray, iy + RAY_DY[j] * ray, sun ? ssc : 0.0f, sun ? ssc : 0.0f,
+            place(rec, ix + RAY_DX[j] * ray - counter_origin, iy + RAY_DY[j] * ray, sun ? ssc : 0.0f, sun ? ssc : 0.0f,
                   -0.785398f * (float)j);
             tint_rec(rec, SUN[0], SUN[1], SUN[2], 1.0f);
         }
         float ms = moon ? msc : 0.0f, ss = moon ? ssh : 0.0f;
-        place(g_pic_rec[18], ix, iy, ms, ms, 0.0f);
+        place(g_pic_rec[18], ix - counter_origin, iy, ms, ms, 0.0f);
         tint_rec(g_pic_rec[18], 0.97f, 0.93f, 0.72f, 1.0f);
-        place(g_pic_rec[19], ix + mof, iy + mof * 0.6f, ss, ss, 0.0f);
+        place(g_pic_rec[19], ix + mof - counter_origin, iy + mof * 0.6f, ss, ss, 0.0f);
         tint_rec(g_pic_rec[19], P[19], P[19], P[19], 1.0f);
     }
 
@@ -1714,12 +1794,19 @@ static const float g_sb_simple[PART_N][2] = {
     {1677.2f, 680.0f}, {1292.6f, 680.0f},
     {1095.1f, 897.6f}, {1419.9f, 897.6f}, {0.0f, 0.0f}, {1651.9f, 705.3f}, {1267.3f, 705.3f},
     {0.0f, 0.0f}, {0.0f, 0.0f}};   /* (no shield in the simple layout) */
-/* Pad layout (ShbConfig.bm_layout, the recompilers' own button remap): the place of each face button on the
+/* Switch GameCube face-button centers. Shoulder locations use the normal layout. */
+static const float g_sb_gamecube[SB_NBTN][2] = {
+    [SB_A] = {SB_CX, SB_CY},
+    [SB_B] = {SB_CX - 148.0f, SB_CY - 68.0f},
+    [SB_X] = {SB_CX + 142.0f, SB_CY + 30.0f},
+    [SB_Y] = {SB_CX - 38.0f, SB_CY + 133.0f},
+};
+/* Pad layout (ShbConfig.bm_layout): the place of each face button on the
  * diamond. The game still sees the same logical buttons; only where we draw them moves. 0 Nintendo (A right,
  * B bottom, X top, Y left), 1 A/B swapped (A bottom, B right), 2 Xbox (A/B and X/Y swapped: X left, Y top). */
 static u32 face_place(u32 k) {
     u32 l = g_shbcfg.bm_layout;
-    if (l >= 1 && (k == SB_A || k == SB_B)) return k == SB_A ? SB_B : SB_A;
+    if (l >= 1 && l != 3 && (k == SB_A || k == SB_B)) return k == SB_A ? SB_B : SB_A;
     if (l == 2 && (k == SB_X || k == SB_Y)) return k == SB_X ? SB_Y : SB_X;
     return k;
 }
@@ -1745,6 +1832,13 @@ float g_pb_zl[2] = {908.0f, 680.0f};
 /* button texture of a physical button (PB_ order; the style letter at [6] is replaced when it is applied) */
 static const char PB_TEX[PB_N][14] = {"OotBtnS_L", "OotBtnS_X", "OotBtnS_R", "OotBtnS_Y", "OotBtnS_A", "OotBtnS_ZR",
                                       "OotBtnS_B", "OotBtnS_ZL", "OotBtnS_Blank", "OotBtnS_Blank"};   /* sticks: no art */
+static const float *sb_button_pos(u32 button) {
+    if (g_shbcfg.bm_layout == 3 &&
+        (button == SB_A || button == SB_B || button == SB_X || button == SB_Y)) {
+        return g_sb_gamecube[button];
+    }
+    return button == PB_ZL ? g_pb_zl : g_sb_pos[face_place(button)];
+}
 static void sb_xy(const float *lay, u32 k, int simple, float *x, float *y) {
     float bx = g_sb_pos[k][0], by = g_sb_pos[k][1];
     if (simple) {
@@ -1754,10 +1848,9 @@ static void sb_xy(const float *lay, u32 k, int simple, float *x, float *y) {
          * that button (face buttons only) */
         u32 home = PART_HOME[k], on = part_phys(k);
         if (on >= PB_L3) on = home;   /* (no button, or a stick: the part is hidden anyway) */
-        u32 at = on < SB_NBTN ? face_place(on) : on;
-        float ax = at == PB_ZL ? g_pb_zl[0] : g_sb_pos[at][0], ay = at == PB_ZL ? g_pb_zl[1] : g_sb_pos[at][1];
-        bx = ax + (g_sb_pos[k][0] - g_sb_pos[home][0]);
-        by = ay + (g_sb_pos[k][1] - g_sb_pos[home][1]);
+        const float *position = sb_button_pos(on);
+        bx = position[0] + (g_sb_pos[k][0] - g_sb_pos[home][0]);
+        by = position[1] + (g_sb_pos[k][1] - g_sb_pos[home][1]);
     }
     *x = SB_CX + (bx - SB_CX) * lay[0] + lay[2];
     *y = SB_CY + (by - SB_CY) * lay[0] + lay[3];
@@ -2302,7 +2395,7 @@ static void slots_draw(SlotBtn *set, const u64 *ctrls, u64 frame, const float *l
         float sc = empty || !BTNMAP ? 0.0f : g_sb_sc[k] * lay[1];
         float px, py;
         sb_xy(lay, k, g_shbcfg.bm_simple, &px, &py);
-        if (b->rec) place(b->rec, px, py, sc, sc, 0.0f);
+        if (b->rec) place(b->rec, main_set ? px - ACTIONS_X : px, py, sc, sc, 0.0f);
         /* ItemPattern = icon framing. Frame 0 shows the full picture: buttons, and items drawn big and even
          * like the item buttons (item_pattern() keeps the stock box's per-item framing for a smaller style) */
         if (b->anim[0]) set_frame((void *)b->anim[0], g_sb_item[k] < 0 || g_sb_big_items ? 0.0f : item_pattern(g_sb_item[k]));
@@ -2353,15 +2446,20 @@ static void slots_draw(SlotBtn *set, const u64 *ctrls, u64 frame, const float *l
             u32 i;
             const char *src = g_sb_force[k];
             if (part_is_button(k)) {
-                /* a button part shows the letter of the physical button it is on (remap, Jump/B swap); jump is
-                 * the unlettered labelled button, and A too while it carries a label (always in the menu) */
+                /* The artwork follows the physical button, including custom role assignments. */
                 u32 pp = part_phys(k);
                 int blank = k == SB_X || (k == SB_A && (!main_set || g_sb_force[SB_A][8] == 'B'));
                 src = blank || pp >= PB_L3 ? "OotBtnS_Blank" : PB_TEX[pp];
+                if (g_shbcfg.bm_layout == 3 && !g_shbcfg.bm_simple && g_shbcfg.button_style == 0) {
+                    if (pp == SB_A) src = blank ? "OotBtnG_A0" : "OotBtnG_A";
+                    if (pp == SB_B) src = blank ? "OotBtnG_B0" : "OotBtnG_B";
+                    if (pp == SB_X) src = blank ? "OotBtnG_X0" : "OotBtnG_X";
+                    if (pp == SB_Y) src = blank ? "OotBtnG_Y0" : "OotBtnG_Y";
+                }
             }
             for (i = 0; i < 31 && src[i]; i++) nm[i] = src[i];
             nm[i] = 0;
-            if (nm[0] == 'O' && i > 7 && nm[7] == '_')
+            if (nm[0] == 'O' && i > 7 && nm[6] == 'S' && nm[7] == '_')
                 nm[6] = g_shbcfg.button_style == 1 ? 'X' : g_shbcfg.button_style == 2 ? 'P' : 'S';
             if (!str_eq(b->forced, nm)) {
                 for (u32 j = 0; j <= i; j++) b->forced[j] = nm[j];
@@ -2577,6 +2675,8 @@ static void slots_labels(u64 frame) {
     sb_xy(g_sb_lay, SB_X, 0, &xx, &xy);   /* the jump part: wherever jump is (remap, Jump/B swap) */
     sb_xy(g_sb_lay, SB_A, 0, &ax, &ay);
     g_fld_sc[4] = g_fld_sc[5] = 0.80f * g_sb_lay[1];   /* the labels follow the buttons' size */
+    if (g_shbcfg.bm_layout == 3 && g_shbcfg.button_style == 0)
+        g_fld_sc[4] *= 0.68f;  /* the jump label is wider than the curved X cap */
     u32 lbl = !g_shbcfg.bm_simple;   /* simple layout: no X / A buttons, so no labels */
     put_text(frame, 4, hl(g_hl_jump), xx, xy, lbl && part_phys(SB_X) < PB_L3, LABEL);
     put_text(frame, 5, g_sb_a_label, ax, ay, lbl && g_sb_a_label[0] != 0 && part_phys(SB_A) < PB_L3, LABEL);

@@ -239,6 +239,9 @@ ITEM_MARK = {"item1": "1", "item2": "2", "item3": "3", "item_main": "★"}
 # core/hud.c: where each button sits (layout units, y up); ZL mirrors ZR. Items sit up-left of their button.
 HUD_POS = {"L": (1020.4, 872.3), "X": (1292.6, 843.0), "R": (1545.2, 872.3), "Y": (1129.6, 680.0),
            "A": (1455.6, 680.0), "ZR": (1677.2, 680.0), "B": (1292.6, 517.0), "ZL": (908.0, 680.0)}
+# Switch GameCube face-button centers from core/hud.c g_sb_gamecube.
+HUD_GAMECUBE = {**HUD_POS, "A": (1292.6, 680.0), "B": (1144.6, 612.0),
+                "X": (1434.6, 710.0), "Y": (1254.6, 813.0)}
 HUD_SIMPLE = {"item2": (1120.4, 872.3), "item3": (1445.2, 872.3), "item_main": (1677.2, 680.0),
               "item1": (1292.6, 680.0)}
 ITEM_OFF = (-25.3, 25.3)
@@ -361,7 +364,7 @@ class RemapEditor:
                              anchor="w", wraplength=980)
         self.info.pack(anchor="w", pady=(2, 0))
 
-        for key in ("bmap", "bstyle", "bsimple"):
+        for key in ("bmap", "bstyle", "bplace", "bsimple"):
             self._traces.append((v[key], v[key].trace_add("write", lambda *_: self.redraw())))
         self._traces.append((v["mshield"], v["mshield"].trace_add("write", lambda *_: self._shield_changed())))
         for var in v["roles"].values():
@@ -546,6 +549,7 @@ class RemapEditor:
         cv = self.hud
         cv.delete("all")
         simple = self.v["bsimple"].get()
+        positions = HUD_GAMECUBE if self.v["bplace"].get() == "gamecube" else HUD_POS
         phys = {r: b for b, r in roles.items() if r != "none"}
         sc = 0.37
         ox, oy = 200 - 1292.6 * sc, 118 + 712.0 * sc
@@ -562,7 +566,7 @@ class RemapEditor:
                 continue                                    # no HUD art for the sticks
             if simple and role in ("jump", "sword", "action", "shield"):
                 continue
-            bx, by = HUD_SIMPLE[role] if simple else HUD_POS[btn]
+            bx, by = HUD_SIMPLE[role] if simple else positions[btn]
             x, y = to_px(bx, by)
             r = 20
             if role == "jump":   # the unlettered button with the "Jump" label

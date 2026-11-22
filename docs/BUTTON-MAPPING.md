@@ -10,7 +10,7 @@ project.
 |---|---|
 | Extra item buttons B / L / R / ZR | the slot's item is equipped into the game's item box (item index forced on the `main+0x1211C00` call) and ZR is held while the button is held |
 | Button styles | three texture sets: Switch (`OotBtnS_*`), Xbox (`OotBtnX_*`) and PlayStation (`OotBtnP_*`); style byte 0 / 1 / 2. They only change the button mapping's own pictures |
-| Button positions | `bm_layout` (config offset 25): 0 Nintendo, 1 A/B swapped, 2 Xbox (A/B and X/Y swapped), to match the button remap of Longshot / ReLink. `face_place()` in `core/hud.c` moves where each face button (and its item, label) is drawn on the HUD and the pause menu; the logical buttons do not change, and the game's Jump/B swap is applied first |
+| Button positions | `bm_layout` (config offset 25): 0 Nintendo, 1 A/B swapped, 2 Xbox (A/B and X/Y swapped), 3 Switch GameCube (A center, B lower left, X upper right, Y above-left). Select **Switch** under Button style to pair it with the monochrome Switch button art. `face_place()` in `core/hud.c` moves where each face button (and its item, label) is drawn on the HUD and the pause menu; the logical buttons do not change, and the game's Jump/B swap is applied first |
 | Game prompts (optional) | a separate app choice (`game_layout`: none / PlayStation / Xbox). Only when it is set, the installer downloads (once, ~70 MB) the game's own button glyphs, External font and controller picture from the GameBanana controller-UI mod and merges its resource size table with ours. Longshot and ReLink already ship their own prompts, so the default is none |
 | Extended layout | B, L, R, ZR, X, Y, A and the sword |
 | Simple layout | only the assignable B, L, R and ZR buttons; hides X, Y, A and the sword and repositions L / R / ZR in place with B centred and closer, in a zigzag, both on the HUD and on the pause menu's Items tab |
@@ -140,3 +140,34 @@ the app downloads the community controller-UI archive from GameBanana on demand 
 the game's files. Its `ResourceSizeTable` raises the External font entry (`0x3A08` -> `0x5000`), which is why it is
 merged with ours instead of replacing it: a single table sizes every resource, so copying theirs would drop our bigger
 Common layout budget and the enemy-pack sizes.
+
+### Switch GameCube artwork
+
+Select **Switch** for button style, **Switch GameCube** for button positions and **Extended** for the full
+face cluster. The monochrome A and B are different sizes, with a vertical curved X and a horizontal curved Y.
+The text-only Jump and action variants use the same button outlines.
+
+Once the standard payload has been staged, use the game's UI zstd dictionary (dictionary ID 1) to generate the
+extra textures before running `tools/build_app.py`:
+
+```powershell
+py -3.12 -m pip install Pillow zstandard
+py -3.12 tools/make_gamecube_buttons.py --dictionary "C:\path\to\zsdic1.bin"
+```
+
+**Nintendo (default)** is the original button placement. Selecting **Switch GameCube** applies the
+GameCube diagram on the System tab's **Basic Controls** screen the next time you install or apply
+settings. Other button positions use the existing **Game button prompts** setting, which is **None**
+by default. The diagram does not change the controller bindings.
+
+Longshot reads the original UI archive from the game folder's `romfs`. For an emulator or a separate
+ROMFS dump, set `SHB_ROMFS` to the folder containing `UI/Layout2Archive` before launching the installer.
+The installer patches a copy of the supported original atlas. It verifies the original texture hashes
+before applying the three replacements. The full game atlas and the game's dictionary are not in this
+repository. Recognized older standalone GameCube diagram files are renamed with a `.disabled` suffix
+when applying settings so they don't override the new selection. Move any custom diagram add-on out of
+the mods folder if it also replaces the atlas.
+
+Release builds stage the GameCube HUD textures in `tools/make_release.py`. Set `SHB_ROMFS` to your own
+dump to read the UI dictionary from `Pack/ZsDic.pack.zs`, or point `SHB_UI_DICTIONARY` at the extracted
+dictionary.

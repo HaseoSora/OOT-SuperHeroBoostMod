@@ -43,6 +43,7 @@ def stage_buttons():
     subprocess.run([sys.executable, str(ROOT / "tools" / "make_buttons.py")], check=True, cwd=ROOT)
     for plat in ("switch", "xbox", "playstation"):
         shutil.copytree(ROOT / "build" / "buttons" / plat / "romfs", OUT / "button_romfs" / plat)
+    subprocess.run([sys.executable, str(ROOT / "tools" / "make_gamecube_buttons.py")], check=True, cwd=ROOT)
     raw = ROOT / "build" / "rsizetable.bin"   # decompressed vanilla table (the dump may not be available)
     r = subprocess.run([sys.executable, str(ROOT / "tools" / "make_restbl.py"), str(OUT / "button_romfs" / "common")]
                        + (["--vanilla-raw", str(raw)] if raw.exists() else []), cwd=ROOT)

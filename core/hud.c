@@ -44,11 +44,14 @@ extern u32 read_bool(void *, u8 *, void *, u32);                 /* main+0x179F7
 
 #if __has_include("../build/collectibles_data.h")
 #include "../build/collectibles_data.h"
+#ifndef COLLECT_FLAG_HASHES
+#error "build/collectibles_data.h holds Bool indices from an older generator: run tools/make_collectibles.py"
+#endif
 #else
 #define COLLECT_STAGES 0
 #define COLLECT_FLAGS 0
 static const unsigned char g_collect_table[1] = {0};
-static const unsigned short g_collect_flags[1] = {0};
+static const unsigned int g_collect_flags[1] = {0};
 static const unsigned long long g_collect_hash[1] = {0};
 #endif
 extern char WORLD_MGR[];                                         /* main+0x4E7EAB0: world manager pointer slot */
@@ -1092,6 +1095,29 @@ static void plates_hide(u64 frame) {
         if (rec) place(rec, g_hudp[0], g_hudp[2], 0.0f, 0.0f, 0.0f);
     }
 }
+/* ---- GameData lookups by key hash ----
+ * Record indices are NOT stable: a romfs mod that ships its own GameDataList (Paraglider adds 3 Bools and 1
+ * Int) shifts every record after its additions, so an index generated from the stock list reads the wrong
+ * flag (found live: Sequence_IsChildhood, IsGet.*, the collectible flags). Each table has the game's own
+ * open-addressing map (table + 0x18: {u32 hash, u32 index} slots, table + 0x24: slot count; the game probes it
+ * from hash % slots, linearly, at main+0x5890DC); looking keys up there gives the live index. */
+#define GD_NONE 0xFFFFFFFFu
+static u32 gd_find(u32 k, u32 h) {
+    u64 mgr = *(u64 *)GAMEDATA_MGR;
+    if (!vptr(mgr) || !h) return GD_NONE;
+    u64 tab = mgr + 8 + 0x60ull * k;
+    u64 map = *(volatile u64 *)(tab + 0x18);
+    u32 slots = *(volatile u32 *)(tab + 0x24), cnt = *(volatile u32 *)(tab + 8);
+    if (!vptr(map) || !slots) return GD_NONE;
+    u32 i = h % slots;
+    for (u32 n = 0; n < slots; n++) {
+        u32 e = *(volatile u32 *)(map + (u64)i * 8);
+        if (e == h) { u32 ix = *(volatile u32 *)(map + (u64)i * 8 + 4); return ix < cnt ? ix : GD_NONE; }
+        if (!e) return GD_NONE;
+        i = i + 1 >= slots ? 0 : i + 1;
+    }
+    return GD_NONE;
+}
 /* ---- per-area collectibles ----
  * Sequence_CurrentBanc is String64 record 31 (same layout as the equipment slots): the live string is at
  * +0x74 of a 0x108-byte record. The generated table has the Bool-table indexes of the Gold
@@ -1104,13 +1130,21 @@ static void plates_hide(u64 frame) {
  * is the loaded progress.sav image, which the manager keeps at +0xE80 (an array of 0x80-byte
  * save descriptors); the entry is "<header u64><ascending keys><0>" at the offset the save index
  * gives for that hash. We also remember pickups seen this session so a fresh token still counts
- * before the image catches up. */
+ * before the image catches up.
+ *
+ * That buffer is not progress.sav's own: the game loads and writes every save file through it
+ * (option.sav, slot_NN/caption.sav, account.sav), so a few seconds after the save loads it holds a small
+ * file without the "Game" entry. The keys are therefore copied out whenever the image has them, and the
+ * copy is kept while the buffer holds another file (found live: the counter read 0 after that). */
 #define GAME_KEY_HASH 0xa3db7114u
-static u64 g_kset_arr;      /* first key (after the entry header) */
-static u32 g_kset_n;        /* keys in the entry */
+#define KSET_MAX 4096u
+static u64 g_kset_copy[KSET_MAX];   /* the save's key set, as last seen in the image */
+static u64 g_kset_arr;      /* first key (g_kset_copy once a key set was seen) */
+static u32 g_kset_n;        /* keys in the copy */
 static u32 g_kset_refreshes;
 static u32 g_kset_age;      /* frames since the key set was last read */
 static u64 g_kset_buf;      /* save image the cache was built from */
+static u32 g_kset_doff;     /* its data offset when last read (another file in the buffer changes it) */
 static u64 g_picked[128];   /* keys collected this session */
 static u32 g_picked_n;
 
@@ -1148,11 +1182,13 @@ static void kset_refresh(void) {
     }
     g_kset_dbg[5] = MARK + seen;
     if (!buf) return;
-    /* The save is reloaded in place when another slot is loaded (same buffer address), so the key
-     * set is re-read now and then; between reloads the cached array is used. */
-    if (buf == g_kset_buf && g_kset_arr && ++g_kset_age < 45u) return;
+    /* The buffer is re-read when it holds another file (its data offset changes) and now and then:
+     * the game loads and writes every save file through it, and progress.sav may sit there only briefly. */
+    u32 doff_now = *(volatile u32 *)(buf + 8);
+    if (buf == g_kset_buf && doff_now == g_kset_doff && ++g_kset_age < 45u) return;
+    g_kset_doff = doff_now;
     g_kset_age = 0;
-    g_kset_buf = buf; g_kset_arr = 0;
+    g_kset_buf = buf;
     g_kset_dbg[0] = MARK + buf;
     g_kset_dbg[4] = MARK + ++g_kset_refreshes;
     u32 data_off = *(volatile u32 *)(buf + 8), np = (data_off - 0x20u) / 8u;
@@ -1163,17 +1199,19 @@ static void kset_refresh(void) {
         break;
     }
     g_kset_dbg[1] = MARK + off;
-    if (off < data_off || off > data_off + 0x200000u) { g_kset_n = 0; return; }
+    /* not progress.sav right now (another save file in the buffer): keep the copy */
+    if (off < data_off || off > data_off + 0x200000u) return;
     const unsigned char *p = (const unsigned char *)buf + (u64)off + 8ull;
     u64 prev = 0;
     u32 n = 0;
-    for (; n < 8192u; n++) {
+    for (; n < KSET_MAX; n++) {
         u64 v = *(volatile u64 *)(p + (u64)n * 8ull);
         if (!v || v <= prev) break;
         prev = v;
+        g_kset_copy[n] = v;
     }
     if (n < g_kset_n) g_picked_n = 0;                /* another save (fewer keys): drop this session's list */
-    g_kset_arr = (u64)p; g_kset_n = n;
+    g_kset_arr = (u64)g_kset_copy; g_kset_n = n;
     g_kset_dbg[2] = MARK + n;
 }
 static u32 collect_stage(char *out, u32 cap) {
@@ -1182,14 +1220,17 @@ static u32 collect_stage(char *out, u32 cap) {
     u64 tab = mgr + 8 + 0x60 * 16;                 /* String64 table */
     u32 cnt = *(u32 *)(tab + 8);
     u64 rec = *(u64 *)(tab + 0x10);
-    if (!vptr(rec) || cnt <= 31) return 0;
-    const char *s = (const char *)(rec + 31ull * 0x108ull + 0x74ull);
+    u32 ix = gd_find(16, 0x1D6189DAu);              /* Sequence_CurrentBanc (index 31 in the stock list) */
+    if (!vptr(rec) || ix >= cnt) return 0;
+    const char *s = (const char *)(rec + (u64)ix * 0x108ull + 0x74ull);
     u32 n = 0;
     while (s[n] && n + 1 < cap) { out[n] = s[n]; n++; }
     out[n] = 0;
     return n;
 }
-static u32 collect_bool(u64 recs, u32 count, u32 idx) {
+/* a collectible's Bool by key hash (0: none) */
+static u32 collect_bool(u64 recs, u32 count, u32 key) {
+    u32 idx = key ? gd_find(0, key) : GD_NONE;
     if (!vptr(recs) || idx >= count) return 0;
     return *(volatile unsigned char *)(recs + (u64)idx * 0x18ull + 0x16ull) != 0;
 }
@@ -1222,21 +1263,27 @@ static int collect_counts(u32 *sd, u32 *st, u32 *hd, u32 *ht) {
             *st += 1;
             *sd += (live || kset_has(h) || picked_has(h)) ? 1u : 0u;
         }
+        /* heart pieces: a reward's Bool (live, persistent), or a world piece's actor hash in the key set
+         * (flag 0: none). A world piece picked this session counts once the game saves. */
         for (u32 k = 0; k < hn && ho + k < COLLECT_FLAGS; k++) {
-            *ht += 1; *hd += collect_bool(recs, cnt, g_collect_flags[ho + k]);
+            u64 h = g_collect_hash[ho + k];
+            *ht += 1;
+            *hd += (collect_bool(recs, cnt, g_collect_flags[ho + k]) || kset_has(h)) ? 1u : 0u;
         }
         g_kset_dbg[3] = MARK + ((u64)*sd << 32) + *st;
         return (*st || *ht) ? 1 : 0;
     }
     return 0;
 }
+/* the wallet: Int keys 0xA77921D7 (rupees) and 0xE0010A50 (wallet size), indices 962 / 976 in the stock list */
 static void hud_rupee_values(int *cur, int *mx) {
     *cur = 0; *mx = 200;
     u64 mgr = *(u64 *)GAMEDATA_MGR;
     if (vptr(mgr)) {
-        u32 cnt = *(u32 *)(mgr + 8 + 0x60 * 2 + 8);
         u64 rec = *(u64 *)(mgr + 8 + 0x60 * 2 + 0x10);
-        if (rec && cnt >= 977) { *cur = *(int *)(rec + 962 * 0x28 + 0x1C); *mx = *(int *)(rec + 976 * 0x28 + 0x1C); }
+        u32 ic = gd_find(2, 0xA77921D7u), im = gd_find(2, 0xE0010A50u);
+        if (vptr(rec) && ic != GD_NONE) *cur = *(int *)(rec + (u64)ic * 0x28 + 0x1C);
+        if (vptr(rec) && im != GD_NONE) *mx = *(int *)(rec + (u64)im * 0x28 + 0x1C);
     }
     if (*mx <= 0) *mx = 200;
 }
@@ -2015,10 +2062,11 @@ static void refresh_button_swap(void) {
     g_btn_swap = value != 0;
 }
 void hud_refresh_button_swap(void) { refresh_button_swap(); }
-static u32 mmh3(const char *a, const char *b) {   /* murmur3_32(a + b, seed 0): GameData name hashes */
+static u32 mmh3x(const char *a, const char *b, const char *c) {   /* murmur3_32(a + b + c, seed 0): GameData names */
     u8 buf[96]; u32 n = 0;
     for (u32 i = 0; a[i] && n < 95; i++) buf[n++] = (u8)a[i];
     for (u32 i = 0; b[i] && n < 95; i++) buf[n++] = (u8)b[i];
+    for (u32 i = 0; c[i] && n < 95; i++) buf[n++] = (u8)c[i];
     u32 h = 0, k;
     const u32 c1 = 0xcc9e2d51u, c2 = 0x1b873593u;
     u32 r = n & ~3u;
@@ -2036,6 +2084,7 @@ static u32 mmh3(const char *a, const char *b) {   /* murmur3_32(a + b, seed 0): 
     h ^= n; h ^= h >> 16; h *= 0x85ebca6bu; h ^= h >> 13; h *= 0xc2b2ae35u; h ^= h >> 16;
     return h;
 }
+static u32 mmh3(const char *a, const char *b) { return mmh3x(a, b, ""); }
 /* Items whose button shows a quantity: the stackable consumables. Unique items (boomerang, hookshot, ocarina...)
  * also have a PouchData StockNum (1), so an allowlist is what keeps the "1" off their buttons. */
 static int item_has_count(int item) {
@@ -2045,7 +2094,7 @@ static int item_has_count(int item) {
     default: return 0;
     }
 }
-/* The GameData Int index of a consumable item's quantity (PouchData.<item>.StockNum; table in gd_index.h).
+/* The GameData Int index of a consumable item's quantity (PouchData.<item>.StockNum, looked up by hash).
  * The bow and the slingshot have no own counter: they use the arrows' and the seeds'. -1 = no quantity. */
 static int item_stock_index(int item) {
     if (!item_has_count(item)) return -1;
@@ -2055,13 +2104,13 @@ static int item_stock_index(int item) {
         nm = "Item_Arrow_Normal";                   /* bow and elemental arrows: the shared arrow count */
     else nm = item_name(item);
     if (!nm || nm[0] != 'I') return -1;
-    u32 h = mmh3("", nm), lo = 0, hi = GD_STOCK_N;
-    while (lo < hi) { u32 mid = (lo + hi) / 2; if (GD_STOCK[mid][0] < h) lo = mid + 1; else hi = mid; }
-    if (lo >= GD_STOCK_N || GD_STOCK[lo][0] != h) return -1;
-    return (int)GD_STOCK[lo][1];
+    u32 i = gd_find(2, mmh3x("PouchData.", nm, ".StockNum"));
+    return i == GD_NONE ? -1 : (int)i;
 }
 /* Link is a child (Sequence_IsChildhood): 1 / 0, -1 = GameData not there */
-int hud_is_child(void) { return gd_bool(GD_IS_CHILDHOOD); }
+int hud_is_child(void) { return gd_bool(gd_find(0, 0xCEA220D3u)); }   /* Sequence_IsChildhood */
+/* PlayerStatus.AssignableItem.Child / .Adult: the Enum record of the item box */
+static u32 box_rec(int child) { return gd_find(6, child ? 0xA0029837u : 0xBC32CE24u); }
 /* Which item box the game uses: the item set byte +0x5C0 of **(main+0x4C7E2A8), the one its R selector passes to
  * the equip call (main+0x33C9A04). The box getter main+0x17B6E0 names the GameData key from it: set & 1 indexes
  * {"Adult", "Child"} (main+0x3F13A20), i.e. 1 = PlayerStatus.AssignableItem.Child, 0 = .Adult. It can disagree with
@@ -2071,7 +2120,7 @@ int hud_box_child(void) {
     u64 sets = *(u64 *)ITEM_SET_SLOT;
     u64 so = vptr(sets) ? *(u64 *)sets : 0;
     if (vptr(so)) return *(volatile unsigned char *)(so + 0x5C0) & 1;
-    return gd_bool(GD_IS_CHILDHOOD);
+    return hud_is_child();
 }
 /* The game's item box (ZR) for Link's age, from GameData: the item index, -1 empty, -2 unknown (no GameData, or a
  * value no item maps to, like the 2nd..5th bottle). Value hash -> actor name hash via GD_ACTOR_BOX. */
@@ -2081,7 +2130,7 @@ static u32 box_value(void) {
     if (ch < 0 || !vptr(mgr)) return 0;
     u32 cnt = *(volatile u32 *)(mgr + 8 + 0x60 * 6 + 8);
     u64 rec = *(volatile u64 *)(mgr + 8 + 0x60 * 6 + 0x10);
-    u32 i = ch ? GD_BOX_CHILD : GD_BOX_ADULT;
+    u32 i = box_rec(ch);
     return rec && i < cnt ? *(volatile u32 *)(rec + (u64)i * 0x38 + 0x1C) : 0;
 }
 static u32 g_item_box[64];   /* cached box value of each item index + 1 bit: 0 = not looked up, 1 = none */
@@ -2116,7 +2165,7 @@ int hud_box_set(int item) {
     if (ch < 0 || !vptr(mgr)) return 0;
     u32 cnt = *(volatile u32 *)(mgr + 8 + 0x60 * 6 + 8);
     u64 rec = *(volatile u64 *)(mgr + 8 + 0x60 * 6 + 0x10);
-    u32 i = ch ? GD_BOX_CHILD : GD_BOX_ADULT;
+    u32 i = box_rec(ch);
     if (!rec || i >= cnt) return 0;
     *(volatile u32 *)(rec + (u64)i * 0x38 + 0x1C) = v;
     return 1;
@@ -2128,7 +2177,7 @@ void hud_box_empty(int child) {
     if (!vptr(mgr)) return;
     u32 cnt = *(volatile u32 *)(mgr + 8 + 0x60 * 6 + 8);
     u64 rec = *(volatile u64 *)(mgr + 8 + 0x60 * 6 + 0x10);
-    u32 i = child ? GD_BOX_CHILD : GD_BOX_ADULT;
+    u32 i = box_rec(child);
     if (rec && i < cnt) *(volatile u32 *)(rec + (u64)i * 0x38 + 0x1C) = GD_EMPTY_HASH;
 }
 /* the player has the item (IsGet.<item's actor name>): 1 / 0; 1 also when the item has no IsGet flag */
@@ -2139,13 +2188,9 @@ int hud_item_owned(int item) {
     if (!g_own_idx[item]) {
         const char *nm = item_name(item);
         if (!nm) return 1;
-        u32 h = mmh3("IsGet.", nm), lo = 0, hi = GD_ISGET_N;
-        g_own_idx[item] = 0xFFFFFFFFu;
-        while (lo < hi) {
-            u32 mid = (lo + hi) / 2;
-            if (GD_ISGET[mid][0] < h) lo = mid + 1; else hi = mid;
-        }
-        if (lo < GD_ISGET_N && GD_ISGET[lo][0] == h) g_own_idx[item] = GD_ISGET[lo][1] + 1;
+        if (!vptr(*(u64 *)GAMEDATA_MGR)) return 0;   /* no GameData yet: not owned, nothing cached */
+        u32 i = gd_find(0, mmh3("IsGet.", nm));
+        g_own_idx[item] = i == GD_NONE ? 0xFFFFFFFFu : i + 1;
     }
     if (g_own_idx[item] == 0xFFFFFFFFu) return 1;
     int v = gd_bool(g_own_idx[item] - 1);
@@ -2166,23 +2211,16 @@ int hud_menu_item(void) {
     return a && *(volatile float *)(a + 0x18) != 0.0f ? idx : -1;
 }
 /* The pouch holds the item (PouchData.<actor>.StockNum > 0): how the pause menu knows Link has a sword or a shield.
- * 1 / 0; -1 when the item has no StockNum in GD_STOCK (core/gd_index.h) or GameData is not there. */
+ * 1 / 0; -1 when the item has no StockNum or GameData is not there. */
 int hud_pouch_has(const char *actor) {
-    u32 h = mmh3("", actor), lo = 0, hi = GD_STOCK_N;
-    while (lo < hi) { u32 mid = (lo + hi) / 2; if (GD_STOCK[mid][0] < h) lo = mid + 1; else hi = mid; }
-    if (lo >= GD_STOCK_N || GD_STOCK[lo][0] != h) return -1;
-    int v = gd_int(GD_STOCK[lo][1]);
+    u32 i = gd_find(2, mmh3x("PouchData.", actor, ".StockNum"));
+    if (i == GD_NONE) return -1;
+    int v = gd_int(i);
     return v < 0 ? -1 : v > 0;
 }
 /* the player owns an equipment item (IsGet.<actor name>): 1 / 0; unknown flag = not owned */
 int hud_owns_name(const char *actor) {
-    u32 h = mmh3("IsGet.", actor), lo = 0, hi = GD_ISGET_N;
-    while (lo < hi) {
-        u32 mid = (lo + hi) / 2;
-        if (GD_ISGET[mid][0] < h) lo = mid + 1; else hi = mid;
-    }
-    if (lo < GD_ISGET_N && GD_ISGET[lo][0] == h) return gd_bool(GD_ISGET[lo][1]) > 0;
-    return 0;
+    return gd_bool(gd_find(0, mmh3("IsGet.", actor))) > 0;
 }
 /* The cell's Decide animation: what the game plays when A puts an item in its box. main+0x2D0FE0 plays an
  * animation from its start (no sound); main+0x3772100 is what A does on a cell: the cell's button object
@@ -2599,6 +2637,7 @@ u32 hud_frame_count(void) { return g_tick; }
 static void hud_frame(void) {
     g_hud_dbg[1] = MARK | ++g_tick;
     refresh_button_swap();
+    if (g_shbcfg.hud_collectibles) kset_refresh();   /* every frame, loads too: progress.sav is in the save buffer only briefly */
     if (!g_mp || (int)(g_tick - g_ready_at) < 0) return;
     if (!vptr(g_frame_node)) g_frame_node = 0;
     if (!g_frame_node) {

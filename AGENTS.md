@@ -16,7 +16,9 @@ Target: the **Ocarina of Time remake** for Nintendo Switch 2, update **v131072**
    build is not evidence that a feature works. Report what was verified and what was only assumed.
 3. **Live tests go through the emulator's debug server** (memory reads/writes and synthetic input), not by
    clicking around. Recipe below.
-4. **Any live test that writes equipment or GameData risks the save.** Copy the save folder first.
+4. **Any live test that writes equipment or GameData risks the save.** Copy
+   `<emulator>\user\nand\user\save` (the game's own backup folder `user\save_backup_*` is not automatic) before
+   the test.
 5. **Never commit the dump, `app/payload/` or generated romfs data.** `.gitignore` covers it;
    `python tools/check_no_game_data.py` checks it.
 6. **Keep the module relocation-free.** No jump tables (`-fno-jump-tables`), no tail calls

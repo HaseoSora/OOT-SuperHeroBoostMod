@@ -142,7 +142,9 @@ static u32 toggle_boots(void) {
 /* When the Lens was equipped outside the quick select there may be no saved mask yet:
  * use the first child mask Link owns. */
 static const char *first_owned_mask(void) {
-    static const char *names[] = {
+    /* chars, not pointers: a table of pointers would be a pointer in module data, which the module
+     * cannot relocate (Rekarina loads it away from its link address and the value arrives truncated) */
+    static const char names[8][26] = {
         "Armor_Child_Mask_Keaton", "Armor_Child_Mask_Skull", "Armor_Child_Mask_Spooky",
         "Armor_Child_Mask_Bunny", "Armor_Child_Mask_Goron", "Armor_Child_Mask_Zora",
         "Armor_Child_Mask_Gerudo", "Armor_Child_Mask_Truth",

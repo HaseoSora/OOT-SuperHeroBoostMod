@@ -200,10 +200,13 @@ static void header_show(u64 lay, u32 hide) {
             ((MoveFn)AD_PANE_MOVE)((void *)g_ad_hid_pane[0], *(volatile float *)(g_ad_hid_pane[0] + 0x6c), y0.f - 80.0f,
                                    *(volatile float *)(g_ad_hid_pane[0] + 0x74));
         }
-        static const char *const PART[2] = {"Pa_SortWindow_00", "Pa_Guide_00"};
         for (int i = 0; i < 2; i++) {
-            u64 q = ui_get(lay, PART[i]);
-            if (!q) q = ui_get(g_ad_sortlay, PART[i]);
+            /* the name inline: an array of pointers here would be a pointer in module data, which has no
+             * relocations (longshot/ReLink load at the link address, Rekarina does not: the name arrives
+             * truncated and the pane lookup reads unmapped memory) */
+            const char *pn = i ? "Pa_Guide_00" : "Pa_SortWindow_00";
+            u64 q = ui_get(lay, pn);
+            if (!q) q = ui_get(g_ad_sortlay, pn);
             g_ad_pp[5 + i] = q; g_ad_pp[7] = g_ad_sortlay;
             if (!ptr_ok(q)) continue;
             if (!again || !g_ad_hid_pane[i + 1]) { g_ad_hid_pane[i + 1] = q; g_ad_hid_val[i + 1] = *(volatile u32 *)(q + 0xa8) & 1u; }

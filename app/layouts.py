@@ -242,11 +242,15 @@ def merge_table(src: Path, dst: Path) -> None:
 
 
 def apply(romfs: Path, style: str) -> None:
-    """Copy the chosen layout's font and atlas into a mod's romfs and merge its table."""
+    """Copy the chosen layout's atlas into a mod's romfs and merge its table.
+
+    The layout's External font is not used: the current game build crashes while loading it.
+    The atlas already carries the PlayStation / Xbox button art, so keeping the game's font
+    gives the prompts without that crash.
+    """
     src = ensure(style)
-    for key in ("font", "atlas"):
-        rel = REL[key]
-        dst = romfs / rel
-        dst.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(src / rel, dst)
+    rel = REL["atlas"]
+    dst = romfs / rel
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(src / rel, dst)
     merge_table(src / REL["table"], romfs / REL["table"])

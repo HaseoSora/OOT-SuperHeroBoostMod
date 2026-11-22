@@ -25,7 +25,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from hook_sites import (CODE_SITES, DISABLED_SITES, EXTRA_SITES, INPUT_SITES, PACIBSP,  # noqa: E402
+from hook_sites import (BL_SITES, CODE_SITES, DISABLED_SITES, EXTRA_SITES, INPUT_SITES, PACIBSP,  # noqa: E402
                         SLOT_SITES, SLOT_STOCK, STORE_SITES)
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -266,7 +266,14 @@ def verify_stock_sites(features: list[str]) -> None:
         word = struct.unpack_from("<I", text, site)[0]
         if word != expected:
             raise SystemExit(f"extra site {site:#x} ({name}) is {word:#x}, expected {expected:#x}")
+    for site, name, stock, feature in BL_SITES:
+        if feature not in features:
+            continue
+        target = decode_bl(struct.unpack_from("<I", text, site)[0], site)
+        if target != stock:
+            raise SystemExit(f"bl site {site:#x} ({name}) is not bl {stock:#x} (found {target})")
     extra = sum(1 for _s, _n, _e, f in EXTRA_SITES if f in features)
+    extra += sum(1 for _s, _n, _e, f in BL_SITES if f in features)
     print(f"verified {len(INPUT_SITES)} input sites, {len(SLOT_SITES)} slot sites, "
           f"{len(STORE_SITES)} store sites and {extra} extra sites")
 
@@ -332,9 +339,10 @@ def make_ips(symbols: dict[str, int], features: list[str]) -> bytes:
         delta = symbols[name] - site
         out += struct.pack(">I", site + 0x100) + struct.pack(">H", 4)
         out += struct.pack("<I", 0x14000000 | ((delta >> 2) & 0x03FFFFFF))
+    bl_owned = {site for site, _n, _s, f in BL_SITES if f in features}
     for site, name, _stock in active_sites()[0] + active_sites()[1]:
-        if site in DISABLED_SITES:
-            continue  # stays the stock bl (see hook_sites.DISABLED_SITES)
+        if site in DISABLED_SITES or site in bl_owned:
+            continue  # stays the stock bl (see hook_sites.DISABLED_SITES) / patched by BL_SITES below
         target = symbols[name]
         word = encode_bl(site, target)
         out += struct.pack(">I", site + 0x100)   # +0x100: NSO text starts at file 0x100
@@ -356,6 +364,12 @@ def make_ips(symbols: dict[str, int], features: list[str]) -> bytes:
         out += struct.pack(">I", site + 0x100)
         out += struct.pack(">H", 4)
         out += struct.pack("<I", encode_b(site, symbols[name]))
+    for site, name, _stock, feature in BL_SITES:
+        if feature not in features:
+            continue
+        out += struct.pack(">I", site + 0x100)
+        out += struct.pack(">H", 4)
+        out += struct.pack("<I", encode_bl(site, symbols[name]))
     out += b"EEOF"
     return bytes(out)
 
@@ -455,7 +469,7 @@ def main() -> int:
     for _, name, _ in active_sites()[0] + active_sites()[1]:
         if name not in syms:
             raise SystemExit(f"missing wrapper symbol {name}")
-    for _site, name, _expected, feature in EXTRA_SITES:
+    for _site, name, _expected, feature in EXTRA_SITES + BL_SITES:
         if feature in features and name not in syms:
             raise SystemExit(f"missing extra wrapper symbol {name}")
 

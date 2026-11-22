@@ -156,82 +156,15 @@ static u32 toggle_mask(void) {
     return 1;
 }
 
-/* ---- Armory: while the button with the armory role (button remap) is held, left / right change the sword and up /
- * down the shield, with the D-pad or the left stick; Link does not move meanwhile. Each step equips the next sword or
- * shield Link owns, through the game's own equip request (the pause menu's path), so the model, the HUD and the pause
- * menu follow at once. No age rule: the game takes any gear Link owns at either age (checked live: child Link with the
- * Master Sword, Biggoron's Sword, the broken knife), as the community mod Hyrule Armory Sync (a drawer on L) allows.
- * This one has no drawer: the change is applied at once. ---- */
-#define GD_S64_WEAPON 23u   /* PlayerStatus.EquipWeapon (core/gd_index.h GD_S64_EQUIP_WEAPON) */
-#define GD_S64_SHIELD 22u   /* PlayerStatus.EquipShield (core/gd_index.h GD_S64_EQUIP_SHIELD) */
-static const char ARM_SWORDS[5][28] = {"Weapon_Sword_Kokiri", "Weapon_Sword_Master", "Weapon_Sword_Giant",
-                                       "Weapon_Sword_Biggoron", "Weapon_Sword_BrokenGiant"};
-static const char ARM_SHIELDS[3][24] = {"Weapon_Shield_Deku", "Weapon_Shield_Hylian", "Weapon_Shield_Mirror"};
-/* who can use each one: child Link the Kokiri Sword, the Deku and the Hylian Shield; adult Link everything else and
- * the Hylian Shield (bit 1 child, bit 2 adult) */
-#define AGE_CHILD 1u
-#define AGE_ADULT 2u
-static const unsigned char ARM_SWORD_AGE[5] = {AGE_CHILD, AGE_ADULT, AGE_ADULT, AGE_ADULT, AGE_ADULT};
-static const unsigned char ARM_SHIELD_AGE[3] = {AGE_CHILD, AGE_CHILD | AGE_ADULT, AGE_ADULT};
-int hud_is_child(void);         /* core/hud.c: 1 / 0, -1 = no GameData */
-#define ARM_STICK 16000        /* stick deflection that counts as a direction (of +-32767) */
-int hud_pouch_has(const char *actor);   /* core/hud.c: PouchData.<actor>.StockNum > 0 (1 / 0, -1 unknown) */
-/* Link has this sword / shield: in the pouch (what the pause menu lists), or its IsGet flag */
-static int gear_owned(const char *nm) { return hud_pouch_has(nm) > 0 || hud_owns_name(nm); }
+/* ---- Armory: the button with the armory role (button remap) opens the game's own item drawer, listing Link's swords
+ * and shields (features/quick_select/armory_drawer.c). While it is held the game sees R held, as when the item
+ * drawer is opened: it pops up, the stick chooses, letting the button go confirms. It starts only while Link is in
+ * the game with no menu up; once started it holds R until the button is let go. ---- */
 int hud_game_covered(void);     /* core/hud.c: a menu covers the game */
 int player_active(void);
-int player_state_is(const char *name);
-int player_state_starts(const char *prefix);
-u32 g_arm_dbg[4];              /* diagnostic: steps taken, equips done, last list index, refused (Link busy) */
-char g_arm_last[64];           /* diagnostic: the last name equipped */
-static u32 g_arm_dir;          /* direction held in the previous read (1 left, 2 right, 3 up, 4 down) */
-
-/* ---- the quick menu (drawn by core/hud.c from these globals) ----
- * Holding the armory button opens it: a row of the swords and a row of the shields Link owns, the cursor on what he
- * wears. Left / right moves in the row, up / down changes the row; letting the button go equips the one under the
- * cursor (nothing when it did not move). Under a menu (pause ...) it closes without a change. */
-extern u32 g_arm_open;                  /* core/hud.c: the menu is up */
-extern int g_arm_row, g_arm_col;        /* core/hud.c: the cursor (row 0 swords, 1 shields) */
-extern char g_arm_names[2][5][28];      /* core/hud.c: the gear Link owns, per row */
-extern u32 g_arm_n[2];                  /* core/hud.c: how many per row */
-static int g_arm_last_row;              /* the menu opens on the row used last */
-static char g_arm_pending[28];          /* chosen while Link was busy: equipped as soon as he is free */
-
-static int arm_free(void) {
-    return player_state_is("Wait") || player_state_is("Move") || player_state_starts("LockOn");
-}
-/* the gear of a row Link owns and can use at his age, and where the one he wears is in it (-1 none) */
-static int arm_fill(u32 row) {
-    const char *list = row ? (const char *)ARM_SHIELDS : (const char *)ARM_SWORDS;
-    const unsigned char *age = row ? ARM_SHIELD_AGE : ARM_SWORD_AGE;
-    u32 n = row ? 3u : 5u, stride = row ? 24u : 28u, k = 0;
-    int ch = hud_is_child();
-    u32 bit = ch > 0 ? AGE_CHILD : AGE_ADULT;   /* (no GameData: the adult set) */
-    char cur[64];
-    gd_get_string(row ? GD_S64_SHIELD : GD_S64_WEAPON, cur, sizeof cur);
-    int on = -1;
-    for (u32 i = 0; i < n; i++) {
-        const char *nm = list + i * stride;
-        if (!(age[i] & bit) || !gear_owned(nm)) continue;
-        if (same(cur, nm)) on = (int)k;
-        u32 j = 0;
-        for (; j < 27u && nm[j]; j++) g_arm_names[row][k][j] = nm[j];
-        g_arm_names[row][k][j] = 0;
-        k++;
-    }
-    g_arm_n[row] = k;
-    return on;
-}
-static void arm_equip(const char *nm) {
-    char cur[64];
-    gd_get_string(nm[7] == 'S' && nm[8] == 'h' ? GD_S64_SHIELD : GD_S64_WEAPON, cur, sizeof cur);   /* Weapon_Sh.. */
-    if (same(cur, nm)) return;
-    /* Only the game's request: it compares the name with what Link wears and does nothing when they are equal, so
-     * the String64 record must not be written first (the game writes it itself when the change goes through). */
-    apply_equip(nm);
-    copy64(g_arm_last, nm);
-    g_arm_dbg[1]++;
-}
+int hud_ingame(void);
+extern u32 g_arm_held;          /* armory_drawer.c: the drawer lists gear while this is set */
+static u32 g_arm_drawer_hold;   /* we hold R for the game */
 
 static void armory_input(const HidView *view, u64 buttons) {
     u32 held = (buttons & VBTN_ARMORY) != 0;
@@ -239,61 +172,12 @@ static void armory_input(const HidView *view, u64 buttons) {
         u64 b = hid_get_buttons(view, i);
         if (b & VBTN_ARMORY) hid_set_buttons(view, i, b & ~VBTN_ARMORY);
     }
-    int playing = !hud_game_covered() && player_active();
-    if (g_arm_pending[0] && playing && arm_free()) { arm_equip(g_arm_pending); g_arm_pending[0] = 0; }
-    if (!playing) {                           /* a menu came up: close without a change */
-        g_arm_open = 0; g_arm_dir = 0;
-        return;
-    }
-    if (!held) {
-        if (g_arm_open) {                     /* released: equip the one under the cursor */
-            g_arm_open = 0;
-            g_arm_last_row = g_arm_row;
-            if ((u32)g_arm_col < g_arm_n[g_arm_row]) {
-                const char *nm = g_arm_names[g_arm_row][g_arm_col];
-                if (arm_free()) arm_equip(nm);
-                else { copy64(g_arm_pending, nm); g_arm_dbg[3]++; }
-            }
-        }
-        g_arm_dir = 0;
-        return;
-    }
-    if (!g_arm_open) {                        /* just pressed: open on the last row, cursor on what he wears */
-        int on0 = arm_fill(0), on1 = arm_fill(1);
-        g_arm_row = g_arm_n[g_arm_last_row] ? g_arm_last_row : (g_arm_n[0] ? 0 : 1);
-        int on = g_arm_row ? on1 : on0;
-        g_arm_col = on >= 0 ? on : 0;
-        g_arm_open = 1;
-        g_arm_dir = 0;
-    }
-    /* the direction: D-pad first, else the left stick (s32 x / y at sample + 0x10) */
-    const volatile int *st = (const volatile int *)((unsigned char *)view->samples + 0x10);
-    int x = st[0], y = st[1];
-    u32 dir = (buttons & DPAD_LEFT) ? 1u : (buttons & DPAD_RIGHT) ? 2u : (buttons & DPAD_UP) ? 3u :
-              (buttons & DPAD_DOWN) ? 4u : x < -ARM_STICK ? 1u : x > ARM_STICK ? 2u : y > ARM_STICK ? 3u :
-              y < -ARM_STICK ? 4u : 0u;
-    /* Link stays where he is while the menu is up: no D-pad, no left stick */
-    for (u32 i = 0; i < view->count; i++) {
-        u64 b = hid_get_buttons(view, i);
-        hid_set_buttons(view, i, b & ~(DPAD_LEFT | DPAD_RIGHT | DPAD_UP | DPAD_DOWN));
-        volatile int *p = (volatile int *)((unsigned char *)view->samples + (u64)i * HID_STRIDE + 0x10);
-        p[0] = 0; p[1] = 0;
-    }
-    if (dir && dir != g_arm_dir) {           /* one step per push */
-        g_arm_dbg[0]++;
-        int n = (int)g_arm_n[g_arm_row];
-        if (dir == 1u && n) g_arm_col = (g_arm_col + n - 1) % n;
-        else if (dir == 2u && n) g_arm_col = (g_arm_col + 1) % n;
-        else if ((dir == 3u || dir == 4u)) {
-            int row = dir == 3u ? 0 : 1;   /* (an empty row is skipped) */
-            if (row != g_arm_row && g_arm_n[row]) {
-                g_arm_row = row;
-                g_arm_col = g_arm_col < (int)g_arm_n[row] ? g_arm_col : (int)g_arm_n[row] - 1;
-            }
-        }
-        g_arm_dbg[2] = (u32)(g_arm_row * 8 + g_arm_col);
-    }
-    g_arm_dir = dir;
+    if (!held) { g_arm_drawer_hold = 0; g_arm_held = 0; return; }
+    if (!g_arm_drawer_hold && !hud_game_covered() && hud_ingame() && player_active() && !(buttons & BTN_R))
+        g_arm_drawer_hold = 1;
+    if (!g_arm_drawer_hold) return;
+    g_arm_held = 1;
+    for (u32 i = 0; i < view->count; i++) hid_set_buttons(view, i, hid_get_buttons(view, i) | BTN_R);
 }
 
 void quick_select_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_result) {
@@ -306,7 +190,7 @@ void quick_select_on_input(u32 site, void *a0, void *a1, void *a2, u32 stock_res
     u64 buttons = hid_merge_buttons(&view);
     if (remap_on()) {
         armory_input(&view, buttons);
-        if (buttons & VBTN_ARMORY) return;   /* the armory owns the D-pad while held */
+        if (buttons & VBTN_ARMORY) return;   /* (no quick boots / mask while the armory drawer is up) */
     }
     if (!g_shbcfg.quick_boots && !g_shbcfg.quick_mask) return;
 

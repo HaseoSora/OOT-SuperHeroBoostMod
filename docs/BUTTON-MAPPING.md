@@ -46,16 +46,15 @@ gone: the table places everything (the installer writes 0).
 
 ## Armory (role)
 
-A button with the **Armory** role (any button) opens a quick menu while it is held: a row with the swords and a row
-with the shields Link owns and can use at his age (child: Kokiri Sword, Deku and Hylian Shield; adult: the other swords,
-Hylian and Mirror Shield), the cursor on what he wears. Left / right moves in the row, up / down changes the row (D-pad
-or left stick; Link does not move meanwhile), and letting the button go equips the one under the cursor, the same way
-the pause menu does (nothing changes when the cursor did not move; chosen while Link is busy, it is equipped as soon as
-he is free). The menu is 8 more HUD parts (core/hud.c ARM_FIRST.., built only with an armory button) showing each
-gear's icon on the pad style's plain button, the cursor's bigger; `g_arm_geo` places it. The age rule is the menu's
-choice, not the game's: equip_request takes any gear at either age (checked live, child Link with the Master Sword,
-Biggoron's Sword and the broken knife). Inspired by the community mod Hyrule Armory Sync, which does it through the
-native item drawer on L; this one draws its own menu.
+A button with the **Armory** role (any button) opens the game's own item drawer while it is held (the game sees R
+held), listing the swords and shields Link owns and can use at his age (child: Kokiri Sword, Deku and Hylian Shield;
+adult: the other swords, Hylian and Mirror Shield) instead of items: the same window, blur and slowed game. The cells
+form two rows, swords above and shields below; the stick moves in a row or between the rows, and letting the button go
+equips the gear under the cursor, the way the pause menu does (nothing changes when the cursor did not move). The
+cursor reopens on the gear chosen last. A clone of the community mod Hyrule Armory Sync (drawer on L), reimplemented in
+features/quick_select/armory_drawer.c with call-replacement hooks (`BL_SITES` in tools/hook_sites.py, wrappers in
+armory.S) on the drawer and list-build code, plus the drawer's per-frame update (`hook_ad_update`). The sort header
+("By type / Sort") still shows: its panes are not found by name after the drawer is built.
 
 - The role's press is its own virtual bit, `VBTN_ARMORY` (HID bit 25, unused with a full controller), read and
   stripped by features/quick_select, the last input handler.

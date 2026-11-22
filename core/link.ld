@@ -108,6 +108,30 @@ SECTIONS
     GUARD_FLAGS_RESUME = 0x972E1C;
     GUARD_UPDATE_RESUME = 0x973210;
     icon_widget_init = 0x33B7DA0;  /* (widget, heap): widget+0x20 = part holding Pa_ReplaceIcon_00; builds its icon controller (initial icon Item_AgonyStone) */
+    /* armory drawer (features/quick_select/armory_drawer.c, BL_SITES in tools/hook_sites.py) */
+    AD_SORT_RESTORE = 0x33ABF80; /* (pouch, flag): the drawer's sort option from GameData, at open */
+    AD_CONT_ITEMS = 0xA6F730;    /* (pouch data): the items' container (category 0) */
+    AD_CONT_EQUIP = 0xA6F790;    /* (pouch data): the equipment container (category 1) */
+    AD_GD_BOOL = 0x20FD90;       /* GameData bool read (list build: sorted list) */
+    AD_RECORD = 0xA6EF20;        /* (pouch, category, index, &a, &b): an entry's record */
+    AD_FILTER = 0x596AF0;        /* (pouch, name_ref, a, record, child): keep an entry in the drawer list */
+    AD_CATEGORY = 0xA6F690;      /* (pouch, category): a category's container */
+    AD_CELL_ICON = 0xA75EF0;     /* (cell, name_ref, count, ...): a drawer cell's icon and count */
+    AD_OWNED = 0x5963E0;         /* (pouch, name_ref, 1, 0): how many Link has (>= 1: owned) */
+    AD_PANE_SCALE = 0xB29B20;    /* (pane, sx, sy) */
+    AD_PANE_MOVE = 0x20A3E0;     /* (pane, x, y, z) */
+    AD_PANE_SHOW = 0x20AEA0;     /* (pane, visible) */
+    AD_RET_MOVE = 0x33C95C4;     /* return address of the drawer's cursor-move call */
+    AD_SORT_SHOW = 0x208350;     /* (part, flag): called where the drawer's layout holds the sort window */
+    AD_UPDATE_RESUME = 0x33C9274; /* the drawer's per-frame update, after its pacibsp */
+    AD_CELL_AT = 0x1505A40;      /* (cell list, index): a cell */
+    AD_CURSOR_MOVE = 0x33C9800;  /* (drawer, from, to): the cursor's move animation */
+    AD_CURSOR_SET = 0x33C8F50;   /* (drawer, index): select a cell (name text, ...) */
+    AD_FIND_PANE = 0x43E1E0;     /* (layout, name): a pane by name */
+    AD_STICK_SLOT = 0x4E982E0;   /* -> controller state: +0xC0 -> sticks (floats +0x120 left x/y, +0x128 right) */
+    AD_EQUIP_OBJ = 0x4C7E180;    /* -> pointer to the GameData accessor */
+    AD_GD_READY = 0x9B3EB0;      /* (gd, buf16, 0x060890B0): bit 0 = readable */
+    AD_GD_STRING = 0xA7A860;     /* (gd, &name, buf16, hash): a String64 by hash (EquipWeapon / EquipShield) */
     tex_replace = 0xA73920;     /* (replacer, const char **name, flag): load UI/Tex/Icon/<name> into a replaceable pane texture */
     item_actor_name = 0x592B20; /* (manager, const char **out, item index): actor name of an item (Item_Boomerang ...) */
     ITEM_MGR_SLOT = 0x4C7E0D0;  /* -> pointer to the item manager pointer */

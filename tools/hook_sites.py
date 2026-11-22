@@ -76,6 +76,27 @@ EXTRA_SITES = (
     (0x37BA100, "hook_guard_setter", 0x37F801C1, "manual_shield"),  # tbnz w1,#31 in the AS bool setter
     (0x972E18, "hook_guard_flags", 0x2A090108, "manual_shield"),    # orr w8,w8,w9 (target guard flags)
     (0x97320C, "hook_guard_update", 0x320D0129, "manual_shield"),   # orr w9,w9,#0x80000 (target guard update)
+    (0x33C9270, "hook_ad_update", 0xD503237F, "quick_select"),      # armory drawer: per-frame update (pacibsp)
+)
+
+# Call-replacement sites owned by an optional feature: the stock `bl <stock>` at `site` becomes `bl <wrapper>`; the
+# wrapper calls the stock function (or another, or none) itself and returns to site+4. A site also in SLOT_SITES is
+# patched here instead (its wrapper chains to the slot wrapper). (site, wrapper symbol, stock target, feature)
+BL_SITES = (
+    (0x32EA770, "hook_ad_open", 0x33ABF80, "quick_select"),     # drawer open: sort option restore
+    (0xA6E150, "hook_ad_cont", 0xA6F730, "quick_select"),       # list build: items' container
+    (0xA6E174, "hook_ad_gdbool", 0x20FD90, "quick_select"),     # list build: sorted-list flag
+    (0xA6E1B8, "hook_ad_record", 0xA6EF20, "quick_select"),     # list build: entry record
+    (0xA6E1E4, "hook_ad_filter", 0x596AF0, "quick_select"),     # list build: entry filter
+    (0x33C8C90, "hook_ad_cat0", 0xA6F690, "quick_select"),      # drawer: category container (open)
+    (0x33C8F88, "hook_ad_cat1", 0xA6F690, "quick_select"),      # drawer: category container (cursor move)
+    (0x33C9EB8, "hook_ad_cat2", 0xA6F690, "quick_select"),
+    (0x33CA16C, "hook_ad_cat3", 0xA6F690, "quick_select"),
+    (0x33C8ED4, "hook_ad_decide0", 0x1211C00, "quick_select"),  # drawer: item to the box
+    (0x33C9AB4, "hook_ad_decide1", 0x1211C00, "quick_select"),  # drawer: item to the box on release (slot site 3)
+    (0x33CA28C, "hook_ad_icon", 0xA75EF0, "quick_select"),      # drawer: cell icon
+    (0x33F9590, "hook_ad_sortlay", 0x208350, "quick_select"),   # drawer build: the sort window's layout
+    (0x1503408, "hook_ad_cellpos", 0x20A3E0, "quick_select"),   # cell list layout: a cell's position
 )
 
 PACIBSP = 0xD503237F
